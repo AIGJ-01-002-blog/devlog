@@ -324,6 +324,12 @@ public class AiJournal {
         if (handle.isEmpty()) return;
         try {
             PostEditorQuery.EditorView view = editor.open(memberId, handle.getFirst(), postId);
+            // 비밀값이 보이면 사람이 확인하도록 임시글로 둔다 (086). 값은 로그에도 남기지 않는다
+            List<String> secrets = SecretScanner.find(view.title(), view.contentMd());
+            if (!secrets.isEmpty()) {
+                log.warn("회원 {}의 AI 일기(글 {})에 비밀값으로 보이는 내용({})이 있어 임시글로 둡니다", memberId, postId, secrets);
+                return;
+            }
             List<String> tags = hints.find(postId).map(AiDraftHints.Hint::tags).orElse(List.of());
             commands.publish(new PublishCommand(postId, memberId, view.title(), view.contentMd(), view.summary(), view.visibility(), tags,
                     view.version(), view.thumbnailUrl(), view.thumbnailHidden()), handle.getFirst(), null);

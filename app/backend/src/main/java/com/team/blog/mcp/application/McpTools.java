@@ -395,7 +395,8 @@ public class McpTools {
         }
         return Result.ok("devlog에 임시글을 만들었어요 (글 번호 " + id + ").\n"
                 + "아직 공개되지 않았어요. 사용자에게 이 링크에서 읽어 보고 발행하라고 알려 주세요: " + editUrl(id)
-                + (suggested.isEmpty() ? "" : "\n제안한 태그: " + String.join(", ", suggested)));
+                + (suggested.isEmpty() ? "" : "\n제안한 태그: " + String.join(", ", suggested))
+                + secretNotice(title, content));
     }
 
     /**
@@ -409,10 +410,18 @@ public class McpTools {
         String title = a.has("title") ? text(a, "title") : view.title();
         String content = a.has("content_md") ? text(a, "content_md") : view.contentMd();
         commands.save(caller.memberId(), id, title, content, view.version());
-        if (view.status() == PostStatus.DRAFT) return Result.ok("임시글 " + id + "번을 고쳤어요. 확인 링크: " + editUrl(id));
+        if (view.status() == PostStatus.DRAFT) return Result.ok("임시글 " + id + "번을 고쳤어요. 확인 링크: " + editUrl(id) + secretNotice(title, content));
         return Result.ok("발행한 글 " + id + "번의 고친 내용을 저장했어요. 아직 독자에게는 이전 내용이 보여요.\n"
                 + "사용자가 이 화면에서 확인하고 [다시 발행]을 눌러야 공개돼요: " + editUrl(id)
-                + (caller.aiPublishAllowed() ? "\n사용자가 다시 발행하라고 하면 publish_post로 다시 발행할 수 있어요." : ""));
+                + (caller.aiPublishAllowed() ? "\n사용자가 다시 발행하라고 하면 publish_post로 다시 발행할 수 있어요." : "")
+                + secretNotice(title, content));
+    }
+
+    /** 임시글에 비밀값이 보이면 AI가 사용자에게 전하도록 덧붙인다 (086). 임시글은 공개되지 않으니 저장은 막지 않는다 */
+    private static String secretNotice(String title, String content) {
+        List<String> secrets = SecretScanner.find(title, content);
+        if (secrets.isEmpty()) return "";
+        return "\n주의: " + SecretScanner.warning(secrets) + " 사용자에게 바로 알리고 update_draft로 빼 주세요. 이대로는 publish_post로 발행할 수 없어요.";
     }
 
     private Result requestPublish(AccessTokens.Caller caller, JsonNode a) {
@@ -456,6 +465,12 @@ public class McpTools {
             tagList = hints.find(id).map(AiDraftHints.Hint::tags).orElse(List.of());
         }
         String summary = a.has("summary") ? text(a, "summary") : view.summary();
+        // 사람이 읽지 않고 공개되는 길이라 비밀값이 보이면 발행하지 않는다 (086)
+        List<String> secrets = SecretScanner.find(view.title(), view.contentMd(), summary);
+        if (!secrets.isEmpty()) {
+            return Result.fail(SecretScanner.warning(secrets) + " 그래서 발행하지 않았어요. 사용자에게 알리고, 그 부분을 update_draft로 빼거나 "
+                    + "사용자가 이 화면에서 직접 확인해 발행하게 해 주세요: " + editUrl(id));
+        }
         PostCommandService.PublishResult r = commands.publish(new PublishCommand(id, caller.memberId(), view.title(), view.contentMd(),
                 summary, visibility, tagList, view.version(), view.thumbnailUrl(), view.thumbnailHidden()), caller.handle(), null);
         List<String> saved = editor.open(caller.memberId(), caller.handle(), id).tags();
@@ -713,6 +728,9 @@ public class McpTools {
 
     /** 일기 메모 (061). 회원이 고른 시각에 묶인다 (071) */
     private Result addNote(AccessTokens.Caller caller, JsonNode a) {
+        // 메모는 그대로 일기 문장이 되고 일기는 바로 발행될 수 있으니 비밀값이 보이면 받지 않는다 (086)
+        List<String> secrets = SecretScanner.find(text(a, "topic"), text(a, "content"));
+        if (!secrets.isEmpty()) return Result.fail(SecretScanner.warning(secrets) + " 메모를 남기지 않았어요. 그 부분을 빼고 다시 남겨 주세요.");
         AiJournal.NoteSaved n = journal.addNote(caller.memberId(), text(a, "topic"), text(a, "content"), tags(a));
         String when = AiJournal.hourLabel(journal.diary(caller.memberId()).hour());
         return Result.ok("메모를 남겼어요 (오늘 " + n.todayCount() + "개). 다음 " + when + "(한국 시간)에 일기로 묶여요"

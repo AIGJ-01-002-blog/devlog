@@ -135,6 +135,29 @@ class McpAiPublishTest extends IntegrationTest {
     }
 
     @Test
+    void 비밀값이_보이는_글은_임시글로_만들되_AI가_발행하지_못한다() throws Exception {
+        Session me = signup(uniqueLogin("aipsec"));
+        String t = token(me, "WRITE");
+        allow(me, true);
+        String key = "sk-ant-" + "b".repeat(40);
+        JsonNode r = call(t, "create_draft", Map.of("title", "키 설정기", "content_md", "환경 변수에 " + key + " 를 넣었어요"));
+        assertThat(r.path("isError").asBoolean()).isFalse();
+        assertThat(text(r)).contains("주의").contains("AI API 키").doesNotContain(key);
+        long id = Long.parseLong(text(r).replaceAll("(?s).*글 번호 (\\d+).*", "$1"));
+
+        JsonNode pub = call(t, "publish_post", Map.of("post_id", id));
+        assertThat(pub.path("isError").asBoolean()).isTrue();
+        assertThat(text(pub)).contains("발행하지 않았어요").doesNotContain(key);
+        assertThat(postStatus(id)).isEqualTo("DRAFT");
+
+        // 빼고 나면 발행된다
+        assertThat(call(t, "update_draft", Map.of("post_id", id, "content_md", "환경 변수에 키를 넣었어요")).path("isError").asBoolean()).isFalse();
+        JsonNode ok = call(t, "publish_post", Map.of("post_id", id, "visibility", "PRIVATE"));
+        assertThat(ok.path("isError").asBoolean()).as(text(ok)).isFalse();
+        assertThat(postStatus(id)).isEqualTo("PUBLISHED");
+    }
+
+    @Test
     void 읽기_토큰과_남의_글은_켜져_있어도_거절된다() throws Exception {
         Session owner = signup(uniqueLogin("aipown"));
         String ot = token(owner, "WRITE");

@@ -298,6 +298,24 @@ class AiJournalTest extends IntegrationTest {
     }
 
     @Test
+    void 비밀값이_보이는_일기는_발행하지_않고_메모도_받지_않는다() throws Exception {
+        Session me = signup(uniqueLogin("aidsec"));
+        setDiary(me, true);
+        jdbc.update("UPDATE member SET ai_publish_allowed = true WHERE id = ?", me.memberId());
+        String t = token(me);
+        // 새 메모는 MCP에서 바로 거절된다
+        JsonNode r = read(rpc(t, "tools/call", Map.of("name", "add_note", "arguments",
+                Map.of("topic", "배포", "content", "토큰 ghp_" + "a".repeat(36) + " 로 배포했어요"))).andReturn()).path("result");
+        assertThat(r.path("isError").asBoolean()).isTrue();
+        assertThat(r.path("content").get(0).path("text").asString()).contains("GitHub 토큰").doesNotContain("ghp_");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM ai_note WHERE member_id = ?", Integer.class, me.memberId())).isZero();
+        // 이미 쌓인 메모에 섞여 있으면 일기는 임시글로 남는다
+        note(me.memberId(), "배포", "DB 주소 postgres://app:s3cretPw@db:5432/blog 로 붙었다", "k8s", LocalDate.now(KST).minusDays(1).atTime(11, 0));
+        journal.compileDiariesAt(midnight());
+        assertThat(jdbc.queryForObject("SELECT status FROM post WHERE author_id = ?", String.class, me.memberId())).isEqualTo("DRAFT");
+    }
+
+    @Test
     void AI가_새로_제안하면_알림이_가고_같은_제목을_고쳐_쓰면_다시_알리지_않는다() throws Exception {
         Session me = signup(uniqueLogin("aipn"));
         String t = token(me);
