@@ -37,7 +37,7 @@ export function AiConnectGuide() {
           <li>{t('"연결이 완료되었습니다"가 보이면 끝이에요. 이 화면 목록에 "ChatGPT · 로그인 연결"이 생겨요.')}</li>
         </ol>
         <CopyCode label={t('MCP 서버 주소')} code={endpoint} />
-        <p className="muted small">{t('[추가] 메뉴가 안 보이면 설정 › 보안 및 로그인이나 플러그인 아래쪽 고급 설정에서 개발자 모드를 먼저 켜요. ChatGPT 메뉴 이름은 자주 바뀌어요. 개인 요금제(Plus·Pro)는 OpenAI 안내상 읽기·검색까지 지원하고, 임시글 쓰기 같은 쓰기 도구는 Business·Enterprise·Edu에서 정식 지원돼요. 회사·학교 워크스페이스는 관리자가 개발자 모드를 허용해야 해요(2026년 10월 기준).')}</p>
+        <p className="muted small">{t('[추가] 메뉴가 안 보이면 설정 › 보안 및 로그인이나 플러그인 아래쪽 고급 설정에서 개발자 모드를 먼저 켜요. ChatGPT 메뉴 이름은 자주 바뀌어요. 개인 요금제(Plus·Pro)는 OpenAI 안내상 읽기·검색까지 지원하고, 임시글 쓰기 같은 쓰기 도구는 Business·Enterprise·Edu에서 정식 지원돼요. 2026년 10월 11일 Plus에서 임시글 만들기·발행·삭제까지 실제로 됐지만, 정책이 바뀌면 막힐 수 있어요. 회사·학교 워크스페이스는 관리자가 개발자 모드를 허용해야 해요(2026년 10월 기준).')}</p>
       </details>
 
       <details className="ai-guide-step">

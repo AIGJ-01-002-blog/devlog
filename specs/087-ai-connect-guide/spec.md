@@ -2,7 +2,7 @@
 
 **Feature Branch**: `087-ai-connect-guide`
 **Created**: 2026-10-11
-**Status**: Implemented (v1.64.0)
+**Status**: Implemented (v1.64.0, v1.64.1)
 **근거**: 블로그 주인이 ChatGPT 개발자 모드로 devlog를 직접 연결해 보면서 메뉴 위치, 서버 URL과 터널의 차이, 동의 화면의 경고, "연결 성공" 뒤에도 [연결]·[허용]이 남아 있는 것, 토큰 연결과 로그인 연결의 차이를 계속 물었다. "우리 메인 기능인데 처음 접하는 사람들에게 친절하게 안내해야 한다"고 요청했다.
 
 ## Requirements
@@ -20,3 +20,6 @@
 
 ## 화면 확인
 - PC·휴대폰·어두운 화면 캡처: 프로젝트 파일 `direction/screens/ai-guide-087/`. 세 화면 모두 가로 넘침 없음.
+
+## 실제 확인 (2026-10-11)
+- ChatGPT Plus 계정에서 사용자 지정 MCP 서버 추가, devlog 로그인 연결, `create_draft`로 임시글 저장, `publish_post` 발행, `delete_post` 삭제까지 됐다. OpenAI 공식 안내상 Plus의 쓰기 도구는 정식 지원 대상이 아니므로 "정책이 바뀌면 막힐 수 있다"를 함께 적었다(v1.64.1).
