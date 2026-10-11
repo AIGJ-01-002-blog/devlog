@@ -359,10 +359,10 @@ npm run dev        # http://localhost:5173
 
 | 技术 | 使用位置 | 作用 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | 后端 | 单元与集成测试 408 个（截至 v1.21.0） |
+| JUnit 5 · Spring Boot Test · Spring Security Test | 后端 | 单元与集成测试 572 个（截至 v1.64.2） |
 | Testcontainers (PostgreSQL) | 后端 | 在真实的 PostgreSQL 上验证迁移、查询和并发 |
 | JaCoCo | 后端 | 在 CI 中检查 40% 行覆盖率的门槛 |
-| Vitest · Testing Library · jsdom | 前端 | 界面与逻辑测试 350 个（截至 v1.21.0） |
+| Vitest · Testing Library · jsdom | 前端 | 界面与逻辑测试 312 个（截至 v1.64.2） |
 | fake-indexeddb | 前端 | 离线自动保存的测试 |
 
 ## 版本发布
