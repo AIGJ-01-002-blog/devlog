@@ -1,3 +1,6 @@
 node_modules/
 dist/
 *.tsbuildinfo
+# tsc가 만든 .js 사본은 커밋하지 않는다 (spec 084). 화면 코드는 .ts·.tsx만 둔다.
+src/**/*.js
+vite.config.js
