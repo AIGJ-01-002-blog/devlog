@@ -371,6 +371,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | バージョン | 日付 | 主な内容 | リリースノート |
 | --- | --- | --- | --- |
+| v1.64.0 | 2026-10-11 | 設定 › AI接続に ChatGPT・Claudeアプリ・Claude Code の接続手順とよくある質問を追加 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.64.0) |
 | v1.63.0 | 2026-10-11 | AIが書いた記事にトークンやAPIキーなどの秘密値があると、AIによる公開とAI日記の自動公開を止めて下書きに残す | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.63.0) |
 | v1.62.0 | 2026-10-11 | AdSense不承認への対応：プライバシーポリシー・利用規約をサーバーで描画しクローラーや審査が読めるように、記事が1件だけのタグ画面はインデックス対象外 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.62.0) |
 | v1.61.2 | 2026-10-11 | 画面コードの .js コピーを整理(古いコードが配信される恐れをなくす) | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.61.2) |

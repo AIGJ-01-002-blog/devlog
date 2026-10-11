@@ -71,6 +71,24 @@ describe('AiConnectSection', () => {
     expect(host.querySelectorAll('.token-row')).toHaveLength(3)
   })
 
+  // spec 087: 처음 연결하는 회원에게 로그인 연결과 토큰 연결의 차이, 앱별 순서를 접는 칸으로 보여 준다
+  it('앱별 연결 순서와 자주 묻는 질문을 접어서 보여 준다', async () => {
+    await act(async () => { root.render(<AiConnectSection />) })
+    const guide = host.querySelector('.ai-guide')!
+    expect(guide.textContent).toContain('토큰 연결')
+    const steps = [...guide.querySelectorAll('details')]
+    expect(steps.map((d) => d.querySelector('summary')!.textContent)).toEqual([
+      'ChatGPT에 연결하기', 'Claude 앱(claude.ai·데스크톱)에 연결하기', 'Claude Code·Cursor·Codex에 연결하기', '자주 묻는 질문',
+    ])
+    // 처음에는 모두 접혀 있고, 펼칠 칸마다 무엇을 여는지 툴팁이 있다
+    expect(steps.every((d) => !d.open && d.querySelector('summary')!.title)).toBe(true)
+    // 로그인 연결 두 곳에는 넣을 서버 주소를 복사할 수 있다
+    expect(steps[0].textContent).toContain(`${window.location.origin}/api/mcp`)
+    expect(steps[1].textContent).toContain(`${window.location.origin}/api/mcp`)
+    expect(steps[0].textContent).toContain('사용자 지정 MCP 서버 추가')
+    expect(steps[3].textContent).toContain('연결했는데 이 목록에 안 보여요.')
+  })
+
   // spec 053: AI 발행·삭제 허용은 기본 꺼짐이고, 켤 때만 한 번 더 묻는다
   it('AI 발행·삭제 허용은 켤 때 확인을 받고, 끌 때는 바로 끈다', async () => {
     const ask = vi.fn(() => false)

@@ -971,6 +971,29 @@ input[type="checkbox"], input[type="radio"] { width: auto; flex-shrink: 0; margi
   .ai-connect-form label:first-child, .ai-connect-form button { grid-column: 1 / -1; }
 }
 .token-kind { font-size: 0.75rem; padding: 1px 8px; border-radius: 999px; background: var(--color-surface-2); color: var(--color-text-2); }
+/* 설정 › AI 연결의 연결 안내 (087). 쓰는 앱 하나만 펴 보게 접는 칸으로 */
+.ai-guide { margin: 16px 0 20px; padding: 16px; border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-surface-2); }
+.ai-guide h3 { margin: 0 0 4px; }
+.ai-guide > p { margin: 0 0 12px; }
+.ai-guide-kinds { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; }
+.ai-guide-kind { display: grid; gap: 4px; align-content: start; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-surface); }
+.ai-guide-step { border-top: 1px solid var(--color-border); }
+.ai-guide-step summary { cursor: pointer; font-weight: 600; min-height: 44px; display: flex; align-items: center; }
+.ai-guide-step summary::-webkit-details-marker { display: none; }
+/* flex로 바꾸면 기본 펼치기 화살표가 사라져서, 접힘·펼침을 직접 그린다 */
+.ai-guide-step summary::before { content: "▸"; display: inline-block; width: 1.2em; color: var(--color-text-muted); transition: transform 0.15s; }
+.ai-guide-step[open] summary::before { transform: rotate(90deg); }
+.ai-guide-step summary:hover { color: var(--color-brand); }
+.ai-guide-step ol { margin: 0 0 10px; padding-left: 1.4em; display: grid; gap: 6px; line-height: 1.6; overflow-wrap: anywhere; }
+.ai-guide-step .copy-code { margin-bottom: 8px; }
+.ai-guide-step > p { margin: 0 0 12px; }
+.ai-guide-faq { margin: 0 0 12px; }
+.ai-guide-faq dt { font-weight: 600; margin-top: 8px; }
+.ai-guide-faq dd { margin: 2px 0 0; color: var(--color-text-2); line-height: 1.6; }
+@media (max-width: 640px) {
+  .ai-guide { padding: 12px; }
+  .ai-guide-kinds { grid-template-columns: minmax(0, 1fr); }
+}
 /* AI 발행·삭제 허용 (053) */
 .ai-publish { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--color-border); }
 .ai-publish h3 { margin: 0 0 8px; font-size: 1rem; }

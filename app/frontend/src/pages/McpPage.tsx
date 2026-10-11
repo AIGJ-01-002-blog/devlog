@@ -51,7 +51,7 @@ export function McpPage() {
       <h3>{t('ChatGPT (커넥터)')}</h3>
       <p className="mcp-chatgpt">
         
-        {tNodes('ChatGPT는 토큰 대신 {0}으로 연결해요. 설정 › 앱과 커넥터에서 개발자 모드를 켜고 커넥터를 만든 뒤, 아래 주소를 넣고 인증 방식은 {1}를 고르세요. devlog 동의 화면에서 [허용]을 누르면 끝이에요.', { 0: <b>{t('devlog 로그인')}</b>, 1: <b>OAuth</b> })}
+        {tNodes('ChatGPT는 토큰 대신 {0}으로 연결해요. chatgpt.com의 설정 › 플러그인에서 [추가] › 사용자 지정 MCP 서버 추가를 누르고, 아래 주소를 넣고 인증 방식은 {1}를 고르세요. 만든 플러그인에서 [연결]을 누르고 devlog 동의 화면에서 [허용]을 누르면 끝이에요.', { 0: <b>{t('devlog 로그인')}</b>, 1: <b>OAuth</b> })}
       </p>
       <CopyCode label={t('MCP 서버 주소')} code={mcpEndpoint(origin)} />
       <p className="muted small">{t('ChatGPT에서 쓰기 도구까지 되는지는 요금제마다 달라요(2026년 10월 기준 일부 요금제는 읽기만). 연결은 설정 › AI 연결에서 언제든 끊을 수 있어요.')}</p>

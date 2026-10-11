@@ -5,6 +5,7 @@ import { Link } from '../lib/router'
 import {
   aiDiaryApi, aiPublishApi, diaryHourLabel, type AiDiarySetting, claudeCodeCommand, TOKEN_EXPIRY_DAYS, TOKEN_NAME_MAX, tokensApi, type AccessToken, type IssuedToken, type TokenScope,
 } from '../lib/mcp'
+import { AiConnectGuide } from './AiConnectGuide'
 import { CopyCode } from './CopyCode'
 import { t, tNodes } from '../lib/i18n'
 
@@ -67,6 +68,8 @@ export function AiConnectSection() {
         
         {tNodes('Claude Code·Cursor·Codex 같은 AI 도구에 토큰으로 devlog를 연결하면 "개발 일지 써 줘" 한마디로 임시글이 만들어져요. ChatGPT처럼 로그인으로 연결한 앱도 여기에 보여요. 발행은 기본으로 내가 해요. {0}', { 0: <Link to="/mcp">{t('연결 방법 자세히 보기')}</Link> })}
       </p>
+
+      <AiConnectGuide />
 
       {issued && (
         <div className="banner ai-connect-issued" role="status">
