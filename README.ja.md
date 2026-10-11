@@ -371,6 +371,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | バージョン | 日付 | 主な内容 | リリースノート |
 | --- | --- | --- | --- |
+| v1.64.2 | 2026-10-11 | 利用規約・プライバシーポリシー画面のタイトル・施行日・リンクも英語・日本語・中国語に(本文は韓国語原文である旨を案内)、spec一覧の抜けを補完 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.64.2) |
 | v1.64.1 | 2026-10-11 | ChatGPT案内に、Plusでも下書きの作成・公開・削除まで動いたことを追記 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.64.1) |
 | v1.64.0 | 2026-10-11 | 設定 › AI接続に ChatGPT・Claudeアプリ・Claude Code の接続手順とよくある質問を追加 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.64.0) |
 | v1.63.0 | 2026-10-11 | AIが書いた記事にトークンやAPIキーなどの秘密値があると、AIによる公開とAI日記の自動公開を止めて下書きに残す | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.63.0) |

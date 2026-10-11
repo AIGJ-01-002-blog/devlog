@@ -1348,4 +1348,10 @@ export const en: Record<string, string> = {
   "토큰 연결과 로그인 연결은 무엇이 달라요?": "What's the difference between a token connection and a login connection?",
   "토큰 연결은 내가 만든 토큰을 도구에 직접 넣어서 동의 화면 없이 연결돼요. 로그인 연결은 앱이 devlog 동의 화면을 열고 내가 [허용]해야 연결돼요. 둘 다 이 목록에서 언제든 끊을 수 있어요.": "A token connection puts a token you created straight into the tool, so there's no consent screen. A login connection has the app open the devlog consent screen, and it connects once you click [Allow]. You can disconnect either one from this list at any time.",
   "ChatGPT는 토큰 대신 {0}으로 연결해요. chatgpt.com의 설정 › 플러그인에서 [추가] › 사용자 지정 MCP 서버 추가를 누르고, 아래 주소를 넣고 인증 방식은 {1}를 고르세요. 만든 플러그인에서 [연결]을 누르고 devlog 동의 화면에서 [허용]을 누르면 끝이에요.": "ChatGPT connects with {0} instead of a token. On chatgpt.com, go to Settings › Plugins, click [Add] › Add custom MCP server, enter the address below, and choose {1} for authentication. Then click [Connect] on the new plugin and [Allow] on the devlog consent screen.",
+  "시행일 {0}": "Effective {0}",
+  "이 문서는 한국어 원문만 있어요. 법적 효력이 있는 문서라 번역본은 따로 검토한 뒤 올릴게요.": "This document is available only in the original Korean. Because it is legally binding, a translation will be posted after a separate review.",
+  "문안을 불러오지 못했어요. 잠시 뒤 새로 고쳐 주세요.": "Couldn't load the document. Please refresh in a moment.",
+  "개인정보 처리방침 보기": "View Privacy Policy",
+  "이용약관 보기": "View Terms",
+  ", 오류: {0}": ", error: {0}",
 }

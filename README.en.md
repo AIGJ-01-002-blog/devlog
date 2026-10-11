@@ -371,6 +371,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v1.64.2 | 2026-10-11 | Terms and privacy pages now show their title, effective date, and links in English, Japanese, and Chinese (with a note that the body is the original Korean); missing specs added to the spec index | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.64.2) |
 | v1.64.1 | 2026-10-11 | ChatGPT guide notes that creating, publishing, and deleting drafts actually worked on Plus | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.64.1) |
 | v1.64.0 | 2026-10-11 | Settings › AI connections now walks through connecting ChatGPT, the Claude app, and Claude Code, with an FAQ | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.64.0) |
 | v1.63.0 | 2026-10-11 | AI-written posts containing secrets such as tokens or API keys are no longer published by the AI or the auto-published AI diary; they stay as drafts | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.63.0) |
