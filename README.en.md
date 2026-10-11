@@ -371,6 +371,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v1.62.0 | 2026-10-11 | AdSense rejection fixes: privacy policy and terms rendered on the server so crawlers and reviewers can read them, tag pages with a single post excluded from indexing | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.62.0) |
 | v1.61.2 | 2026-10-11 | Removed the generated .js copies from the frontend source (no more stale code in builds) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.61.2) |
 | v1.61.1 | 2026-10-10 | Mobile line-break fixes for the English, Japanese and Chinese screens | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.61.1) |
 | v1.61.0 | 2026-10-10 | Facebook login (`fb-` handles; the button shows once Facebook keys are set) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.61.0) |

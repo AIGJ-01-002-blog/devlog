@@ -52,6 +52,8 @@ public class PageController {
     private static final Pattern HANDLE_CHARS = Pattern.compile("[A-Za-z0-9_-]{1,23}");
     /** 서비스 슬로건 (051). 첫 화면 설명과 링크 미리보기에 같이 쓴다 */
     static final String SLOGAN = "코딩은 AI와, 기록은 devlog가.";
+    /** 이보다 글이 적은 태그 화면은 noindex (spec 085) */
+    static final int MIN_INDEXED_TAG_POSTS = 2;
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyy.MM.dd").withZone(ZoneId.of("Asia/Seoul"));
 
     private final SpaShell shell;
@@ -69,12 +71,14 @@ public class PageController {
     private final ReleaseNotes releaseNotes;
     private final PortfolioQuery portfolios;
     private final SiteOwner owner;
+    private final PolicyDocuments policies;
 
     public PageController(SpaShell shell, FeedQuery feed, PostDetailQuery details, BlogProperties props, TagQuery tags,
                           TagController tagApi, CommentQuery comments, SearchQuery search, FollowQuery follows,
                           TrendingService trending, SeriesQuery series, MemberAbout about, ReleaseNotes releaseNotes,
-                          PortfolioQuery portfolios, SiteOwner owner) {
+                          PortfolioQuery portfolios, SiteOwner owner, PolicyDocuments policies) {
         this.owner = owner;
+        this.policies = policies;
         this.portfolios = portfolios;
         this.releaseNotes = releaseNotes;
         this.about = about;
@@ -124,6 +128,8 @@ public class PageController {
                 : cards(new PostCardPage(page.items(), page.nextCursor()))) + "</main>";
         HeadMeta meta = HeadMeta.site("#" + name + " - " + site.name(), "#" + name + " 태그가 달린 글", absolute(tagPath(name)),
                 absolute(site.defaultOgImage()));
+        // 글이 하나뿐인 태그 화면은 그 글과 내용이 겹치는 얇은 화면이라 검색 수집·광고에서 뺀다 (spec 085, 애드센스 "가치가 별로 없는 콘텐츠")
+        if (page.postCount() == null || page.postCount() < MIN_INDEXED_TAG_POSTS) meta = HeadMeta.privatePage(site.name(), "#" + name);
         return html(HttpStatus.OK, shell.render(meta, body, Map.of("page", "tag", "tag", page)), CacheControl.noCache());
     }
 
@@ -200,6 +206,25 @@ public class PageController {
         data.put("page", "about");
         data.put("ownerHandle", ownerHandle);
         return html(HttpStatus.OK, shell.render(meta, body.toString(), data), CacheControl.noCache());
+    }
+
+    /**
+     * 이용약관·개인정보 처리방침 (spec 085): 공개 화면. 애드센스 심사처럼 스크립트를 돌리지 않는 읽기 도구도 읽도록 서버가 본문을 그리고,
+     * React가 같은 문안(policy/*.html)으로 다시 그린다.
+     */
+    @GetMapping({"/terms", "/privacy"})
+    public ResponseEntity<String> policy(HttpServletRequest request) {
+        PolicyDocuments.Kind kind = request.getRequestURI().endsWith("/terms") ? PolicyDocuments.Kind.TERMS : PolicyDocuments.Kind.PRIVACY;
+        PolicyDocuments.Document doc = policies.get(kind);
+        boolean terms = kind == PolicyDocuments.Kind.TERMS;
+        String body = "<main><h1>" + SpaShell.esc(doc.title()) + "</h1>"
+                + (doc.effectiveDate() == null ? "" : "<p>시행일 " + SpaShell.esc(doc.effectiveDate()) + "</p>")
+                + doc.html()
+                + "<p><a href=\"" + (terms ? "/privacy\">개인정보 처리방침 보기" : "/terms\">이용약관 보기") + "</a></p></main>";
+        HeadMeta meta = HeadMeta.site(doc.title() + " - " + site.name(),
+                "devlog " + doc.title() + (terms ? ": 회원 가입·게시물·이용 제한·탈퇴." : ": 모으는 정보, 쓰는 곳, 보관 기간, AI 기능, 광고와 쿠키."),
+                absolute("/" + doc.kind()), absolute(site.defaultOgImage()));
+        return html(HttpStatus.OK, shell.render(meta, body, Map.of("page", "policy", "policy", doc)), CacheControl.noCache());
     }
 
     /** 릴리스 노트 (054): 누구나 보는 공개 화면. 서버는 최근 버전 제목만 그리고 React가 본문을 그린다. */
@@ -391,7 +416,7 @@ public class PageController {
     }
 
     /** 로그인이 필요하거나 개인적인 화면: 같은 껍데기, 수집 거부, 저장 안 함. React가 그린다. */
-    @GetMapping({"/login", "/signup", "/signup/social", "/forgot-password", "/reset-password", "/verify-email", "/agreements", "/write", "/write/{id}", "/manage/posts", "/settings", "/notifications", "/feed", "/lists/liked", "/terms", "/privacy",
+    @GetMapping({"/login", "/signup", "/signup/social", "/forgot-password", "/reset-password", "/verify-email", "/agreements", "/write", "/write/{id}", "/manage/posts", "/settings", "/notifications", "/feed", "/lists/liked",
             "/settings/{section}", "/oauth/authorize", "/support"})
     public ResponseEntity<String> app(@PathVariable(required = false) String id, @PathVariable(required = false) String section) {
         // 글 번호·설정 칸은 React가 주소에서 읽는다. 서버는 같은 껍데기만 준다

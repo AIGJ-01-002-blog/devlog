@@ -53,6 +53,8 @@ public class SiteIndex {
                 .append("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n");
         url(xml, "/", newest);
         url(xml, "/about", null); // 사이트 소개 (077)
+        url(xml, "/privacy", null); // 개인정보 처리방침·이용약관 (085)
+        url(xml, "/terms", null);
         blogs.forEach((handle, at) -> url(xml, "/@" + handle, at));
         for (var e : entries) url(xml, "/@" + e.handle() + "/posts/" + e.postId(), e.publishedAt());
         return xml.append("</urlset>\n").toString();
