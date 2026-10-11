@@ -371,7 +371,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
-| v1.64.1 | 2026-10-11 | ChatGPT guide notes that creating drafts actually worked on Plus | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.64.1) |
+| v1.64.1 | 2026-10-11 | ChatGPT guide notes that creating, publishing, and deleting drafts actually worked on Plus | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.64.1) |
 | v1.64.0 | 2026-10-11 | Settings › AI connections now walks through connecting ChatGPT, the Claude app, and Claude Code, with an FAQ | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.64.0) |
 | v1.63.0 | 2026-10-11 | AI-written posts containing secrets such as tokens or API keys are no longer published by the AI or the auto-published AI diary; they stay as drafts | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.63.0) |
 | v1.62.0 | 2026-10-11 | AdSense rejection fixes: privacy policy and terms rendered on the server so crawlers and reviewers can read them, tag pages with a single post excluded from indexing | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.62.0) |

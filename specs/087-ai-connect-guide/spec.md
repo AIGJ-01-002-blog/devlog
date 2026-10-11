@@ -22,4 +22,4 @@
 - PC·휴대폰·어두운 화면 캡처: 프로젝트 파일 `direction/screens/ai-guide-087/`. 세 화면 모두 가로 넘침 없음.
 
 ## 실제 확인 (2026-10-11)
-- ChatGPT Plus 계정에서 사용자 지정 MCP 서버 추가, devlog 로그인 연결, `create_draft`로 임시글 저장까지 됐다. OpenAI 공식 안내상 Plus의 쓰기 도구는 정식 지원 대상이 아니므로 "정책이 바뀌면 막힐 수 있다"를 함께 적었다(v1.64.1).
+- ChatGPT Plus 계정에서 사용자 지정 MCP 서버 추가, devlog 로그인 연결, `create_draft`로 임시글 저장, `publish_post` 발행, `delete_post` 삭제까지 됐다. OpenAI 공식 안내상 Plus의 쓰기 도구는 정식 지원 대상이 아니므로 "정책이 바뀌면 막힐 수 있다"를 함께 적었다(v1.64.1).
