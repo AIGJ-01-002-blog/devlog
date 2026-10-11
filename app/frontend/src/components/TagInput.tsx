@@ -89,7 +89,7 @@ export function TagInput({ value, onChange, errors }: {
           const error = errors.get(i) ?? tagFormatError(tag)
           return (
             <span key={tag} ref={(el) => { chipRefs.current[i] = el }} className={`tag-chip${error ? ' invalid' : ''}`}
-                  tabIndex={0} draggable aria-label={t('태그 {0}{1}. Alt와 방향키로 순서를 바꿔요', { 0: tag, 1: error ? `, 오류: ${error}` : '' })}
+                  tabIndex={0} draggable aria-label={t('태그 {0}{1}. Alt와 방향키로 순서를 바꿔요', { 0: tag, 1: error ? t(', 오류: {0}', { 0: error }) : '' })}
                   onKeyDown={(e) => onChipKey(e, i)}
                   onDragStart={() => setDragFrom(i)} onDragEnd={() => setDragFrom(null)}
                   onDragOver={(e) => e.preventDefault()}
