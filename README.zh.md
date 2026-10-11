@@ -371,6 +371,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v1.63.0 | 2026-10-11 | AI 写的文章若含有令牌、API 密钥等机密，AI 发布和 AI 日记自动发布会被拦下并保留为草稿 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.63.0) |
 | v1.62.0 | 2026-10-11 | 应对 AdSense 拒绝：隐私政策和使用条款改为服务器渲染，让爬虫和审核能读到；只有一篇文章的标签页不再被收录 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.62.0) |
 | v1.61.2 | 2026-10-11 | 清理前端源码中的 .js 副本(避免发布旧代码) | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.61.2) |
 | v1.61.1 | 2026-10-10 | 整理英文、日文、中文界面在手机上的换行(溢出、单字断行) | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.61.1) |
