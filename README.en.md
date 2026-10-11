@@ -359,10 +359,10 @@ To try it on Kubernetes, run `kubectl apply -k deploy/k8s/overlays/local` on kin
 
 | Technology | Where | Role |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | Backend | 408 unit and integration tests (as of v1.21.0) |
+| JUnit 5 · Spring Boot Test · Spring Security Test | Backend | 572 unit and integration tests (as of v1.64.2) |
 | Testcontainers (PostgreSQL) | Backend | Verifies migrations, queries and concurrency against a real PostgreSQL |
 | JaCoCo | Backend | Enforces a 40% line-coverage threshold in CI |
-| Vitest · Testing Library · jsdom | Frontend | 350 UI and logic tests (as of v1.21.0) |
+| Vitest · Testing Library · jsdom | Frontend | 312 UI and logic tests (as of v1.64.2) |
 | fake-indexeddb | Frontend | Tests for offline autosave |
 
 ## Releases
