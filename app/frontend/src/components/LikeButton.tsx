@@ -18,6 +18,8 @@ export function LikeButton({ postId, mine, initial, onChange }: {
 }) {
   const { me } = useAuth()
   const [state, setState] = useState(initial)
+  // 막 누른 좋아요만 하트가 한 번 튄다. 처음부터 눌려 있던 글은 움직이지 않는다 (095)
+  const [pop, setPop] = useState(false)
   const [notice, setNotice] = useState<'login' | 'verify' | 'failed' | null>(null)
   const sync = useRef<ReturnType<typeof createLikeSync> | null>(null)
   const changed = useRef(onChange)
@@ -43,14 +45,15 @@ export function LikeButton({ postId, mine, initial, onChange }: {
     if (!me?.authenticated) return setNotice('login')
     if (!me.emailVerified) return setNotice('verify')
     setNotice(null)
+    setPop(!state.liked)
     sync.current?.toggle()
   }
 
   return (
     <span className="like">
-      <button type="button" className={`like-button${state.liked ? ' liked' : ''}`} aria-pressed={state.liked}
+      <button type="button" className={`like-button${state.liked ? ' liked' : ''}${pop && state.liked ? ' pop' : ''}`} aria-pressed={state.liked}
               aria-label={t('좋아요 {0}개', { 0: state.likeCount })} onClick={press}>
-        <span aria-hidden="true">{state.liked ? '♥' : '♡'} {count}</span>
+        <span aria-hidden="true"><span className="like-heart" onAnimationEnd={() => setPop(false)}>{state.liked ? '♥' : '♡'}</span> {count}</span>
       </button>
       {notice === 'login' && (
         <span className="like-notice" role="status">{t('로그인하고 좋아요를 눌러 보세요')} <Link to={loginPath()} className="btn btn-text">{t('로그인')}</Link></span>

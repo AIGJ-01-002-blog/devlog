@@ -1,4 +1,4 @@
-import { Suspense, useEffect, type ReactNode } from 'react'
+import { Suspense, useEffect, useRef, type ReactNode } from 'react'
 import { Flash } from './components/Flash'
 import { Header } from './components/Header'
 import { SkipLink } from './components/SkipLink'
@@ -30,6 +30,7 @@ import { lazyPage } from './lib/lazyPage'
 import { PageErrorBoundary } from './components/PageErrorBoundary'
 import { sendPage } from './lib/views'
 import { t } from './lib/i18n'
+import { armMotion, fadeInPage } from './lib/motion'
 
 // 글 읽기(홈·글·블로그·태그·검색·피드)는 첫 묶음에 두고, 쓰기·설정·가입·관리자 화면은 처음 열 때 받는다.
 // 독자가 받는 첫 JS를 줄이려는 것이다 (spec 028).
@@ -65,6 +66,14 @@ const AboutPage = lazyPage(() => import('./pages/AboutPage'), 'AboutPage')
 export function App() {
   const { path } = useLocation()
   useEffect(() => { sendPage(path) }, [path])
+  useEffect(() => armMotion(), [])
+  // 첫 화면은 그대로 두고, 그 뒤 화면을 옮길 때만 본문 자리를 부드럽게 바꾼다 (095)
+  const firstPath = useRef(path)
+  useEffect(() => {
+    if (path === firstPath.current) return
+    firstPath.current = ''
+    fadeInPage(document.getElementById(MAIN_ID))
+  }, [path])
   return (
     <>
       <SkipLink />
