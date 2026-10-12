@@ -371,6 +371,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v1.64.3 | 2026-10-12 | 首屏下载的文件减半(字体移出 CSS，只加载所选语言的词典)，静态文件可被 Cloudflare 缓存 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.64.3) |
 | v1.64.2 | 2026-10-11 | 服务条款和隐私政策页面的标题、生效日期和链接也支持英语、日语、中文(并提示正文为韩语原文)，补全 spec 列表 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.64.2) |
 | v1.64.1 | 2026-10-11 | ChatGPT 指南补充:在 Plus 上也成功完成了草稿的创建、发布和删除 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.64.1) |
 | v1.64.0 | 2026-10-11 | 设置 › AI 连接新增 ChatGPT、Claude 应用、Claude Code 的连接步骤和常见问题 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.64.0) |

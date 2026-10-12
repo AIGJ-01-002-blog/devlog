@@ -34,6 +34,31 @@ class StaticDeliveryTest extends IntegrationTest {
     }
 
     @Test
+    void 정적_파일에는_쿠키를_심지_않아_CDN이_캐시할_수_있다() throws Exception {
+        HttpResponse<byte[]> r = get("/assets/probe-T3st1234.js", false);
+        assertThat(r.headers().allValues("Set-Cookie")).isEmpty();
+        assertThat(r.headers().firstValue("X-Content-Type-Options")).contains("nosniff");
+    }
+
+    @Test
+    void 이름이_고정된_theme_js는_매번_새로_받지_않고_확인만_한다() throws Exception {
+        HttpResponse<byte[]> r = get("/theme.js", false);
+        assertThat(r.statusCode()).isEqualTo(200);
+        assertThat(r.headers().firstValue("Cache-Control").orElse("")).contains("no-cache").doesNotContain("no-store");
+        assertThat(r.headers().allValues("Set-Cookie")).isEmpty();
+        String lastModified = r.headers().firstValue("Last-Modified").orElseThrow();
+        HttpResponse<byte[]> again = http.send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/theme.js"))
+                .header("If-Modified-Since", lastModified).build(), HttpResponse.BodyHandlers.ofByteArray());
+        assertThat(again.statusCode()).isEqualTo(304);
+    }
+
+    @Test
+    void API는_지금처럼_CSRF_쿠키를_받는다() throws Exception {
+        HttpResponse<byte[]> r = get("/api/auth/me", false);
+        assertThat(r.headers().allValues("Set-Cookie")).anyMatch(c -> c.startsWith("XSRF-TOKEN="));
+    }
+
+    @Test
     void 없는_화면_파일은_캐시하지_않는다() throws Exception {
         HttpResponse<byte[]> r = get("/assets/missing-Abcd1234.js", false);
         assertThat(r.statusCode()).isEqualTo(404);
