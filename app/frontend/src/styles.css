@@ -1741,13 +1741,16 @@ a.blog-stat:hover { background: var(--color-hover); color: var(--color-brand); }
 .bl-author { display: inline-flex; align-items: center; gap: 6px; color: var(--color-text-2); min-width: 0; }
 .bl-author span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 12em; }
 .bl-meta .card-stats { margin-left: auto; gap: 10px; }
-.bl-thumb { flex-shrink: 0; width: 132px; height: 88px; border-radius: 8px; overflow: hidden; background: var(--thumb-empty); align-self: center; }
-.bl-thumb img { width: 100%; height: 100%; object-fit: cover; }
+/* 표지 그림 안 글자·도식이 읽히도록 썸네일 원본(640×360)과 같은 16:9로 크게 보인다 */
+.bl-thumb { flex-shrink: 0; width: 280px; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: var(--thumb-empty); align-self: center; }
+.bl-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
+@media (max-width: 1023px) { .bl-thumb { width: 200px; } }
 @media (max-width: 767px) {
-  .bl-body { padding: 12px 12px 12px 2px; gap: 10px; }
+  /* 모바일은 썸네일을 글 위에 화면 폭만큼 펼친다 */
+  .bl-body { flex-direction: column; padding: 12px 12px 12px 2px; gap: 10px; }
   .bl-title { font-size: 1.0625rem; }
   .bl-excerpt { -webkit-line-clamp: 1; font-size: 0.875rem; margin-bottom: 8px; }
-  .bl-thumb { width: 64px; height: 64px; align-self: flex-start; margin-top: 4px; }
+  .bl-thumb { order: -1; width: 100%; align-self: stretch; }
   .bl-meta .card-stats { margin-left: 0; width: 100%; }
 }
 
