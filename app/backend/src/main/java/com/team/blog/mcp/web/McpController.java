@@ -85,7 +85,7 @@ public class McpController {
     }
 
     @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> post(@RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+    public ResponseEntity<Object> post(@RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
                                   @RequestBody(required = false) String body) {
         Optional<AccessTokens.Caller> caller = tokens.authenticate(authorization);
         if (caller.isEmpty()) {
@@ -141,8 +141,19 @@ public class McpController {
         return Map.of("protocolVersion", version,
                 "capabilities", Map.of("tools", Map.of("listChanged", false)),
                 "serverInfo", Map.of("name", "devlog", "title", "devlog 개발 일지", "version", "1"),
-                "instructions", INSTRUCTIONS + (caller.aiPublishAllowed() ? INSTRUCTIONS_AI_PUBLISH : "")
-                        + (caller.aiDiaryEnabled() ? INSTRUCTIONS_AI_DIARY + (caller.aiPublishAllowed() ? INSTRUCTIONS_AI_DIARY_PUBLISH : "") : "") + (caller.admin() ? INSTRUCTIONS_ADMIN : ""));
+                "instructions", instructions(caller));
+    }
+
+    /** 사용자 설정(AI 발행·AI 일기·관리자)에 맞춰 안내문을 붙인다 */
+    private static String instructions(AccessTokens.Caller caller) {
+        StringBuilder out = new StringBuilder(INSTRUCTIONS);
+        if (caller.aiPublishAllowed()) out.append(INSTRUCTIONS_AI_PUBLISH);
+        if (caller.aiDiaryEnabled()) {
+            out.append(INSTRUCTIONS_AI_DIARY);
+            if (caller.aiPublishAllowed()) out.append(INSTRUCTIONS_AI_DIARY_PUBLISH);
+        }
+        if (caller.admin()) out.append(INSTRUCTIONS_ADMIN);
+        return out.toString();
     }
 
     private static ResponseEntity<Object> ok(Object body) {

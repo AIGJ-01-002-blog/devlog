@@ -31,7 +31,7 @@ class SuggestionStore {
 
     record ForPost(String input, List<String> tags, TagModel.Provider provider) {}
 
-    Optional<Stored> exact(String key) {
+    Optional<Stored> findExact(String key) {
         return read(EXACT + key, new TypeReference<Stored>() {});
     }
 

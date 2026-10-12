@@ -78,7 +78,7 @@ class AiJournalTest extends IntegrationTest {
         assertThat(AiJournal.sentence("\"됐다!\"")).isEqualTo("\"됐다!\"");
         assertThat(AiJournal.sentence("(빨라졌어요.)")).isEqualTo("(빨라졌어요.)");
         assertThat(AiJournal.sentence("고쳤어요")).isEqualTo("고쳤어요.");
-        assertThat(AiJournal.sentence("  ")).isEqualTo("");
+        assertThat(AiJournal.sentence("  ")).isEmpty();
     }
 
     @Test
@@ -175,10 +175,10 @@ class AiJournalTest extends IntegrationTest {
         List<Map<String, Object>> posts = jdbc.queryForList("SELECT id, title, content_md, status FROM post WHERE author_id = ? ORDER BY id",
                 me.memberId());
         assertThat(posts).hasSize(2);
-        assertThat(posts.get(0).get("title")).isEqualTo(today.minusDays(2) + " 개발 일기");
+        assertThat(posts.get(0)).containsEntry("title", today.minusDays(2) + " 개발 일기");
         Map<String, Object> y = posts.get(1);
-        assertThat(y.get("title")).isEqualTo(today.minusDays(1) + " 개발 일기");
-        assertThat(y.get("status")).isEqualTo("DRAFT");
+        assertThat(y).containsEntry("title", today.minusDays(1) + " 개발 일기");
+        assertThat(y).containsEntry("status", "DRAFT");
         assertThat((String) y.get("content_md")).isEqualTo("""
                 ## 검색
 
@@ -264,7 +264,7 @@ class AiJournalTest extends IntegrationTest {
         List<Map<String, Object>> posts = jdbc.queryForList("SELECT title, content_md FROM post WHERE author_id = ? ORDER BY id", me.memberId());
         // 22시 일기: 전날 22시 ~ 오늘 22시가 오늘 일기
         assertThat(posts).hasSize(1);
-        assertThat(posts.get(0).get("title")).isEqualTo(today + " 개발 일기");
+        assertThat(posts.get(0)).containsEntry("title", today + " 개발 일기");
         assertThat((String) posts.get(0).get("content_md")).contains("그제 밤 23시").contains("어제 21시").doesNotContain("22시 넘어");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM ai_note WHERE member_id = ?", Integer.class, me.memberId())).isEqualTo(2);
     }
@@ -292,7 +292,7 @@ class AiJournalTest extends IntegrationTest {
         assertThat(init.path("instructions").asString()).contains("바로 발행돼요");
         journal.compileDiariesAt(midnight());
         Map<String, Object> p = jdbc.queryForMap("SELECT status, visibility FROM post WHERE author_id = ?", me.memberId());
-        assertThat(p.get("status")).isEqualTo("PUBLISHED");
+        assertThat(p).containsEntry("status", "PUBLISHED");
         assertThat(jdbc.queryForList("SELECT t.name FROM post_tag pt JOIN tag t ON t.id = pt.tag_id JOIN post x ON x.id = pt.post_id WHERE x.author_id = ?",
                 String.class, me.memberId())).containsExactly("k8s");
     }

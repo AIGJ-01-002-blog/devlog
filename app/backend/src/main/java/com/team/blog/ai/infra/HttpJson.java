@@ -5,7 +5,6 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
@@ -28,9 +27,8 @@ final class HttpJson {
         try {
             HttpResponse<String> res = CLIENT.send(req.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             return new Response(res.statusCode(), res.body());
-        } catch (HttpTimeoutException e) {
-            throw new ModelException(ModelException.Kind.FAILURE);
         } catch (IOException | IllegalArgumentException e) {
+            // 시간 초과(HttpTimeoutException)도 IOException이라 함께 실패로 본다
             throw new ModelException(ModelException.Kind.FAILURE);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

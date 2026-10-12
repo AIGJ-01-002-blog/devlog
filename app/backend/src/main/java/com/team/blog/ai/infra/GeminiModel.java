@@ -17,6 +17,7 @@ import com.team.blog.ai.application.TagModel;
  */
 @Component
 class GeminiModel implements TagModel {
+    private static final String PARTS = "parts";
     private final AiProperties.Gemini props;
     private final JsonMapper json = JsonMapper.builder().build();
 
@@ -42,10 +43,10 @@ class GeminiModel implements TagModel {
     @Override
     public String complete(Prompt prompt, String schema, int maxTokens, double temperature) throws ModelException {
         ObjectNode body = json.createObjectNode();
-        body.putObject("systemInstruction").putArray("parts").addObject().put("text", prompt.system());
+        body.putObject("systemInstruction").putArray(PARTS).addObject().put("text", prompt.system());
         ObjectNode content = body.putArray("contents").addObject();
         content.put("role", "user");
-        content.putArray("parts").addObject().put("text", prompt.user());
+        content.putArray(PARTS).addObject().put("text", prompt.user());
         ObjectNode config = body.putObject("generationConfig");
         config.put("temperature", temperature);
         config.put("maxOutputTokens", maxTokens);
@@ -72,7 +73,7 @@ class GeminiModel implements TagModel {
     }
 
     private static String text(JsonNode root) {
-        JsonNode parts = root.path("candidates").path(0).path("content").path("parts");
+        JsonNode parts = root.path("candidates").path(0).path("content").path(PARTS);
         StringBuilder s = new StringBuilder();
         for (JsonNode p : parts) s.append(p.path("text").asString(""));
         return s.isEmpty() ? null : s.toString();

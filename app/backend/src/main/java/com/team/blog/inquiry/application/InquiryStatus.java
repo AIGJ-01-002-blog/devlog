@@ -1,5 +1,6 @@
 package com.team.blog.inquiry.application;
 
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Locale;
 import java.util.Optional;
@@ -9,7 +10,7 @@ import java.util.Set;
 public enum InquiryStatus {
     RECEIVED("접수"), IN_PROGRESS("처리 중"), RESOLVED("해결"), CLOSED("닫힘");
 
-    public static final Set<InquiryStatus> OPEN = EnumSet.of(RECEIVED, IN_PROGRESS);
+    public static final Set<InquiryStatus> OPEN = Collections.unmodifiableSet(EnumSet.of(RECEIVED, IN_PROGRESS));
 
     private final String label;
 

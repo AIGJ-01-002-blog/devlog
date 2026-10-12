@@ -43,7 +43,18 @@ public class InquiryService {
     static final int PER_DAY = 30;
     static final int MINE_MAX = 50;
     static final int ADMIN_PAGE = 30;
-    private static final Pattern VERSION = Pattern.compile("^[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,4}$");
+    private static final String UP_TO = "자까지 쓸 수 있어요.";
+    private static final String TITLE = "title";
+    private static final String CONTENT = "content";
+    private static final String UPDATE_HANDLING = """
+            UPDATE inquiry SET status = COALESCE(?, status),
+                   answer = CASE WHEN ? THEN answer WHEN ? = '' THEN NULL ELSE ? END,
+                   answered_at = CASE WHEN ? THEN answered_at WHEN ? = '' THEN NULL WHEN ? THEN ? ELSE answered_at END,
+                   fixed_version = CASE WHEN ? THEN fixed_version WHEN ? = '' THEN NULL ELSE ? END,
+                   handled_by = ?, updated_at = ?
+            WHERE id = ?
+            """;
+    private static final Pattern VERSION = Pattern.compile("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,4}$");
 
     public enum Source { WEB, MCP }
 
@@ -149,7 +160,7 @@ public class InquiryService {
                 : InquiryStatus.parse(u.status()).orElseThrow(() -> invalid("status", "INVALID_STATUS", "상태를 골라 주세요."));
         String answer = u.answer() == null ? null : TextCleaner.cleanMultiline(u.answer());
         if (answer != null && answer.codePointCount(0, answer.length()) > ANSWER_MAX) {
-            throw invalid("answer", "ANSWER_TOO_LONG", "답변은 " + ANSWER_MAX + "자까지 쓸 수 있어요.");
+            throw invalid("answer", "ANSWER_TOO_LONG", "답변은 " + ANSWER_MAX + UP_TO);
         }
         String fixed = u.fixedVersion() == null ? null : TextCleaner.cleanLine(u.fixedVersion()).replaceFirst("^[vV]", "");
         if (fixed != null && !fixed.isEmpty() && !VERSION.matcher(fixed).matches()) {
@@ -160,14 +171,7 @@ public class InquiryService {
             List<String> old = jdbc.query("SELECT answer FROM inquiry WHERE id = ? FOR UPDATE", (rs, i) -> Objects.toString(rs.getString(1), ""), id);
             if (old.isEmpty()) throw new NotFoundException();
             boolean changed = answer != null && !answer.isEmpty() && !answer.equals(old.getFirst());
-            jdbc.update("""
-                    UPDATE inquiry SET status = COALESCE(?, status),
-                           answer = CASE WHEN ? THEN answer WHEN ? = '' THEN NULL ELSE ? END,
-                           answered_at = CASE WHEN ? THEN answered_at WHEN ? = '' THEN NULL WHEN ? THEN ? ELSE answered_at END,
-                           fixed_version = CASE WHEN ? THEN fixed_version WHEN ? = '' THEN NULL ELSE ? END,
-                           handled_by = ?, updated_at = ?
-                    WHERE id = ?
-                    """, status == null ? null : status.name(),
+            jdbc.update(UPDATE_HANDLING, status == null ? null : status.name(),
                     answer == null, answer, answer,
                     answer == null, answer, changed, Timestamp.from(now),
                     fixed == null, fixed, fixed,
@@ -203,15 +207,15 @@ public class InquiryService {
 
     static String title(String raw) {
         String t = TextCleaner.cleanLine(raw);
-        if (t.isEmpty()) throw invalid("title", "TITLE_REQUIRED", "제목을 적어 주세요.");
-        if (t.codePointCount(0, t.length()) > TITLE_MAX) throw invalid("title", "TITLE_TOO_LONG", "제목은 " + TITLE_MAX + "자까지 쓸 수 있어요.");
+        if (t.isEmpty()) throw invalid(TITLE, "TITLE_REQUIRED", "제목을 적어 주세요.");
+        if (t.codePointCount(0, t.length()) > TITLE_MAX) throw invalid(TITLE, "TITLE_TOO_LONG", "제목은 " + TITLE_MAX + UP_TO);
         return t;
     }
 
     static String content(String raw) {
         String c = TextCleaner.cleanMultiline(raw);
-        if (c.isEmpty()) throw invalid("content", "CONTENT_REQUIRED", "내용을 적어 주세요.");
-        if (c.codePointCount(0, c.length()) > CONTENT_MAX) throw invalid("content", "CONTENT_TOO_LONG", "내용은 " + CONTENT_MAX + "자까지 쓸 수 있어요.");
+        if (c.isEmpty()) throw invalid(CONTENT, "CONTENT_REQUIRED", "내용을 적어 주세요.");
+        if (c.codePointCount(0, c.length()) > CONTENT_MAX) throw invalid(CONTENT, "CONTENT_TOO_LONG", "내용은 " + CONTENT_MAX + UP_TO);
         return c;
     }
 
@@ -238,7 +242,7 @@ public class InquiryService {
 
     private Item row(ResultSet rs, int i) throws SQLException {
         return new Item(rs.getLong("id"), InquiryCategory.valueOf(rs.getString("category")), Source.valueOf(rs.getString("source")),
-                rs.getString("title"), rs.getString("content"), rs.getString("page_url"), rs.getString("tool_name"),
+                rs.getString(TITLE), rs.getString(CONTENT), rs.getString("page_url"), rs.getString("tool_name"),
                 rs.getString("client_name"), rs.getString("app_version"), InquiryStatus.valueOf(rs.getString("status")),
                 rs.getString("answer"), instant(rs.getTimestamp("answered_at")), rs.getString("fixed_version"),
                 instant(rs.getTimestamp("created_at")), instant(rs.getTimestamp("updated_at")), rs.getString("handle"), rs.getString("nickname"));

@@ -30,6 +30,7 @@ import com.team.blog.shared.error.ApiException;
 @RestController
 public class McpUploadController {
     public static final String PATH = McpController.PATH + "/uploads/*";
+    private static final String ERROR = "error";
 
     private final McpImages images;
     private final JdbcTemplate jdbc;
@@ -46,23 +47,23 @@ public class McpUploadController {
         if (declared > PostImages.MAX_BYTES) return tooLarge();
         Optional<McpImages.Ticket> t = images.useTicket(ticket);
         if (t.isEmpty()) {
-            return json(HttpStatus.NOT_FOUND, Map.of("error", "올리기 주소가 없거나 이미 썼거나 10분이 지났어요. create_image_upload_link로 새 주소를 받아 주세요."));
+            return json(HttpStatus.NOT_FOUND, Map.of(ERROR, "올리기 주소가 없거나 이미 썼거나 10분이 지났어요. create_image_upload_link로 새 주소를 받아 주세요."));
         }
         List<String> status = jdbc.query("SELECT status FROM member WHERE id = ? AND deleted_at IS NULL", (rs, i) -> rs.getString(1), t.get().memberId());
         if (status.isEmpty() || !"ACTIVE".equals(status.getFirst())) {
-            return json(HttpStatus.FORBIDDEN, Map.of("error", "지금 계정 상태로는 사진을 올릴 수 없어요."));
+            return json(HttpStatus.FORBIDDEN, Map.of(ERROR, "지금 계정 상태로는 사진을 올릴 수 없어요."));
         }
         byte[] body;
         try (InputStream in = request.getInputStream()) {
             body = in.readNBytes(PostImages.MAX_BYTES + 1);
         }
         if (body.length > PostImages.MAX_BYTES) return tooLarge();
-        if (body.length == 0) return json(HttpStatus.BAD_REQUEST, Map.of("error", "사진 파일이 비어 있어요."));
+        if (body.length == 0) return json(HttpStatus.BAD_REQUEST, Map.of(ERROR, "사진 파일이 비어 있어요."));
         try {
             McpImages.Uploaded up = images.upload(t.get().memberId(), body, t.get().alt());
             return json(HttpStatus.CREATED, Map.of("url", up.url(), "markdown", up.markdown(), "width", up.width(), "height", up.height()));
         } catch (ApiException e) {
-            return json(e.status(), Map.of("error", e.getMessage()));
+            return json(e.status(), Map.of(ERROR, e.getMessage()));
         }
     }
 
@@ -71,6 +72,6 @@ public class McpUploadController {
     }
 
     private static ResponseEntity<Map<String, Object>> tooLarge() {
-        return json(HttpStatus.CONTENT_TOO_LARGE, Map.of("error", "사진은 10MB까지 올릴 수 있어요."));
+        return json(HttpStatus.CONTENT_TOO_LARGE, Map.of(ERROR, "사진은 10MB까지 올릴 수 있어요."));
     }
 }
