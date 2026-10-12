@@ -1,8 +1,12 @@
+<!-- base 브랜치: 기능·수정은 develop, 릴리스 PR과 hotfix만 main (CONTRIBUTING.md) -->
 ## Summary
 <!-- 무엇이 바뀌었는지 한두 줄 -->
 
 ## Why
 <!-- 왜 필요한지, 관련 spec 번호(예: spec 002) -->
+
+## 목표
+<!-- 어느 마일스톤의 어느 이슈인지. 예: v1.67.0 · Closes #170 -->
 
 ## 검증
 - [ ] 백엔드 `./mvnw verify` 통과 (커버리지 줄 40% 이상)
