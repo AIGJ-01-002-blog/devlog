@@ -95,10 +95,10 @@ public final class TopicClusterer {
         for (Map.Entry<String, Edge> x : sorted) {
             long ra = find(parent, x.getValue().a());
             long rb = find(parent, x.getValue().b());
-            if (ra == rb) continue;
             int sa = size.getOrDefault(ra, 1);
             int sb = size.getOrDefault(rb, 1);
-            if (sa + sb > maxSize) continue;
+            // 이미 같은 브랜치이거나 합치면 너무 커지면 넘어간다
+            if (ra == rb || sa + sb > maxSize) continue;
             long root = Math.min(ra, rb);
             long child = Math.max(ra, rb);
             parent.put(child, root);

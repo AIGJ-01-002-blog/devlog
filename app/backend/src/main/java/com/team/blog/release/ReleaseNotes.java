@@ -23,7 +23,7 @@ import com.team.blog.shared.markdown.ContentRenderer;
 @Service
 public class ReleaseNotes {
     static final String RESOURCE = "release/CHANGELOG.md";
-    private static final Pattern HEADING = Pattern.compile("^## \\[([0-9]+\\.[0-9]+\\.[0-9]+)](?:\\s*-\\s*(\\S+))?.*$");
+    private static final Pattern HEADING = Pattern.compile("^## \\[(\\d+\\.\\d+\\.\\d+)](?:\\s*-\\s*(\\S+))?.*$");
 
     /** @param html 그 버전의 본문(### 추가·고침 …)을 정화한 HTML */
     public record Release(String version, String date, String html) {}

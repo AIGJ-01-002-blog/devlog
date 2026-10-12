@@ -32,6 +32,7 @@ public class TagQuery {
     private static final Duration TOP_TTL = Duration.ofMinutes(10);
     private static final int SUGGEST_LIMIT = 10;
     private static final int BLOG_TAG_LIMIT = 200;
+    private static final String POST_COUNT = "post_count";
 
     /** 공개 글(p)과 작성자(m)를 잇는 조각. 별칭 pt·p·m. */
     private static final String PUBLIC_POSTS = " JOIN post p ON p.id = pt.post_id JOIN member m ON m.id = p.author_id WHERE "
@@ -103,7 +104,7 @@ public class TagQuery {
 
     /** 전체 태그 목록: 공개 글 수 많은 순, 같으면 이름 순 상위 100개. 10분 동안 Redis에 둔다(FR-024). */
     public List<TagCount> top(int limit) {
-        int n = Math.max(1, Math.min(limit, TOP_LIMIT));
+        int n = Math.clamp(limit, 1, TOP_LIMIT);
         List<TagCount> all = cachedTop();
         return all.size() > n ? all.subList(0, n) : all;
     }
@@ -127,7 +128,7 @@ public class TagQuery {
     List<TagCount> computeTop() {
         return jdbc.query("SELECT t.name, count(*) AS post_count FROM tag t JOIN post_tag pt ON pt.tag_id = t.id" + PUBLIC_POSTS
                         + " GROUP BY t.name ORDER BY post_count DESC, t.name LIMIT " + TOP_LIMIT,
-                (rs, i) -> new TagCount(rs.getString("name"), rs.getLong("post_count")));
+                (rs, i) -> new TagCount(rs.getString("name"), rs.getLong(POST_COUNT)));
     }
 
     /**
@@ -150,13 +151,13 @@ public class TagQuery {
                 WHERE mine.tag_id IS NOT NULL OR pub.n > 0
                 ORDER BY mine DESC, post_count DESC, c.name
                 LIMIT """ + " " + SUGGEST_LIMIT,
-                (rs, i) -> new Suggestion(rs.getString("name"), rs.getLong("post_count"), rs.getBoolean("mine")), like, memberId);
+                (rs, i) -> new Suggestion(rs.getString("name"), rs.getLong(POST_COUNT), rs.getBoolean("mine")), like, memberId);
     }
 
     /** 블로그 태그 줄: 블로그 목록과 같은 조건(본인이 봐도 공개 글만), 글 수 많은 순 (FR-030). */
     public List<TagCount> blogTags(long authorId) {
         return jdbc.query("SELECT t.name, count(*) AS post_count FROM tag t JOIN post_tag pt ON pt.tag_id = t.id" + PUBLIC_POSTS
                         + " AND p.author_id = ? GROUP BY t.name ORDER BY post_count DESC, t.name LIMIT " + BLOG_TAG_LIMIT,
-                (rs, i) -> new TagCount(rs.getString("name"), rs.getLong("post_count")), authorId);
+                (rs, i) -> new TagCount(rs.getString("name"), rs.getLong(POST_COUNT)), authorId);
     }
 }

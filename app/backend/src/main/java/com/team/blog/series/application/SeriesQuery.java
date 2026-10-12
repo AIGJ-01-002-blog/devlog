@@ -35,6 +35,19 @@ import com.team.blog.tag.application.TagSql;
 public class SeriesQuery {
     /** 주인에게 보이는 글: 발행했고 휴지통에 없는 글 */
     static final String OWNER_CONDITION = "p.status = 'PUBLISHED' AND p.deleted_at IS NULL";
+    private static final String BRANCHES_SQL = """
+            WITH wanted AS (SELECT DISTINCT sp.series_id FROM series_post sp WHERE sp.post_id = ANY (?)),
+            listed AS (
+                SELECT sp.series_id, sp.post_id,
+                       row_number() OVER (PARTITION BY sp.series_id ORDER BY sp.position) AS idx,
+                       count(*) OVER (PARTITION BY sp.series_id) AS total
+                FROM series_post sp JOIN wanted w ON w.series_id = sp.series_id
+                JOIN post p ON p.id = sp.post_id JOIN member m ON m.id = p.author_id
+                WHERE\s""" + PostAccessPolicy.PUBLIC_LIST_CONDITION + """
+            )
+            SELECT l.post_id, l.idx, l.total, s.id, s.name, s.slug, m.handle
+            FROM listed l JOIN series s ON s.id = l.series_id JOIN member m ON m.id = s.member_id
+            WHERE l.post_id = ANY (?)""";
 
     private final JdbcTemplate jdbc;
     private final PostCardQuery cards;
@@ -78,7 +91,8 @@ public class SeriesQuery {
 
     private record Scope(long ownerId, boolean mine, boolean friend) {
         String condition() {
-            return mine ? OWNER_CONDITION : friend ? PostAccessPolicy.FRIENDS_LIST_CONDITION : PostAccessPolicy.PUBLIC_LIST_CONDITION;
+            if (mine) return OWNER_CONDITION;
+            return friend ? PostAccessPolicy.FRIENDS_LIST_CONDITION : PostAccessPolicy.PUBLIC_LIST_CONDITION;
         }
     }
 
@@ -106,19 +120,7 @@ public class SeriesQuery {
         Map<Long, PostCard.Branch> byPost = new HashMap<>();
         if (postIds.isEmpty()) return byPost;
         jdbc.query(con -> {
-            var ps = con.prepareStatement("""
-                    WITH wanted AS (SELECT DISTINCT sp.series_id FROM series_post sp WHERE sp.post_id = ANY (?)),
-                    listed AS (
-                        SELECT sp.series_id, sp.post_id,
-                               row_number() OVER (PARTITION BY sp.series_id ORDER BY sp.position) AS idx,
-                               count(*) OVER (PARTITION BY sp.series_id) AS total
-                        FROM series_post sp JOIN wanted w ON w.series_id = sp.series_id
-                        JOIN post p ON p.id = sp.post_id JOIN member m ON m.id = p.author_id
-                        WHERE\s""" + PostAccessPolicy.PUBLIC_LIST_CONDITION + """
-                    )
-                    SELECT l.post_id, l.idx, l.total, s.id, s.name, s.slug, m.handle
-                    FROM listed l JOIN series s ON s.id = l.series_id JOIN member m ON m.id = s.member_id
-                    WHERE l.post_id = ANY (?)""");
+            var ps = con.prepareStatement(BRANCHES_SQL);
             var arr = con.createArrayOf("bigint", postIds.toArray());
             ps.setArray(1, arr);
             ps.setArray(2, arr);
@@ -142,9 +144,12 @@ public class SeriesQuery {
                 WHERE s.member_id = ? AND p.deleted_at IS NULL ORDER BY s.updated_at DESC, s.id DESC""", rs -> {
             long id = rs.getLong(1);
             TagProfile t = byId.get(id);
-            if (t == null) byId.put(id, t = new TagProfile(id, rs.getString(2), new ArrayList<>()));
+            if (t == null) {
+                t = new TagProfile(id, rs.getString(2), new ArrayList<>());
+                byId.put(id, t);
+            }
             for (Object tag : (Object[]) rs.getArray(3).getArray()) {
-                if (!t.tags().contains((String) tag)) t.tags().add((String) tag);
+                if (!t.tags().contains(tag)) t.tags().add((String) tag);
             }
         }, memberId);
         return List.copyOf(byId.values());
@@ -152,22 +157,26 @@ public class SeriesQuery {
 
     /** 블로그의 시리즈 탭. 최근 수정 순. 남에게는 읽을 수 있는 글이 없는 시리즈를 숨긴다 (US2-3). */
     public Optional<Listing> list(String handle, Long viewerId) {
-        return scope(handle, viewerId).map(s -> new Listing(jdbc.query("""
+        return scope(handle, viewerId).map(s -> new Listing(jdbc.query(listSql(s.condition()), (rs, i) -> new Summary(rs.getLong("id"), rs.getString("name"), rs.getString("slug"), rs.getInt("cnt"),
+                imageUrls.urlOf(rs.getString("thumbnail_key")), rs.getTimestamp("updated_at").toInstant()),
+                s.ownerId(), s.mine()), s.mine() || s.friend()));
+    }
+
+    private static String listSql(String condition) {
+        return """
                 SELECT s.id, s.name, s.slug, s.updated_at, v.cnt, f.thumbnail_key
                 FROM series s
                 CROSS JOIN LATERAL (SELECT count(*) AS cnt FROM series_post sp
                                     JOIN post p ON p.id = sp.post_id JOIN member m ON m.id = p.author_id
-                                    WHERE sp.series_id = s.id AND """ + " " + s.condition() + " " + """
+                                    WHERE sp.series_id = s.id AND """ + " " + condition + " " + """
                                     ) v
                 LEFT JOIN LATERAL (SELECT """ + " " + PostSql.THUMBNAIL_KEY + " " + """
                                    FROM series_post sp JOIN post p ON p.id = sp.post_id JOIN member m ON m.id = p.author_id
-                                   WHERE sp.series_id = s.id AND """ + " " + s.condition() + " " + """
+                                   WHERE sp.series_id = s.id AND """ + " " + condition + " " + """
                                    ORDER BY sp.position LIMIT 1) f ON TRUE
                 WHERE s.member_id = ? AND (? OR v.cnt > 0)
                 ORDER BY s.updated_at DESC, s.id DESC
-                """, (rs, i) -> new Summary(rs.getLong("id"), rs.getString("name"), rs.getString("slug"), rs.getInt("cnt"),
-                imageUrls.urlOf(rs.getString("thumbnail_key")), rs.getTimestamp("updated_at").toInstant()),
-                s.ownerId(), s.mine()), s.mine() || s.friend()));
+                """;
     }
 
     /** 시리즈 페이지. 남에게는 읽을 수 있는 글이 없으면 없는 시리즈다. */

@@ -40,7 +40,7 @@ public class CommentController {
                                                          @RequestParam(required = false) String before,
                                                          @RequestParam(required = false) String around,
                                                          @CurrentMember(required = false) MemberPrincipal me) {
-        Long aroundId = around != null && around.matches("[1-9][0-9]{0,17}") ? Long.parseLong(around) : null;
+        Long aroundId = around != null && around.matches("[1-9]\\d{0,17}") ? Long.parseLong(around) : null;
         CommentQuery.CommentPage page = query.page(id(postId), Viewer.of(me), cursor, before, aroundId);
         return ResponseEntity.ok().cacheControl(cache(page.publiclyVisible())).body(page);
     }
@@ -77,7 +77,7 @@ public class CommentController {
     }
 
     private static long id(String raw) {
-        if (raw == null || !raw.matches("[1-9][0-9]{0,17}")) throw new NotFoundException();
+        if (raw == null || !raw.matches("[1-9]\\d{0,17}")) throw new NotFoundException();
         return Long.parseLong(raw);
     }
 }

@@ -64,7 +64,10 @@ public class EmbeddingClient {
         return switch (wanted == null ? "auto" : wanted.toLowerCase()) {
             case "local" -> local ? Provider.LOCAL : Provider.NONE;
             case "gemini" -> gemini ? Provider.GEMINI : Provider.NONE;
-            default -> local ? Provider.LOCAL : gemini ? Provider.GEMINI : Provider.NONE;
+            default -> {
+                if (local) yield Provider.LOCAL;
+                yield gemini ? Provider.GEMINI : Provider.NONE;
+            }
         };
     }
 

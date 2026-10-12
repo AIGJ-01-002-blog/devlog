@@ -48,6 +48,7 @@ import com.team.blog.shared.web.RateLimiter;
 @EnableWebSecurity
 @EnableConfigurationProperties(BlogProperties.class)
 public class SecurityConfig {
+    private static final String API_PATHS = "/api/**";
 
     /** 로그인하지 않아도 보낼 수 있는 쓰기 요청 (가입 대기·로그인·공개 기록 API). */
     static final String[] PUBLIC_WRITES = {
@@ -87,7 +88,7 @@ public class SecurityConfig {
      */
     @Bean
     @Order(0)
-    SecurityFilterChain mcpFilterChain(HttpSecurity http, ContentSecurityPolicy csp) throws Exception {
+    SecurityFilterChain mcpFilterChain(HttpSecurity http, ContentSecurityPolicy csp) {
         http
                 .securityMatcher(McpController.PATH, McpUploadController.PATH, "/api/oauth/token", "/api/oauth/register")
                 .csrf(csrf -> csrf.disable())
@@ -105,7 +106,7 @@ public class SecurityConfig {
                                             GithubOAuth2UserService githubUsers, KakaoScopeResolver authorizationRequests,
                                             OAuth2LoginHandlers loginHandlers, RateLimiter rateLimiter,
                                             ClientIpResolver ipResolver, StringRedisTemplate redis, BlogProperties props,
-                                            ContentSecurityPolicy csp) throws Exception {
+                                            ContentSecurityPolicy csp) {
         RequestMatcher api = request -> request.getRequestURI().startsWith("/api/");
         http
                 .csrf(csrf -> csrf.spa())
@@ -114,9 +115,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "MANAGER")
                         .requestMatchers("/api/me/**").authenticated()
                         .requestMatchers(HttpMethod.POST, PUBLIC_WRITES).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/**").permitAll()
-                        .requestMatchers(HttpMethod.HEAD, "/api/**").permitAll()
-                        .requestMatchers("/api/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, API_PATHS).permitAll()
+                        .requestMatchers(HttpMethod.HEAD, API_PATHS).permitAll()
+                        .requestMatchers(API_PATHS).authenticated()
                         .anyRequest().permitAll())
                 .exceptionHandling(e -> e
                         .defaultAuthenticationEntryPointFor(SecurityConfig::unauthorized, api)

@@ -79,7 +79,7 @@ public class FeedQuery {
      */
     public PostCardPage home(String cursor, String branch) {
         if (branch == null || branch.isEmpty()) return home(cursor);
-        if (!branch.matches("[st][1-9][0-9]{0,17}")) throw new NotFoundException();
+        if (!branch.matches("[st][1-9]\\d{0,17}")) throw new NotFoundException();
         long id = Long.parseLong(branch.substring(1));
         PostFilter filter = branch.charAt(0) == 's' ? SeriesSql.inSeries(id) : TopicSql.inTopic(id);
         return withBranches(posts.page(PostListSpec.everyone("home:" + branch, filter), cursor));

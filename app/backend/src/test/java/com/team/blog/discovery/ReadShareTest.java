@@ -57,12 +57,12 @@ class ReadShareTest extends IntegrationTest {
                 .andExpect(header().string("Cache-Control", org.hamcrest.Matchers.containsString("private")))
                 .andReturn();
         String page = html(r);
-        assertThat(page).contains("<link rel=\"canonical\" href=\"http://localhost:8080/@" + s.handle() + "/posts/" + id + "\">");
-        assertThat(page).contains("<meta property=\"og:title\" content=\"제목 &lt;script&gt; - ");
-        assertThat(page).contains("og:description\" content=\"첫 문단 &quot;요약&quot;");
-        assertThat(page).contains("<h1>제목 &lt;script&gt;</h1>").contains("<h3");
-        assertThat(page).doesNotContain("noindex").doesNotContain("<script>");
-        assertThat(page).contains("<script id=\"initial-data\" type=\"application/json\">");
+        assertThat(page).contains("<link rel=\"canonical\" href=\"http://localhost:8080/@" + s.handle() + "/posts/" + id + "\">")
+                .contains("<meta property=\"og:title\" content=\"제목 &lt;script&gt; - ")
+                .contains("og:description\" content=\"첫 문단 &quot;요약&quot;")
+                .contains("<h1>제목 &lt;script&gt;</h1>").contains("<h3")
+                .doesNotContain("noindex").doesNotContain("<script>")
+                .contains("<script id=\"initial-data\" type=\"application/json\">");
         mvc.perform(get("/api/posts/" + id)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.title").value("제목 <script>"))
                 .andExpect(jsonPath("$.author.handle").value(s.handle()))

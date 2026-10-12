@@ -45,9 +45,9 @@ public class ViewController {
     }
 
     @PostMapping("/api/posts/{postId}/views")
-    public ResponseEntity<Void> record(@PathVariable String postId, @CurrentMember(required = false) MemberPrincipal me,
-                                       HttpServletRequest request) {
-        if (postId == null || !postId.matches("[1-9][0-9]{0,17}")) throw new NotFoundException();
+    public ResponseEntity<Void> recordView(@PathVariable String postId, @CurrentMember(required = false) MemberPrincipal me,
+                                           HttpServletRequest request) {
+        if (postId == null || !postId.matches("[1-9]\\d{0,17}")) throw new NotFoundException();
         String issued = issueVisitor(me, request);
         recorder.record(Long.parseLong(postId), toVisit(me, request, issued));
         return noContent(request, issued);
@@ -63,7 +63,7 @@ public class ViewController {
         String issued = issueVisitor(me, request);
         VisitRecorder.Page page = body == null ? VisitRecorder.Page.UNKNOWN
                 : new VisitRecorder.Page(body.path(), body.referrer(), body.first() == null || body.first(), request.getServerName());
-        visits.record(toVisit(me, request, issued), page);
+        visits.recordVisit(toVisit(me, request, issued), page);
         return noContent(request, issued);
     }
 

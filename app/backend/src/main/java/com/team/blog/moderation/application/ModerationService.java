@@ -24,6 +24,7 @@ import com.team.blog.shared.time.Times;
  */
 @Service
 public class ModerationService {
+    private static final String CANNOT_HANDLE_OWN = "CANNOT_HANDLE_OWN";
     private final JdbcTemplate jdbc;
     private final ApplicationEventPublisher events;
     private final Clock clock;
@@ -44,7 +45,7 @@ public class ModerationService {
                 : null;
         CaseRow c = lock(caseId);
         if (!"PENDING".equals(c.status())) throw ApiException.conflict("CASE_ALREADY_HANDLED", "이미 처리된 신고예요.");
-        if (c.authorId() == adminId) throw ApiException.badRequest("CANNOT_HANDLE_OWN", "자기 글·댓글의 신고는 처리할 수 없어요.");
+        if (c.authorId() == adminId) throw ApiException.badRequest(CANNOT_HANDLE_OWN, "자기 글·댓글의 신고는 처리할 수 없어요.");
         Instant now = Times.now(clock);
         Timestamp ts = Timestamp.from(now);
         if (action == Action.HIDE) {
@@ -66,7 +67,7 @@ public class ModerationService {
     public void unhide(long adminId, long caseId) {
         CaseRow c = lock(caseId);
         if (!"HIDDEN".equals(c.status()) || c.targetId() == null) throw new NotFoundException();
-        if (c.authorId() == adminId) throw ApiException.badRequest("CANNOT_HANDLE_OWN", "자기 글·댓글의 숨김은 바꿀 수 없어요.");
+        if (c.authorId() == adminId) throw ApiException.badRequest(CANNOT_HANDLE_OWN, "자기 글·댓글의 숨김은 바꿀 수 없어요.");
         int n = jdbc.update("UPDATE " + c.table() + " SET hidden_at = NULL, hidden_by = NULL, hidden_reason = NULL WHERE id = ? AND hidden_at IS NOT NULL",
                 c.targetId());
         if (n == 0) throw ApiException.conflict("NOT_HIDDEN", "이미 숨김이 풀려 있어요.");
@@ -87,7 +88,7 @@ public class ModerationService {
         if (rows.isEmpty() || !"PUBLISHED".equals(rows.get(0).get("status"))) throw new NotFoundException();
         Map<String, Object> r = rows.get(0);
         long authorId = ((Number) r.get("author_id")).longValue();
-        if (authorId == adminId) throw ApiException.badRequest("CANNOT_HANDLE_OWN", "자기 글은 숨길 수 없어요.");
+        if (authorId == adminId) throw ApiException.badRequest(CANNOT_HANDLE_OWN, "자기 글은 숨길 수 없어요.");
         if (Boolean.TRUE.equals(r.get("hidden"))) throw ApiException.conflict("ALREADY_HIDDEN", "이미 숨겨진 글이에요.");
         Instant now = Times.now(clock);
         Timestamp ts = Timestamp.from(now);
@@ -119,7 +120,7 @@ public class ModerationService {
         // 사건 없이 숨겨진 글(예전 데이터)도 풀 수 있게 한다
         Long authorId = jdbc.query("SELECT author_id FROM post WHERE id = ? AND hidden_at IS NOT NULL FOR UPDATE", (rs, i) -> rs.getLong(1), postId)
                 .stream().findFirst().orElseThrow(() -> ApiException.conflict("NOT_HIDDEN", "이미 숨김이 풀려 있어요."));
-        if (authorId == adminId) throw ApiException.badRequest("CANNOT_HANDLE_OWN", "자기 글·댓글의 숨김은 바꿀 수 없어요.");
+        if (authorId == adminId) throw ApiException.badRequest(CANNOT_HANDLE_OWN, "자기 글·댓글의 숨김은 바꿀 수 없어요.");
         jdbc.update("UPDATE post SET hidden_at = NULL, hidden_by = NULL, hidden_reason = NULL WHERE id = ?", postId);
         events.publishEvent(new ModerationEvents.ContentUnhidden(ReportTarget.POST, postId, authorId, Times.now(clock)));
     }

@@ -65,7 +65,7 @@ public class TrendingService {
 
     @Scheduled(cron = "${blog.trending.cron:0 */10 * * * *}", zone = "Asia/Seoul")
     public void scheduled() {
-        lock.runExclusively("trending", Duration.ofMinutes(5), this::refresh);
+        lock.runExclusively(LIST, Duration.ofMinutes(5), this::refresh);
     }
 
     /** 새 순위표를 만들고 지금 순위표로 바꾼다. @return 순위표 번호(만든 시각, ms) */
@@ -89,7 +89,10 @@ public class TrendingService {
                 snapshot = current == null ? refresh() : Long.parseLong(current);
                 ids = load(snapshot);
                 // 지금 순위표가 막 만료됐다. 새로 만든 것까지 바로 사라졌으면 빈 목록이다
-                if (ids == null) ids = Objects.requireNonNullElseGet(load(snapshot = refresh()), List::of);
+                if (ids == null) {
+                    snapshot = refresh();
+                    ids = Objects.requireNonNullElseGet(load(snapshot), List::of);
+                }
             } else {
                 snapshot = k[0];
                 ids = load(snapshot);
