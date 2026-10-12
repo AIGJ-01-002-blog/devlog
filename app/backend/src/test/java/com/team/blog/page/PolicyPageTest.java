@@ -69,4 +69,9 @@ class PolicyPageTest extends IntegrationTest {
         assertThat(mvc.perform(get("/tags/" + tag)).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8))
                 .doesNotContain("noindex").contains("<link rel=\"canonical\"");
     }
+
+    @Test
+    void 공개_글이_없는_태그_화면은_Soft_404가_되지_않게_404로_내린다() throws Exception {
+        mvc.perform(get("/tags/nosuchtag" + System.nanoTime() % 1_000_000)).andExpect(status().isNotFound());
+    }
 }

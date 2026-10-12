@@ -131,16 +131,20 @@ public class PageController {
                 CacheControl.noCache());
     }
 
-    /** 태그별 목록 (010 FR-019~FR-022): 형식 안 맞음 404, 정규화 안 된 주소 301, 공개 글 없으면 200 + 빈 상태. */
+    /**
+     * 태그별 목록 (010 FR-019~FR-022): 형식 안 맞음 404, 정규화 안 된 주소 301.
+     * 공개 글이 없는 태그(없는 태그, 글이 지워진 태그)는 404로 내린다. 200 + 빈 상태는 검색 엔진이 Soft 404로 본다 (spec 090).
+     * 화면 안에서 옮겨 오면 React가 API로 빈 상태를 그대로 보여 준다.
+     */
     @GetMapping("/tags/{name}")
     public ResponseEntity<String> tag(@PathVariable String name) {
         var canonical = TagNormalizer.canonical(name);
         if (canonical.isEmpty()) return notFound();
         if (!canonical.get().equals(name)) return redirect(HttpStatus.MOVED_PERMANENTLY, tagPath(canonical.get()));
         TagController.TagPage page = tagApi.page(name, null);
+        if (page.postCount() == null || page.postCount() < 1 || page.items().isEmpty()) return notFound();
         String body = "<main><h1>#" + SpaShell.esc(name) + "</h1><p>공개 글 " + page.postCount() + "</p>"
-                + (page.items().isEmpty() ? "<p>아직 이 태그로 공개된 글이 없어요.</p>"
-                : cards(new PostCardPage(page.items(), page.nextCursor()))) + MAIN_END;
+                + cards(new PostCardPage(page.items(), page.nextCursor())) + MAIN_END;
         HeadMeta meta = HeadMeta.site("#" + name + " - " + site.name(), "#" + name + " 태그가 달린 글", absolute(tagPath(name)),
                 absolute(site.defaultOgImage()));
         // 글이 하나뿐인 태그 화면은 그 글과 내용이 겹치는 얇은 화면이라 검색 수집·광고에서 뺀다 (spec 085, 애드센스 "가치가 별로 없는 콘텐츠")

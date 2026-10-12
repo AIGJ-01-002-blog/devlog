@@ -371,6 +371,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v1.66.1 | 2026-10-12 | Tag pages with no posts now return 404 (avoids soft 404s in search); the AI connection guide and release notes join the sitemap | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.66.1) |
 | v1.66.0 | 2026-10-12 | Tags page redesigned: search, sorting, and a swipeable row of popular posts for each tag | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.66.0) |
 | v1.65.6 | 2026-10-12 | Posts and series without a thumbnail now show the devlog logo as their cover | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.6) |
 | v1.65.5 | 2026-10-12 | Bigger thumbnails in the home post list so text in cover images is readable (280px 16:9 on PC, full width above the post on mobile) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.5) |
