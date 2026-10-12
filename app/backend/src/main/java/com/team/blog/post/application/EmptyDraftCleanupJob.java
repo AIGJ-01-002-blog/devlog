@@ -19,7 +19,7 @@ import com.team.blog.shared.scheduling.JobLock;
 import com.team.blog.shared.time.Times;
 
 /**
- * 빈 임시글 정리 (docs/04 §2-5, spec 002 FR-016, spec 090). 아무것도 쓰지 않았고({@link PostSql#BLANK_DRAFT}), 만든 지와 마지막 수정 후 모두
+ * 빈 임시글 정리 (docs/04 §2-5, spec 002 FR-016, spec 091). 아무것도 쓰지 않았고({@link PostSql#BLANK_DRAFT}), 만든 지와 마지막 수정 후 모두
  * 24시간이 지났고, 자동 저장 키도 없는 임시글을 완전 삭제한다. 매일 새벽 4시(KST).
  */
 @Component

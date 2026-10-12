@@ -221,7 +221,7 @@ function Editor({ view, local, memberId }: { view: EditorView; local: LocalDraft
       if (!(s.hasUnsaved || s.isConflict)) void localDrafts.remove(memberId, view.id)
       const flushed = s.flushNow(true)
       s.stop()
-      // 아무것도 쓰지 않고 나가면 빈 임시글을 남기지 않는다 (090). 개발 모드(StrictMode)의 정리·재실행에는 지우지 않는다
+      // 아무것도 쓰지 않고 나가면 빈 임시글을 남기지 않는다 (091). 개발 모드(StrictMode)의 정리·재실행에는 지우지 않는다
       mounted.current = false
       if (!discarded.current && !s.isConflict && isBlankDraft(view.status, { title: latest.current.title, contentMd: latest.current.content })) {
         setTimeout(() => {
@@ -252,7 +252,7 @@ function Editor({ view, local, memberId }: { view: EditorView; local: LocalDraft
 
   const current = (): Content => ({ title, contentMd: content })
 
-  // [나가기]: 빈 임시글은 먼저 지우고 나가, 돌아간 목록에 남아 보이지 않게 한다 (090)
+  // [나가기]: 빈 임시글은 먼저 지우고 나가, 돌아간 목록에 남아 보이지 않게 한다 (091)
   const leave = async () => {
     const s = saver.current!
     if (!discarded.current && !s.hasUnsaved && !s.isConflict && isBlankDraft(view.status, { title, contentMd: content })) {

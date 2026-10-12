@@ -78,7 +78,7 @@ public class PostTrashService {
     }
 
     /**
-     * 에디터 [나가기]: 아무것도 쓰지 않은 임시글이면 휴지통을 거치지 않고 바로 지운다 (spec 090). 무언가 쓴 글·발행한 글·
+     * 에디터 [나가기]: 아무것도 쓰지 않은 임시글이면 휴지통을 거치지 않고 바로 지운다 (spec 091). 무언가 쓴 글·발행한 글·
      * 휴지통의 글은 그대로 두고 false. 자동 저장분을 확인할 수 없으면 쓰던 내용이 있을 수 있으니 지우지 않는다.
      */
     public boolean discardIfBlank(long memberId, long postId) {

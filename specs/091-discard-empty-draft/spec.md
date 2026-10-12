@@ -1,8 +1,8 @@
 # Feature Specification: 아무것도 쓰지 않은 임시글은 나갈 때 바로 지우기
 
-**Feature Branch**: `090-discard-empty-draft`
+**Feature Branch**: `091-discard-empty-draft`
 **Created**: 2026-10-12
-**Status**: Implemented
+**Status**: Implemented (v1.66.2)
 **근거**: 민서님 요청(2026-10-12) "사용자가 아무 내용없이 실수로 글쓰기 눌렀다가 바로 나왔을때 임시글로 남는 현상이있는데 이런경우 휴지통으로 가지말고 바로 삭제 해줘".
 
 ## 원인
