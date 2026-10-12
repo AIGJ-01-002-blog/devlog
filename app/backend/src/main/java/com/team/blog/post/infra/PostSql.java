@@ -35,6 +35,18 @@ public final class PostSql {
 
     public static final String PROFILE_IMAGE_KEY = MemberSql.PROFILE_IMAGE_KEY;
 
+    /**
+     * 아무것도 쓰지 않은 임시글: 제목·본문·짧은 소개가 비었고 태그·사진·첨부파일·썸네일·시리즈도 없다.
+     * [글쓰기]를 눌렀다 바로 나온 글을 휴지통 없이 지우고([나가기]·[삭제]·새벽 정리), [새 글]이 다시 쓸 때 같은 기준을 쓴다.
+     */
+    public static final String BLANK_DRAFT = """
+            p.status = 'DRAFT' AND btrim(p.title) = '' AND btrim(p.content_md) = '' AND p.summary IS NULL
+              AND NOT EXISTS (SELECT 1 FROM post_tag x WHERE x.post_id = p.id)
+              AND NOT EXISTS (SELECT 1 FROM post_image x WHERE x.post_id = p.id)
+              AND NOT EXISTS (SELECT 1 FROM post_file x WHERE x.post_id = p.id)
+              AND NOT EXISTS (SELECT 1 FROM post_thumbnail x WHERE x.post_id = p.id)
+              AND NOT EXISTS (SELECT 1 FROM series_post x WHERE x.post_id = p.id)""";
+
     /** 조회수·좋아요 수·댓글 수 (post_stat 뷰). 별칭 s. */
     public static final String STAT_JOIN = "JOIN post_stat s ON s.post_id = p.id";
 }

@@ -12,13 +12,14 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import com.team.blog.post.infra.AutosaveStore;
+import com.team.blog.post.infra.PostSql;
 import com.team.blog.shared.config.BlogProperties;
 import com.team.blog.shared.jdbc.Columns;
 import com.team.blog.shared.scheduling.JobLock;
 import com.team.blog.shared.time.Times;
 
 /**
- * 빈 임시글 정리 (docs/04 §2-5, spec 002 FR-016). 제목·본문이 모두 비었고, 만든 지와 마지막 수정 후 모두
+ * 빈 임시글 정리 (docs/04 §2-5, spec 002 FR-016, spec 091). 아무것도 쓰지 않았고({@link PostSql#BLANK_DRAFT}), 만든 지와 마지막 수정 후 모두
  * 24시간이 지났고, 자동 저장 키도 없는 임시글을 완전 삭제한다. 매일 새벽 4시(KST).
  */
 @Component
@@ -48,11 +49,9 @@ public class EmptyDraftCleanupJob {
     public int cleanup() {
         Timestamp cutoff = Timestamp.from(Times.now(clock).minus(ttl));
         List<Long> candidates = Columns.longs(jdbc, """
-                SELECT id FROM post
-                WHERE status = 'DRAFT' AND deleted_at IS NULL AND btrim(title) = '' AND btrim(content_md) = ''
-                  AND created_at < ? AND updated_at < ?
-                ORDER BY id LIMIT 5000
-                """, cutoff, cutoff);
+                SELECT p.id FROM post p
+                WHERE p.deleted_at IS NULL AND p.created_at < ? AND p.updated_at < ? AND
+                """ + PostSql.BLANK_DRAFT + " ORDER BY p.id LIMIT 5000", cutoff, cutoff);
         int deleted = 0;
         for (long id : candidates) {
             boolean hasAutosave;
@@ -64,9 +63,8 @@ public class EmptyDraftCleanupJob {
             }
             if (!hasAutosave) {
                 deleted += jdbc.update("""
-                        DELETE FROM post WHERE id = ? AND status = 'DRAFT' AND btrim(title) = '' AND btrim(content_md) = ''
-                          AND created_at < ? AND updated_at < ?
-                        """, id, cutoff, cutoff);
+                        DELETE FROM post p WHERE p.id = ? AND p.created_at < ? AND p.updated_at < ? AND
+                        """ + PostSql.BLANK_DRAFT, id, cutoff, cutoff);
             }
         }
         if (deleted > 0) log.info("빈 임시글 {}개를 정리했습니다", deleted);
