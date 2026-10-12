@@ -369,6 +369,7 @@ npm run dev        # http://localhost:5173
 
 | 버전 | 날짜 | 주요 내용 | 릴리스 노트 |
 | --- | --- | --- | --- |
+| v1.66.2 | 2026-10-12 | 글쓰기를 눌렀다 아무것도 쓰지 않고 나오면 빈 임시글을 휴지통 없이 바로 삭제 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.66.2) |
 | v1.66.1 | 2026-10-12 | 글이 없는 태그 주소는 404로(검색 엔진 Soft 404 방지), 사이트맵에 AI 연결 안내·릴리스 노트 추가 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.66.1) |
 | v1.66.0 | 2026-10-12 | 태그 화면을 검색·정렬과 태그별 인기 글 가로 줄로 새로 구성 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.66.0) |
 | v1.65.6 | 2026-10-12 | 썸네일을 정하지 않은 글·시리즈 표지를 devlog 로고로 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.6) |
