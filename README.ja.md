@@ -371,6 +371,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | バージョン | 日付 | 主な内容 | リリースノート |
 | --- | --- | --- | --- |
+| v1.65.4 | 2026-10-12 | リリースノートの[以前のバージョンをもっと見る]ボタンの形と「DB」など英字の見出しフォントを修正 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.4) |
 | v1.65.3 | 2026-10-12 | Sonarの新規コード指摘2件を直し品質ゲートを再び通過(画面・動作は変わらず) | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.3) |
 | v1.65.2 | 2026-10-12 | SonarQubeの指摘を整理: 信頼性0件、全体384件→74件、動的SQLの数値をバインドに(画面・動作は変わらず) | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.2) |
 | v1.65.1 | 2026-10-12 | 最初の画面で受け取るファイルを半分に(フォントをCSSの外へ、選んだ言語の辞書だけ)、静的ファイルがCloudflareのキャッシュに乗るように | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.1) |

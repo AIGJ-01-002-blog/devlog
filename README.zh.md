@@ -371,6 +371,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v1.65.4 | 2026-10-12 | 修复发布说明中[查看更早版本]按钮的样式和“DB”等英文小标题的字体 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.4) |
 | v1.65.3 | 2026-10-12 | 修复 2 个 Sonar 新代码问题，质量门重新通过(界面与行为不变) | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.3) |
 | v1.65.2 | 2026-10-12 | 整理 SonarQube 问题：可靠性问题 0 个，总数 384 → 74，动态 SQL 中的数字改为绑定(界面与行为不变) | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.2) |
 | v1.65.1 | 2026-10-12 | 首屏下载的文件减半(字体移出 CSS，只加载所选语言的词典)，静态文件可被 Cloudflare 缓存 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.1) |

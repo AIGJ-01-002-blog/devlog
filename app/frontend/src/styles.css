@@ -1308,6 +1308,8 @@ a.attachment-name:hover { color: var(--color-brand); }
 .release-head a:hover { text-decoration: underline; }
 .release-body { font-size: 0.9375rem; overflow-wrap: anywhere; }
 .release-body h4 { font-size: 1rem; margin: 14px 0 6px; }
+/* 릴리스 노트의 "더함·바꿈·DB" 같은 작은 구획 이름은 본문 글꼴로 둔다. 함렛은 한글은 고딕처럼, 영문은 명조로 보여 "DB"만 다른 글꼴처럼 보였다 */
+.markdown.release-body h4 { font-family: var(--font); }
 @media (max-width: 600px) {
   .support-categories { grid-template-columns: 1fr; }
   .support-item summary { grid-template-columns: 1fr; }

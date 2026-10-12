@@ -79,7 +79,7 @@ export function AdminInquiriesPage() {
           </li>
         ))}
       </ul>
-      {next != null && <button type="button" className="btn btn-outline more" onClick={() => load(next)}>더 보기</button>}
+      {next != null && <div className="more"><button type="button" className="btn btn-outline" onClick={() => load(next)}>더 보기</button></div>}
     </main>
   )
 }
