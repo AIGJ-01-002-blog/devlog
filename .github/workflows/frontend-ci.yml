@@ -3,9 +3,11 @@ name: 화면 CI
 on:
   pull_request:
     paths: ["app/frontend/**", ".github/workflows/frontend-ci.yml"]
+  # main은 블로그 배포(deploy.yml)가 이 워크플로를 불러 배포 전에 테스트한다. 여기서는 develop만 본다
   push:
-    branches: [main]
+    branches: [develop]
     paths: ["app/frontend/**", ".github/workflows/frontend-ci.yml"]
+  workflow_call:
 
 permissions:
   contents: read

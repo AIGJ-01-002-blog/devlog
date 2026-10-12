@@ -15,7 +15,7 @@ on:
       - "scripts/build-org-profile.py"
       - ".github/workflows/readme-check.yml"
   push:
-    branches: [main]
+    branches: [main, develop]
     paths: *paths
 
 permissions:

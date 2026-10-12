@@ -6,6 +6,15 @@ MVP(로그인·글쓰기·글 읽기 + 화면)를 실제로 쓸 수 있을 때 1
 
 main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/release.yml`이 태그(`v버전`)와 GitHub Release를 만든다.
 
+2026-10-12부터 목표 단위로 릴리스한다([CONTRIBUTING.md](CONTRIBUTING.md)). develop에 머지한 작업은 `## [Unreleased]`에 모으고, 마일스톤을 다 채운 릴리스 PR에서 버전 머리말로 바꾼다.
+
+## [Unreleased]
+
+### 바꿈
+- 목표 단위 Git Flow로 전환: feature → develop → 릴리스 PR → main. 브랜치 전략·릴리스 절차(CONTRIBUTING.md)와 릴리스 노트 틀(.github/RELEASE_TEMPLATE.md)을 더했다
+- main 배포가 백엔드·화면 테스트를 기다린다. 블로그 배포 워크플로가 두 테스트를 불러 돌리고, 둘 다 통과해야 클러스터에 배포한다
+- backend-ci·화면 CI·README 검사가 develop 푸시에도 돈다
+
 ## [1.66.2] - 2026-10-12
 
 [글쓰기]를 눌렀다 아무것도 쓰지 않고 나오면 임시글이 남던 문제를 고친다 (spec 091, 민서님 요청 "아무 내용없이 실수로 글쓰기 눌렀다가 바로 나왔을때 임시글로 남는 현상이있는데 이런경우 휴지통으로 가지말고 바로 삭제 해줘").
