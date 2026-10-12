@@ -15,6 +15,7 @@ import com.team.blog.shared.error.NotFoundException;
 import com.team.blog.shared.security.CurrentMember;
 import com.team.blog.shared.security.MemberPrincipal;
 import com.team.blog.shared.web.RateLimiter;
+import com.team.blog.tag.application.TagBrowse;
 import com.team.blog.tag.application.TagNormalizer;
 import com.team.blog.tag.application.TagQuery;
 import com.team.blog.post.query.PostCardPage;
@@ -31,11 +32,13 @@ public class TagController {
     private final TagQuery tags;
     private final FeedQuery feed;
     private final RateLimiter rateLimiter;
+    private final TagBrowse browse;
 
-    public TagController(TagQuery tags, FeedQuery feed, RateLimiter rateLimiter) {
+    public TagController(TagQuery tags, FeedQuery feed, RateLimiter rateLimiter, TagBrowse browse) {
         this.tags = tags;
         this.feed = feed;
         this.rateLimiter = rateLimiter;
+        this.browse = browse;
     }
 
     /** 태그 페이지 한 쪽. 상단 글 수는 첫 쪽에만 싣는다. */
@@ -44,6 +47,13 @@ public class TagController {
     @GetMapping("/api/tags")
     public ResponseEntity<List<TagQuery.TagCount>> top(@RequestParam(defaultValue = "100") int limit) {
         return ResponseEntity.ok().cacheControl(CacheControl.noCache()).body(tags.top(limit));
+    }
+
+    /** 태그 둘러보기 (spec 089): 검색어(q, 이름 안 어디든)·정렬(popular|name|recent)로 몇 줄씩, 줄마다 인기 글 카드 */
+    @GetMapping("/api/tags/browse")
+    public ResponseEntity<TagBrowse.Page> browse(@RequestParam(required = false) String q, @RequestParam(required = false) String sort,
+                                                 @RequestParam(required = false) String cursor) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noCache()).body(browse.page(q, TagBrowse.Sort.parse(sort), cursor));
     }
 
     @GetMapping("/api/tags/suggest")

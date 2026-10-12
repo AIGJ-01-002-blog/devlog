@@ -40,8 +40,38 @@ export interface TagCount { name: string; postCount: number }
 export interface TagSuggestion extends TagCount { mine: boolean }
 export interface TagPageData { name: string; postCount: number | null; items: Card[]; nextCursor: string | null }
 
+/** 태그 둘러보기 정렬 (spec 089): 인기순(공개 글 수)·이름순·최근 사용순 */
+export type TagSort = 'popular' | 'name' | 'recent'
+export const TAG_SORTS: TagSort[] = ['popular', 'name', 'recent']
+
+export function parseTagSort(raw: string | null | undefined): TagSort {
+  return raw === 'name' || raw === 'recent' ? raw : 'popular'
+}
+
+/** 태그 한 줄: 공개 글 수와 그 태그의 인기 글 카드(최대 10개) */
+export interface TagRowData { name: string; postCount: number; lastUsedAt: string | null; posts: Card[] }
+/** total은 첫 쪽에만 온다 */
+export interface TagBrowsePage { items: TagRowData[]; nextCursor: string | null; total: number | null }
+
+/** 검색어·정렬을 주소에 남긴다. 기본값(빈 검색어, 인기순)은 빼서 /tags 그대로 둔다 */
+export function tagsIndexPath(q: string, sort: TagSort): string {
+  const params = new URLSearchParams()
+  if (q.trim()) params.set('q', q.trim())
+  if (sort !== 'popular') params.set('sort', sort)
+  const qs = params.toString()
+  return qs ? `/tags?${qs}` : '/tags'
+}
+
+export function browseEndpoint(q: string, sort: TagSort, cursor?: string | null): string {
+  const params = new URLSearchParams({ sort })
+  if (q.trim()) params.set('q', q.trim())
+  if (cursor) params.set('cursor', cursor)
+  return `/api/tags/browse?${params}`
+}
+
 export const tagsApi = {
   top: () => api<TagCount[]>('/api/tags'),
+  browse: (q: string, sort: TagSort, cursor?: string | null) => api<TagBrowsePage>(browseEndpoint(q, sort, cursor)),
   suggest: (q: string) => api<TagSuggestion[]>(`/api/tags/suggest?q=${encodeURIComponent(q)}`),
   page: (name: string) => api<TagPageData>(`/api/tags/${encodeURIComponent(name)}/posts`),
   blogTags: (handle: string) => api<TagCount[]>(`/api/members/${encodeURIComponent(handle)}/tags`),
