@@ -8,7 +8,7 @@ README.md(한국어)를 기준으로 삼는다. 번역판은 문장만 다르고
   4. Flyway 범위(V1~Vn)가 실제 마이그레이션 파일 수와 같다
   5. 기술 스택 버전(Spring Boot, React, TypeScript, Vite)이 pom.xml·package.json과 같다
   6. 상대 경로 링크·그림이 실제로 있고, 문서 안 앵커(#...)가 제목과 맞는다
-  7. 조직 프로필 README(scripts/build-org-profile.py로 만든 것)가 README.md와 같은 내용이다
+  7. 조직 프로필 README(scripts/build-org-profile.py가 profile/README.md로 만든 것)에 상대 링크가 남지 않는다
 
 실패하면 무엇이 어긋났는지 적고 1로 끝난다.
 """
