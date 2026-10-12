@@ -405,7 +405,7 @@ public class PageController {
             String description = d.excerpt() == null ? "" : truncate(d.excerpt(), 160);
             meta = new HeadMeta(d.title() + " - " + d.author().nickname(), description, absolute(d.url()), "article",
                     d.thumbnailUrl() != null ? d.thumbnailUrl() : absolute(site.defaultOgImage()),
-                    d.firstPublicAt(), d.editedAt(), true);
+                    d.firstPublicAt(), d.editedAt(), !d.aiDiary()); // AI 일기는 독자에게 보이되 수집·광고에서 뺀다 (spec 088)
         } else {
             meta = new HeadMeta(d.title() + " - " + site.name(), null, null, null, null, null, null, false);
         }
