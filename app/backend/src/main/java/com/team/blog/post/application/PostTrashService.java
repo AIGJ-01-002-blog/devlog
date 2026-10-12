@@ -85,11 +85,13 @@ public class PostTrashService {
         Boolean done = tx.execute(s -> {
             Locked p = lockOwn(postId, memberId);
             if (p.deletedAt() != null || !"DRAFT".equals(p.status())) return false;
+            boolean hasAutosave;
             try {
-                if (autosave.read(postId).isPresent()) autosaveFlush.flushPost(postId);
+                hasAutosave = autosave.read(postId).isPresent();
             } catch (RuntimeException e) {
                 return false;
             }
+            if (hasAutosave) autosaveFlush.flushPost(postId);
             if (!isBlankDraft(postId)) return false;
             purgeLocked(postId, p.authorId(), Reason.EMPTY, Times.now(clock));
             return true;
