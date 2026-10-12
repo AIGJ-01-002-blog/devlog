@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Objects;
 
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.stereotype.Service;
 
 import com.team.blog.post.access.PostAccessPolicy;
@@ -51,6 +52,18 @@ public class TagBrowse {
 
     private static final String PUBLIC_TAGGED = " FROM tag t JOIN post_tag pt ON pt.tag_id = t.id JOIN post p ON p.id = pt.post_id"
             + " JOIN member m ON m.id = p.author_id WHERE " + PostAccessPolicy.PUBLIC_LIST_CONDITION;
+
+    /** 태그마다 인기 점수 순으로 ROW_POSTS개까지 글 번호를 고른다. 태그 이름 목록(1)과 줄당 글 수(2)는 바인딩한다 */
+    private static final String POPULAR_SQL = """
+            SELECT name, id FROM (
+                SELECT t.name, p.id,
+                       row_number() OVER (PARTITION BY t.name
+                           ORDER BY 3 * s.like_count + 2 * s.comment_count + 0.1 * s.view_count DESC,
+                                    p.first_public_at DESC, p.id DESC) AS nth
+                FROM tag t JOIN post_tag pt ON pt.tag_id = t.id JOIN post p ON p.id = pt.post_id
+                JOIN member m ON m.id = p.author_id\s""" + PostSql.STAT_JOIN + " WHERE " + PostAccessPolicy.PUBLIC_LIST_CONDITION + """
+                  AND t.name = ANY (?)
+            ) ranked WHERE nth <= ? ORDER BY name, nth""";
 
     private final JdbcTemplate jdbc;
     private final PostCardQuery cards;
@@ -106,24 +119,10 @@ public class TagBrowse {
     Map<String, List<PostCard>> popularPosts(List<String> names) {
         Map<String, List<Long>> idsByTag = new LinkedHashMap<>();
         if (names.isEmpty()) return Map.of();
-        jdbc.query(con -> {
-            var ps = con.prepareStatement("""
-                    SELECT name, id FROM (
-                        SELECT t.name, p.id,
-                               row_number() OVER (PARTITION BY t.name
-                                   ORDER BY 3 * s.like_count + 2 * s.comment_count + 0.1 * s.view_count DESC,
-                                            p.first_public_at DESC, p.id DESC) AS nth
-                        FROM tag t JOIN post_tag pt ON pt.tag_id = t.id JOIN post p ON p.id = pt.post_id
-                        JOIN member m ON m.id = p.author_id\s""" + PostSql.STAT_JOIN + " " + """
-                        WHERE\s""" + PostAccessPolicy.PUBLIC_LIST_CONDITION + """
-                          AND t.name = ANY (?)
-                    ) ranked WHERE nth <= ? ORDER BY name, nth""");
-            ps.setArray(1, con.createArrayOf("varchar", names.toArray()));
+        jdbc.query(POPULAR_SQL, ps -> {
+            ps.setArray(1, ps.getConnection().createArrayOf("varchar", names.toArray()));
             ps.setInt(2, ROW_POSTS);
-            return ps;
-        }, rs -> {
-            idsByTag.computeIfAbsent(rs.getString("name"), k -> new ArrayList<>()).add(rs.getLong("id"));
-        });
+        }, (RowCallbackHandler) rs -> idsByTag.computeIfAbsent(rs.getString("name"), k -> new ArrayList<>()).add(rs.getLong("id")));
         List<Long> all = idsByTag.values().stream().flatMap(List::stream).distinct().toList();
         Map<Long, PostCard> byId = new LinkedHashMap<>();
         cards.publicCards(all).forEach(c -> byId.put(c.id(), c));
