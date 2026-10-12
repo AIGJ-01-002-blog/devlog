@@ -61,7 +61,9 @@ class ClientIpResolverTest {
 
     @Test
     void 잘못된_신뢰_대역_설정은_시작할_때_막는다() {
-        assertThatThrownBy(() -> new ClientIpResolver(List.of("10.0.0.0/33"))).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new ClientIpResolver(List.of("not-an-ip"))).isInstanceOf(IllegalArgumentException.class);
+        List<String> badPrefix = List.of("10.0.0.0/33");
+        List<String> notIp = List.of("not-an-ip");
+        assertThatThrownBy(() -> new ClientIpResolver(badPrefix)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new ClientIpResolver(notIp)).isInstanceOf(IllegalArgumentException.class);
     }
 }

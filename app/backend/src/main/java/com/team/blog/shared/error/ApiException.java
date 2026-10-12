@@ -8,7 +8,7 @@ import org.springframework.http.HttpStatus;
 public class ApiException extends RuntimeException {
     private final HttpStatus status;
     private final String code;
-    private final List<FieldErrorItem> errors;
+    private final transient List<FieldErrorItem> errors;
     private final transient Object details;
 
     public ApiException(HttpStatus status, String code, String message) {

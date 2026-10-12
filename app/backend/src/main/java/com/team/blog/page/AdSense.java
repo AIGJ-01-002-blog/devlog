@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class AdSense {
-    private static final Pattern CLIENT = Pattern.compile("ca-pub-\\d{10,20}");
+    private static final Pattern CLIENT_ID = Pattern.compile("ca-pub-\\d{10,20}");
     private static final String SCRIPT = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=";
     /** 구글 인증 기관 ID (애드센스 ads.txt 안내의 고정값) */
     private static final String GOOGLE_CERT_ID = "f08c47fec0942fa0";
@@ -21,7 +21,7 @@ public class AdSense {
 
     public AdSense(@Value("${blog.adsense.client:}") String client) {
         String c = client == null ? "" : client.strip();
-        this.client = CLIENT.matcher(c).matches() ? c : "";
+        this.client = CLIENT_ID.matcher(c).matches() ? c : "";
     }
 
     public boolean enabled() {

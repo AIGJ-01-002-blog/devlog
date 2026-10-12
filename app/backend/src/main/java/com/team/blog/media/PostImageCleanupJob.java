@@ -73,7 +73,8 @@ public class PostImageCleanupJob {
         Instant now = Times.now(clock);
         Timestamp unusedBefore = Timestamp.from(now.minus(UNUSED_TTL));
         Timestamp detachedBefore = Timestamp.from(now.minus(DETACHED_TTL));
-        int deleted = 0, failed = 0;
+        int deleted = 0;
+        int failed = 0;
         long after = 0;
         while (true) {
             List<Long> ids = Columns.longs(jdbc, "SELECT r.id FROM resource r WHERE r.id > ? AND " + UNUSED + " ORDER BY r.id LIMIT " + BATCH, after, unusedBefore, detachedBefore);

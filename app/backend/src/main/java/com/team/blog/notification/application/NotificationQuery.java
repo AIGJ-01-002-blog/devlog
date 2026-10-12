@@ -11,6 +11,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +37,7 @@ public class NotificationQuery {
     /** AI 글 제안 알림이 가는 곳 (071): 내 글 관리 임시글 탭의 제안 목록 */
     static final String PROPOSALS_LINK = "/manage/posts?tab=drafts#ai-proposals";
     static final String FRIENDS_LINK = "/settings#friends";
+    private static final String POSTS_PATH = "/posts/";
 
     private final JdbcTemplate jdbc;
     private final CursorCodec cursors;
@@ -140,8 +142,7 @@ public class NotificationQuery {
             args.add(k[1]);
         }
         args.add(size + 1);
-        List<Row> rows = jdbc.query(SELECT + """
-                WHERE n.receiver_id = ?""" + after + """
+        List<Row> rows = jdbc.query(SELECT + "WHERE n.receiver_id = ?" + after + """
 
                 ORDER BY n.updated_at DESC, n.id DESC LIMIT ?
                 """, this::row, args.toArray());
@@ -170,9 +171,8 @@ public class NotificationQuery {
 
     public Settings settings(long memberId) {
         Set<NotificationType> muted = EnumSet.noneOf(NotificationType.class);
-        jdbc.query("SELECT type FROM notification_mute WHERE member_id = ?", rs -> {
-            muted.add(NotificationType.valueOf(rs.getString(1)));
-        }, memberId);
+        jdbc.query("SELECT type FROM notification_mute WHERE member_id = ?",
+                (RowCallbackHandler) rs -> muted.add(NotificationType.valueOf(rs.getString(1))), memberId);
         return new Settings(muted);
     }
 
@@ -241,22 +241,21 @@ public class NotificationQuery {
             return new Item(r.id(), r.type(), r.read(), r.at(), null, 0, null, null, PROPOSALS_LINK, null, null, null, r.proposal());
         }
         if (r.type() == NotificationType.CONTENT_HIDDEN) return hiddenItem(r, viewerId);
-        Actor actor = r.actorNickname() == null ? null
-                : r.actorWithdrawn() ? new Actor(null, null, true) : new Actor(r.actorNickname(), r.actorHandle(), false);
+        Actor actor = actor(r);
         int others = Math.max(0, r.actorCount() - 1);
         boolean readable = r.post() != null && r.post().status() == PostStatus.PUBLISHED && !r.post().hidden()
                 && policy.canRead(r.post(), new Viewer(viewerId, false));
-        PostRef post = r.postId() == null ? null : new PostRef(readable ? r.postId() : null, readable ? r.title() : null, readable);
+        PostRef post = null;
+        if (r.postId() != null) post = readable ? new PostRef(r.postId(), r.title(), true) : new PostRef(null, null, false);
         String preview = null;
         String link = null;
         if (readable) {
-            String base = "/@" + r.postHandle() + "/posts/" + r.postId();
-            switch (r.type()) {
-                case COMMENT, REPLY -> {
-                    preview = r.commentGone() ? null : preview(r.commentContent());
-                    link = base + "?comment=" + r.commentId() + "#comment-" + r.commentId();
-                }
-                default -> link = base;
+            String base = "/@" + r.postHandle() + POSTS_PATH + r.postId();
+            if (r.type() == NotificationType.COMMENT || r.type() == NotificationType.REPLY) {
+                preview = r.commentGone() ? null : preview(r.commentContent());
+                link = base + "?comment=" + r.commentId() + "#comment-" + r.commentId();
+            } else {
+                link = base;
             }
         }
         // 새 팔로워는 글이 없고 대표 팔로워의 블로그로 간다
@@ -268,6 +267,11 @@ public class NotificationQuery {
         return new Item(r.id(), r.type(), r.read(), r.at(), actor, others, post, preview, link, null, null, null, null);
     }
 
+    private static Actor actor(Row r) {
+        if (r.actorNickname() == null) return null;
+        return r.actorWithdrawn() ? new Actor(null, null, true) : new Actor(r.actorNickname(), r.actorHandle(), false);
+    }
+
     /**
      * 내 콘텐츠 숨김 (docs/25 §2). 글이면 받는 사람이 작성자라 숨겨진 상태여도 제목과 링크를 준다. 댓글이면 글 제목은 주지 않고,
      * 그 글을 지금 읽을 수 있을 때만 댓글 위치로 링크한다.
@@ -275,17 +279,18 @@ public class NotificationQuery {
     private Item hiddenItem(Row r, long viewerId) {
         boolean comment = "COMMENT".equals(r.caseTarget());
         boolean stillHidden = comment ? r.commentHidden() : r.post() != null && r.post().hidden();
-        String reason = !stillHidden ? null : comment ? r.commentHiddenReason() : r.postHiddenReason();
+        String reason = null;
+        if (stillHidden) reason = comment ? r.commentHiddenReason() : r.postHiddenReason();
         Hidden hidden = new Hidden(comment ? "COMMENT" : "POST", reason, stillHidden);
         PostRef post = null;
         String link = null;
         if (r.post() != null && r.postId() != null) {
             if (!comment && policy.canRead(r.post(), new Viewer(viewerId, false))) {
                 post = new PostRef(r.postId(), r.title(), true);
-                link = "/@" + r.postHandle() + "/posts/" + r.postId();
+                link = "/@" + r.postHandle() + POSTS_PATH + r.postId();
             } else if (comment && r.hiddenCommentId() != null && r.post().status() == PostStatus.PUBLISHED && !r.post().hidden()
                     && policy.canRead(r.post(), new Viewer(viewerId, false))) {
-                link = "/@" + r.postHandle() + "/posts/" + r.postId() + "?comment=" + r.hiddenCommentId() + "#comment-" + r.hiddenCommentId();
+                link = "/@" + r.postHandle() + POSTS_PATH + r.postId() + "?comment=" + r.hiddenCommentId() + "#comment-" + r.hiddenCommentId();
             }
         }
         return new Item(r.id(), r.type(), r.read(), r.at(), null, 0, post, null, link, null, hidden, null, null);

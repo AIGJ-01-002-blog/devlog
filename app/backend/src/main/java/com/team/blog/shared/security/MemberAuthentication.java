@@ -31,4 +31,15 @@ public class MemberAuthentication extends AbstractAuthenticationToken {
     public String getName() {
         return String.valueOf(principal.id());
     }
+
+    // 상위 비교가 getPrincipal()로 회원까지 비교한다
+    @Override
+    public boolean equals(Object o) {
+        return super.equals(o);
+    }
+
+    @Override
+    public int hashCode() {
+        return super.hashCode();
+    }
 }

@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
 
 /**
  * 관리자 통계(062)의 집계 도우미. 각 모듈이 자기 테이블을 세는 SQL을 넘기면 날짜별·번호별 묶음으로 돌려준다.
@@ -25,9 +26,7 @@ public final class Counts {
      */
     public static Map<LocalDate, Long> byDay(JdbcTemplate jdbc, String sql, Instant from) {
         Map<LocalDate, Long> out = new HashMap<>();
-        jdbc.query(sql, rs -> {
-            out.put(rs.getObject("d", LocalDate.class), rs.getLong("n"));
-        }, Timestamp.from(from));
+        jdbc.query(sql, (RowCallbackHandler) rs -> out.put(rs.getObject("d", LocalDate.class), rs.getLong("n")), Timestamp.from(from));
         return out;
     }
 
@@ -37,9 +36,7 @@ public final class Counts {
     public static Map<Long, Long> byKeys(JdbcTemplate jdbc, String sql, Collection<Long> keys) {
         Map<Long, Long> out = new HashMap<>();
         if (keys.isEmpty()) return out;
-        jdbc.query(sql, rs -> {
-            out.put(rs.getLong("k"), rs.getLong("n"));
-        }, (Object) keys.toArray(Long[]::new));
+        jdbc.query(sql, (RowCallbackHandler) rs -> out.put(rs.getLong("k"), rs.getLong("n")), (Object) keys.toArray(Long[]::new));
         return out;
     }
 

@@ -28,7 +28,7 @@ class S3ObjectStorageTest {
     void start() throws Exception {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/", ex -> {
-            byte[] body = ex.getRequestBody().readAllBytes();
+            ex.getRequestBody().readAllBytes(); // 본문은 읽어 비우기만 한다
             var h = ex.getRequestHeaders();
             seen.add(new Seen(ex.getRequestMethod(), ex.getRequestURI().getPath(), h.getFirst("Content-Type"),
                     h.getFirst("Cache-Control"), h.getFirst("Authorization"), h.getFirst("x-amz-content-sha256")));

@@ -59,6 +59,7 @@ public class ContentRenderer {
     /** 렌더링·정화 규칙을 바꾸면 올린다. 배치가 render_version이 낮은 글을 다시 렌더링한다 (docs/12 §7-7). */
     public static final int RENDER_VERSION = 3; // 2: GIF는 첫 장면 + 원본 링크 (009), 3: 사진 가로·세로 (032)
 
+    private static final String INPUT = "input";
     private static final List<Extension> EXT = List.of(
             TablesExtension.create(), StrikethroughExtension.create(), TaskListItemsExtension.create(),
             AutolinkExtension.create(), HeadingAnchorExtension.builder().idPrefix("h-").build());
@@ -88,11 +89,11 @@ public class ContentRenderer {
         String imgPrefix = imageUrls.publicBaseUrl() + "/";
         this.policy = new HtmlPolicyBuilder()
                 .allowElements("p", "br", "hr", "blockquote", "h2", "h3", "h4", "h5", "h6", "strong", "em", "del",
-                        "ul", "ol", "li", "input", "code", "pre", "table", "thead", "tbody", "tr", "th", "td", "a", "img")
+                        "ul", "ol", "li", INPUT, "code", "pre", "table", "thead", "tbody", "tr", "th", "td", "a", "img")
                 .allowAttributes("id").matching(HEADING_ID).onElements("h2", "h3", "h4", "h5", "h6")
                 .allowAttributes("start").matching(Pattern.compile("\\d{1,6}")).onElements("ol")
-                .allowAttributes("type").matching(Pattern.compile("checkbox")).onElements("input")
-                .allowAttributes("checked", "disabled").onElements("input")
+                .allowAttributes("type").matching(Pattern.compile("checkbox")).onElements(INPUT)
+                .allowAttributes("checked", "disabled").onElements(INPUT)
                 .allowAttributes("class").matching(LANG).onElements("code")
                 .allowAttributes("align").matching(Pattern.compile("left|center|right")).onElements("th", "td")
                 .allowUrlProtocols("http", "https", "mailto")
@@ -181,7 +182,7 @@ public class ContentRenderer {
         PARSER.parse(markdown).accept(new AbstractVisitor() {
             @Override public void visit(FencedCodeBlock n) { sb.append(' ').append(n.getLiteral()).append(' '); }
             @Override public void visit(IndentedCodeBlock n) { sb.append(' ').append(n.getLiteral()).append(' '); }
-            @Override public void visit(Image n) {}
+            @Override public void visit(Image n) { /* 사진은 뺀다 */ }
             @Override public void visit(HtmlBlock n) { sb.append(' ').append(n.getLiteral()).append(' '); }
             @Override public void visit(HtmlInline n) { sb.append(n.getLiteral()); }
             @Override public void visit(Text t) { sb.append(t.getLiteral()); }
@@ -272,9 +273,9 @@ public class ContentRenderer {
     private String excerptOf(Node doc) {
         StringBuilder sb = new StringBuilder();
         doc.accept(new AbstractVisitor() {
-            @Override public void visit(FencedCodeBlock n) {}
-            @Override public void visit(IndentedCodeBlock n) {}
-            @Override public void visit(Image n) {}
+            @Override public void visit(FencedCodeBlock n) { /* 코드 블록은 요약에서 뺀다 */ }
+            @Override public void visit(IndentedCodeBlock n) { /* 코드 블록은 요약에서 뺀다 */ }
+            @Override public void visit(Image n) { /* 사진은 뺀다 */ }
             @Override public void visit(HtmlBlock n) { sb.append(' ').append(n.getLiteral()).append(' '); }
             @Override public void visit(HtmlInline n) { sb.append(n.getLiteral()); }
             @Override public void visit(Text t) { sb.append(t.getLiteral()); }
