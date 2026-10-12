@@ -371,6 +371,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | バージョン | 日付 | 主な内容 | リリースノート |
 | --- | --- | --- | --- |
+| v1.65.1 | 2026-10-12 | 最初の画面で受け取るファイルを半分に(フォントをCSSの外へ、選んだ言語の辞書だけ)、静的ファイルがCloudflareのキャッシュに乗るように | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.1) |
 | v1.65.0 | 2026-10-12 | AI日記はブログにはそのまま表示し、検索収集(noindex)・サイトマップ・広告の対象からのみ外す | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.0) |
 | v1.64.2 | 2026-10-11 | 利用規約・プライバシーポリシー画面のタイトル・施行日・リンクも英語・日本語・中国語に(本文は韓国語原文である旨を案内)、spec一覧の抜けを補完 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.64.2) |
 | v1.64.1 | 2026-10-11 | ChatGPT案内に、Plusでも下書きの作成・公開・削除まで動いたことを追記 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.64.1) |

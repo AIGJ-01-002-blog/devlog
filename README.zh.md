@@ -371,6 +371,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v1.65.1 | 2026-10-12 | 首屏下载的文件减半(字体移出 CSS，只加载所选语言的词典)，静态文件可被 Cloudflare 缓存 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.1) |
 | v1.65.0 | 2026-10-12 | AI 日记仍在博客中显示，但不再被搜索引擎收录(noindex)、不进入站点地图、不展示广告 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.0) |
 | v1.64.2 | 2026-10-11 | 服务条款和隐私政策页面的标题、生效日期和链接也支持英语、日语、中文(并提示正文为韩语原文)，补全 spec 列表 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.64.2) |
 | v1.64.1 | 2026-10-11 | ChatGPT 指南补充:在 Plus 上也成功完成了草稿的创建、发布和删除 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.64.1) |

@@ -58,6 +58,28 @@ public class SecurityConfig {
             "/api/markdown/preview-public", "/api/posts/*/views", "/api/visits"
     };
 
+    /** 화면 빌드 결과와 이름이 고정된 정적 파일. 로그인·세션·CSRF가 필요 없다 */
+    static final String[] STATIC_FILES = {"/assets/**", "/theme.js", "/favicon.svg", "/apple-touch-icon.png", "/og-default.png"};
+
+    /**
+     * 정적 파일은 세션도 CSRF 토큰도 보지 않는다. 기본 사슬은 응답마다 XSRF-TOKEN 쿠키를 새로 심는데,
+     * 쿠키를 심는 응답은 Cloudflare가 캐시하지 않아(BYPASS) 처음 온 방문자의 JS·CSS·글꼴이 모두 학교 서버까지 갔다.
+     * 캐시 머리글은 WebConfig가 파일마다 정하므로 Spring Security 기본값(no-store)은 끈다.
+     */
+    @Bean
+    @Order(-1)
+    SecurityFilterChain staticFilterChain(HttpSecurity http, ContentSecurityPolicy csp) throws Exception {
+        http
+                .securityMatcher(STATIC_FILES)
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .securityContext(c -> c.securityContextRepository(new RequestAttributeSecurityContextRepository()))
+                .requestCache(c -> c.requestCache(new NullRequestCache()))
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+                .headers(h -> h.cacheControl(c -> c.disable()).contentTypeOptions(c -> {}).frameOptions(f -> f.deny()).addHeaderWriter(csp));
+        return http.build();
+    }
+
     /**
      * MCP 서버와 OAuth 토큰·등록 (052): 세션 쿠키도 CSRF도 쓰지 않는다. MCP는 접근 토큰(Bearer)만 보고, 토큰 확인은 컨트롤러가 한다.
      * AI용 사진 올리기 주소(060)는 한 번 쓰는 표가 곧 권한이다.
