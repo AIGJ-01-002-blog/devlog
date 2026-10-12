@@ -27,3 +27,5 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npx vite build
+      - name: 첫 화면 무게 검사
+        run: node scripts/check-bundle.mjs
