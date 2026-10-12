@@ -69,7 +69,7 @@ public class SecurityConfig {
      */
     @Bean
     @Order(-1)
-    SecurityFilterChain staticFilterChain(HttpSecurity http, ContentSecurityPolicy csp) throws Exception {
+    SecurityFilterChain staticFilterChain(HttpSecurity http, ContentSecurityPolicy csp) {
         http
                 .securityMatcher(STATIC_FILES)
                 .csrf(csrf -> csrf.disable())
