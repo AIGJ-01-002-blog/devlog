@@ -835,7 +835,7 @@ export const en: Record<string, string> = {
   "업로드 대기 중": "Waiting to upload",
   "업로드가 끝나지 않은 사진이 있어요. 다 올라간 뒤 발행할 수 있어요.": "Some photos haven't finished uploading. You can publish once they're done.",
   "없음": "None",
-  "에디터 닫기. 쓴 내용은 자동으로 저장돼요": "Close editor. Your writing is saved automatically",
+  "에디터 닫기. 쓴 내용은 자동으로 저장되고, 아무것도 쓰지 않은 글은 남기지 않아요": "Close editor. Your writing is saved automatically, and an untouched draft is not kept",
   "에디터에서 이 글 고치기": "Edit this post in the editor",
   "연결 끊기": "Disconnect",
   "연결 방법 자세히 보기": "See connection details",

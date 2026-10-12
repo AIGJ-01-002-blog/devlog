@@ -123,6 +123,15 @@ public class PostController {
         return trash.trash(me.id(), postId);
     }
 
+    public record DiscardResult(boolean deleted) {}
+
+    /** 에디터 [나가기] (spec 090): 아무것도 쓰지 않은 임시글이면 휴지통 없이 바로 지운다. 아니면 그대로 두고 deleted=false. */
+    @DeleteMapping("/{postId}/if-empty")
+    public DiscardResult discardIfEmpty(@CurrentMember MemberPrincipal me, @PathVariable long postId) {
+        rateLimiter.check(DELETE_RATE_KEY + me.id(), 60, Duration.ofMinutes(1));
+        return new DiscardResult(trash.discardIfBlank(me.id(), postId));
+    }
+
     @PostMapping("/{postId}/restore")
     public PostTrashService.RestoreResult restore(@CurrentMember MemberPrincipal me, @PathVariable long postId) {
         rateLimiter.check(DELETE_RATE_KEY + me.id(), 60, Duration.ofMinutes(1));

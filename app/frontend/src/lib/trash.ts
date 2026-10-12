@@ -38,3 +38,22 @@ export function daysLeft(purgeAt: string, now = Date.now()): number {
 export function trashedMessage(r: TrashResult): string {
   return r.result === 'DELETED_EMPTY' ? t('빈 임시글이라 바로 지웠어요.') : t('휴지통으로 옮겼어요. 30일 안에 복구할 수 있어요.')
 }
+
+/** 아무것도 쓰지 않은 임시글인지 (090). 화면은 제목·본문만 보고, 태그·사진·시리즈는 서버가 한 번 더 확인한다. */
+export function isBlankDraft(status: string, c: { title: string; contentMd: string }): boolean {
+  return status === 'DRAFT' && !c.title.trim() && !c.contentMd.trim()
+}
+
+/**
+ * [글쓰기]를 눌렀다 아무것도 쓰지 않고 나오면 그 임시글을 휴지통 없이 바로 지운다 (090).
+ * 서버가 빈 글이 아니라고 보면(다른 탭에서 썼거나 태그·사진이 있으면) 그대로 두고 false다. 실패해도 나가기는 막지 않는다.
+ */
+export async function discardIfEmpty(id: number, memberId?: number, keepalive = false): Promise<boolean> {
+  try {
+    const r = await api<{ deleted: boolean }>(`/api/posts/${id}/if-empty`, { method: 'DELETE', keepalive })
+    if (r.deleted && memberId != null) await localDrafts.remove(memberId, id)
+    return r.deleted
+  } catch {
+    return false
+  }
+}

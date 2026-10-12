@@ -16,6 +16,8 @@ import com.team.blog.post.application.PostLifecycleEvents.PostPurged;
 import com.team.blog.post.application.PostLifecycleEvents.PostRestored;
 import com.team.blog.post.application.PostLifecycleEvents.PostTrashed;
 import com.team.blog.post.application.PostLifecycleEvents.Reason;
+import com.team.blog.post.infra.AutosaveStore;
+import com.team.blog.post.infra.PostSql;
 import com.team.blog.shared.error.NotFoundException;
 import com.team.blog.shared.jdbc.Columns;
 import com.team.blog.shared.time.Times;
@@ -31,15 +33,18 @@ public class PostTrashService {
 
     private final JdbcTemplate jdbc;
     private final AutosaveFlushJob autosaveFlush;
+    private final AutosaveStore autosave;
     private final List<PurgeExtension> purgeExtensions;
     private final ApplicationEventPublisher events;
     private final TransactionTemplate tx;
     private final Clock clock;
 
-    public PostTrashService(JdbcTemplate jdbc, AutosaveFlushJob autosaveFlush, List<PurgeExtension> purgeExtensions,
-                            ApplicationEventPublisher events, TransactionTemplate tx, Clock clock) {
+    public PostTrashService(JdbcTemplate jdbc, AutosaveFlushJob autosaveFlush, AutosaveStore autosave,
+                            List<PurgeExtension> purgeExtensions, ApplicationEventPublisher events, TransactionTemplate tx,
+                            Clock clock) {
         this.jdbc = jdbc;
         this.autosaveFlush = autosaveFlush;
+        this.autosave = autosave;
         this.purgeExtensions = purgeExtensions;
         this.events = events;
         this.tx = tx;
@@ -54,7 +59,7 @@ public class PostTrashService {
 
     private record Locked(long authorId, String status, String visibility, Instant deletedAt) {}
 
-    /** [삭제]: 휴지통으로 옮긴다. 제목·본문이 모두 빈 임시글은 바로 완전 삭제한다 (FR-002). 이미 휴지통이면 그대로 (FR-007). */
+    /** [삭제]: 휴지통으로 옮긴다. 아무것도 쓰지 않은 임시글은 바로 완전 삭제한다 (FR-002). 이미 휴지통이면 그대로 (FR-007). */
     public TrashResult trash(long memberId, long postId) {
         return tx.execute(s -> {
             Locked p = lockOwn(postId, memberId);
@@ -70,6 +75,26 @@ public class PostTrashService {
             events.publishEvent(new PostTrashed(postId, p.authorId(), now));
             return new TrashResult(Outcome.TRASHED, now, now.plus(RETENTION));
         });
+    }
+
+    /**
+     * 에디터 [나가기]: 아무것도 쓰지 않은 임시글이면 휴지통을 거치지 않고 바로 지운다 (spec 090). 무언가 쓴 글·발행한 글·
+     * 휴지통의 글은 그대로 두고 false. 자동 저장분을 확인할 수 없으면 쓰던 내용이 있을 수 있으니 지우지 않는다.
+     */
+    public boolean discardIfBlank(long memberId, long postId) {
+        Boolean done = tx.execute(s -> {
+            Locked p = lockOwn(postId, memberId);
+            if (p.deletedAt() != null || !"DRAFT".equals(p.status())) return false;
+            try {
+                if (autosave.read(postId).isPresent()) autosaveFlush.flushPost(postId);
+            } catch (RuntimeException e) {
+                return false;
+            }
+            if (!isBlankDraft(postId)) return false;
+            purgeLocked(postId, p.authorId(), Reason.EMPTY, Times.now(clock));
+            return true;
+        });
+        return Boolean.TRUE.equals(done);
     }
 
     /** [복구]: 휴지통에 있는 글만. 원래 상태·공개 범위·목록 위치로 돌아온다 (FR-008). */
@@ -132,7 +157,7 @@ public class PostTrashService {
 
     private boolean isBlankDraft(long postId) {
         Boolean blank = jdbc.queryForObject(
-                "SELECT btrim(title) = '' AND btrim(content_md) = '' FROM post WHERE id = ?", Boolean.class, postId);
+                "SELECT " + PostSql.BLANK_DRAFT + " FROM post p WHERE p.id = ?", Boolean.class, postId);
         return Boolean.TRUE.equals(blank);
     }
 }
