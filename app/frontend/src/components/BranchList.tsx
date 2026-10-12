@@ -92,7 +92,7 @@ function BranchRow({ row, graph }: { row: GraphRow; graph: boolean }) {
         </div>
         {card.thumbnailUrl && (
           <Link to={card.url} className="bl-thumb" tabIndex={-1} aria-hidden="true" aria-label={card.title}>
-            <img src={card.thumbnailUrl} alt="" width={240} height={160} loading="lazy" />
+            <img src={card.thumbnailUrl} alt="" width={640} height={360} loading="lazy" />
           </Link>
         )}
       </article>
