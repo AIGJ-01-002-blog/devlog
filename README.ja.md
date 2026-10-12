@@ -371,6 +371,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | バージョン | 日付 | 主な内容 | リリースノート |
 | --- | --- | --- | --- |
+| v1.66.1 | 2026-10-12 | 記事のないタグのURLは404に(検索エンジンのソフト404を防止)、サイトマップにAI接続案内とリリースノートを追加 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.66.1) |
 | v1.66.0 | 2026-10-12 | タグ画面を検索・並べ替えとタグごとの人気記事の横スクロール列に刷新 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.66.0) |
 | v1.65.6 | 2026-10-12 | サムネイル未設定の記事・シリーズの表紙を devlog ロゴに | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.6) |
 | v1.65.5 | 2026-10-12 | ホームの記事一覧のサムネイルを大きくし、表紙画像の文字が読めるように(PCは280px 16:9、モバイルは記事の上に画面幅で) | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.5) |
