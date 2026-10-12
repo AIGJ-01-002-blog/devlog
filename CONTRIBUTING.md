@@ -66,7 +66,7 @@ Claude 스레드가 작업할 때는 실행 환경이 정한 `claude/...` 브랜
 3. `CHANGELOG.md`의 `## [Unreleased]`를 `## [1.67.0] - 날짜`로 바꾸고 [릴리스 노트 틀](.github/RELEASE_TEMPLATE.md)에 맞춰 다듬는다. 새 `## [Unreleased]`를 맨 위에 다시 둔다. 사진은 `assets/releases/unreleased/`에서 `assets/releases/v1.67.0/`으로 옮긴다.
 4. PR을 **`main`으로** 연다. 제목은 `릴리스 v1.67.0: <목표>`.
 5. 테스트가 초록이면 **merge commit으로** 머지한다(squash하지 않는다. develop과 main의 이력이 어긋나지 않게).
-6. main 푸시로 `블로그 배포`가 백엔드·화면 테스트를 다시 돌리고, 둘 다 통과해야 운영에 배포한다. `release`가 태그 `v1.67.0`과 GitHub Release를 만든다.
+6. main 푸시로 `블로그 배포`가 백엔드·화면 테스트를 다시 돌리고, 둘 다 통과해야 운영에 배포한다. `release`가 태그 `v1.67.0`과 GitHub Release를 만들고, 노트 끝에 이전 태그 뒤로 머지된 PR(번호·제목·브랜치) 표와 비교 링크를 자동으로 붙인다. 사이트 릴리스 노트(/releases)도 같은 사진을 보여 준다(spec 093).
 7. 마일스톤과 목표 이슈를 닫고, 다음 마일스톤을 세운다.
 
 ## 4. 급한 수정 (hotfix)

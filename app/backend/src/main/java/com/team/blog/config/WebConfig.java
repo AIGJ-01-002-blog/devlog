@@ -47,6 +47,10 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addResourceHandler("/assets/**")
                 .addResourceLocations("classpath:/static/assets/")
                 .setCacheControl(CacheControl.maxAge(Duration.ofDays(365)).cachePublic().immutable());
+        // 릴리스 노트 사진(093). 같은 버전 폴더의 사진은 릴리스 뒤에 바뀌지 않는다
+        registry.addResourceHandler("/release-assets/**")
+                .addResourceLocations("classpath:/static/release-assets/")
+                .setCacheControl(CacheControl.maxAge(Duration.ofDays(30)).cachePublic());
         registry.addResourceHandler("/theme.js")
                 .addResourceLocations("classpath:/static/")
                 .setCacheControl(CacheControl.noCache().cachePublic());

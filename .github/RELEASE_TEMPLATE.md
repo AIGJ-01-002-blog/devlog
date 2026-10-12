@@ -1,7 +1,9 @@
 <!--
 릴리스 노트 틀 (CONTRIBUTING.md 3번). 릴리스 PR에서 CHANGELOG.md의 ## [Unreleased]를 이 모양으로 바꾼다.
 release.yml이 이 구획 그대로 GitHub Release와 사이트의 릴리스 노트 화면에 옮긴다.
-아래 안내 주석은 지우고, 해당 없는 구획은 통째로 뺀다.
+GitHub Release 끝에는 release.yml이 "머지된 PR (자동)" 표와, 비교 링크가 없으면 비교 링크를 붙인다(093).
+사진은 GitHub 원본 주소로 적는다. 사이트 화면(/releases)은 같은 사진을 jar에 실린 사본(/release-assets/…)으로 보여 준다.
+아래 안내 주석은 지우고(남아도 사이트 화면에는 보이지 않는다), 해당 없는 구획은 통째로 뺀다.
 -->
 ## [1.67.0] - 2026-10-20
 

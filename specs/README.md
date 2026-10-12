@@ -95,6 +95,7 @@
 | [090-search-console-index](./090-search-console-index/spec.md) | Search Console 색인 경고 점검: 빈 태그 화면 404, 사이트맵 보강, robots·사이트맵 충돌 검사 | 2026-10-12 추가 (블로그 주인 요청) | 이후 단계 (Tier C) | - |
 | [089-tags-browse](./089-tags-browse/spec.md) | 전체 태그 둘러보기: 검색·정렬, 태그별 인기 글 가로 줄, 무한 스크롤 | 2026-10-12 추가 (블로그 주인 요청) | 이후 단계 (Tier C) | 22 |
 | [091-discard-empty-draft](./091-discard-empty-draft/spec.md) | 아무것도 쓰지 않은 임시글은 에디터에서 나갈 때 휴지통 없이 바로 지우기 | 2026-10-12 추가 (블로그 주인 요청) | 이후 단계 (Tier C) | 04, 13 |
+| [093-release-notes](./093-release-notes/spec.md) | 릴리스 노트에 화면 사진·머지된 PR·비교 링크 | 2026-10-13 추가 (목표 v1.67.0 #171) | 릴리스 기록 | 07 |
 | [095-ui-motion](./095-ui-motion/spec.md) | 화면 움직임(목록 등장·화면 이동·모달·메뉴·버튼 누름·좋아요), 동작 줄이기 존중 | 2026-10-12 추가 (블로그 주인 요청) | 이후 단계 (Tier C) | 46 |
 | [074-admin-kpi-board](./074-admin-kpi-board/spec.md) | 관리자 대시보드 지표 칸을 방문·회원·글·반응 묶음으로, 증감 표시와 날짜별 흐름 막대 | 2026-10-09 추가 (블로그 주인 요청) | 이후 단계 (Tier C) | 42, 43 |
 

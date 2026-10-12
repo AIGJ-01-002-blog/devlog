@@ -28,6 +28,39 @@ jobs:
             on {print}
           ' CHANGELOG.md > release-notes.md
           echo "version=$version" >> "$GITHUB_OUTPUT"
+      # 093: 노트 끝에 이전 태그와의 비교 링크와, 그 사이 머지된 PR(번호·제목·브랜치)을 붙인다.
+      # 사이트의 릴리스 노트 화면은 CHANGELOG만 읽으므로 이 자동 구획은 GitHub Release에만 들어간다.
+      - name: 비교 링크와 머지된 PR 붙이기
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.notes.outputs.version }}
+          REPO: ${{ github.repository }}
+        run: |
+          prev=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null || true)
+          if [ -z "$prev" ] || [ "$prev" = "v$VERSION" ]; then echo "이전 태그가 없어 건너뜁니다."; exit 0; fi
+          # squash 머지는 "제목 (#12)", merge commit은 "Merge pull request #12 from …"으로 남는다
+          prs=$(git log --format=%s "$prev..HEAD" | grep -oP '\(#\K[0-9]+(?=\)$)|^Merge pull request #\K[0-9]+' | sort -un || true)
+          {
+            echo
+            echo '### 머지된 PR (자동)'
+            if [ -n "$prs" ]; then
+              echo
+              echo '| PR | 제목 | 브랜치 |'
+              echo '|---|---|---|'
+              for n in $prs; do
+                gh pr view "$n" --repo "$REPO" --json number,title,headRefName \
+                  --jq '"| #\(.number) | \(.title | gsub("\\|"; "\\|")) | `\(.headRefName)` |"' 2>/dev/null || echo "| #$n | | |"
+              done
+            else
+              echo
+              echo '없음'
+            fi
+            if ! grep -q "/compare/" release-notes.md; then
+              echo
+              echo "**비교:** [$prev...v$VERSION](https://github.com/$REPO/compare/$prev...v$VERSION)"
+            fi
+          } >> release-notes.md
+          cat release-notes.md
       - name: 태그와 릴리스 만들기
         id: release
         env:

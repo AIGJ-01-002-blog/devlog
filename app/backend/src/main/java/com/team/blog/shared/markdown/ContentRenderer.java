@@ -68,11 +68,15 @@ public class ContentRenderer {
     private static final Pattern LANG = Pattern.compile("language-[a-z0-9+#-]{1,20}");
     private static final Pattern SPACES = Pattern.compile("\\s+");
     static final String GIF_LABEL = "움직이는 이미지 재생";
+    /** 릴리스 노트 사진 경로 (093). 빌드가 저장소의 assets/releases/를 jar의 static/release-assets/로 옮긴다 */
+    public static final String RELEASE_ASSETS = "/release-assets/";
 
     private final ImageUrls imageUrls;
     private final ImageOwnership ownership;
     private final String siteBase;
     private final PolicyFactory policy;
+    /** 릴리스 노트 사진(093)으로 받는 주소: 이 사이트의 /release-assets/<폴더>/<파일>. 폴더·파일 이름은 영숫자로 시작해 ..이 될 수 없다 */
+    private final Pattern releaseAsset;
     private final int maxDepth;
     private final long timeoutMillis;
     private final int excerptLength;
@@ -87,6 +91,9 @@ public class ContentRenderer {
         this.timeoutMillis = props.post().renderTimeout().toMillis();
         this.excerptLength = props.post().excerptLength();
         String imgPrefix = imageUrls.publicBaseUrl() + "/";
+        // 릴리스 노트 사진(093)은 jar에 함께 실려 이 사이트의 /release-assets/에서 나간다
+        this.releaseAsset = Pattern.compile(Pattern.quote(this.siteBase + RELEASE_ASSETS)
+                + "[A-Za-z0-9][\\w.-]{0,40}/[A-Za-z0-9][\\w.-]{0,80}\\.(?:webp|png|jpe?g|gif)");
         this.policy = new HtmlPolicyBuilder()
                 .allowElements("p", "br", "hr", "blockquote", "h2", "h3", "h4", "h5", "h6", "strong", "em", "del",
                         "ul", "ol", "li", INPUT, "code", "pre", "table", "thead", "tbody", "tr", "th", "td", "a", "img")
@@ -100,7 +107,7 @@ public class ContentRenderer {
                 .allowAttributes("href", "title").onElements("a")
                 .allowAttributes("target").matching(Pattern.compile("_blank")).onElements("a")
                 .allowAttributes("rel").matching(Pattern.compile("noopener noreferrer nofollow ugc")).onElements("a")
-                .allowAttributes("src").matching((el, attr, v) -> v.startsWith(imgPrefix) ? v : null).onElements("img")
+                .allowAttributes("src").matching((el, attr, v) -> v.startsWith(imgPrefix) || releaseAsset.matcher(v).matches() ? v : null).onElements("img")
                 .allowAttributes("alt", "title").onElements("img")
                 .allowAttributes("loading").matching(Pattern.compile("lazy")).onElements("img")
                 .allowAttributes("decoding").matching(Pattern.compile("async")).onElements("img")
@@ -260,6 +267,7 @@ public class ContentRenderer {
                     img.setDestination(original);
                     return;
                 }
+                if (releaseAsset.matcher(img.getDestination()).matches()) return; // 릴리스 노트 사진은 그대로 그린다
                 Link link = new Link(img.getDestination(), img.getTitle());
                 String alt = textOf(img);
                 link.appendChild(new Text("[이미지] " + (alt.isBlank() ? img.getDestination() : alt)));
