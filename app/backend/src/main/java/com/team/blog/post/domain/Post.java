@@ -68,6 +68,10 @@ public class Post {
     @Column(length = 30, insertable = false, updatable = false)
     private String hiddenReason;
 
+    // AI 일기로 만든 글 (spec 088). 검색 수집·사이트맵·광고에서 뺀다. 만들 때 한 번 정하고 바꾸지 않는다
+    @Column(nullable = false, updatable = false)
+    private boolean aiDiary;
+
     protected Post() {}
 
     public static Post newDraft(long authorId, Visibility visibility, String title, String contentMd, Instant now) {
@@ -78,6 +82,13 @@ public class Post {
         p.contentMd = contentMd;
         p.createdAt = now;
         p.updatedAt = now;
+        return p;
+    }
+
+    /** AI 일기 임시글 (spec 088). 독자에게는 보통 글과 같고, 검색 엔진에만 수집을 거부한다. */
+    public static Post newAiDiary(long authorId, Visibility visibility, String title, String contentMd, Instant now) {
+        Post p = newDraft(authorId, visibility, title, contentMd, now);
+        p.aiDiary = true;
         return p;
     }
 
@@ -132,6 +143,7 @@ public class Post {
     public boolean isPublished() { return status == PostStatus.PUBLISHED; }
     public boolean isDeleted() { return deletedAt != null; }
     public boolean isHidden() { return hiddenAt != null; }
+    public boolean isAiDiary() { return aiDiary; }
 
     public Long getId() { return id; }
     public long getAuthorId() { return authorId; }

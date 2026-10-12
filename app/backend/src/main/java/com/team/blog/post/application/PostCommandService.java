@@ -104,6 +104,16 @@ public class PostCommandService {
         });
     }
 
+    /** 자정 AI 일기 (071, spec 088). 빈 임시글을 다시 쓰지 않고 늘 새로 만들며, 검색 수집에서 빼도록 표시해 둔다. */
+    public Created createAiDiary(long memberId, String rawTitle, String rawContent) {
+        PostInput in = PostInput.forSave(rawTitle, rawContent, rules);
+        return tx.execute(s -> {
+            Visibility v = members.findById(memberId).map(m -> m.getDefaultVisibility()).orElseThrow(NotFoundException::new);
+            Post p = posts.save(Post.newAiDiary(memberId, v, in.title(), in.contentMd(), Times.now(clock)));
+            return new Created(p.getId(), p.getEditVersion(), p.getVisibility());
+        });
+    }
+
     /**
      * [새 글]을 열 때마다 빈 임시글이 쌓이지 않게, 아직 아무것도 쓰지 않은 임시글이 있으면 그 글을 돌려준다.
      * 자동 저장 버퍼에 쓰던 내용이 있으면 빈 글이 아니므로 건너뛴다. Redis를 확인할 수 없으면 새로 만든다.

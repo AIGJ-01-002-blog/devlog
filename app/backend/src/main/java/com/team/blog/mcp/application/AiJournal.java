@@ -355,7 +355,7 @@ public class AiJournal {
         for (Map.Entry<LocalDate, List<Note>> day : byDay.entrySet()) {
             List<Note> list = day.getValue();
             list.sort((a, b) -> a.at().compareTo(b.at()));
-            long postId = commands.create(memberId, diaryTitle(day.getKey()), diaryBody(list)).id();
+            long postId = commands.createAiDiary(memberId, diaryTitle(day.getKey()), diaryBody(list)).id();
             Set<String> tags = new LinkedHashSet<>();
             for (Note n : list) for (String t : n.tags()) if (tags.size() < maxTags) tags.add(t);
             if (!tags.isEmpty()) hints.suggestTags(postId, List.copyOf(tags));

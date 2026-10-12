@@ -298,6 +298,27 @@ class AiJournalTest extends IntegrationTest {
     }
 
     @Test
+    void 발행된_일기는_블로그에_보이되_검색_수집_사이트맵_광고에서_빠진다() throws Exception {
+        Session me = signup(uniqueLogin("aidseo"));
+        setDiary(me, true);
+        jdbc.update("UPDATE member SET ai_publish_allowed = true WHERE id = ?", me.memberId());
+        note(me.memberId(), "검색", "일기는 검색 수집에서 빼기로 했다", "", LocalDate.now(KST).minusDays(1).atTime(10, 0));
+        journal.compileDiariesAt(midnight());
+        long diary = jdbc.queryForObject("SELECT id FROM post WHERE author_id = ? AND status = 'PUBLISHED'", Long.class, me.memberId());
+        assertThat(jdbc.queryForObject("SELECT ai_diary FROM post WHERE id = ?", Boolean.class, diary)).isTrue();
+
+        String page = mvc.perform(get("/@" + me.handle() + "/posts/" + diary)).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(page).contains("일기는 검색 수집에서 빼기로 했다").contains("noindex").doesNotContain("adsbygoogle");
+        String sitemap = mvc.perform(get("/sitemap.xml")).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(sitemap).doesNotContain("/posts/" + diary + "<");
+        // 블로그 목록에는 그대로 보인다
+        assertThat(mvc.perform(get("/api/members/" + me.handle() + "/posts")).andReturn().getResponse()
+                .getContentAsString(java.nio.charset.StandardCharsets.UTF_8)).contains("\"id\":" + diary);
+    }
+
+    @Test
     void 비밀값이_보이는_일기는_발행하지_않고_메모도_받지_않는다() throws Exception {
         Session me = signup(uniqueLogin("aidsec"));
         setDiary(me, true);

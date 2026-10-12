@@ -47,7 +47,7 @@ public class PostViewQuery {
         List<Row> rows = jdbc.query("""
                 SELECT p.id, p.author_id, p.title, p.content_md, p.summary, p.edit_version, p.status, p.visibility,
                        p.published_at, p.first_public_at, p.edited_at, s.view_count, s.like_count, s.comment_count,
-                       p.deleted_at IS NOT NULL AS deleted, p.hidden_at IS NOT NULL AS hidden,
+                       p.deleted_at IS NOT NULL AS deleted, p.hidden_at IS NOT NULL AS hidden, p.ai_diary,
                        m.handle, m.nickname, m.bio, m.withdrawn_at IS NOT NULL AS withdrawn,
                        d.updated_at AS draft_saved_at,
                        """ + PostSql.THUMBNAIL_KEY + ", " + PostSql.PROFILE_IMAGE_KEY + """
@@ -65,7 +65,7 @@ public class PostViewQuery {
                 instant(rs.getTimestamp("edited_at")), rs.getLong("view_count"), rs.getInt("like_count"),
                 rs.getInt("comment_count"), rs.getBoolean("deleted"), rs.getBoolean("hidden"), rs.getString("handle"),
                 rs.getString("nickname"), rs.getString("bio"), rs.getBoolean("withdrawn"),
-                rs.getString("profile_image_key"), instant(rs.getTimestamp("draft_saved_at"))), postId);
+                rs.getString("profile_image_key"), instant(rs.getTimestamp("draft_saved_at")), rs.getBoolean("ai_diary")), postId);
         if (rows.isEmpty()) return Optional.empty();
         Row r = rows.get(0);
         ReadablePost readable = new ReadablePost(r.authorId, r.status, r.visibility, r.deleted, r.hidden, r.withdrawn);
@@ -84,7 +84,7 @@ public class PostViewQuery {
         return Optional.of(new PostView(r.id, "/@" + r.handle + "/posts/" + r.id, r.title, html, renderer.summary(r.summary, head),
                 imageUrls.urlOf(r.thumbnailKey), r.status, r.visibility, r.publishedAt, r.firstPublicAt, r.editedAt, r.viewCount,
                 r.likeCount, r.commentCount,
-                new PostView.Writer(r.authorId, r.handle, r.nickname, r.bio, imageUrls.urlOf(r.profileImageKey)), mine, owner));
+                new PostView.Writer(r.authorId, r.handle, r.nickname, r.bio, imageUrls.urlOf(r.profileImageKey)), mine, owner, r.aiDiary));
     }
 
     /** DB에 아직 반영 전인 자동 저장(최대 1분)도 "수정 중"으로 본다. Redis가 안 되면 DB 작업본만 본다. */
@@ -110,5 +110,5 @@ public class PostViewQuery {
                        PostStatus status, Visibility visibility, Instant publishedAt, Instant firstPublicAt,
                        Instant editedAt, long viewCount, int likeCount, int commentCount, boolean deleted,
                        boolean hidden, String handle, String nickname, String bio, boolean withdrawn,
-                       String profileImageKey, Instant draftSavedAt) {}
+                       String profileImageKey, Instant draftSavedAt, boolean aiDiary) {}
 }
