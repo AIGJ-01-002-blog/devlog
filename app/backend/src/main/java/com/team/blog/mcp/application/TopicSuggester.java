@@ -122,7 +122,7 @@ public class TopicSuggester {
     private static final Pattern IPV4 = Pattern.compile("(?<![0-9.])(?:[0-9]{1,3}\\.){3}[0-9]{1,3}(?![0-9.])");
     private static final Pattern EMAIL = Pattern.compile("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}");
     private static final Pattern SECRET = Pattern.compile(
-            "(?i)((?:password|passwd|pwd|secret|token|api[_-]?key|비밀번호|토큰)\\s*[=:]\\s*)(\"[^\"]*\"|'[^']*'|\\S+)");
+            "(?iu)((?:password|passwd|pwd|secret|token|api[_-]?key|비밀번호|토큰)\\s*[=:]\\s*)(\"[^\"]*\"|'[^']*'|\\S+)");
     private static final Pattern BEARER = Pattern.compile("(?i)(bearer\\s+)[A-Za-z0-9._~+/=-]{8,}");
 
     /** IP·메일 주소·비밀값처럼 보이는 값을 ****로 바꾼다. 무엇이 있었는지는 알려 주되 값은 돌려주지 않는다 */
@@ -227,7 +227,7 @@ public class TopicSuggester {
                 + counts[3] + "편)";
         if (picked.isEmpty()) {
             return source + "에서 전공자용 관점(동시성·장애·보안·성능·접근성·운영·인프라·AI 하네스·설계)이 보이는 주제를 찾지 못했어요"
-                    + (focusWords.isEmpty() ? "." : " (focus: " + focus.strip() + ").")
+                    + (focus == null || focusWords.isEmpty() ? "." : " (focus: " + focus.strip() + ").")
                     + "\n지금 자료는 사용 후기나 일정 기록에 가까워요. 개발 일지(write_devlog)가 더 맞을 수 있어요.";
         }
         StringBuilder out = new StringBuilder(source).append("에서 전공자용 글감 ").append(Math.min(n, picked.size()))

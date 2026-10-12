@@ -685,10 +685,10 @@ public class McpTools {
     }
 
     private Result listTags(AccessTokens.Caller caller) {
-        List<String> mine = jdbc.queryForList("""
+        List<String> mine = jdbc.query("""
                 SELECT t.name FROM post_tag pt JOIN tag t ON t.id = pt.tag_id JOIN post p ON p.id = pt.post_id
                 WHERE p.author_id = ? AND p.deleted_at IS NULL GROUP BY t.name ORDER BY count(*) DESC, t.name LIMIT 30
-                """, String.class, caller.memberId());
+                """, (rs, i) -> rs.getString(1), caller.memberId());
         List<String> popular = tags.top(30).stream().map(TagQuery.TagCount::name).toList();
         return Result.ok("내가 자주 쓴 태그: " + (mine.isEmpty() ? "(없음)" : String.join(", ", mine))
                 + "\ndevlog 인기 태그: " + (popular.isEmpty() ? "(없음)" : String.join(", ", popular)));

@@ -302,7 +302,6 @@ public class AiJournal {
                 log.warn("회원 {}의 AI 일기를 만들지 못했습니다. 메모는 남겨 두고 내일 같은 시각에 다시 묶습니다: {}", memberId, e.getMessage());
                 continue;
             }
-            if (posts == null) continue;
             made += posts.size();
             for (long postId : posts) autoPublish(memberId, postId);
         }
@@ -317,10 +316,10 @@ public class AiJournal {
      * 이메일 인증 전이거나 발행이 거절되면(검증 실패 등) 임시글로 둔다.
      */
     private void autoPublish(long memberId, long postId) {
-        List<String> handle = jdbc.queryForList("""
+        List<String> handle = jdbc.query("""
                 SELECT m.handle FROM member m WHERE m.id = ? AND m.ai_publish_allowed AND m.status = 'ACTIVE' AND m.deleted_at IS NULL
                   AND EXISTS (SELECT 1 FROM auth_identity a WHERE a.member_id = m.id AND a.email_verified_at IS NOT NULL)
-                """, String.class, memberId);
+                """, (rs, i) -> rs.getString(1), memberId);
         if (handle.isEmpty()) return;
         try {
             PostEditorQuery.EditorView view = editor.open(memberId, handle.getFirst(), postId);

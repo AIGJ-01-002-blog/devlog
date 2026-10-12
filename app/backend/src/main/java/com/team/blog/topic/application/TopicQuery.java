@@ -136,7 +136,7 @@ public class TopicQuery {
 
     /** 브랜치 이름 (거른 홈 화면 제목). 없으면 null */
     public String name(long topicKey) {
-        List<String> names = jdbc.queryForList("SELECT topic_name FROM post_topic WHERE topic_key = ? LIMIT 1", String.class, topicKey);
+        List<String> names = jdbc.query("SELECT topic_name FROM post_topic WHERE topic_key = ? LIMIT 1", (rs, i) -> rs.getString(1), topicKey);
         return names.isEmpty() ? null : names.get(0);
     }
 }

@@ -20,7 +20,11 @@ public final class VisitSources {
     /** host는 OTHER일 때만 채운다 */
     public record Source(String source, String host) {}
 
-    private record Rule(String source, String... hosts) {}
+    private record Rule(String source, List<String> hosts) {
+        Rule(String source, String... hosts) {
+            this(source, List.of(hosts));
+        }
+    }
 
     // 앞에서부터 맞춰 본다. 호스트가 이것과 같거나 ".이것"으로 끝나면 맞다
     private static final List<Rule> HOSTS = List.of(

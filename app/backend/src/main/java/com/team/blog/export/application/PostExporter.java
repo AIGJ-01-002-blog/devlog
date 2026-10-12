@@ -106,7 +106,7 @@ public class PostExporter {
         Instant at = r.publishedAt() != null ? r.publishedAt() : r.createdAt();
         String title = r.title().replaceAll("[\\\\/:*?\"<>|#%\\p{Cntrl}]", "").strip().replaceAll("\\s+", "-");
         if (title.codePointCount(0, title.length()) > 40) title = title.substring(0, title.offsetByCodePoints(0, 40));
-        title = title.replaceAll("^[.-]+|[.-]+$", "");
+        title = title.replaceAll("^[.-]+", "").replaceAll("[.-]+$", "");
         return at.toString().substring(0, 10) + "-" + r.id() + (title.isEmpty() ? "" : "-" + title) + ".md";
     }
 

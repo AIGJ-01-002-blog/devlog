@@ -171,11 +171,14 @@ public class NotificationService {
     /** 요청이면 행동자가 보낸 요청이 아직 대기 중일 때, 수락이면 아직 친구일 때만 만든다. */
     private void friend(NotificationType type, long receiverId, long actorId, Instant at) {
         if (!allowed(type, receiverId, actorId, null)) return;
-        String still = type == NotificationType.FRIEND_REQUEST ? "status = 'PENDING' AND requested_by = " + actorId : "status = 'ACCEPTED'";
+        boolean request = type == NotificationType.FRIEND_REQUEST;
+        String still = request ? "status = 'PENDING' AND requested_by = ?" : "status = 'ACCEPTED'";
+        Object[] stillArgs = request ? new Object[] {Math.min(receiverId, actorId), Math.max(receiverId, actorId), actorId}
+                : new Object[] {Math.min(receiverId, actorId), Math.max(receiverId, actorId)};
         tx.executeWithoutResult(s -> {
             lock(receiverId, type, actorId);
             if (!Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM friendship WHERE member_a_id = ? AND member_b_id = ? AND "
-                    + still + ")", Boolean.class, Math.min(receiverId, actorId), Math.max(receiverId, actorId)))) return;
+                    + still + ")", Boolean.class, stillArgs))) return;
             Boolean recent = jdbc.queryForObject("""
                     SELECT EXISTS (SELECT 1 FROM notification n JOIN notification_actor a ON a.notification_id = n.id AND a.actor_id = ?
                                    WHERE n.receiver_id = ? AND n.type = ? AND a.created_at > ?)

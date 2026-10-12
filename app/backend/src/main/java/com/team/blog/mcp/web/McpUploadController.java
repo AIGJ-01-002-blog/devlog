@@ -48,7 +48,7 @@ public class McpUploadController {
         if (t.isEmpty()) {
             return json(HttpStatus.NOT_FOUND, Map.of("error", "올리기 주소가 없거나 이미 썼거나 10분이 지났어요. create_image_upload_link로 새 주소를 받아 주세요."));
         }
-        List<String> status = jdbc.queryForList("SELECT status FROM member WHERE id = ? AND deleted_at IS NULL", String.class, t.get().memberId());
+        List<String> status = jdbc.query("SELECT status FROM member WHERE id = ? AND deleted_at IS NULL", (rs, i) -> rs.getString(1), t.get().memberId());
         if (status.isEmpty() || !"ACTIVE".equals(status.getFirst())) {
             return json(HttpStatus.FORBIDDEN, Map.of("error", "지금 계정 상태로는 사진을 올릴 수 없어요."));
         }

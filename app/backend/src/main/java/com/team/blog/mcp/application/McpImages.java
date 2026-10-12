@@ -8,6 +8,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.security.SecureRandom;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Iterator;
 import java.util.Optional;
@@ -124,7 +125,23 @@ public class McpImages {
         }
     }
 
-    private record Prepared(byte[] image, byte[] thumb) {}
+    private record Prepared(byte[] image, byte[] thumb) {
+        // 배열은 기본 record 비교가 주소만 보므로 내용으로 비교한다
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof Prepared(byte[] otherImage, byte[] otherThumb) && Arrays.equals(image, otherImage) && Arrays.equals(thumb, otherThumb);
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * Arrays.hashCode(image) + Arrays.hashCode(thumb);
+        }
+
+        @Override
+        public String toString() {
+            return "Prepared[" + image.length + " bytes, thumb " + thumb.length + " bytes]";
+        }
+    }
 
     private static Prepared prepare(byte[] original, ImageInspector.ImageInfo info) {
         boolean gif = info.contentType().equals("image/gif");

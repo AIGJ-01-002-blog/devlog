@@ -7,10 +7,13 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.team.blog.account.application.SocialAvatar;
@@ -32,10 +35,27 @@ public class SocialAvatarRelay {
         Optional<byte[]> get(URI uri) throws IOException, InterruptedException;
     }
 
-    public record Image(byte[] data, String contentType) {}
+    public record Image(byte[] data, String contentType) {
+        // 배열은 기본 record 비교가 주소만 보므로 내용으로 비교한다
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof Image(byte[] otherData, String otherType) && Arrays.equals(data, otherData) && Objects.equals(contentType, otherType);
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * Arrays.hashCode(data) + Objects.hashCode(contentType);
+        }
+
+        @Override
+        public String toString() {
+            return "Image[" + (data == null ? 0 : data.length) + " bytes, " + contentType + "]";
+        }
+    }
 
     private final Download download;
 
+    @Autowired
     public SocialAvatarRelay() {
         this(httpDownload(HttpClient.newBuilder().connectTimeout(TIMEOUT).followRedirects(HttpClient.Redirect.NEVER).build()));
     }

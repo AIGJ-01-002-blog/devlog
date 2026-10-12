@@ -49,7 +49,7 @@ public class EmbeddingIndexJob {
     @Scheduled(fixedDelayString = "${blog.search.semantic.index-interval:60s}", initialDelayString = "${blog.search.semantic.index-interval:60s}")
     public void scheduled() {
         if (!semantic.enabled() || semantic.down()) return;
-        lock.runExclusively("search-embedding", props.indexTimeout().multipliedBy(MAX_BATCHES_PER_RUN + 1), this::runOnce);
+        lock.runExclusively("search-embedding", props.indexTimeout().multipliedBy(MAX_BATCHES_PER_RUN + 1L), this::runOnce);
     }
 
     private record Source(long id, long version, String title, String contentMd, String tags) {}

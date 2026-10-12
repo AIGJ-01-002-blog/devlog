@@ -5,6 +5,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -97,10 +98,10 @@ public class ModerationService {
             resolve(adminId, pending, Action.HIDE, reason.name());
             return pending;
         }
-        long caseId = jdbc.queryForObject("""
+        long caseId = Objects.requireNonNull(jdbc.queryForObject("""
                 INSERT INTO report_case (target_type, post_id, target_author_id, snapshot_title, snapshot_content, status, handled_by, handled_at)
                 VALUES ('POST', ?, ?, ?, ?, 'HIDDEN', ?, ?) RETURNING id
-                """, Long.class, postId, authorId, r.get("title"), ReportService.cut((String) r.get("content_md")), adminId, ts);
+                """, Long.class, postId, authorId, r.get("title"), ReportService.cut((String) r.get("content_md")), adminId, ts));
         jdbc.update("UPDATE post SET hidden_at = ?, hidden_by = ?, hidden_reason = ? WHERE id = ?", ts, adminId, reason.name(), postId);
         events.publishEvent(new ModerationEvents.ContentHidden(caseId, ReportTarget.POST, postId, authorId, postId, now));
         return caseId;

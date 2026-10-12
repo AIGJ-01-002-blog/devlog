@@ -160,7 +160,7 @@ public class AccessTokens {
 
     /** "AI가 발행·삭제하도록 허용" (053). 웹 설정 화면(로그인 세션)에서만 읽고 바꾼다. */
     public boolean aiPublishAllowed(long memberId) {
-        List<Boolean> rows = jdbc.queryForList("SELECT ai_publish_allowed FROM member WHERE id = ?", Boolean.class, memberId);
+        List<Boolean> rows = jdbc.query("SELECT ai_publish_allowed FROM member WHERE id = ?", (rs, i) -> rs.getObject(1, Boolean.class), memberId);
         if (rows.isEmpty()) throw new NotFoundException();
         return Boolean.TRUE.equals(rows.getFirst());
     }
