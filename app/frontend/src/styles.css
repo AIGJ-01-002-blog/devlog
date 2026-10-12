@@ -371,6 +371,11 @@ select { width: auto; }
 }
 /* 서버가 그린 첫 화면처럼 안이 비어 있으면 이름을 보인다 */
 .card-thumb-empty:empty::after { content: "devlog"; font-family: var(--mono); font-weight: 700; font-size: 1.5rem; color: var(--color-text-muted); opacity: 0.4; }
+/* 썸네일이 없는 글·시리즈: 가운데 devlog 로고 (문의 #1). 바탕은 차분한 회색, 로고는 머리말 로고와 같은 그림·색이다 */
+.card-logo-cover { gap: 0.3em; font-family: var(--mono); font-size: clamp(1.25rem, 6cqi, 2rem); font-weight: 800; letter-spacing: -0.04em;
+  color: var(--color-text-muted); }
+.card-thumb { container-type: inline-size; }
+.card-logo-cover .logo-mark { width: 1.2em; height: 1.2em; }
 /* 썸네일이 없는 글: 글마다 정해진 그라데이션 위에 제목 첫 글자를 크게 올린 표지 (048). 장식이라 화면 읽기 프로그램에는 숨긴다 */
 .card-cover {
   position: relative; align-items: flex-end; justify-content: flex-end; padding: 12px 22px;

@@ -17,6 +17,15 @@ export function coverGlyph(title: string): string {
   return Array.from(title.trim())[0]?.toUpperCase() ?? '#'
 }
 
+/** 썸네일이 없는 글·시리즈의 표지: 가운데 devlog 로고. 장식이라 화면 읽기 프로그램에는 숨긴다 */
+export function LogoCover() {
+  return (
+    <span className="card-thumb-empty card-logo-cover" aria-hidden="true">
+      <span className="logo-mark" />devlog
+    </span>
+  )
+}
+
 /** 카드에 보이는 태그 수. 넘치면 …로 줄이고 나머지는 툴팁으로 보인다 */
 export const CARD_TAG_LIMIT = 3
 
@@ -26,11 +35,8 @@ export function PostCard({ card, showAuthor = true }: { card: Card; showAuthor?:
     <article className="card">
       <Link to={card.url} className="card-thumb" tabIndex={-1} aria-hidden="true">
         {card.thumbnailUrl ? <img src={card.thumbnailUrl} alt="" width={640} height={360} loading="lazy" /> : (
-          // 사진이 없으면 글마다 정해진 그라데이션 위에 제목 첫 글자를 크게 올린 표지 (048)
-          <span className="card-thumb-empty card-cover" data-tone={coverTone(card.id)}>
-            <span className="card-cover-mark">devlog/@{card.author.handle}</span>
-            <span className="card-cover-glyph">{coverGlyph(card.title)}</span>
-          </span>
+          // 사진이 없으면 devlog 로고 표지. 첫 글자 그라데이션 표지는 어수선하다는 의견을 받아 바꿨다 (문의 #1)
+          <LogoCover />
         )}
       </Link>
       <div className="card-body">
