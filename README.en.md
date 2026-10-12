@@ -371,6 +371,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v1.65.4 | 2026-10-12 | Release notes: fixed the [Show older versions] button layout and the font of Latin section labels like "DB" | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.4) |
 | v1.65.3 | 2026-10-12 | Fixed 2 new-code Sonar issues so the quality gate passes again (no visible change) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.3) |
 | v1.65.2 | 2026-10-12 | SonarQube cleanup: 0 reliability issues, 384 → 74 issues overall, numbers in dynamic SQL now bound (no visible change) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.2) |
 | v1.65.1 | 2026-10-12 | First screen downloads half as much (fonts out of the CSS, only the chosen language dictionary), and static files are now cached by Cloudflare | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.1) |

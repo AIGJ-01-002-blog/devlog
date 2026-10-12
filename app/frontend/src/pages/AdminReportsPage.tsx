@@ -68,7 +68,7 @@ export function AdminReportsPage() {
           </li>
         ))}
       </ul>
-      {cursor && <button type="button" className="btn btn-outline more" onClick={() => load(cursor)}>더 보기</button>}
+      {cursor && <div className="more"><button type="button" className="btn btn-outline" onClick={() => load(cursor)}>더 보기</button></div>}
     </main>
   )
 }

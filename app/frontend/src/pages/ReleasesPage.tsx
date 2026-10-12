@@ -56,10 +56,11 @@ export function ReleasesPage() {
         </article>
       ))}
       {data && shown < data.releases.length && (
-        <button type="button" className="btn btn-outline more" onClick={() => setShown((n) => n + FIRST)} title={t('이전 버전 10개를 더 보여 줘요')}>
-          
-          {t('이전 버전 더 보기')}
-        </button>
+        <div className="more">
+          <button type="button" className="btn btn-outline" onClick={() => setShown((n) => n + FIRST)} title={t('이전 버전 10개를 더 보여 줘요')}>
+            {t('이전 버전 더 보기')}
+          </button>
+        </div>
       )}
     </main>
   )
