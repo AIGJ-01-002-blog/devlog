@@ -9,6 +9,8 @@ import java.util.Optional;
  * 위치 정보 같은 사진 정보(EXIF·XMP)가 들어 있는지도 알려준다.
  */
 public final class ImageInspector {
+    private static final String WEBP = "image/webp";
+
     private ImageInspector() {}
 
     public record ImageInfo(String contentType, String extension, int width, int height, boolean hasMetadata) {}
@@ -55,15 +57,19 @@ public final class ImageInspector {
         while (pos + 4 <= b.length) {
             if ((b[pos] & 0xFF) != 0xFF) return Optional.empty();
             int marker = b[pos + 1] & 0xFF;
-            if (marker == 0xFF) { pos++; continue; } // 채움 바이트
-            if (marker == 0xD8 || marker == 0x01 || (marker >= 0xD0 && marker <= 0xD7)) { pos += 2; continue; }
-            int len = be16(b, pos + 2);
-            if (len < 2) return Optional.empty();
-            if (marker == 0xE1) meta = true; // APP1: EXIF·XMP
-            boolean sof = marker >= 0xC0 && marker <= 0xCF && marker != 0xC4 && marker != 0xC8 && marker != 0xCC;
-            if (sof) return valid("image/jpeg", "jpg", be16(b, pos + 7), be16(b, pos + 5), meta);
-            if (marker == 0xDA || marker == 0xD9) return Optional.empty(); // 크기 정보 전에 그림이 시작됨
-            pos += 2 + len;
+            if (marker == 0xFF) {
+                pos++; // 채움 바이트
+            } else if (marker == 0xD8 || marker == 0x01 || (marker >= 0xD0 && marker <= 0xD7)) {
+                pos += 2;
+            } else {
+                int len = be16(b, pos + 2);
+                if (len < 2) return Optional.empty();
+                if (marker == 0xE1) meta = true; // APP1: EXIF·XMP
+                boolean sof = marker >= 0xC0 && marker <= 0xCF && marker != 0xC4 && marker != 0xC8 && marker != 0xCC;
+                if (sof) return valid("image/jpeg", "jpg", be16(b, pos + 7), be16(b, pos + 5), meta);
+                if (marker == 0xDA || marker == 0xD9) return Optional.empty(); // 크기 정보 전에 그림이 시작됨
+                pos += 2 + len;
+            }
         }
         return Optional.empty();
     }
@@ -73,19 +79,19 @@ public final class ImageInspector {
         switch (chunk) {
             case "VP8 " -> {
                 if ((b[23] & 0xFF) != 0x9D || (b[24] & 0xFF) != 0x01 || (b[25] & 0xFF) != 0x2A) return Optional.empty();
-                return valid("image/webp", "webp", le16(b, 26) & 0x3FFF, le16(b, 28) & 0x3FFF, false);
+                return valid(WEBP, "webp", le16(b, 26) & 0x3FFF, le16(b, 28) & 0x3FFF, false);
             }
             case "VP8L" -> {
                 if ((b[20] & 0xFF) != 0x2F) return Optional.empty();
                 int bits = (b[21] & 0xFF) | (b[22] & 0xFF) << 8 | (b[23] & 0xFF) << 16 | (b[24] & 0xFF) << 24;
-                return valid("image/webp", "webp", (bits & 0x3FFF) + 1, ((bits >>> 14) & 0x3FFF) + 1, false);
+                return valid(WEBP, "webp", (bits & 0x3FFF) + 1, ((bits >>> 14) & 0x3FFF) + 1, false);
             }
             case "VP8X" -> {
                 int flags = b[20] & 0xFF;
                 boolean meta = (flags & 0x08) != 0 || (flags & 0x04) != 0; // EXIF·XMP
                 int w = ((b[24] & 0xFF) | (b[25] & 0xFF) << 8 | (b[26] & 0xFF) << 16) + 1;
                 int h = ((b[27] & 0xFF) | (b[28] & 0xFF) << 8 | (b[29] & 0xFF) << 16) + 1;
-                return valid("image/webp", "webp", w, h, meta);
+                return valid(WEBP, "webp", w, h, meta);
             }
             default -> {
                 return Optional.empty();
@@ -106,16 +112,18 @@ public final class ImageInspector {
             while (pos < b.length) {
                 int block = b[pos] & 0xFF;
                 if (block == 0x3B) return frames; // 끝
-                if (block == 0x21) { // 확장 블록
-                    pos = skipSubBlocks(b, pos + 2);
-                } else if (block == 0x2C) { // 이미지 서술자 = 한 장면
-                    if (++frames > limit) return frames;
-                    int f = b[pos + 9] & 0xFF;
-                    pos += 10;
-                    if ((f & 0x80) != 0) pos += 3 * (1 << ((f & 0x07) + 1));
-                    pos = skipSubBlocks(b, pos + 1); // LZW 최소 코드 크기 다음부터 데이터
-                } else {
-                    return -1;
+                switch (block) {
+                    case 0x21 -> pos = skipSubBlocks(b, pos + 2); // 확장 블록
+                    case 0x2C -> { // 이미지 서술자 = 한 장면
+                        if (++frames > limit) return frames;
+                        int f = b[pos + 9] & 0xFF;
+                        pos += 10;
+                        if ((f & 0x80) != 0) pos += 3 * (1 << ((f & 0x07) + 1));
+                        pos = skipSubBlocks(b, pos + 1); // LZW 최소 코드 크기 다음부터 데이터
+                    }
+                    default -> {
+                        return -1;
+                    }
                 }
                 if (pos < 0) return -1;
             }

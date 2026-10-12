@@ -3,8 +3,6 @@ package com.team.blog.shared;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.util.HashSet;
-import java.util.Set;
 import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -78,15 +76,15 @@ class ContentRendererTest extends IntegrationTest {
                 <b>직접 쓴 HTML</b>
                 """;
         String out = renderer.render(md, AUTHOR).html();
-        assertThat(out).contains("<h2 id=\"h-원인\">원인</h2>").contains("<h3 id=\"h-해결-방법\">").doesNotContain("<h1");
-        assertThat(out).contains("<strong>굵게</strong>", "<em>기울임</em>", "<del>취소</del>");
-        assertThat(out).contains("<table>").contains("align=\"right\"");
-        assertThat(out).contains("type=\"checkbox\"").contains("disabled");
-        assertThat(out).contains("<code class=\"language-java\">").contains("List&lt;String&gt;");
+        assertThat(out).contains("<h2 id=\"h-원인\">원인</h2>").contains("<h3 id=\"h-해결-방법\">").doesNotContain("<h1")
+                .contains("<strong>굵게</strong>", "<em>기울임</em>", "<del>취소</del>")
+                .contains("<table>").contains("align=\"right\"")
+                .contains("type=\"checkbox\"").contains("disabled")
+                .contains("<code class=\"language-java\">").contains("List&lt;String&gt;");
         assertThat(HtmlSafety.decode(out)).contains("<a href=\"/@kim/posts/1\">내부</a>");
-        assertThat(out).containsPattern("<a rel=\"noopener noreferrer nofollow ugc\" href=\"https://spring.io\" target=\"_blank\">외부</a>");
-        assertThat(out).contains("href=\"https://autolink.example\"");
-        assertThat(out).contains("&lt;b&gt;직접 쓴 HTML&lt;/b&gt;");
+        assertThat(out).containsPattern("<a rel=\"noopener noreferrer nofollow ugc\" href=\"https://spring.io\" target=\"_blank\">외부</a>")
+                .contains("href=\"https://autolink.example\"")
+                .contains("&lt;b&gt;직접 쓴 HTML&lt;/b&gt;");
     }
 
     @Test
@@ -119,7 +117,8 @@ class ContentRendererTest extends IntegrationTest {
 
     @Test
     void 중첩_20단계를_넘으면_거부하고_15단계는_허용한다() {
-        assertThatThrownBy(() -> renderer.render("> ".repeat(25) + "깊은 인용", AUTHOR)).isInstanceOf(ContentTooComplexException.class);
+        String deepQuote = "> ".repeat(25) + "깊은 인용";
+        assertThatThrownBy(() -> renderer.render(deepQuote, AUTHOR)).isInstanceOf(ContentTooComplexException.class);
         String deepList = String.join("\n", IntStream.range(0, 25).mapToObj(i -> "  ".repeat(i) + "- x").toList());
         assertThatThrownBy(() -> renderer.render(deepList, AUTHOR)).isInstanceOf(ContentTooComplexException.class);
         assertThat(renderer.render("> ".repeat(15) + "적당한 인용", AUTHOR).html()).contains("적당한 인용");

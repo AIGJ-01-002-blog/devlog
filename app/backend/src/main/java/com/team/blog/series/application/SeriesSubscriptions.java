@@ -21,7 +21,7 @@ public class SeriesSubscriptions {
     public void subscribe(long memberId, long seriesId) {
         Long owner = jdbc.query("""
                 SELECT s.member_id FROM series s JOIN member m ON m.id = s.member_id
-                WHERE s.id = ? AND m.withdrawn_at IS NULL""", rs -> rs.next() ? rs.getLong(1) : null, seriesId);
+                WHERE s.id = ? AND m.withdrawn_at IS NULL""", (rs, i) -> rs.getLong(1), seriesId).stream().findFirst().orElse(null);
         if (owner == null) throw new NotFoundException();
         if (owner == memberId) throw ApiException.badRequest("OWN_SERIES", "내 시리즈는 구독하지 않아도 돼요.");
         jdbc.update("INSERT INTO series_subscription (member_id, series_id) VALUES (?, ?) ON CONFLICT DO NOTHING", memberId, seriesId);

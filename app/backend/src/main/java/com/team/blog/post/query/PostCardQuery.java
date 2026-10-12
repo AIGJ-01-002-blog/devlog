@@ -91,17 +91,17 @@ public class PostCardQuery {
     /** 최신 공개 글 limit개, 커서 없음 (RSS). authorId가 null이면 전체. */
     public List<PostCard> recentPublic(Long authorId, int limit) {
         String sql = CARD_SELECT + PostAccessPolicy.PUBLIC_LIST_CONDITION + (authorId == null ? "" : " AND p.author_id = ?")
-                + " ORDER BY p.first_public_at DESC, p.id DESC LIMIT " + limit;
-        Object[] args = authorId == null ? new Object[0] : new Object[] {authorId};
+                + " ORDER BY p.first_public_at DESC, p.id DESC LIMIT ?";
+        Object[] args = authorId == null ? new Object[] {limit} : new Object[] {authorId, limit};
         return jdbc.query(sql, this::card, args);
     }
 
     /** 검색 엔진 사이트맵용 공개 글 주소와 마지막 발행 시각. 본문·통계를 읽지 않는 가벼운 쿼리다. AI 일기는 뺀다 (spec 088) */
     public List<SitemapEntry> sitemapEntries(int limit) {
         String sql = "SELECT p.id, m.handle, p.published_at FROM post p JOIN member m ON m.id = p.author_id WHERE "
-                + PostAccessPolicy.PUBLIC_LIST_CONDITION + " AND NOT p.ai_diary ORDER BY p.first_public_at DESC, p.id DESC LIMIT " + limit;
+                + PostAccessPolicy.PUBLIC_LIST_CONDITION + " AND NOT p.ai_diary ORDER BY p.first_public_at DESC, p.id DESC LIMIT ?";
         return jdbc.query(sql, (rs, i) -> new SitemapEntry(rs.getString("handle"), rs.getLong("id"),
-                rs.getTimestamp("published_at").toInstant()));
+                rs.getTimestamp("published_at").toInstant()), limit);
     }
 
     public record SitemapEntry(String handle, long postId, Instant publishedAt) {}

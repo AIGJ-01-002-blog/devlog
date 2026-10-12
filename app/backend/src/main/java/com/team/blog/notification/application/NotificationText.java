@@ -14,7 +14,7 @@ public final class NotificationText {
 
     /** @return 보낼 문구. 받는 사람에게 보여 줄 것이 없으면 null */
     public static String of(NotificationQuery.Item n, String baseUrl) {
-        String who = n.actor() == null ? "누군가가" : n.actor().withdrawn() ? "탈퇴한 사용자가" : n.actor().nickname() + "님이";
+        String who = who(n.actor());
         if (n.othersCount() > 0) who = who.substring(0, who.length() - 1) + " 외 " + n.othersCount() + "명이";
         String title = n.post() != null && n.post().readable() ? ": 「" + n.post().title() + "」" : "";
         String text = switch (n.type()) {
@@ -34,6 +34,11 @@ public final class NotificationText {
         };
         if (text == null) return null;
         return n.link() == null ? text : text + "\n" + baseUrl + n.link();
+    }
+
+    private static String who(NotificationQuery.Actor actor) {
+        if (actor == null) return "누군가가";
+        return actor.withdrawn() ? "탈퇴한 사용자가" : actor.nickname() + "님이";
     }
 
     private static String hidden(NotificationQuery.Item n) {

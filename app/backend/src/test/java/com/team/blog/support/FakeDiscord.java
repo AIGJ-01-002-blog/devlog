@@ -72,7 +72,7 @@ public final class FakeDiscord {
 
     private void handle(HttpExchange ex) throws IOException {
         String[] parts = ex.getRequestURI().getPath().split("/");
-        // /api/webhooks/{id}/{token}
+        // 웹훅 주소는 /api/webhooks/{id}/{token} 모양만 받는다
         String id = parts.length >= 5 ? parts[3] : "";
         int status;
         String out = "";

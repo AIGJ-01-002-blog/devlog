@@ -32,6 +32,10 @@ import com.team.blog.shared.web.RateLimiter;
  */
 @RestController
 public class OAuthController {
+    private static final String AUTHORIZATION_CODE = "authorization_code";
+    private static final String REFRESH_TOKEN = "refresh_token";
+    private static final String SLOW_DOWN = "slow_down";
+
     private final OAuthServer oauth;
     private final RateLimiter rateLimiter;
     private final ClientIpResolver ips;
@@ -65,7 +69,7 @@ public class OAuthController {
         m.put("token_endpoint", oauth.issuer() + "/api/oauth/token");
         m.put("registration_endpoint", oauth.issuer() + "/api/oauth/register");
         m.put("response_types_supported", List.of("code"));
-        m.put("grant_types_supported", List.of("authorization_code", "refresh_token"));
+        m.put("grant_types_supported", List.of(AUTHORIZATION_CODE, REFRESH_TOKEN));
         m.put("code_challenge_methods_supported", List.of("S256"));
         m.put("token_endpoint_auth_methods_supported", List.of("none"));
         m.put("scopes_supported", List.of(OAuthServer.SCOPE_READ, OAuthServer.SCOPE_WRITE));
@@ -76,14 +80,14 @@ public class OAuthController {
     @PostMapping(value = "/api/oauth/register", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> register(@RequestBody RegisterRequest body, HttpServletRequest request) {
         if (!rateLimiter.tryAcquire("oauth-register:" + ips.resolve(request), 20, Duration.ofHours(1))) {
-            throw new OAuthServer.OAuthError("slow_down", "등록 요청이 너무 많아요. 잠시 뒤 다시 시도해 주세요.", false);
+            throw new OAuthServer.OAuthError(SLOW_DOWN, "등록 요청이 너무 많아요. 잠시 뒤 다시 시도해 주세요.", false);
         }
         OAuthServer.Client c = oauth.register(body == null ? null : body.client_name(), body == null ? null : body.redirect_uris());
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("client_id", c.clientId());
         out.put("client_name", c.clientName());
         out.put("redirect_uris", c.redirectUris());
-        out.put("grant_types", List.of("authorization_code", "refresh_token"));
+        out.put("grant_types", List.of(AUTHORIZATION_CODE, REFRESH_TOKEN));
         out.put("response_types", List.of("code"));
         out.put("token_endpoint_auth_method", "none");
         return ResponseEntity.status(HttpStatus.CREATED).cacheControl(CacheControl.noStore()).body(out);
@@ -124,23 +128,23 @@ public class OAuthController {
                                                      @RequestParam(name = "redirect_uri", required = false) String redirectUri,
                                                      @RequestParam(name = "client_id", required = false) String clientId,
                                                      @RequestParam(name = "code_verifier", required = false) String verifier,
-                                                     @RequestParam(name = "refresh_token", required = false) String refreshToken,
+                                                     @RequestParam(name = REFRESH_TOKEN, required = false) String refreshToken,
                                                      HttpServletRequest request) {
         if (!rateLimiter.tryAcquire("oauth-token:" + ips.resolve(request), 60, Duration.ofMinutes(1))) {
-            throw new OAuthServer.OAuthError("slow_down", "요청이 너무 많아요.", false);
+            throw new OAuthServer.OAuthError(SLOW_DOWN, "요청이 너무 많아요.", false);
         }
         // client_secret_basic으로 보내는 앱은 client_id를 본문 대신 Authorization: Basic에 담는다. 비밀값은 보지 않는다(공개 클라이언트)
         if (clientId == null || clientId.isBlank()) clientId = basicClientId(request.getHeader("Authorization"));
         AccessTokens.OAuthGrant g = switch (grantType == null ? "" : grantType) {
-            case "authorization_code" -> oauth.exchange(code, clientId, redirectUri, verifier);
-            case "refresh_token" -> oauth.refresh(refreshToken, clientId);
+            case AUTHORIZATION_CODE -> oauth.exchange(code, clientId, redirectUri, verifier);
+            case REFRESH_TOKEN -> oauth.refresh(refreshToken, clientId);
             default -> throw new OAuthServer.OAuthError("unsupported_grant_type", "authorization_code·refresh_token만 받아요.", false);
         };
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("access_token", g.accessToken());
         out.put("token_type", "Bearer");
         out.put("expires_in", g.expiresInSeconds());
-        out.put("refresh_token", g.refreshToken());
+        out.put(REFRESH_TOKEN, g.refreshToken());
         out.put("scope", OAuthServer.scopeString(g.scope()));
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).header("Pragma", "no-cache").body(out);
     }
@@ -149,7 +153,7 @@ public class OAuthController {
     @ExceptionHandler(OAuthServer.OAuthError.class)
     public ResponseEntity<Map<String, String>> error(OAuthServer.OAuthError e) {
         // invalid_client도 400: 공개 클라이언트라 클라이언트 인증이 없고, 화면이 401을 "로그인 필요"로 읽지 않게
-        HttpStatus status = "slow_down".equals(e.error) ? HttpStatus.TOO_MANY_REQUESTS : HttpStatus.BAD_REQUEST;
+        HttpStatus status = SLOW_DOWN.equals(e.error) ? HttpStatus.TOO_MANY_REQUESTS : HttpStatus.BAD_REQUEST;
         return ResponseEntity.status(status).cacheControl(CacheControl.noStore())
                 .body(Map.of("error", e.error, "error_description", e.getMessage(), "code", e.error, "message", e.getMessage()));
     }

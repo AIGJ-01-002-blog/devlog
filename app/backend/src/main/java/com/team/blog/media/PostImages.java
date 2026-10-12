@@ -43,6 +43,13 @@ public class PostImages {
     public static final int MAX_PIXELS_EDGE = 10_000;
     static final int MAX_GIF_FRAMES = 300;
     static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
+    private static final String INSERT_IMAGE_SQL = """
+            WITH r AS (
+                INSERT INTO resource (uploader_id, storage_key, content_type, size_bytes, kind, created_at)
+                VALUES (?, ?, ?, ?, 'IMAGE', ?) RETURNING id)
+            INSERT INTO resource_image (resource_id, width, height, thumb_storage_key, thumb_size_bytes)
+            SELECT id, ?, ?, ?, ? FROM r RETURNING resource_id
+            """;
     private static final DateTimeFormatter MONTH = DateTimeFormatter.ofPattern("yyyy/MM").withZone(ZoneOffset.UTC);
     private static final DateTimeFormatter DAY = DateTimeFormatter.BASIC_ISO_DATE;
 
@@ -114,13 +121,7 @@ public class PostImages {
                 throw new ApiException(HttpStatus.CONTENT_TOO_LARGE, "STORAGE_QUOTA",
                         "사진 저장 공간(" + human(quota) + ")을 다 썼어요. 쓰지 않는 사진이 든 글을 지우면 7일 뒤 공간이 돌아와요.");
             }
-            return jdbc.queryForObject("""
-                    WITH r AS (
-                        INSERT INTO resource (uploader_id, storage_key, content_type, size_bytes, kind, created_at)
-                        VALUES (?, ?, ?, ?, 'IMAGE', ?) RETURNING id)
-                    INSERT INTO resource_image (resource_id, width, height, thumb_storage_key, thumb_size_bytes)
-                    SELECT id, ?, ?, ?, ? FROM r RETURNING resource_id
-                    """, Long.class, memberId, key, info.contentType(), image.length, Timestamp.from(now),
+            return jdbc.queryForObject(INSERT_IMAGE_SQL, Long.class, memberId, key, info.contentType(), image.length, Timestamp.from(now),
                     info.width(), info.height(), thumbKey, thumb.length);
         });
         try {

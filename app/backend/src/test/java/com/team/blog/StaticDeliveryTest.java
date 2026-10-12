@@ -70,7 +70,7 @@ class StaticDeliveryTest extends IntegrationTest {
         HttpResponse<byte[]> plain = get("/assets/probe-T3st1234.js", false);
         HttpResponse<byte[]> gz = get("/assets/probe-T3st1234.js", true);
         assertThat(gz.headers().firstValue("Content-Encoding")).contains("gzip");
-        assertThat(gz.body().length).isLessThan(plain.body().length);
+        assertThat(gz.body()).hasSizeLessThan(plain.body().length);
         assertThat(plain.headers().firstValue("Content-Encoding")).isEmpty();
     }
 }

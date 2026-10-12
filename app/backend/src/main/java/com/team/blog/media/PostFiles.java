@@ -53,6 +53,13 @@ public class PostFiles {
     public static final int MAX_PER_POST = 20;
     static final int MAX_NAME = 255;
     static final String TYPE_MESSAGE = "pdf, zip, txt, md, csv, docx, xlsx, pptx 20MB 이하만 첨부할 수 있어요.";
+    private static final String FILE_IDS = "fileIds";
+    private static final String INSERT_FILE_SQL = """
+            WITH r AS (
+                INSERT INTO resource (uploader_id, storage_key, content_type, size_bytes, kind, created_at)
+                VALUES (?, ?, ?, ?, 'FILE', ?) RETURNING id)
+            INSERT INTO resource_file (resource_id, original_name) SELECT id, ? FROM r RETURNING resource_id
+            """;
     private static final DateTimeFormatter MONTH = DateTimeFormatter.ofPattern("yyyy/MM").withZone(ZoneOffset.UTC);
 
     private final JdbcTemplate jdbc;
@@ -99,7 +106,9 @@ public class PostFiles {
             case IMAGE -> throw ApiException.badRequest("FILE_IS_IMAGE", "사진은 본문에 넣어 주세요.");
             case NOT_ALLOWED -> throw ApiException.badRequest("FILE_TYPE", TYPE_MESSAGE);
             case MISMATCH -> throw ApiException.badRequest("FILE_TYPE_MISMATCH", "파일 내용이 확장자(." + ext + ")와 맞지 않아요.");
-            case OK -> { }
+            case OK -> {
+                // 통과: 아래에서 저장한다
+            }
         }
         String contentType = FileInspector.TYPES.get(ext);
         Instant now = Times.now(clock);
@@ -113,12 +122,7 @@ public class PostFiles {
                 throw new ApiException(HttpStatus.CONTENT_TOO_LARGE, "STORAGE_QUOTA",
                         "저장 공간(" + PostImages.human(quota) + ")을 다 썼어요. 쓰지 않는 사진·파일이 든 글을 지우면 7일 뒤 공간이 돌아와요.");
             }
-            return jdbc.queryForObject("""
-                    WITH r AS (
-                        INSERT INTO resource (uploader_id, storage_key, content_type, size_bytes, kind, created_at)
-                        VALUES (?, ?, ?, ?, 'FILE', ?) RETURNING id)
-                    INSERT INTO resource_file (resource_id, original_name) SELECT id, ? FROM r RETURNING resource_id
-                    """, Long.class, memberId, key, contentType, data.length, Timestamp.from(now), name);
+            return jdbc.queryForObject(INSERT_FILE_SQL, Long.class, memberId, key, contentType, data.length, Timestamp.from(now), name);
         });
         try {
             storage.put(key, data, contentType);
@@ -156,7 +160,7 @@ public class PostFiles {
      */
     public List<Attachment> set(long memberId, long postId, List<Long> fileIds) {
         if (fileIds == null) {
-            throw ApiException.validation(List.of(new FieldErrorItem("fileIds", "INVALID_FILES", "첨부 목록을 확인해 주세요.")));
+            throw ApiException.validation(List.of(new FieldErrorItem(FILE_IDS, "INVALID_FILES", "첨부 목록을 확인해 주세요.")));
         }
         return tx.execute(s -> {
             List<Long> post = Columns.longs(jdbc, "SELECT id FROM post WHERE id = ? AND author_id = ? AND deleted_at IS NULL FOR UPDATE",
@@ -174,11 +178,11 @@ public class PostFiles {
     void validate(long authorId, List<Long> fileIds, List<FieldErrorItem> errors) {
         if (fileIds == null) return;
         if (fileIds.size() > MAX_PER_POST) {
-            errors.add(new FieldErrorItem("fileIds", "TOO_MANY_FILES", "첨부는 " + MAX_PER_POST + "개까지 할 수 있어요."));
+            errors.add(new FieldErrorItem(FILE_IDS, "TOO_MANY_FILES", "첨부는 " + MAX_PER_POST + "개까지 할 수 있어요."));
             return;
         }
-        if (fileIds.stream().anyMatch(id -> id == null) || new HashSet<>(fileIds).size() != fileIds.size()) {
-            errors.add(new FieldErrorItem("fileIds", "INVALID_FILES", "첨부 목록을 확인해 주세요."));
+        if (fileIds.stream().anyMatch(Objects::isNull) || new HashSet<>(fileIds).size() != fileIds.size()) {
+            errors.add(new FieldErrorItem(FILE_IDS, "INVALID_FILES", "첨부 목록을 확인해 주세요."));
             return;
         }
         if (fileIds.isEmpty()) return;
@@ -187,7 +191,7 @@ public class PostFiles {
                 WHERE r.uploader_id = ? AND r.id = ANY (?)
                 """, Long.class, authorId, fileIds.toArray(Long[]::new));
         if (owned == null || owned != fileIds.size()) {
-            errors.add(new FieldErrorItem("fileIds", "FILE_NOT_OWNED", "직접 올린 파일만 첨부할 수 있어요."));
+            errors.add(new FieldErrorItem(FILE_IDS, "FILE_NOT_OWNED", "직접 올린 파일만 첨부할 수 있어요."));
         }
     }
 

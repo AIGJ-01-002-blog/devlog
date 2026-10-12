@@ -181,7 +181,7 @@ class TrashTest extends IntegrationTest {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM post_like WHERE post_id = ?", Long.class, id)).isZero();
         for (long c : List.of(postCase, commentCase)) {
             Map<String, Object> row = jdbc.queryForMap("SELECT status, handled_by, handled_at FROM report_case WHERE id = ?", c);
-            assertThat(row.get("status")).isEqualTo("CLOSED_NO_TARGET");
+            assertThat(row).containsEntry("status", "CLOSED_NO_TARGET");
             assertThat(row.get("handled_by")).isNull();
             assertThat(row.get("handled_at")).isNotNull();
         }
@@ -224,7 +224,7 @@ class TrashTest extends IntegrationTest {
         jdbc.update("UPDATE post SET deleted_at = now() - interval '31 days' WHERE id = ?", expired);
         jdbc.update("UPDATE post SET deleted_at = now() - interval '29 days' WHERE id = ?", recent);
 
-        assertThat(purgeJob.run()).isGreaterThanOrEqualTo(1);
+        assertThat(purgeJob.run()).isPositive();
         assertThat(exists(expired)).isFalse();
         assertThat(exists(recent)).isTrue();
     }

@@ -66,11 +66,14 @@ final class FileInspector {
         if (eocd < 0) return false;
         int count = u16(b, eocd + 10);
         long offset = u32(b, eocd + 16);
-        boolean types = false, folder = false;
+        boolean types = false;
+        boolean folder = false;
         int p = (int) Math.min(offset, Integer.MAX_VALUE);
         for (int n = 0; n < Math.min(count, MAX_ENTRIES); n++) {
             if (p < 0 || p + 46 > b.length || b[p] != 'P' || b[p + 1] != 'K' || b[p + 2] != 1 || b[p + 3] != 2) return false;
-            int nameLen = u16(b, p + 28), extraLen = u16(b, p + 30), commentLen = u16(b, p + 32);
+            int nameLen = u16(b, p + 28);
+            int extraLen = u16(b, p + 30);
+            int commentLen = u16(b, p + 32);
             if (p + 46 + nameLen > b.length) return false;
             String name = new String(b, p + 46, nameLen, StandardCharsets.UTF_8);
             if (name.equals("[Content_Types].xml")) types = true;

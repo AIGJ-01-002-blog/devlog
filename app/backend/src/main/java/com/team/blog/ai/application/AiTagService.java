@@ -46,6 +46,7 @@ public class AiTagService {
     private static final String POPULAR_PREFIX = "ai:popular:";
     static final int POPULAR = 50;
     private static final int MAX_ATTACHED = 100;
+    private static final String AI_BUSY = "AI_BUSY";
 
     private final AiProperties props;
     private final TagModel gemini;
@@ -123,7 +124,7 @@ public class AiTagService {
             throw ApiException.badRequest("AI_TOO_SHORT", "글을 조금 더 쓴 뒤 추천받아 보세요.");
         }
         Set<String> attached = attached(req.tags());
-        int room = Math.min(TagPrompt.MAX_TAGS, Math.max(0, postProps.maxTags() - attached.size()));
+        int room = Math.clamp(postProps.maxTags() - (long) attached.size(), 0, TagPrompt.MAX_TAGS);
         try {
             return run(memberId, postId, input, attached, room, req.again());
         } catch (DataAccessException e) {
@@ -137,7 +138,7 @@ public class AiTagService {
         int widest = props.gemini().maxChars();
         String key = AiInput.key(input, widest);
         String sent = input.title() + "\n" + input.bodyUpTo(widest);
-        Optional<SuggestionStore.Stored> exact = store.exact(key);
+        Optional<SuggestionStore.Stored> exact = store.findExact(key);
         boolean upgrade = again && !props.preferLocal() && exact.isPresent() && exact.get().provider() == Provider.LOCAL && state.geminiUsable();
         if (exact.isPresent() && !upgrade) {
             return answer(exact.get().tags(), true, exact.get().provider(), input, attached, room, remaining(memberId));
@@ -156,7 +157,7 @@ public class AiTagService {
             called = call(input, attached);
         } catch (ApiException e) {
             // 자체 AI가 바빠 아무것도 보내지 못했으면 횟수를 돌려준다
-            if ("AI_BUSY".equals(e.code())) redis.opsForValue().decrement(userKey(memberId));
+            if (AI_BUSY.equals(e.code())) redis.opsForValue().decrement(userKey(memberId));
             throw e;
         }
         List<String> filtered = filter(called.raw());
@@ -182,7 +183,7 @@ public class AiTagService {
                     localSlots.release();
                 }
             } else if (!state.geminiUsable()) {
-                throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "AI_BUSY", "잠시 후 다시 시도해 주세요.");
+                throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, AI_BUSY, "잠시 후 다시 시도해 주세요.");
             }
             if (!state.geminiUsable()) throw unavailable();
             try {
@@ -213,7 +214,7 @@ public class AiTagService {
     }
 
     private List<String> callLocal(AiInput.Cleaned input, Set<String> attached) {
-        if (!localSlots.tryAcquire()) throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "AI_BUSY", "잠시 후 다시 시도해 주세요.");
+        if (!localSlots.tryAcquire()) throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, AI_BUSY, "잠시 후 다시 시도해 주세요.");
         try {
             return local.suggest(prompt(local, input, attached));
         } catch (ModelException e) {

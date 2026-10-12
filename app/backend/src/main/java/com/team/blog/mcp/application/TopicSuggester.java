@@ -38,6 +38,7 @@ public class TopicSuggester {
     static final int DEFAULT_LIMIT = 5;
     static final int MAX_LIMIT = 10;
     private static final int SNIPPET = 140;
+    private static final String TITLE = "title";
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("MM-dd HH:mm").withZone(KST);
     /** AiJournal.diaryTitle과 같은 꼴. 일기는 자료로 읽고, 겹침 비교(발행한 글)에서는 뺀다 */
@@ -78,7 +79,11 @@ public class TopicSuggester {
             for (String w : words) {
                 boolean ascii = w.chars().allMatch(c -> c < 128);
                 // 정규식 조각(로그 앞 "블" 제외)은 그대로, 영문은 앞뒤가 영문·숫자가 아닐 때만 맞춘다 (ci가 decision에 걸리지 않게)
-                parts.add(w.contains("(?") ? w : ascii ? "(?<![a-z0-9])" + Pattern.quote(w) + "(?![a-z0-9])" : Pattern.quote(w));
+                String part;
+                if (w.contains("(?")) part = w;
+                else if (ascii) part = "(?<![a-z0-9])" + Pattern.quote(w) + "(?![a-z0-9])";
+                else part = Pattern.quote(w);
+                parts.add(part);
             }
             this.pattern = Pattern.compile(String.join("|", parts), Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
         }
@@ -114,16 +119,21 @@ public class TopicSuggester {
         int score() {
             return lenses.size() * 3 + Math.min(evidence.size(), 4) - (overlaps.isEmpty() ? 0 : 2);
         }
+
+        private static String snippet(String s) {
+            String one = s.replaceAll("\\s+", " ").strip();
+            return one.length() <= SNIPPET ? one : one.substring(0, SNIPPET) + "…";
+        }
     }
 
     public record Masked(String text, boolean changed) {}
 
     private static final Pattern WORD = Pattern.compile("[\\p{IsHangul}]+|[A-Za-z][A-Za-z0-9+#.]*");
-    private static final Pattern IPV4 = Pattern.compile("(?<![0-9.])(?:[0-9]{1,3}\\.){3}[0-9]{1,3}(?![0-9.])");
+    private static final Pattern IPV4 = Pattern.compile("(?<![0-9.])(?:\\d{1,3}\\.){3}\\d{1,3}(?![0-9.])");
     private static final Pattern EMAIL = Pattern.compile("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}");
     private static final Pattern SECRET = Pattern.compile(
-            "(?i)((?:password|passwd|pwd|secret|token|api[_-]?key|비밀번호|토큰)\\s*[=:]\\s*)(\"[^\"]*\"|'[^']*'|\\S+)");
-    private static final Pattern BEARER = Pattern.compile("(?i)(bearer\\s+)[A-Za-z0-9._~+/=-]{8,}");
+            "(?iu)((?:password|passwd|pwd|secret|token|api[_-]?key|비밀번호|토큰)\\s*[=:]\\s*)(\"[^\"]*\"|'[^']*'|\\S+)");
+    private static final Pattern BEARER = Pattern.compile("(?i)(bearer\\s+)[a-z0-9._~+/=-]{8,}");
 
     /** IP·메일 주소·비밀값처럼 보이는 값을 ****로 바꾼다. 무엇이 있었는지는 알려 주되 값은 돌려주지 않는다 */
     public static Masked mask(String raw) {
@@ -132,11 +142,6 @@ public class TopicSuggester {
         s = SECRET.matcher(s).replaceAll("$1****");
         s = BEARER.matcher(s).replaceAll("$1****");
         return new Masked(s, !s.equals(raw));
-    }
-
-    private static String snippet(String s) {
-        String one = s.replaceAll("\\s+", " ").strip();
-        return one.length() <= SNIPPET ? one : one.substring(0, SNIPPET) + "…";
     }
 
     private final JdbcTemplate jdbc;
@@ -191,7 +196,7 @@ public class TopicSuggester {
                 WHERE author_id = ? AND deleted_at IS NULL AND status = 'DRAFT' AND title !~ ? AND updated_at >= ?
                   AND (title <> '' OR content_md <> '') ORDER BY updated_at DESC LIMIT 30
                 """, rs -> {
-            String title = rs.getString("title");
+            String title = rs.getString(TITLE);
             candidate(byKey, title.isBlank() ? "(제목 없는 임시글 " + rs.getLong("id") + "번)" : title)
                     .add("임시글", "글 " + rs.getLong("id") + "번", rs.getString("body"), rs.getTimestamp("updated_at").toInstant());
             counts[3]++;
@@ -202,8 +207,8 @@ public class TopicSuggester {
                 LEFT JOIN post_tag pt ON pt.post_id = p.id LEFT JOIN tag t ON t.id = pt.tag_id
                 WHERE p.author_id = ? AND p.deleted_at IS NULL AND p.status <> 'DRAFT' AND p.title !~ ?
                 GROUP BY p.id, p.title ORDER BY p.id DESC LIMIT 300
-                """, (rs, i) -> new Published(rs.getLong("id"), rs.getString("title"),
-                words(rs.getString("title") + " " + rs.getString("tags"))), memberId, DIARY_TITLE);
+                """, (rs, i) -> new Published(rs.getLong("id"), rs.getString(TITLE),
+                words(rs.getString(TITLE) + " " + rs.getString("tags"))), memberId, DIARY_TITLE);
 
         List<String> focusWords = focus == null ? List.of() : words(focus).stream().toList();
         List<Candidate> picked = new ArrayList<>();
@@ -211,10 +216,12 @@ public class TopicSuggester {
         for (Candidate c : byKey.values()) {
             String all = c.title + " " + c.text;
             for (Lens l : Lens.values()) if (l.pattern.matcher(all).find()) c.lenses.add(l);
-            if (c.lenses.isEmpty()) { plain++; continue; }
-            if (!focusWords.isEmpty() && focusWords.stream().noneMatch(w -> all.toLowerCase(Locale.ROOT).contains(w))) continue;
-            c.overlaps = overlaps(c, published);
-            picked.add(c);
+            if (c.lenses.isEmpty()) {
+                plain++;
+            } else if (focusWords.isEmpty() || focusWords.stream().anyMatch(w -> all.toLowerCase(Locale.ROOT).contains(w))) {
+                c.overlaps = overlaps(c, published);
+                picked.add(c);
+            }
         }
         picked.sort(Comparator.comparingInt(Candidate::score).reversed().thenComparing(c -> c.latest, Comparator.reverseOrder()));
 
@@ -227,7 +234,7 @@ public class TopicSuggester {
                 + counts[3] + "편)";
         if (picked.isEmpty()) {
             return source + "에서 전공자용 관점(동시성·장애·보안·성능·접근성·운영·인프라·AI 하네스·설계)이 보이는 주제를 찾지 못했어요"
-                    + (focusWords.isEmpty() ? "." : " (focus: " + focus.strip() + ").")
+                    + (focus == null || focusWords.isEmpty() ? "." : " (focus: " + focus.strip() + ").")
                     + "\n지금 자료는 사용 후기나 일정 기록에 가까워요. 개발 일지(write_devlog)가 더 맞을 수 있어요.";
         }
         StringBuilder out = new StringBuilder(source).append("에서 전공자용 글감 ").append(Math.min(n, picked.size()))

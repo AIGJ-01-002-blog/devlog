@@ -11,6 +11,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -65,7 +66,7 @@ public class SocialLinks {
     }
 
     private static final Pattern GITHUB_ID = Pattern.compile("[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}");
-    private static final Pattern X_ID = Pattern.compile("[A-Za-z0-9_]{1,15}");
+    private static final Pattern X_ID = Pattern.compile("\\w{1,15}");
     private static final Pattern FACEBOOK_ID = Pattern.compile("[A-Za-z0-9.]{5,50}");
     private static final Pattern GITHUB_URL = profileUrl("github\\.com");
     private static final Pattern X_URL = profileUrl("(?:x|twitter)\\.com");
@@ -80,7 +81,7 @@ public class SocialLinks {
     public Links of(long memberId) {
         Map<Kind, String> m = new EnumMap<>(Kind.class);
         jdbc.query("SELECT kind, value FROM member_social_link WHERE member_id = ?",
-                rs -> { m.put(Kind.valueOf(rs.getString("kind")), rs.getString("value")); }, memberId);
+                (RowCallbackHandler) rs -> m.put(Kind.valueOf(rs.getString("kind")), rs.getString("value")), memberId);
         return Links.of(m);
     }
 
@@ -123,7 +124,10 @@ public class SocialLinks {
     /** 프로필 주소면 첫 경로를, 아니면 앞의 @를 뗀 입력을 아이디로 본다. */
     private static String account(String raw, Pattern url, Pattern id) {
         Matcher m = url.matcher(raw);
-        String candidate = m.matches() ? m.group(1) : raw.startsWith("@") ? raw.substring(1) : raw;
+        String candidate;
+        if (m.matches()) candidate = m.group(1);
+        else if (raw.startsWith("@")) candidate = raw.substring(1);
+        else candidate = raw;
         return id.matcher(candidate).matches() ? candidate : null;
     }
 

@@ -19,6 +19,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import tools.jackson.databind.json.JsonMapper;
 
+import com.team.blog.account.domain.Member;
 import com.team.blog.account.domain.Visibility;
 import com.team.blog.account.infra.MemberRepository;
 import com.team.blog.post.domain.Post;
@@ -98,7 +99,7 @@ public class PostCommandService {
             if (reused.isPresent()) return reused.get();
         }
         return tx.execute(s -> {
-            Visibility v = members.findById(memberId).map(m -> m.getDefaultVisibility()).orElseThrow(NotFoundException::new);
+            Visibility v = members.findById(memberId).map(Member::getDefaultVisibility).orElseThrow(NotFoundException::new);
             Post p = posts.save(Post.newDraft(memberId, v, in.title(), in.contentMd(), Times.now(clock)));
             return new Created(p.getId(), p.getEditVersion(), p.getVisibility());
         });
@@ -108,7 +109,7 @@ public class PostCommandService {
     public Created createAiDiary(long memberId, String rawTitle, String rawContent) {
         PostInput in = PostInput.forSave(rawTitle, rawContent, rules);
         return tx.execute(s -> {
-            Visibility v = members.findById(memberId).map(m -> m.getDefaultVisibility()).orElseThrow(NotFoundException::new);
+            Visibility v = members.findById(memberId).map(Member::getDefaultVisibility).orElseThrow(NotFoundException::new);
             Post p = posts.save(Post.newAiDiary(memberId, v, in.title(), in.contentMd(), Times.now(clock)));
             return new Created(p.getId(), p.getEditVersion(), p.getVisibility());
         });
@@ -148,7 +149,7 @@ public class PostCommandService {
             return saveToDatabase(memberId, postId, in, baseVersion, false);
         }
         return switch (r) {
-            case SaveResult.Saved saved -> new Saved(saved.version(), now);
+            case SaveResult.Saved(long savedVersion) -> new Saved(savedVersion, now);
             case SaveResult.NotOwner n -> throw new NotFoundException();
             case SaveResult.Conflict c -> throw conflict(post);
         };
@@ -182,7 +183,7 @@ public class PostCommandService {
                 SaveResult r = autosave.save(post.getId(), post.getAuthorId(), baseVersion, dbVersion,
                         in.title(), in.contentMd(), now, rules.autosaveTtl(), true);
                 return switch (r) {
-                    case SaveResult.Saved saved -> saved.version();
+                    case SaveResult.Saved(long savedVersion) -> savedVersion;
                     case SaveResult.NotOwner n -> throw new NotFoundException();
                     case SaveResult.Conflict c -> throw conflict(post);
                 };
@@ -228,7 +229,7 @@ public class PostCommandService {
             try {
                 SaveResult r = autosave.save(postId, memberId, current.version(), editorState.dbVersion(post, draft),
                         published.title(), published.contentMd(), now, rules.autosaveTtl(), false);
-                version = r instanceof SaveResult.Saved saved ? saved.version() : current.version() + 1;
+                version = r instanceof SaveResult.Saved(long savedVersion) ? savedVersion : current.version() + 1;
                 if (!(r instanceof SaveResult.Saved)) autosave.delete(postId);
             } catch (RuntimeException e) {
                 version = current.version() + 1;
@@ -269,8 +270,8 @@ public class PostCommandService {
                     throw ApiException.conflict("IN_PROGRESS", "발행을 처리하고 있어요. 잠시 후 다시 확인해 주세요.");
             case IdempotencyStore.Claim.Mismatch m -> throw new ApiException(HttpStatus.UNPROCESSABLE_CONTENT,
                     "IDEMPOTENCY_KEY_REUSED", "같은 요청 키로 다른 내용을 보냈어요.");
-            case IdempotencyStore.Claim.Completed c -> {
-                return json.readValue(c.responseJson(), PublishResult.class);
+            case IdempotencyStore.Claim.Completed(String responseJson) -> {
+                return json.readValue(responseJson, PublishResult.class);
             }
             case IdempotencyStore.Claim.Acquired a -> { /* 아래에서 처리 */ }
         }

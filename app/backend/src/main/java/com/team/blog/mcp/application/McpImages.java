@@ -8,6 +8,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.security.SecureRandom;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Iterator;
 import java.util.Optional;
@@ -44,6 +45,7 @@ public class McpImages {
     static final Duration TICKET_TTL = Duration.ofMinutes(10);
     /** base64로 받는 사진 상한. 더 크면 올리기 주소를 쓰라고 안내한다 */
     static final int MAX_INLINE_BYTES = 2 * 1024 * 1024;
+    private static final String IMAGE_TYPE = "IMAGE_TYPE";
     private static final String TICKET_KEY = "mcp:upload:";
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -81,9 +83,9 @@ public class McpImages {
             throw new ApiException(HttpStatus.CONTENT_TOO_LARGE, "IMAGE_TOO_LARGE", "사진은 10MB까지 올릴 수 있어요.");
         }
         ImageInspector.ImageInfo info = ImageInspector.inspect(original)
-                .orElseThrow(() -> ApiException.badRequest("IMAGE_TYPE", "jpg·png·gif 사진만 올릴 수 있어요."));
+                .orElseThrow(() -> ApiException.badRequest(IMAGE_TYPE, "jpg·png·gif 사진만 올릴 수 있어요."));
         if (info.contentType().equals("image/webp")) {
-            throw ApiException.badRequest("IMAGE_TYPE", "AI 연결로는 jpg·png·gif만 올릴 수 있어요. webp는 png로 바꿔 올리거나 devlog 편집 화면에서 올려 주세요.");
+            throw ApiException.badRequest(IMAGE_TYPE, "AI 연결로는 jpg·png·gif만 올릴 수 있어요. webp는 png로 바꿔 올리거나 devlog 편집 화면에서 올려 주세요.");
         }
         Prepared p = prepare(original, info);
         PostImages.Uploaded up = images.upload(memberId, p.image(), p.thumb());
@@ -124,7 +126,23 @@ public class McpImages {
         }
     }
 
-    private record Prepared(byte[] image, byte[] thumb) {}
+    private record Prepared(byte[] image, byte[] thumb) {
+        // 배열은 기본 record 비교가 주소만 보므로 내용으로 비교한다
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof Prepared(byte[] otherImage, byte[] otherThumb) && Arrays.equals(image, otherImage) && Arrays.equals(thumb, otherThumb);
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * Arrays.hashCode(image) + Arrays.hashCode(thumb);
+        }
+
+        @Override
+        public String toString() {
+            return "Prepared[" + image.length + " bytes, thumb " + thumb.length + " bytes]";
+        }
+    }
 
     private static Prepared prepare(byte[] original, ImageInspector.ImageInfo info) {
         boolean gif = info.contentType().equals("image/gif");
@@ -139,7 +157,8 @@ public class McpImages {
         boolean png = info.contentType().equals("image/png");
         byte[] thumb = encode(scale(decoded, PostImages.THUMB_WIDTH, Integer.MAX_VALUE), png || gif ? "png" : "jpg");
         // GIF는 원본 그대로 둔다(사진 정보가 없고 장면을 지켜야 한다). 나머지는 다시 저장해 사진 정보를 지운다
-        byte[] image = gif ? original : encode(scale(decoded, PostImages.MAX_EDGE, PostImages.MAX_EDGE), png ? "png" : "jpg");
+        byte[] image = original;
+        if (!gif) image = encode(scale(decoded, PostImages.MAX_EDGE, PostImages.MAX_EDGE), png ? "png" : "jpg");
         return new Prepared(image, thumb);
     }
 
@@ -216,7 +235,7 @@ public class McpImages {
     }
 
     private static ApiException unreadable() {
-        return ApiException.badRequest("IMAGE_TYPE", "사진 파일을 읽을 수 없어요. 손상되지 않은 jpg·png·gif인지 확인해 주세요.");
+        return ApiException.badRequest(IMAGE_TYPE, "사진 파일을 읽을 수 없어요. 손상되지 않은 jpg·png·gif인지 확인해 주세요.");
     }
 
     private static ApiException inlineTooLarge() {

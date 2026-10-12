@@ -179,7 +179,7 @@ class HybridSearchTest extends IntegrationTest {
         index();
 
         List<Long> all = all("/api/search/posts?blog=" + a.handle() + "&q=" + enc("롤백"));
-        assertThat(all).doesNotHaveDuplicates().containsAll(rollbacks);
-        assertThat(all).hasSizeLessThanOrEqualTo(rollbacks.size() + 3);
+        assertThat(all).doesNotHaveDuplicates().containsAll(rollbacks)
+                .hasSizeLessThanOrEqualTo(rollbacks.size() + 3);
     }
 }

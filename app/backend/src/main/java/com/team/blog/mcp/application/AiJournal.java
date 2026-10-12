@@ -59,6 +59,10 @@ public class AiJournal {
     static final int NOTE_MAX = 1000;
     static final int TOPIC_MAX = 50;
     /** 일기로 묶지 못한 메모(정지된 계정 등)는 이만큼 지나면 지운다 */
+    private static final String CHARS_PLEASE = "자로 적어 주세요.";
+    private static final String TITLE = "title";
+    private static final String SCOPE = "scope";
+    private static final String CREATED_AT = "created_at";
     static final Duration NOTE_KEEP = Duration.ofDays(7);
 
     public enum Status { OPEN, DRAFTED, DISMISSED }
@@ -136,8 +140,8 @@ public class AiJournal {
     public long propose(long memberId, String rawTitle, String rawScope, List<String> tags) {
         String title = oneLine(rawTitle);
         String scope = rawScope == null ? "" : rawScope.strip();
-        if (title.isEmpty() || title.length() > TITLE_MAX) throw ApiException.badRequest("PROPOSAL_TITLE", "제목(title)은 1~" + TITLE_MAX + "자로 적어 주세요.");
-        if (scope.isEmpty() || scope.length() > SCOPE_MAX) throw ApiException.badRequest("PROPOSAL_SCOPE", "쓸 범위(scope)는 1~" + SCOPE_MAX + "자로 적어 주세요.");
+        if (title.isEmpty() || title.length() > TITLE_MAX) throw ApiException.badRequest("PROPOSAL_TITLE", "제목(title)은 1~" + TITLE_MAX + CHARS_PLEASE);
+        if (scope.isEmpty() || scope.length() > SCOPE_MAX) throw ApiException.badRequest("PROPOSAL_SCOPE", "쓸 범위(scope)는 1~" + SCOPE_MAX + CHARS_PLEASE);
         String tagText = String.join(",", tags);
         Instant now = Times.now(clock);
         long[] made = tx.execute(s -> {
@@ -178,15 +182,15 @@ public class AiJournal {
                 SELECT id, title, scope, tags, status, post_id, created_at FROM ai_post_proposal
                 WHERE member_id = ? AND (status = 'OPEN' OR (? AND status = 'DRAFTED' AND decided_at > ?))
                 ORDER BY status = 'OPEN' DESC, created_at DESC, id DESC LIMIT 40
-                """, (rs, i) -> new Proposal(rs.getLong("id"), rs.getString("title"), rs.getString("scope"), split(rs.getString("tags")),
-                Status.valueOf(rs.getString("status")), (Long) rs.getObject("post_id"), rs.getTimestamp("created_at").toInstant()),
+                """, (rs, i) -> new Proposal(rs.getLong("id"), rs.getString(TITLE), rs.getString(SCOPE), split(rs.getString("tags")),
+                Status.valueOf(rs.getString("status")), (Long) rs.getObject("post_id"), rs.getTimestamp(CREATED_AT).toInstant()),
                 memberId, includeDrafted, Timestamp.from(Times.now(clock).minus(Duration.ofDays(30))));
     }
 
     public Optional<Proposal> find(long memberId, long id) {
         return jdbc.query("SELECT id, title, scope, tags, status, post_id, created_at FROM ai_post_proposal WHERE id = ? AND member_id = ?",
-                (rs, i) -> new Proposal(rs.getLong("id"), rs.getString("title"), rs.getString("scope"), split(rs.getString("tags")),
-                        Status.valueOf(rs.getString("status")), (Long) rs.getObject("post_id"), rs.getTimestamp("created_at").toInstant()),
+                (rs, i) -> new Proposal(rs.getLong("id"), rs.getString(TITLE), rs.getString(SCOPE), split(rs.getString("tags")),
+                        Status.valueOf(rs.getString("status")), (Long) rs.getObject("post_id"), rs.getTimestamp(CREATED_AT).toInstant()),
                 id, memberId).stream().findFirst();
     }
 
@@ -221,8 +225,8 @@ public class AiJournal {
             Proposal p = jdbc.query("""
                     UPDATE ai_post_proposal SET status = 'DRAFTED', decided_at = ? WHERE id = ? AND member_id = ? AND status = 'OPEN'
                     RETURNING id, title, scope, tags, status, post_id, created_at
-                    """, (rs, i) -> new Proposal(rs.getLong("id"), rs.getString("title"), rs.getString("scope"), split(rs.getString("tags")),
-                    Status.OPEN, null, rs.getTimestamp("created_at").toInstant()), Timestamp.from(Times.now(clock)), id, memberId)
+                    """, (rs, i) -> new Proposal(rs.getLong("id"), rs.getString(TITLE), rs.getString(SCOPE), split(rs.getString("tags")),
+                    Status.OPEN, null, rs.getTimestamp(CREATED_AT).toInstant()), Timestamp.from(Times.now(clock)), id, memberId)
                     .stream().findFirst().orElse(null);
             if (p == null) {
                 Proposal done = find(memberId, id).orElseThrow(NotFoundException::new);
@@ -252,7 +256,7 @@ public class AiJournal {
     public NoteSaved addNote(long memberId, String rawTopic, String rawContent, List<String> tags) {
         String content = rawContent == null ? "" : rawContent.strip();
         String topic = oneLine(rawTopic);
-        if (content.isEmpty() || content.length() > NOTE_MAX) throw ApiException.badRequest("NOTE_CONTENT", "메모(content)는 1~" + NOTE_MAX + "자로 적어 주세요.");
+        if (content.isEmpty() || content.length() > NOTE_MAX) throw ApiException.badRequest("NOTE_CONTENT", "메모(content)는 1~" + NOTE_MAX + CHARS_PLEASE);
         if (topic.length() > TOPIC_MAX) throw ApiException.badRequest("NOTE_TOPIC", "주제(topic)는 " + TOPIC_MAX + "자까지 적어 주세요.");
         Instant now = Times.now(clock);
         return tx.execute(s -> {
@@ -302,7 +306,6 @@ public class AiJournal {
                 log.warn("회원 {}의 AI 일기를 만들지 못했습니다. 메모는 남겨 두고 내일 같은 시각에 다시 묶습니다: {}", memberId, e.getMessage());
                 continue;
             }
-            if (posts == null) continue;
             made += posts.size();
             for (long postId : posts) autoPublish(memberId, postId);
         }
@@ -317,10 +320,10 @@ public class AiJournal {
      * 이메일 인증 전이거나 발행이 거절되면(검증 실패 등) 임시글로 둔다.
      */
     private void autoPublish(long memberId, long postId) {
-        List<String> handle = jdbc.queryForList("""
+        List<String> handle = jdbc.query("""
                 SELECT m.handle FROM member m WHERE m.id = ? AND m.ai_publish_allowed AND m.status = 'ACTIVE' AND m.deleted_at IS NULL
                   AND EXISTS (SELECT 1 FROM auth_identity a WHERE a.member_id = m.id AND a.email_verified_at IS NOT NULL)
-                """, String.class, memberId);
+                """, (rs, i) -> rs.getString(1), memberId);
         if (handle.isEmpty()) return;
         try {
             PostEditorQuery.EditorView view = editor.open(memberId, handle.getFirst(), postId);
@@ -344,7 +347,7 @@ public class AiJournal {
     private List<Long> compile(long memberId, Instant before, int hour, Instant now) {
         List<Note> notes = jdbc.query("DELETE FROM ai_note WHERE member_id = ? AND created_at < ? RETURNING topic, content, tags, created_at",
                 (rs, i) -> new Note(rs.getString("topic"), rs.getString("content"), split(rs.getString("tags")),
-                        rs.getTimestamp("created_at").toInstant()), memberId, Timestamp.from(before));
+                        rs.getTimestamp(CREATED_AT).toInstant()), memberId, Timestamp.from(before));
         Map<LocalDate, List<Note>> byDay = new TreeMap<>();
         Instant oldest = now.minus(NOTE_KEEP);
         for (Note n : notes) {

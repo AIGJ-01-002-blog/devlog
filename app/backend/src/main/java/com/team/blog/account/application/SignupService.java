@@ -66,8 +66,10 @@ public class SignupService {
 
     public SignupDraft draftFor(PendingSignup pending) {
         SocialProfile p = pending.profile();
-        String material = p.provider() == AuthProvider.GITHUB ? p.login()
-                : p.verifiedEmail() != null ? localPart(p.verifiedEmail()) : p.name();
+        String material;
+        if (p.provider() == AuthProvider.GITHUB) material = p.login();
+        else if (p.verifiedEmail() != null) material = localPart(p.verifiedEmail());
+        else material = p.name();
         String handle = suggester.suggest(p.provider(), material);
         String nickname = nicknamePolicy.prefill(p.name() != null && !p.name().isBlank() ? p.name() : p.login());
         return new SignupDraft(p.provider(), p.provider().handlePrefix(), HandlePolicy.bodyOf(handle), nickname,
@@ -133,7 +135,7 @@ public class SignupService {
     private MemberPrincipal loggedInExisting(SocialProfile profile) {
         AuthIdentity identity = identities.findByProviderAndProviderUserId(profile.provider(), profile.providerUserId()).orElseThrow();
         LoginOutcome outcome = loginService.login(identity, Times.now(clock));
-        if (outcome instanceof LoginOutcome.LoggedIn in) return in.principal();
+        if (outcome instanceof LoginOutcome.LoggedIn(MemberPrincipal principal)) return principal;
         throw ApiException.conflict("SIGNUP_FAILED", "로그인할 수 없는 계정이에요.");
     }
 

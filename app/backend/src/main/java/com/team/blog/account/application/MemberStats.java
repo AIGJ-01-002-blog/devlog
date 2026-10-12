@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.stereotype.Service;
 
 import com.team.blog.shared.stats.Counts;
@@ -22,7 +23,7 @@ import com.team.blog.shared.stats.Counts;
  */
 @Service
 public class MemberStats {
-    public static final int PAGE = 20;
+    public static final int PAGE_SIZE = 20;
 
     private static final String SELECT = """
             SELECT m.id, m.handle, m.nickname, m.role, m.status, m.created_at, m.last_active_at, a.provider
@@ -67,7 +68,7 @@ public class MemberStats {
     public Map<LocalDate, Long> activeByDay(Instant from) {
         Map<LocalDate, Long> out = new HashMap<>();
         jdbc.query("SELECT day AS d, count(*) AS n FROM member_active_day WHERE day >= ? GROUP BY day",
-                rs -> { out.put(rs.getObject("d", LocalDate.class), rs.getLong("n")); }, LocalDate.ofInstant(from, Counts.KST));
+                (RowCallbackHandler) rs -> out.put(rs.getObject("d", LocalDate.class), rs.getLong("n")), LocalDate.ofInstant(from, Counts.KST));
         return out;
     }
 
@@ -109,10 +110,10 @@ public class MemberStats {
         long total = Counts.one(jdbc, "SELECT count(*) FROM member m WHERE " + where, args.toArray());
         int p = Math.max(1, page);
         List<Object> pageArgs = new ArrayList<>(args);
-        pageArgs.add(PAGE);
-        pageArgs.add((long) (p - 1) * PAGE);
+        pageArgs.add(PAGE_SIZE);
+        pageArgs.add((long) (p - 1) * PAGE_SIZE);
         List<Row> rows = jdbc.query(SELECT + " WHERE " + where + " ORDER BY m.created_at DESC, m.id DESC LIMIT ? OFFSET ?", (rs, i) -> row(rs), pageArgs.toArray());
-        return new Page(rows, p, total, PAGE);
+        return new Page(rows, p, total, PAGE_SIZE);
     }
 
     public Optional<Row> byHandle(String handle) {
@@ -123,9 +124,7 @@ public class MemberStats {
     public Map<Long, Row> byIds(List<Long> ids) {
         Map<Long, Row> out = new HashMap<>();
         if (ids.isEmpty()) return out;
-        jdbc.query(SELECT + " WHERE m.id = ANY (?)", rs -> {
-            out.put(rs.getLong("id"), row(rs));
-        }, (Object) ids.toArray(Long[]::new));
+        jdbc.query(SELECT + " WHERE m.id = ANY (?)", (RowCallbackHandler) rs -> out.put(rs.getLong("id"), row(rs)), (Object) ids.toArray(Long[]::new));
         return out;
     }
 

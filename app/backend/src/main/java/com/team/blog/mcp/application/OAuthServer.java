@@ -35,6 +35,8 @@ public class OAuthServer {
     public static final String SCOPE_WRITE = "devlog.write";
     static final Duration CODE_TTL = Duration.ofMinutes(5);
     private static final String CODE_KEY = "oauth:code:";
+    private static final String INVALID_REQUEST = "invalid_request";
+    private static final String INVALID_GRANT = "invalid_grant";
     private static final int MAX_REDIRECTS = 10;
     /** RFC 7636: code_verifier와 code_challenge 모두 unreserved 문자 43~128자 */
     private static final String PKCE_PATTERN = "[A-Za-z0-9._~-]{43,128}";
@@ -113,11 +115,11 @@ public class OAuthServer {
                             String challengeMethod, String scope, String state, String resource) {
         Client client = client(clientId).orElseThrow(() -> new OAuthError("invalid_client", "등록되지 않은 앱이에요.", false));
         if (redirectUri == null || !client.redirectUris().contains(redirectUri)) {
-            throw new OAuthError("invalid_request", "등록되지 않은 돌아갈 주소예요.", false);
+            throw new OAuthError(INVALID_REQUEST, "등록되지 않은 돌아갈 주소예요.", false);
         }
         if (!"code".equals(responseType)) throw new OAuthError("unsupported_response_type", "response_type=code만 받아요.", true);
         if (codeChallenge == null || !codeChallenge.matches(PKCE_PATTERN) || !"S256".equals(challengeMethod)) {
-            throw new OAuthError("invalid_request", "PKCE(S256)가 필요해요.", true);
+            throw new OAuthError(INVALID_REQUEST, "PKCE(S256)가 필요해요.", true);
         }
         if (resource != null && !resource.isBlank() && !resource.equals(resource())) {
             throw new OAuthError("invalid_target", "이 서버의 자원이 아니에요.", true);
@@ -144,16 +146,16 @@ public class OAuthServer {
 
     /** 코드 교환 (grant_type=authorization_code). 코드는 맞든 틀리든 한 번 꺼내면 사라진다. */
     public AccessTokens.OAuthGrant exchange(String code, String clientId, String redirectUri, String verifier) {
-        if (code == null || verifier == null) throw new OAuthError("invalid_request", "code와 code_verifier가 필요해요.", false);
-        if (!verifier.matches(PKCE_PATTERN)) throw new OAuthError("invalid_request", "code_verifier는 43~128자예요 (RFC 7636).", false);
+        if (code == null || verifier == null) throw new OAuthError(INVALID_REQUEST, "code와 code_verifier가 필요해요.", false);
+        if (!verifier.matches(PKCE_PATTERN)) throw new OAuthError(INVALID_REQUEST, "code_verifier는 43~128자예요 (RFC 7636).", false);
         String raw = redis.opsForValue().getAndDelete(CODE_KEY + AccessTokens.hash(code));
-        if (raw == null) throw new OAuthError("invalid_grant", "코드가 없거나 이미 썼거나 만료됐어요.", false);
+        if (raw == null) throw new OAuthError(INVALID_GRANT, "코드가 없거나 이미 썼거나 만료됐어요.", false);
         CodeData data = json.readValue(raw, CodeData.class);
         if (!data.clientId().equals(clientId) || !data.redirectUri().equals(redirectUri)) {
-            throw new OAuthError("invalid_grant", "코드를 받은 앱·주소와 달라요.", false);
+            throw new OAuthError(INVALID_GRANT, "코드를 받은 앱·주소와 달라요.", false);
         }
         if (!MessageDigest.isEqual(s256(verifier).getBytes(StandardCharsets.US_ASCII), data.codeChallenge().getBytes(StandardCharsets.US_ASCII))) {
-            throw new OAuthError("invalid_grant", "code_verifier가 맞지 않아요.", false);
+            throw new OAuthError(INVALID_GRANT, "code_verifier가 맞지 않아요.", false);
         }
         Client client = client(clientId).orElseThrow(() -> new OAuthError("invalid_client", "등록되지 않은 앱이에요.", false));
         return tokens.issueOAuth(data.memberId(), clientId, client.clientName(), AccessTokens.Scope.valueOf(data.scope()));
@@ -161,7 +163,7 @@ public class OAuthServer {
 
     public AccessTokens.OAuthGrant refresh(String refreshToken, String clientId) {
         return tokens.refreshOAuth(refreshToken, clientId)
-                .orElseThrow(() -> new OAuthError("invalid_grant", "갱신 토큰이 없거나 폐기·만료됐어요.", false));
+                .orElseThrow(() -> new OAuthError(INVALID_GRANT, "갱신 토큰이 없거나 폐기·만료됐어요.", false));
     }
 
     public static String scopeString(AccessTokens.Scope scope) {

@@ -7,9 +7,9 @@ import java.util.Set;
 public enum NotificationType {
     COMMENT, REPLY, LIKE, FOLLOW, NEW_POST, REPORT_RESOLVED, CONTENT_HIDDEN, INQUIRY_ANSWERED, AI_PROPOSAL, FRIEND_REQUEST, FRIEND_ACCEPTED;
 
-    public static final Set<NotificationType> MUTABLE = EnumSet.of(COMMENT, REPLY, LIKE, FOLLOW, NEW_POST, AI_PROPOSAL, FRIEND_REQUEST, FRIEND_ACCEPTED);
+    private static final Set<NotificationType> MUTABLE_TYPES = EnumSet.of(COMMENT, REPLY, LIKE, FOLLOW, NEW_POST, AI_PROPOSAL, FRIEND_REQUEST, FRIEND_ACCEPTED);
 
     public boolean mutable() {
-        return MUTABLE.contains(this);
+        return MUTABLE_TYPES.contains(this);
     }
 }

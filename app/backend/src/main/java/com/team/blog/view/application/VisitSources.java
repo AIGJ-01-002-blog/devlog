@@ -14,19 +14,25 @@ import java.util.regex.Pattern;
 public final class VisitSources {
     public static final String DIRECT = "direct";
     public static final String OTHER = "other";
+    private static final String NAVER = "naver";
+    private static final String KAKAO = "kakao";
     /** 검색으로 온 방문 (대시보드의 '검색 유입') */
-    public static final Set<String> SEARCH = Set.of("google", "naver", "daum", "bing");
+    public static final Set<String> SEARCH = Set.of("google", NAVER, "daum", "bing");
 
     /** host는 OTHER일 때만 채운다 */
     public record Source(String source, String host) {}
 
-    private record Rule(String source, String... hosts) {}
+    private record Rule(String source, List<String> hosts) {
+        Rule(String source, String... hosts) {
+            this(source, List.of(hosts));
+        }
+    }
 
     // 앞에서부터 맞춰 본다. 호스트가 이것과 같거나 ".이것"으로 끝나면 맞다
     private static final List<Rule> HOSTS = List.of(
-            new Rule("naver", "naver.com", "naver.me", "naver.net"),
+            new Rule(NAVER, "naver.com", "naver.me", "naver.net"),
             new Rule("daum", "daum.net", "search.kakao.com"),
-            new Rule("kakao", "kakao.com", "kakaocdn.net", "kakaotalk.com", "kakaostory.com"),
+            new Rule(KAKAO, "kakao.com", "kakaocdn.net", "kakaotalk.com", "kakaostory.com"),
             new Rule("bing", "bing.com"),
             new Rule("instagram", "instagram.com"),
             new Rule("facebook", "facebook.com", "fb.com", "fb.me", "messenger.com"),
@@ -50,8 +56,8 @@ public final class VisitSources {
         if (host != null && ownHost != null && host.equals(normalizeHost(ownHost))) host = null;
         if (host == null) return new Source(inApp(userAgent), "");
         if (GOOGLE.matcher(host).find() || ANDROID_GOOGLE.matcher(host).matches()) return new Source("google", "");
-        if (host.equals("com.nhn.android.search")) return new Source("naver", "");
-        if (host.equals("com.kakao.talk")) return new Source("kakao", "");
+        if (host.equals("com.nhn.android.search")) return new Source(NAVER, "");
+        if (host.equals("com.kakao.talk")) return new Source(KAKAO, "");
         for (Rule r : HOSTS) {
             for (String h : r.hosts()) if (host.equals(h) || host.endsWith("." + h)) return new Source(r.source(), "");
         }
@@ -61,10 +67,10 @@ public final class VisitSources {
     /** 이전 주소가 없을 때: 앱 안 브라우저면 그 앱, 아니면 주소 직접 입력·즐겨찾기 */
     private static String inApp(String ua) {
         if (ua == null) return DIRECT;
-        if (ua.contains("KAKAOTALK")) return "kakao";
+        if (ua.contains("KAKAOTALK")) return KAKAO;
         if (ua.contains("Instagram")) return "instagram";
         if (ua.contains("FBAN") || ua.contains("FBAV") || ua.contains("FB_IAB")) return "facebook";
-        if (ua.contains("NAVER(inapp")) return "naver";
+        if (ua.contains("NAVER(inapp")) return NAVER;
         if (ua.contains("DaumApps")) return "daum";
         if (ua.contains(" Line/")) return "line";
         return DIRECT;
@@ -97,7 +103,7 @@ public final class VisitSources {
     // 남기는 화면 주소 모양. 관리자·글쓰기·인증처럼 순위가 의미 없거나 값이 들어가는 화면은 남기지 않는다
     private static final Pattern PAGE = Pattern.compile(
             "^/$"
-            + "|^/" + HANDLE + "(/(posts/[1-9][0-9]{0,17}|series(/[^/]{1,120})?|about|followers|following|rss))?$"
+            + "|^/" + HANDLE + "(/(posts/[1-9]\\d{0,17}|series(/[^/]{1,120})?|about|followers|following|rss))?$"
             + "|^/(rss|search|mcp|support|releases|tags|login|signup|feed|terms|privacy|notifications|settings)$"
             + "|^/tags/[^/]{1,120}$"
             + "|^/lists/liked$|^/manage/posts$");

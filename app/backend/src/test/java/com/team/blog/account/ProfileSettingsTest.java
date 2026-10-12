@@ -186,7 +186,7 @@ class ProfileSettingsTest extends IntegrationTest {
                 .andExpect(jsonPath("$.code").value("IMAGE_TYPE"));
         upload(s.http(), TestImages.jpegWithExif(256, 256), "image/jpeg").andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("IMAGE_METADATA"));
-        upload(s.http(), new byte[1024 * 1024 + 1], "image/png").andExpect(status().isPayloadTooLarge());
+        upload(s.http(), new byte[1024 * 1024 + 1], "image/png").andExpect(status().isContentTooLarge());
         upload(s.http(), TestImages.jpeg(256, 256), "image/jpeg").andExpect(status().isCreated());
         assertThat(jdbc.queryForObject("SELECT count(*) FROM resource WHERE uploader_id = ?", Integer.class, s.memberId())).isEqualTo(1);
     }

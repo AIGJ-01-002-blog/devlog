@@ -112,11 +112,11 @@ class McpTopicsTest extends IntegrationTest {
                 .contains("자동 저장", "동시성", "무중단 배포", "운영·배포", "MCP OAuth 직접 만들기", "보안")
                 .contains("관점이 안 보이는 기록 3개")  // 점심 메모, 선택 상자 메모, 산책 소제목
                 .doesNotContain("점심 메뉴", "꺾쇠", "공원", "남의 비밀 주제", "오래된 일")
-                .contains("propose_post");
-        // 겹침: 임시글 "Redis 캐시 무효화"는 발행한 "Redis 캐시 이야기"와 겹친다
-        assertThat(out).contains("겹치는 글: [" + redis + "] Redis 캐시 이야기");
-        // 가릴 것: IP와 비밀번호 값은 돌려주지 않는다
-        assertThat(out).doesNotContain("10.0.0.5", "hunter2").contains("password=****", "가릴 것");
+                .contains("propose_post")
+                // 겹침: 임시글 "Redis 캐시 무효화"는 발행한 "Redis 캐시 이야기"와 겹친다
+                .contains("겹치는 글: [" + redis + "] Redis 캐시 이야기")
+                // 가릴 것: IP와 비밀번호 값은 돌려주지 않는다
+                .doesNotContain("10.0.0.5", "hunter2").contains("password=****", "가릴 것");
 
         String focused = text(call(readOnly, "suggest_topics", Map.of("focus", "배포", "limit", 3)));
         assertThat(focused).contains("무중단 배포").doesNotContain("자동 저장", "MCP OAuth");

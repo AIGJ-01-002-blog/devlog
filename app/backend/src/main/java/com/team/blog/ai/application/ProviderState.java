@@ -18,6 +18,8 @@ class ProviderState {
     static final String PREFIX = "ai:gemini:";
     private static final Duration DAY_KEEP = Duration.ofDays(2);
     static final int UNKNOWN_QUOTA_STREAK = 3;
+    private static final String COUNT = "count:";
+    private static final String UNKNOWN = "unknown:";
 
     private final StringRedisTemplate redis;
     private final AiProperties props;
@@ -40,7 +42,7 @@ class ProviderState {
         if (Boolean.TRUE.equals(redis.hasKey(PREFIX + "exhausted:" + day)) || Boolean.TRUE.equals(redis.hasKey(PREFIX + "cooldown"))) {
             return false;
         }
-        String count = redis.opsForValue().get(PREFIX + "count:" + day);
+        String count = redis.opsForValue().get(PREFIX + COUNT + day);
         if (count != null && Long.parseLong(count) >= props.gemini().dailyLimit()) {
             exhaust(day);
             return false;
@@ -62,9 +64,9 @@ class ProviderState {
 
     void succeeded() {
         String day = day();
-        redis.opsForValue().increment(PREFIX + "count:" + day);
-        redis.expire(PREFIX + "count:" + day, DAY_KEEP);
-        redis.delete(PREFIX + "unknown:" + day);
+        redis.opsForValue().increment(PREFIX + COUNT + day);
+        redis.expire(PREFIX + COUNT + day, DAY_KEEP);
+        redis.delete(PREFIX + UNKNOWN + day);
     }
 
     /** 실패 종류별 처리 (FR-016). 형식 오류는 공급자 탓이 아니라 쉬지 않는다. */
@@ -75,8 +77,8 @@ class ProviderState {
             case MINUTE_QUOTA, FAILURE -> cooldown();
             case UNKNOWN_QUOTA -> {
                 cooldown();
-                Long streak = redis.opsForValue().increment(PREFIX + "unknown:" + day);
-                redis.expire(PREFIX + "unknown:" + day, DAY_KEEP);
+                Long streak = redis.opsForValue().increment(PREFIX + UNKNOWN + day);
+                redis.expire(PREFIX + UNKNOWN + day, DAY_KEEP);
                 if (streak != null && streak >= UNKNOWN_QUOTA_STREAK) exhaust(day);
             }
             case INVALID -> succeeded();

@@ -28,9 +28,10 @@ public record SearchTerms(String normalized, List<String> words) {
         if (s.codePointCount(0, s.length()) > MAX_LENGTH) s = s.substring(0, s.offsetByCodePoints(0, MAX_LENGTH)).strip();
         LinkedHashSet<String> words = new LinkedHashSet<>();
         for (String w : s.split(" ")) {
-            if (length(w) < 2) continue;
-            words.add(w);
-            if (words.size() == MAX_WORDS) break;
+            if (length(w) >= 2) {
+                words.add(w);
+                if (words.size() == MAX_WORDS) break;
+            }
         }
         return new SearchTerms(s, List.copyOf(words));
     }

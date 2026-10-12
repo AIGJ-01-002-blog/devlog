@@ -22,8 +22,8 @@ public final class TagPrompt {
             - 답은 {"tags": ["태그", ...]} 형식의 JSON 하나뿐입니다. 설명을 붙이지 마세요.""";
 
     /** 두 공급자에 똑같이 거는 응답 형식 (JSON Schema 부분 집합: Gemini responseSchema·Ollama format 모두 읽는다) */
-    public static final String SCHEMA = """
-            {"type":"object","properties":{"tags":{"type":"array","items":{"type":"string"},"maxItems":5}},"required":["tags"]}""";
+    public static final String SCHEMA =
+            "{\"type\":\"object\",\"properties\":{\"tags\":{\"type\":\"array\",\"items\":{\"type\":\"string\"},\"maxItems\":5}},\"required\":[\"tags\"]}";
 
     private static final JsonMapper JSON = JsonMapper.builder().build();
 

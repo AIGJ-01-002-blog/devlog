@@ -55,6 +55,16 @@ public class PageController {
     /** 이보다 글이 적은 태그 화면은 noindex (spec 085) */
     static final int MIN_INDEXED_TAG_POSTS = 2;
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyy.MM.dd").withZone(ZoneId.of("Asia/Seoul"));
+    private static final String LI_LINK = "<li><a href=\"";
+    private static final String LI_END = "</li>";
+    private static final String UL_END = "</ul>";
+    private static final String MAIN_END = "</main>";
+    private static final String MAIN_H1 = "<main><h1>";
+    private static final String UL_MAIN_END = "</ul></main>";
+    private static final String H1_END = "</h1>";
+    private static final String ABOUT_PATH = "/about";
+    private static final String PROFILE = "profile";
+    private static final String LINK_LI_END = "</a></li>";
 
     private final SpaShell shell;
     private final FeedQuery feed;
@@ -107,11 +117,11 @@ public class PageController {
         if (top.isEmpty()) body.append("<p>아직 태그가 없어요.</p>");
         else {
             body.append("<ul>");
-            top.forEach(t -> body.append("<li><a href=\"").append(SpaShell.esc(tagPath(t.name()))).append("\">#")
-                    .append(SpaShell.esc(t.name())).append("</a> ").append(t.postCount()).append("</li>"));
-            body.append("</ul>");
+            top.forEach(t -> body.append(LI_LINK).append(SpaShell.esc(tagPath(t.name()))).append("\">#")
+                    .append(SpaShell.esc(t.name())).append("</a> ").append(t.postCount()).append(LI_END));
+            body.append(UL_END);
         }
-        body.append("</main>");
+        body.append(MAIN_END);
         HeadMeta meta = HeadMeta.site("태그 - " + site.name(), "공개 글에 쓰인 태그", absolute("/tags"), absolute(site.defaultOgImage()));
         return html(HttpStatus.OK, shell.render(meta, body.toString(), Map.of("page", "tags", "tags", top)), CacheControl.noCache());
     }
@@ -125,7 +135,7 @@ public class PageController {
         TagController.TagPage page = tagApi.page(name, null);
         String body = "<main><h1>#" + SpaShell.esc(name) + "</h1><p>공개 글 " + page.postCount() + "</p>"
                 + (page.items().isEmpty() ? "<p>아직 이 태그로 공개된 글이 없어요.</p>"
-                : cards(new PostCardPage(page.items(), page.nextCursor()))) + "</main>";
+                : cards(new PostCardPage(page.items(), page.nextCursor()))) + MAIN_END;
         HeadMeta meta = HeadMeta.site("#" + name + " - " + site.name(), "#" + name + " 태그가 달린 글", absolute(tagPath(name)),
                 absolute(site.defaultOgImage()));
         // 글이 하나뿐인 태그 화면은 그 글과 내용이 겹치는 얇은 화면이라 검색 수집·광고에서 뺀다 (spec 085, 애드센스 "가치가 별로 없는 콘텐츠")
@@ -146,14 +156,14 @@ public class PageController {
             return html(HttpStatus.OK, shell.render(meta, "<main><h1>검색</h1></main>", Map.of("page", "search")), CacheControl.noStore());
         }
         SearchQuery.PostPage result = search.posts(q, SearchController.parseSort(sort), null, null);
-        StringBuilder body = new StringBuilder("<main><h1>").append(SpaShell.esc(title)).append("</h1><ul>");
+        StringBuilder body = new StringBuilder(MAIN_H1).append(SpaShell.esc(title)).append("</h1><ul>");
         for (SearchQuery.Hit h : result.items()) {
-            body.append("<li><a href=\"").append(SpaShell.esc(h.url())).append("\">").append(SpaShell.esc(h.title()))
+            body.append(LI_LINK).append(SpaShell.esc(h.url())).append("\">").append(SpaShell.esc(h.title()))
                     .append("</a> <span>").append(SpaShell.esc(h.author().nickname())).append("</span>");
             if (h.snippetHtml() != null) body.append("<p>").append(h.snippetHtml()).append("</p>"); // mark 외 태그 없음 (FR-019)
-            body.append("</li>");
+            body.append(LI_END);
         }
-        body.append("</ul></main>");
+        body.append(UL_MAIN_END);
         return html(HttpStatus.OK, shell.render(meta, body.toString(), Map.of("page", "search", "result", result)), CacheControl.noStore());
     }
 
@@ -163,13 +173,13 @@ public class PageController {
             // 트렌딩 탭 (017): 첫 9개를 함께 내려준다. 순위표 문제로 바로 계산한 결과면 저장하지 않는다
             TrendingService.Page t = trending.page(null);
             PostCardPage asFeed = new PostCardPage(t.items(), t.nextCursor());
-            String body = "<main><h1>트렌딩</h1>" + cards(asFeed) + "</main>";
+            String body = "<main><h1>트렌딩</h1>" + cards(asFeed) + MAIN_END;
             HeadMeta meta = HeadMeta.site(site.name(), "최근 7일 동안 반응이 많은 글", absolute("/?tab=trending"), absolute(site.defaultOgImage()));
             return html(HttpStatus.OK, shell.render(meta, body, Map.of("page", "home", "trending", asFeed)),
                     t.temporary() ? CacheControl.noStore() : CacheControl.noCache());
         }
         PostCardPage first = feed.home(null);
-        String body = "<main><h1>" + SpaShell.esc(site.name()) + "</h1>" + cards(first) + "</main>";
+        String body = MAIN_H1 + SpaShell.esc(site.name()) + H1_END + cards(first) + MAIN_END;
         HeadMeta meta = HeadMeta.site(site.name(), SLOGAN + " AI 도구에 연결하면 개발 일지를 써 주는 개발자 블로그", absolute("/"), absolute(site.defaultOgImage()));
         return html(HttpStatus.OK, shell.render(meta, body, Map.of("page", "home", "feed", first)), CacheControl.noCache());
     }
@@ -188,7 +198,7 @@ public class PageController {
      * 사이트 소개 (077): 무엇을 하는 곳인지, 누가 운영하는지, 어디로 연락하는지. 애드센스 심사처럼 사람이 아닌 읽기 도구도
      * 내용을 보도록 서버가 본문을 그리고, React가 같은 내용을 다시 그린다.
      */
-    @GetMapping("/about")
+    @GetMapping(ABOUT_PATH)
     public ResponseEntity<String> siteAbout() {
         String ownerHandle = owner.handle().orElse(null);
         StringBuilder body = new StringBuilder("<main><h1>devlog 소개</h1><p>").append(SpaShell.esc(SLOGAN)).append("</p>")
@@ -201,7 +211,7 @@ public class PageController {
         body.append("</p><h2>연락하기</h2><p><a href=\"/support\">문의·신고</a>에서 질문, 버그, 권리 침해 신고를 받아요. 답변을 알림으로 드리려고 로그인한 뒤 남기도록 했어요.</p>")
                 .append("<p><a href=\"/terms\">이용약관</a> · <a href=\"/privacy\">개인정보 처리방침</a></p></main>");
         HeadMeta meta = HeadMeta.site("소개 - " + site.name(), SLOGAN + " devlog가 어떤 곳이고 누가 운영하는지 알려 드려요.",
-                absolute("/about"), absolute(site.defaultOgImage()));
+                absolute(ABOUT_PATH), absolute(site.defaultOgImage()));
         var data = new HashMap<String, Object>(); // 운영자 주소가 비면 null이라 Map.of를 못 쓴다
         data.put("page", "about");
         data.put("ownerHandle", ownerHandle);
@@ -217,7 +227,7 @@ public class PageController {
         PolicyDocuments.Kind kind = request.getRequestURI().endsWith("/terms") ? PolicyDocuments.Kind.TERMS : PolicyDocuments.Kind.PRIVACY;
         PolicyDocuments.Document doc = policies.get(kind);
         boolean terms = kind == PolicyDocuments.Kind.TERMS;
-        String body = "<main><h1>" + SpaShell.esc(doc.title()) + "</h1>"
+        String body = MAIN_H1 + SpaShell.esc(doc.title()) + H1_END
                 + (doc.effectiveDate() == null ? "" : "<p>시행일 " + SpaShell.esc(doc.effectiveDate()) + "</p>")
                 + doc.html()
                 + "<p><a href=\"" + (terms ? "/privacy\">개인정보 처리방침 보기" : "/terms\">이용약관 보기") + "</a></p></main>";
@@ -232,8 +242,8 @@ public class PageController {
     public ResponseEntity<String> releases() {
         StringBuilder body = new StringBuilder("<main><h1>릴리스 노트</h1><ul>");
         releaseNotes.all().stream().limit(10).forEach(r -> body.append("<li>v").append(SpaShell.esc(r.version()))
-                .append(r.date() == null ? "" : " · " + SpaShell.esc(r.date())).append("</li>"));
-        body.append("</ul></main>");
+                .append(r.date() == null ? "" : " · " + SpaShell.esc(r.date())).append(LI_END));
+        body.append(UL_MAIN_END);
         HeadMeta meta = HeadMeta.site("릴리스 노트 - " + site.name(), "devlog가 버전마다 무엇을 더하고 고쳤는지 모았어요.",
                 absolute("/releases"), absolute(site.defaultOgImage()));
         return html(HttpStatus.OK, shell.render(meta, body.toString(), Map.of("page", "releases")), CacheControl.noCache());
@@ -263,14 +273,14 @@ public class PageController {
         PostCardPage first = feed.blog(handle, filter, null, me == null ? null : me.id());
         var blogTags = tags.blogTags(p.id());
         String body = "<main><header><h1>" + SpaShell.esc(p.nickname()) + "</h1><p>@" + SpaShell.esc(p.handle()) + "</p>"
-                + (p.bio() == null ? "" : "<p>" + SpaShell.esc(p.bio()) + "</p>") + "</header>" + cards(first) + "</main>";
+                + (p.bio() == null ? "" : "<p>" + SpaShell.esc(p.bio()) + "</p>") + "</header>" + cards(first) + MAIN_END;
         String description = p.bio() == null || p.bio().isBlank() ? p.nickname() + "의 블로그" : truncate(p.bio(), 160);
         HeadMeta meta = new HeadMeta(p.nickname() + " (@" + p.handle() + ") - " + site.name(), description,
-                absolute("/@" + p.handle()), "profile", p.profileImageUrl() != null ? p.profileImageUrl() : absolute(site.defaultOgImage()),
+                absolute("/@" + p.handle()), PROFILE, p.profileImageUrl() != null ? p.profileImageUrl() : absolute(site.defaultOgImage()),
                 null, null, q == null || q.isBlank()); // 블로그 안 검색 결과는 수집 거부 (014 FR-022)
         return html(HttpStatus.OK, shell.render(meta, body, filter == null
-                        ? Map.of("page", "blog", "profile", p, "feed", first, "blogTags", blogTags)
-                        : Map.of("page", "blog", "profile", p, "feed", first, "blogTags", blogTags, "tag", filter), "/@" + p.handle() + "/rss"),
+                        ? Map.of("page", "blog", PROFILE, p, "feed", first, "blogTags", blogTags)
+                        : Map.of("page", "blog", PROFILE, p, "feed", first, "blogTags", blogTags, "tag", filter), "/@" + p.handle() + "/rss"),
                 first.friendsView() ? CacheControl.noStore().cachePrivate() : CacheControl.noCache().cachePrivate());
     }
 
@@ -289,14 +299,14 @@ public class PageController {
         FollowQuery.Page first = follows.list(handle, followers ? FollowQuery.Direction.FOLLOWERS : FollowQuery.Direction.FOLLOWING,
                 null, me == null ? null : me.id(), me != null && me.isStaff());
         String title = p.nickname() + (followers ? "님의 팔로워" : "님이 팔로우하는 사람");
-        StringBuilder body = new StringBuilder("<main><h1>").append(SpaShell.esc(title)).append("</h1>");
+        StringBuilder body = new StringBuilder(MAIN_H1).append(SpaShell.esc(title)).append(H1_END);
         if (first.hidden()) body.append("<p>비공개 계정입니다</p>");
         body.append("<ul>");
         first.items().forEach(x -> body.append("<li><a href=\"/@").append(SpaShell.esc(x.handle())).append("\">")
-                .append(SpaShell.esc(x.nickname())).append(" @").append(SpaShell.esc(x.handle())).append("</a></li>"));
-        body.append("</ul></main>");
+                .append(SpaShell.esc(x.nickname())).append(" @").append(SpaShell.esc(x.handle())).append(LINK_LI_END));
+        body.append(UL_MAIN_END);
         return html(HttpStatus.OK, shell.render(HeadMeta.privatePage(site.name(), title), body.toString(),
-                Map.of("page", "follows", "profile", p, "follows", first)), CacheControl.noStore().cachePrivate());
+                Map.of("page", "follows", PROFILE, p, "follows", first)), CacheControl.noStore().cachePrivate());
     }
 
     /** 블로그의 시리즈 탭 (024 US2-2). 남과 다른 응답(친구·주인)은 저장하지 않는다. */
@@ -309,10 +319,10 @@ public class PageController {
         if (profile.isEmpty() || listing.isEmpty()) return notFound();
         FeedQuery.BlogProfile p = profile.get();
         String title = p.nickname() + "님의 시리즈";
-        StringBuilder body = new StringBuilder("<main><h1>").append(SpaShell.esc(title)).append("</h1><ul>");
-        listing.get().items().forEach(x -> body.append("<li><a href=\"").append(SpaShell.esc(seriesPath(handle, x.slug()))).append("\">")
+        StringBuilder body = new StringBuilder(MAIN_H1).append(SpaShell.esc(title)).append("</h1><ul>");
+        listing.get().items().forEach(x -> body.append(LI_LINK).append(SpaShell.esc(seriesPath(handle, x.slug()))).append("\">")
                 .append(SpaShell.esc(x.name())).append("</a> (").append(x.postCount()).append(")</li>"));
-        body.append("</ul></main>");
+        body.append(UL_MAIN_END);
         HeadMeta meta = new HeadMeta(title + " - " + site.name(), p.nickname() + "의 블로그 시리즈", absolute("/@" + handle + "/series"),
                 "website", p.profileImageUrl() != null ? p.profileImageUrl() : absolute(site.defaultOgImage()), null, null, true);
         return html(HttpStatus.OK, shell.render(meta, body.toString(), Map.of("page", "series-list")),
@@ -323,7 +333,7 @@ public class PageController {
     @GetMapping("/@{handle}/about")
     public ResponseEntity<String> about(@PathVariable String handle, @CurrentMember(required = false) MemberPrincipal me) {
         if (!HANDLE_CHARS.matcher(handle).matches()) return notFound();
-        if (!handle.equals(handle.toLowerCase())) return redirect(HttpStatus.MOVED_PERMANENTLY, "/@" + handle.toLowerCase() + "/about");
+        if (!handle.equals(handle.toLowerCase())) return redirect(HttpStatus.MOVED_PERMANENTLY, "/@" + handle.toLowerCase() + ABOUT_PATH);
         Long viewer = me == null ? null : me.id();
         var profile = feed.profile(handle, viewer);
         var found = about.of(handle, viewer);
@@ -331,9 +341,9 @@ public class PageController {
         FeedQuery.BlogProfile p = profile.get();
         MemberAbout.About a = found.get();
         String title = p.nickname() + "님 소개";
-        String body = "<main><h1>" + SpaShell.esc(title) + "</h1>" + (a.html() == null ? "" : "<article>" + a.html() + "</article>") + "</main>";
+        String body = MAIN_H1 + SpaShell.esc(title) + H1_END + (a.html() == null ? "" : "<article>" + a.html() + "</article>") + MAIN_END;
         HeadMeta meta = new HeadMeta(title + " - " + site.name(), p.bio() != null ? p.bio() : p.nickname() + "의 블로그 소개",
-                absolute("/@" + handle + "/about"), "profile",
+                absolute("/@" + handle + ABOUT_PATH), PROFILE,
                 p.profileImageUrl() != null ? p.profileImageUrl() : absolute(site.defaultOgImage()), null, a.updatedAt(), a.html() != null);
         return html(HttpStatus.OK, shell.render(meta, body, Map.of("page", "about")), CacheControl.noCache().cachePrivate());
     }
@@ -347,14 +357,14 @@ public class PageController {
         if (found.isEmpty()) return notFound();
         PortfolioQuery.Portfolio p = found.get();
         String title = p.nickname() + "의 개발 기록";
-        StringBuilder body = new StringBuilder("<main><h1>").append(SpaShell.esc(title)).append("</h1>");
+        StringBuilder body = new StringBuilder(MAIN_H1).append(SpaShell.esc(title)).append(H1_END);
         if (p.bio() != null) body.append("<p>").append(SpaShell.esc(p.bio())).append("</p>");
         body.append("<ul>");
-        p.projects().forEach(x -> body.append("<li><a href=\"").append(SpaShell.esc(x.url())).append("\">").append(SpaShell.esc(x.name()))
-                .append("</a>").append(x.summary() == null ? "" : " " + SpaShell.esc(x.summary())).append("</li>"));
-        body.append("</ul></main>");
+        p.projects().forEach(x -> body.append(LI_LINK).append(SpaShell.esc(x.url())).append("\">").append(SpaShell.esc(x.name()))
+                .append("</a>").append(x.summary() == null ? "" : " " + SpaShell.esc(x.summary())).append(LI_END));
+        body.append(UL_MAIN_END);
         HeadMeta meta = new HeadMeta(title + " - " + site.name(), p.bio() != null ? p.bio() : p.nickname() + "의 포트폴리오",
-                absolute("/@" + handle + "/portfolio"), "profile",
+                absolute("/@" + handle + "/portfolio"), PROFILE,
                 p.profileImageUrl() != null ? p.profileImageUrl() : absolute(site.defaultOgImage()), null, null, !p.projects().isEmpty());
         return html(HttpStatus.OK, shell.render(meta, body.toString(), Map.of("page", "portfolio")), CacheControl.noCache());
     }
@@ -368,14 +378,14 @@ public class PageController {
         var found = series.detail(handle, slug, me == null ? null : me.id());
         if (found.isEmpty()) return notFound();
         SeriesQuery.Detail d = found.get();
-        StringBuilder body = new StringBuilder("<main><h1>").append(SpaShell.esc(d.name())).append("</h1><ol>");
-        d.posts().forEach(c -> body.append("<li><a href=\"").append(SpaShell.esc(c.url())).append("\">").append(SpaShell.esc(c.title()))
-                .append("</a></li>"));
+        StringBuilder body = new StringBuilder(MAIN_H1).append(SpaShell.esc(d.name())).append("</h1><ol>");
+        d.posts().forEach(c -> body.append(LI_LINK).append(SpaShell.esc(c.url())).append("\">").append(SpaShell.esc(c.title()))
+                .append(LINK_LI_END));
         body.append("</ol></main>");
-        String owner = d.posts().isEmpty() ? handle : d.posts().getFirst().author().nickname();
+        String ownerName = d.posts().isEmpty() ? handle : d.posts().getFirst().author().nickname();
         String image = d.posts().stream().map(PostCard::thumbnailUrl).filter(java.util.Objects::nonNull).findFirst()
                 .orElse(absolute(site.defaultOgImage()));
-        HeadMeta meta = new HeadMeta(d.name() + " - " + owner, owner + "의 시리즈 · 글 " + d.posts().size() + "개",
+        HeadMeta meta = new HeadMeta(d.name() + " - " + ownerName, ownerName + "의 시리즈 · 글 " + d.posts().size() + "개",
                 absolute(seriesPath(handle, d.slug())), "website", image, null, d.updatedAt(), !d.posts().isEmpty());
         return html(HttpStatus.OK, shell.render(meta, body.toString(), Map.of("page", "series")),
                 d.personal() ? CacheControl.noStore().cachePrivate() : CacheControl.noCache().cachePrivate());
@@ -392,7 +402,7 @@ public class PageController {
         if (!handle.equals(handle.toLowerCase())) {
             return redirect(HttpStatus.MOVED_PERMANENTLY, "/@" + handle.toLowerCase() + "/posts/" + postId);
         }
-        if (!postId.matches("[1-9][0-9]{0,17}")) return notFound();
+        if (!postId.matches("[1-9]\\d{0,17}")) return notFound();
         var found = details.find(Long.parseLong(postId), Viewer.of(me));
         if (found.isEmpty()) return notFound();
         PostDetailQuery.Detail d = found.get();
@@ -449,7 +459,7 @@ public class PageController {
 
     private String article(PostDetailQuery.Detail d) {
         StringBuilder sb = new StringBuilder("<main><article>");
-        sb.append("<h1>").append(SpaShell.esc(d.title())).append("</h1>");
+        sb.append("<h1>").append(SpaShell.esc(d.title())).append(H1_END);
         sb.append("<p><a href=\"/@").append(SpaShell.esc(d.author().handle())).append("\">")
                 .append(SpaShell.esc(d.author().nickname())).append(" @").append(SpaShell.esc(d.author().handle()))
                 .append("</a> · <time datetime=\"").append(d.displayDate()).append("\">")
@@ -460,8 +470,8 @@ public class PageController {
         sb.append("</p>");
         if (!d.tags().isEmpty()) {
             sb.append("<ul class=\"post-tags\">");
-            d.tags().forEach(t -> sb.append("<li><a href=\"").append(SpaShell.esc(tagPath(t))).append("\">#").append(SpaShell.esc(t)).append("</a></li>"));
-            sb.append("</ul>");
+            d.tags().forEach(t -> sb.append(LI_LINK).append(SpaShell.esc(tagPath(t))).append("\">#").append(SpaShell.esc(t)).append(LINK_LI_END));
+            sb.append(UL_END);
         }
         sb.append("<div class=\"post-body\">").append(d.contentHtml()).append("</div>"); // 발행 때 정화한 HTML
         sb.append("</article></main>");
@@ -471,12 +481,12 @@ public class PageController {
     private String cards(PostCardPage page) {
         StringBuilder sb = new StringBuilder("<ul>");
         for (PostCard c : page.items()) {
-            sb.append("<li><a href=\"").append(SpaShell.esc(c.url())).append("\">").append(SpaShell.esc(c.title()))
+            sb.append(LI_LINK).append(SpaShell.esc(c.url())).append("\">").append(SpaShell.esc(c.title()))
                     .append("</a> <span>").append(SpaShell.esc(c.author().nickname())).append("</span>");
             if (c.excerpt() != null) sb.append("<p>").append(SpaShell.esc(c.excerpt())).append("</p>");
-            sb.append("</li>");
+            sb.append(LI_END);
         }
-        return sb.append("</ul>").toString();
+        return sb.append(UL_END).toString();
     }
 
     private String absolute(String path) {

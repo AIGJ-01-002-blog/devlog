@@ -31,6 +31,45 @@ import com.team.blog.series.application.SeriesSql;
 public class NotificationService {
     static final Duration FOLLOW_REPEAT = Duration.ofDays(7);
 
+    private static final String ALREADY_LIKED_SQL = """
+            SELECT EXISTS (SELECT 1 FROM notification n
+                           JOIN notification_post np ON np.notification_id = n.id AND np.post_id = ?
+                           JOIN notification_actor a ON a.notification_id = n.id AND a.actor_id = ?
+                           WHERE n.receiver_id = ? AND n.type = 'LIKE')
+            """;
+    private static final String NEW_POST_SQL = """
+            WITH receivers AS (
+                SELECT r.id AS follower_id FROM member r
+                WHERE r.id IN (SELECT f.follower_id FROM follow f WHERE f.followee_id = ?
+                               UNION\s""" + SeriesSql.SUBSCRIBERS_OF_POST + """
+                              )
+                  AND r.id <> ? AND r.status <> 'WITHDRAWN' AND r.deleted_at IS NULL
+                  AND NOT EXISTS (SELECT 1 FROM notification_mute nm WHERE nm.member_id = r.id AND nm.type = 'NEW_POST')
+            ), made AS (
+                INSERT INTO notification (receiver_id, type, created_at, updated_at)
+                SELECT follower_id, 'NEW_POST', ?, ? FROM receivers RETURNING id, receiver_id
+            ), linked AS (
+                INSERT INTO notification_post (notification_id, type, post_id) SELECT id, 'NEW_POST', ? FROM made RETURNING notification_id
+            )
+            SELECT made.id, made.receiver_id FROM made JOIN linked ON linked.notification_id = made.id
+            """;
+    private static final String REPORTS_RESOLVED_SQL = """
+            WITH targets AS (
+                SELECT r.id AS report_id, r.reporter_id FROM report r JOIN report_case rc ON rc.id = r.case_id
+                JOIN member m ON m.id = r.reporter_id
+                WHERE r.case_id = ? AND rc.status IN ('HIDDEN', 'REJECTED') AND m.status <> 'WITHDRAWN' AND m.deleted_at IS NULL
+                  AND NOT EXISTS (SELECT 1 FROM notification_report x WHERE x.report_id = r.id)
+            ), made AS (
+                INSERT INTO notification (receiver_id, type, created_at, updated_at)
+                SELECT reporter_id, 'REPORT_RESOLVED', ?, ? FROM targets ORDER BY report_id RETURNING id, receiver_id
+            ), linked AS (
+                INSERT INTO notification_report (notification_id, type, report_id)
+                SELECT made.id, 'REPORT_RESOLVED', targets.report_id FROM made JOIN targets ON targets.reporter_id = made.receiver_id
+                RETURNING notification_id
+            )
+            SELECT made.id, made.receiver_id FROM made WHERE made.id IN (SELECT notification_id FROM linked)
+            """;
+
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
     private final PostAccessPolicy policy;
@@ -74,12 +113,7 @@ public class NotificationService {
             // 취소가 먼저 처리됐으면 지금은 좋아요가 없다 (FR-044)
             if (!Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM post_like WHERE post_id = ? AND member_id = ?)",
                     Boolean.class, postId, likerId))) return;
-            Boolean already = jdbc.queryForObject("""
-                    SELECT EXISTS (SELECT 1 FROM notification n
-                                   JOIN notification_post np ON np.notification_id = n.id AND np.post_id = ?
-                                   JOIN notification_actor a ON a.notification_id = n.id AND a.actor_id = ?
-                                   WHERE n.receiver_id = ? AND n.type = 'LIKE')
-                    """, Boolean.class, postId, likerId, authorId);
+            Boolean already = jdbc.queryForObject(ALREADY_LIKED_SQL, Boolean.class, postId, likerId, authorId);
             if (Boolean.TRUE.equals(already)) return; // FR-009
             Long open = unreadLike(authorId, postId);
             Timestamp ts = Timestamp.from(at);
@@ -171,11 +205,14 @@ public class NotificationService {
     /** 요청이면 행동자가 보낸 요청이 아직 대기 중일 때, 수락이면 아직 친구일 때만 만든다. */
     private void friend(NotificationType type, long receiverId, long actorId, Instant at) {
         if (!allowed(type, receiverId, actorId, null)) return;
-        String still = type == NotificationType.FRIEND_REQUEST ? "status = 'PENDING' AND requested_by = " + actorId : "status = 'ACCEPTED'";
+        boolean request = type == NotificationType.FRIEND_REQUEST;
+        String still = request ? "status = 'PENDING' AND requested_by = ?" : "status = 'ACCEPTED'";
+        Object[] stillArgs = request ? new Object[] {Math.min(receiverId, actorId), Math.max(receiverId, actorId), actorId}
+                : new Object[] {Math.min(receiverId, actorId), Math.max(receiverId, actorId)};
         tx.executeWithoutResult(s -> {
             lock(receiverId, type, actorId);
             if (!Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM friendship WHERE member_a_id = ? AND member_b_id = ? AND "
-                    + still + ")", Boolean.class, Math.min(receiverId, actorId), Math.max(receiverId, actorId)))) return;
+                    + still + ")", Boolean.class, stillArgs))) return;
             Boolean recent = jdbc.queryForObject("""
                     SELECT EXISTS (SELECT 1 FROM notification n JOIN notification_actor a ON a.notification_id = n.id AND a.actor_id = ?
                                    WHERE n.receiver_id = ? AND n.type = ? AND a.created_at > ?)
@@ -197,22 +234,7 @@ public class NotificationService {
                     + PostAccessPolicy.PUBLIC_LIST_CONDITION + " AND m.status <> 'WITHDRAWN' AND m.deleted_at IS NULL)", Boolean.class, postId);
             if (!Boolean.TRUE.equals(listed)) return 0;
             Timestamp ts = Timestamp.from(at);
-            return publish(jdbc.query("""
-                    WITH receivers AS (
-                        SELECT r.id AS follower_id FROM member r
-                        WHERE r.id IN (SELECT f.follower_id FROM follow f WHERE f.followee_id = ?
-                                       UNION\s""" + SeriesSql.SUBSCRIBERS_OF_POST + """
-                                      )
-                          AND r.id <> ? AND r.status <> 'WITHDRAWN' AND r.deleted_at IS NULL
-                          AND NOT EXISTS (SELECT 1 FROM notification_mute nm WHERE nm.member_id = r.id AND nm.type = 'NEW_POST')
-                    ), made AS (
-                        INSERT INTO notification (receiver_id, type, created_at, updated_at)
-                        SELECT follower_id, 'NEW_POST', ?, ? FROM receivers RETURNING id, receiver_id
-                    ), linked AS (
-                        INSERT INTO notification_post (notification_id, type, post_id) SELECT id, 'NEW_POST', ? FROM made RETURNING notification_id
-                    )
-                    SELECT made.id, made.receiver_id FROM made JOIN linked ON linked.notification_id = made.id
-                    """, CREATED_ROW, authorId, postId, authorId, ts, ts, postId), NotificationType.NEW_POST);
+            return publish(jdbc.query(NEW_POST_SQL, CREATED_ROW, authorId, postId, authorId, ts, ts, postId), NotificationType.NEW_POST);
         }), 0);
     }
 
@@ -223,22 +245,7 @@ public class NotificationService {
     public int reportsResolved(long caseId, Instant at) {
         return Objects.requireNonNullElse(tx.execute(s -> {
             Timestamp ts = Timestamp.from(at);
-            return publish(jdbc.query("""
-                    WITH targets AS (
-                        SELECT r.id AS report_id, r.reporter_id FROM report r JOIN report_case rc ON rc.id = r.case_id
-                        JOIN member m ON m.id = r.reporter_id
-                        WHERE r.case_id = ? AND rc.status IN ('HIDDEN', 'REJECTED') AND m.status <> 'WITHDRAWN' AND m.deleted_at IS NULL
-                          AND NOT EXISTS (SELECT 1 FROM notification_report x WHERE x.report_id = r.id)
-                    ), made AS (
-                        INSERT INTO notification (receiver_id, type, created_at, updated_at)
-                        SELECT reporter_id, 'REPORT_RESOLVED', ?, ? FROM targets ORDER BY report_id RETURNING id, receiver_id
-                    ), linked AS (
-                        INSERT INTO notification_report (notification_id, type, report_id)
-                        SELECT made.id, 'REPORT_RESOLVED', targets.report_id FROM made JOIN targets ON targets.reporter_id = made.receiver_id
-                        RETURNING notification_id
-                    )
-                    SELECT made.id, made.receiver_id FROM made WHERE made.id IN (SELECT notification_id FROM linked)
-                    """, CREATED_ROW, caseId, ts, ts), NotificationType.REPORT_RESOLVED);
+            return publish(jdbc.query(REPORTS_RESOLVED_SQL, CREATED_ROW, caseId, ts, ts), NotificationType.REPORT_RESOLVED);
         }), 0);
     }
 

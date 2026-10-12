@@ -57,7 +57,7 @@ class ActiveDayTest extends IntegrationTest {
     void 사백일이_지난_활동_기록은_지운다() throws Exception {
         Session s = signup(uniqueLogin("actp"));
         jdbc.update("INSERT INTO member_active_day (member_id, day) VALUES (?, current_date - 401)", s.memberId());
-        assertThat(tracker.purge()).isGreaterThanOrEqualTo(1);
+        assertThat(tracker.purge()).isPositive();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM member_active_day WHERE day < current_date - 400", Long.class)).isZero();
     }
 }

@@ -64,11 +64,11 @@ public class VisitRecorder {
         public static final Page UNKNOWN = new Page(null, null, true, null);
     }
 
-    public Outcome record(ViewRecorder.Visit visit) {
-        return record(visit, Page.UNKNOWN);
+    public Outcome recordVisit(ViewRecorder.Visit visit) {
+        return recordVisit(visit, Page.UNKNOWN);
     }
 
-    public Outcome record(ViewRecorder.Visit visit, Page page) {
+    public Outcome recordVisit(ViewRecorder.Visit visit, Page page) {
         if (visit.prefetch() || views.isBot(visit.userAgent())) return Outcome.EXCLUDED;
         // 처음 쿠키를 받는 비회원은 그 쿠키로 센다. 다음 방문이 같은 사람으로 이어진다
         String visitor = visit.memberId() == null && visit.issuedVisitorId() != null

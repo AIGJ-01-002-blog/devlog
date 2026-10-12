@@ -24,6 +24,8 @@ import com.team.blog.shared.web.RateLimiter;
 /** 블로그 주소·닉네임 중복 확인 (docs/08 §4-2, docs/09 §6). 같은 IP 1분에 30번. 화면 확인은 참고용이다. */
 @RestController
 public class AvailabilityController {
+    private static final String RATE_KEY_PREFIX = "avail:ip:";
+
     private final HandlePolicy handlePolicy;
     private final HandleSuggester suggester;
     private final NicknamePolicy nicknamePolicy;
@@ -50,7 +52,7 @@ public class AvailabilityController {
 
     @GetMapping("/api/handles/availability")
     public HandleAvailability handle(@RequestParam String handle, HttpServletRequest request) {
-        rateLimiter.check("avail:ip:" + ipResolver.resolve(request), perMinute, Duration.ofMinutes(1));
+        rateLimiter.check(RATE_KEY_PREFIX + ipResolver.resolve(request), perMinute, Duration.ofMinutes(1));
         String h = handle.strip().toLowerCase(Locale.ROOT);
         HandlePolicy.Reason reason = handlePolicy.checkFull(h);
         if (reason == null && members.existsByHandle(h)) reason = HandlePolicy.Reason.TAKEN;
@@ -72,7 +74,7 @@ public class AvailabilityController {
     public HandleSuggestion suggest(@RequestParam String material,
                                     @RequestParam(defaultValue = "LOCAL") com.team.blog.account.domain.AuthProvider provider,
                                     HttpServletRequest request) {
-        rateLimiter.check("avail:ip:" + ipResolver.resolve(request), perMinute, Duration.ofMinutes(1));
+        rateLimiter.check(RATE_KEY_PREFIX + ipResolver.resolve(request), perMinute, Duration.ofMinutes(1));
         String m = material.length() > 254 ? material.substring(0, 254) : material;
         return new HandleSuggestion(HandlePolicy.bodyOf(suggester.suggest(provider, m)));
     }
@@ -82,7 +84,7 @@ public class AvailabilityController {
     /** 가입 화면 아이디(이메일) 확인 (spec 065). 가입 응답(EMAIL_TAKEN)과 같은 노출 범위이고 IP 제한을 함께 쓴다. */
     @GetMapping("/api/emails/availability")
     public EmailAvailability email(@RequestParam String email, HttpServletRequest request) {
-        rateLimiter.check("avail:ip:" + ipResolver.resolve(request), perMinute, Duration.ofMinutes(1));
+        rateLimiter.check(RATE_KEY_PREFIX + ipResolver.resolve(request), perMinute, Duration.ofMinutes(1));
         SignupEmailCode.EmailState state = signupCode.state(EmailAddress.normalize(email));
         return state == SignupEmailCode.EmailState.AVAILABLE ? new EmailAvailability(true, null, null)
                 : new EmailAvailability(false, state.name(), state.message());
@@ -93,7 +95,7 @@ public class AvailabilityController {
     @GetMapping("/api/nicknames/availability")
     public NicknameAvailability nickname(@RequestParam String nickname, HttpServletRequest request,
                                          @CurrentMember(required = false) MemberPrincipal principal) {
-        rateLimiter.check("avail:ip:" + ipResolver.resolve(request), perMinute, Duration.ofMinutes(1));
+        rateLimiter.check(RATE_KEY_PREFIX + ipResolver.resolve(request), perMinute, Duration.ofMinutes(1));
         NicknamePolicy.Code code = nicknamePolicy.check(NicknamePolicy.normalize(nickname), principal == null ? -1 : principal.id());
         return code == null ? new NicknameAvailability(true, null, null) : new NicknameAvailability(false, code.name(), code.message());
     }

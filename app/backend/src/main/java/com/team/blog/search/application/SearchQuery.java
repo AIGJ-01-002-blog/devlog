@@ -16,7 +16,6 @@ import java.util.regex.Pattern;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
-import com.team.blog.account.domain.Visibility;
 import com.team.blog.post.query.PostCard.Author;
 import com.team.blog.post.access.PostAccessPolicy;
 import com.team.blog.post.infra.PostSql;
@@ -55,6 +54,7 @@ public class SearchQuery {
     private static final String TITLE = "p.title ILIKE ?";
     private static final String TAG = "EXISTS (SELECT 1 FROM post_tag pt JOIN tag g ON g.id = pt.tag_id WHERE pt.post_id = p.id AND g.name ILIKE ?)";
     private static final String BODY = "p.content_md ILIKE ?";
+    private static final String FIRST_PUBLIC_AT = "first_public_at";
 
     private final JdbcTemplate jdbc;
     private final CursorCodec cursors;
@@ -129,8 +129,10 @@ public class SearchQuery {
         if (terms.isEmpty()) return new PostPage(terms.normalized(), List.of(), null, "TOO_SHORT");
         String notice = terms.hasShortWord() ? "TWO_CHAR_TITLE_TAG_ONLY" : null;
         String listName = "search:" + (sort == Sort.LATEST ? "l" : "r") + ":" + (authorId == null ? "all" : authorId) + ":" + terms.fingerprint();
-        List<Integer> stages = sort == Sort.LATEST ? List.of(LATEST_STAGE)
-                : terms.hasBodyWord() ? List.of(1, 2, 3) : List.of(1, 2);
+        List<Integer> stages;
+        if (sort == Sort.LATEST) stages = List.of(LATEST_STAGE);
+        else if (terms.hasBodyWord()) stages = List.of(1, 2, 3);
+        else stages = List.of(1, 2);
 
         long[] k = cursor == null || cursor.isBlank() ? null : cursors.decode(cursor, listName, 3);
         if (sort == Sort.RELEVANCE && (k == null || k[0] == HYBRID_STAGE)) {
@@ -156,14 +158,15 @@ public class SearchQuery {
         // 9개 + 다음 페이지 확인용 1개. 한 단계가 모자라면 같은 페이지에서 다음 단계로 이어 채운다 (FR-013)
         List<Found> found = new ArrayList<>();
         for (int stage : stages) {
-            if (stage < fromStage) continue;
             int need = pageSize + 1 - found.size();
             if (need <= 0) break;
-            boolean continuing = stage == fromStage && cursorAt != null;
-            List<Found> got = new ArrayList<>(findStage(terms, stage, authorId, continuing ? cursorAt : null,
-                    continuing ? cursorId : null, need + shown.size()));
-            got.removeIf(f -> shown.contains(f.id()));
-            found.addAll(got.subList(0, Math.min(need, got.size())));
+            if (stage >= fromStage) {
+                boolean continuing = stage == fromStage && cursorAt != null;
+                List<Found> got = new ArrayList<>(findStage(terms, stage, authorId, continuing ? cursorAt : null,
+                        continuing ? cursorId : null, need + shown.size()));
+                got.removeIf(f -> shown.contains(f.id()));
+                found.addAll(got.subList(0, Math.min(need, got.size())));
+            }
         }
         CursorCodec.Page<Found> page = CursorCodec.page(found, pageSize,
                 f -> cursors.encode(listName, f.stage(), Times.toEpochMicros(f.at()), f.id()));
@@ -243,8 +246,7 @@ public class SearchQuery {
         if (q.startsWith("@")) q = q.substring(1).strip();
         if (SearchTerms.length(q) < 2) return new PeoplePage(q, List.of(), "TOO_SHORT");
         String like = SearchTerms.likePattern(q);
-        List<Person> people = jdbc.query("""
-                SELECT m.id, m.handle, m.nickname, m.bio, """ + PostSql.PROFILE_IMAGE_KEY + """
+        List<Person> people = jdbc.query("SELECT m.id, m.handle, m.nickname, m.bio," + PostSql.PROFILE_IMAGE_KEY + """
 
                 FROM member m
                 """ + PostSql.PROFILE_IMAGE_JOIN + """
@@ -287,7 +289,7 @@ public class SearchQuery {
                 WHERE\s""" + condition.text() + """
 
                 ORDER BY p.first_public_at DESC, p.id DESC LIMIT ?
-                """, (rs, i) -> new Found(stage, rs.getLong("id"), rs.getTimestamp("first_public_at").toInstant()), args.toArray());
+                """, (rs, i) -> new Found(stage, rs.getLong("id"), rs.getTimestamp(FIRST_PUBLIC_AT).toInstant()), args.toArray());
         if (recent.size() >= need) return recent;
 
         // ② 모자라면 가장 긴 단어의 인덱스 후보에서 전체를 찾는다. 최근창 결과는 이 결과에 모두 들어 있다
@@ -310,7 +312,7 @@ public class SearchQuery {
         return jdbc.query("SELECT p.id, p.first_public_at FROM post p JOIN member m ON m.id = p.author_id WHERE p.id IN ("
                 + candidates + ") AND " + scopeSql + " AND " + condition.text()
                 + " ORDER BY p.first_public_at DESC, p.id DESC LIMIT ?",
-                (rs, i) -> new Found(stage, rs.getLong("id"), rs.getTimestamp("first_public_at").toInstant()), all.toArray());
+                (rs, i) -> new Found(stage, rs.getLong("id"), rs.getTimestamp(FIRST_PUBLIC_AT).toInstant()), all.toArray());
     }
 
     /**
@@ -359,7 +361,7 @@ public class SearchQuery {
             String title = rs.getString("title");
             byId.put(id, new Hit(id, "/@" + handle + "/posts/" + id, title,
                     Snippet.of(renderer.searchText(rs.getString("content_md")), title, words),
-                    imageUrls.urlOf(rs.getString("thumbnail_key")), rs.getTimestamp("first_public_at").toInstant(),
+                    imageUrls.urlOf(rs.getString("thumbnail_key")), rs.getTimestamp(FIRST_PUBLIC_AT).toInstant(),
                     rs.getInt("comment_count"), rs.getInt("like_count"),
                     new Author(rs.getLong("author_id"), handle, rs.getString("nickname"), imageUrls.urlOf(rs.getString("profile_image_key"))),
                     keywordIds != null && !keywordIds.contains(id)));

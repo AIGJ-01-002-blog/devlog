@@ -20,7 +20,7 @@ public class OutboxMailer implements Mailer {
     public synchronized void send(Mail mail) {
         if (outbox.size() == KEEP) outbox.removeFirst();
         outbox.addLast(mail);
-        log.info("메일 보관(발송 안 함): to={} subject={}", mask(mail.to()), mail.subject());
+        if (log.isInfoEnabled()) log.info("메일 보관(발송 안 함): to={} subject={}", mask(mail.to()), mail.subject());
     }
 
     /** 최근 것부터. */

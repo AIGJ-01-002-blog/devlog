@@ -27,6 +27,8 @@ import tools.jackson.databind.json.JsonMapper;
 public class SpaShell {
     static final String HEAD_MARK = "<!--app-head-->";
     static final String BODY_MARK = "<!--app-body-->";
+    /** 속성값을 닫고 머리 태그를 끝내는 꼬리 */
+    private static final String TAG_END = "\">\n";
     private static final String FALLBACK = """
             <!doctype html>
             <html lang="ko">
@@ -89,26 +91,26 @@ public class SpaShell {
         }
         head.append("<title>").append(esc(meta.title())).append("</title>\n");
         if (meta.description() != null && !meta.description().isBlank()) {
-            head.append("<meta name=\"description\" content=\"").append(esc(meta.description())).append("\">\n");
+            head.append("<meta name=\"description\" content=\"").append(esc(meta.description())).append(TAG_END);
         }
         if (!meta.indexable()) head.append("<meta name=\"robots\" content=\"noindex, nofollow\">\n");
         if (meta.indexable() && meta.canonical() != null) {
-            head.append("<link rel=\"canonical\" href=\"").append(esc(meta.canonical())).append("\">\n");
+            head.append("<link rel=\"canonical\" href=\"").append(esc(meta.canonical())).append(TAG_END);
             if (rssPath != null) {
-                head.append("<link rel=\"alternate\" type=\"application/rss+xml\" title=\"RSS\" href=\"").append(esc(rssPath)).append("\">\n");
+                head.append("<link rel=\"alternate\" type=\"application/rss+xml\" title=\"RSS\" href=\"").append(esc(rssPath)).append(TAG_END);
             }
-            head.append("<meta property=\"og:type\" content=\"").append(esc(meta.ogType())).append("\">\n");
-            head.append("<meta property=\"og:url\" content=\"").append(esc(meta.canonical())).append("\">\n");
-            head.append("<meta property=\"og:title\" content=\"").append(esc(meta.title())).append("\">\n");
+            head.append("<meta property=\"og:type\" content=\"").append(esc(meta.ogType())).append(TAG_END);
+            head.append("<meta property=\"og:url\" content=\"").append(esc(meta.canonical())).append(TAG_END);
+            head.append("<meta property=\"og:title\" content=\"").append(esc(meta.title())).append(TAG_END);
             if (meta.description() != null && !meta.description().isBlank()) {
-                head.append("<meta property=\"og:description\" content=\"").append(esc(meta.description())).append("\">\n");
+                head.append("<meta property=\"og:description\" content=\"").append(esc(meta.description())).append(TAG_END);
             }
-            if (meta.ogImage() != null) head.append("<meta property=\"og:image\" content=\"").append(esc(meta.ogImage())).append("\">\n");
+            if (meta.ogImage() != null) head.append("<meta property=\"og:image\" content=\"").append(esc(meta.ogImage())).append(TAG_END);
             if (meta.publishedTime() != null) {
-                head.append("<meta property=\"article:published_time\" content=\"").append(meta.publishedTime()).append("\">\n");
+                head.append("<meta property=\"article:published_time\" content=\"").append(meta.publishedTime()).append(TAG_END);
             }
             if (meta.modifiedTime() != null) {
-                head.append("<meta property=\"article:modified_time\" content=\"").append(meta.modifiedTime()).append("\">\n");
+                head.append("<meta property=\"article:modified_time\" content=\"").append(meta.modifiedTime()).append(TAG_END);
             }
         }
         if (initialData != null) {

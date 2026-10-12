@@ -48,9 +48,10 @@ public class FriendQuery {
     public Overview overview(long me) {
         boolean mine = viewerShares(me);
         Instant now = Times.now(clock);
-        List<Person> friends = new ArrayList<>(), received = new ArrayList<>(), sent = new ArrayList<>();
-        jdbc.query("""
-                SELECT m.handle, m.nickname, """ + PostSql.PROFILE_IMAGE_KEY + """
+        List<Person> friends = new ArrayList<>();
+        List<Person> received = new ArrayList<>();
+        List<Person> sent = new ArrayList<>();
+        jdbc.query("SELECT m.handle, m.nickname," + PostSql.PROFILE_IMAGE_KEY + """
                      , f.status, f.requested_by, f.created_at, f.accepted_at, m.last_active_at, m.last_active_visible
                 FROM friendship f
                 JOIN member m ON m.id = CASE WHEN f.member_a_id = ? THEN f.member_b_id ELSE f.member_a_id END

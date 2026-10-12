@@ -2,6 +2,7 @@ package com.team.blog.series.application;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -20,6 +21,14 @@ import com.team.blog.shared.jdbc.Columns;
  */
 @Service
 public class SeriesService {
+    private static final String TOUCH_SERIES = "UPDATE series SET updated_at = now() WHERE id = ?";
+    /** 보이지 않는 글은 남길 글 뒤로 원래 순서대로 */
+    private static final String PLACE_HIDDEN_AFTER = """
+            UPDATE series_post sp SET position = ? + r.rn - 1
+            FROM (SELECT post_id, row_number() OVER (ORDER BY position) AS rn FROM series_post
+                  WHERE series_id = ? AND NOT (post_id = ANY (?))) r
+            WHERE sp.post_id = r.post_id
+            """;
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
     private final int maxSeries;
@@ -63,7 +72,7 @@ public class SeriesService {
         String name = validName(rawName);
         return tx.execute(st -> {
             lockSeries(memberId, seriesId);
-            insertOrConflict(() -> (long) jdbc.update("UPDATE series SET name = ?, slug = ?, updated_at = now() WHERE id = ?",
+            insertOrConflict(() -> jdbc.update("UPDATE series SET name = ?, slug = ?, updated_at = now() WHERE id = ?",
                     name, SeriesNames.slug(name), seriesId));
             return mine(memberId).stream().filter(m -> m.id() == seriesId).findFirst().orElseThrow(NotFoundException::new);
         });
@@ -93,7 +102,7 @@ public class SeriesService {
             if (seriesId != null && !locked.contains(seriesId)) throw new NotFoundException();
             if (!current.isEmpty()) {
                 jdbc.update("DELETE FROM series_post WHERE post_id = ?", postId);
-                jdbc.update("UPDATE series SET updated_at = now() WHERE id = ?", current.getFirst());
+                jdbc.update(TOUCH_SERIES, current.getFirst());
             }
             if (seriesId == null) return;
             Long size = jdbc.queryForObject("SELECT count(*) FROM series_post WHERE series_id = ?", Long.class, seriesId);
@@ -104,7 +113,7 @@ public class SeriesService {
                     INSERT INTO series_post (post_id, series_id, position)
                     SELECT ?, ?, COALESCE(max(position) + 1, 0) FROM series_post WHERE series_id = ?
                     """, postId, seriesId, seriesId);
-            jdbc.update("UPDATE series SET updated_at = now() WHERE id = ?", seriesId);
+            jdbc.update(TOUCH_SERIES, seriesId);
         });
     }
 
@@ -113,7 +122,7 @@ public class SeriesService {
      * 시리즈 페이지에 보이지 않는 글(휴지통 글·임시글)은 목록에 없어도 빼지 않고 맨 뒤에 남긴다(복구·발행하면 보이게, FR-005).
      */
     public void reorder(long memberId, long seriesId, List<Long> postIds) {
-        if (postIds == null || postIds.stream().anyMatch(id -> id == null) || new HashSet<>(postIds).size() != postIds.size()) {
+        if (postIds == null || postIds.stream().anyMatch(Objects::isNull) || new HashSet<>(postIds).size() != postIds.size()) {
             throw ApiException.validation(List.of(new FieldErrorItem("postIds", "INVALID_POSTS", "글 목록을 확인해 주세요.")));
         }
         tx.executeWithoutResult(st -> {
@@ -133,13 +142,8 @@ public class SeriesService {
                     FROM unnest(?::bigint[]) WITH ORDINALITY AS k(id, ord)
                     WHERE sp.series_id = ? AND sp.post_id = k.id
                     """, keep, seriesId);
-            jdbc.update("""
-                    UPDATE series_post sp SET position = ? + r.rn - 1
-                    FROM (SELECT post_id, row_number() OVER (ORDER BY position) AS rn FROM series_post
-                          WHERE series_id = ? AND NOT (post_id = ANY (?))) r
-                    WHERE sp.post_id = r.post_id
-                    """, keep.length, seriesId, keep);
-            jdbc.update("UPDATE series SET updated_at = now() WHERE id = ?", seriesId);
+            jdbc.update(PLACE_HIDDEN_AFTER, keep.length, seriesId, keep);
+            jdbc.update(TOUCH_SERIES, seriesId);
         });
     }
 
@@ -158,7 +162,7 @@ public class SeriesService {
         if (position == null) return at + 1;
         List<Long> order = new java.util.ArrayList<>(live);
         order.remove(postId);
-        at = Math.max(0, Math.min(position - 1, order.size()));
+        at = Math.clamp(position - 1L, 0, order.size());
         order.add(at, postId);
         reorder(memberId, seriesId, order);
         return at + 1;

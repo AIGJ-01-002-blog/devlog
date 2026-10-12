@@ -2,6 +2,7 @@ package com.team.blog.search.semantic;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,8 +49,8 @@ public class EmbeddingIndexJob {
 
     @Scheduled(fixedDelayString = "${blog.search.semantic.index-interval:60s}", initialDelayString = "${blog.search.semantic.index-interval:60s}")
     public void scheduled() {
-        if (!semantic.enabled() || semantic.down()) return;
-        lock.runExclusively("search-embedding", props.indexTimeout().multipliedBy(MAX_BATCHES_PER_RUN + 1), this::runOnce);
+        if (!semantic.enabled() || semantic.isDown()) return;
+        lock.runExclusively("search-embedding", props.indexTimeout().multipliedBy(MAX_BATCHES_PER_RUN + 1L), this::runOnce);
     }
 
     private record Source(long id, long version, String title, String contentMd, String tags) {}
@@ -58,24 +59,33 @@ public class EmbeddingIndexJob {
     public int runOnce() {
         if (!semantic.enabled()) return 0;
         int done = 0;
-        for (int i = 0; i < MAX_BATCHES_PER_RUN; i++) {
+        boolean more = true;
+        for (int i = 0; more && i < MAX_BATCHES_PER_RUN; i++) {
             List<Source> batch = pending();
-            if (batch.isEmpty()) break;
-            List<String> texts = new ArrayList<>(batch.size());
-            for (Source s : batch) texts.add(text(s));
-            List<float[]> vectors;
-            try {
-                vectors = client.embed(texts, Purpose.DOCUMENT, props.indexTimeout());
-            } catch (EmbedException e) {
-                semantic.markDown(e);
-                break;
+            Optional<List<float[]>> vectors = batch.isEmpty() ? Optional.empty() : embed(batch);
+            if (vectors.isPresent()) {
+                for (int j = 0; j < batch.size(); j++) save(batch.get(j), vectors.get().get(j));
+                done += batch.size();
+                // 한 묶음을 다 채우지 못했으면 남은 글이 없다
+                more = batch.size() >= props.indexBatch();
+            } else {
+                more = false;
             }
-            for (int j = 0; j < batch.size(); j++) save(batch.get(j), vectors.get(j));
-            done += batch.size();
-            if (batch.size() < props.indexBatch()) break;
         }
-        if (done > 0) log.info("글 {}개를 임베딩했습니다 ({})", done, client.model());
+        if (done > 0 && log.isInfoEnabled()) log.info("글 {}개를 임베딩했습니다 ({})", done, client.model());
         return done;
+    }
+
+    /** @return 임베딩 서버가 실패하면 비어 있다 (내려간 것으로 표시한다) */
+    private Optional<List<float[]>> embed(List<Source> batch) {
+        List<String> texts = new ArrayList<>(batch.size());
+        for (Source s : batch) texts.add(text(s));
+        try {
+            return Optional.of(client.embed(texts, Purpose.DOCUMENT, props.indexTimeout()));
+        } catch (EmbedException e) {
+            semantic.markDown(e);
+            return Optional.empty();
+        }
     }
 
     private List<Source> pending() {

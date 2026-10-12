@@ -23,6 +23,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private static final String BAD_REQUEST = "BAD_REQUEST";
 
     @ExceptionHandler(ApiException.class)
     ResponseEntity<ErrorResponse> handleApi(ApiException e) {
@@ -42,7 +43,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({HttpMessageNotReadableException.class, MissingServletRequestParameterException.class,
             MissingRequestHeaderException.class, HttpMediaTypeNotSupportedException.class})
     ResponseEntity<ErrorResponse> handleBadRequest(Exception e) {
-        return ResponseEntity.badRequest().body(ErrorResponse.of("BAD_REQUEST", "요청 형식이 올바르지 않아요."));
+        return ResponseEntity.badRequest().body(ErrorResponse.of(BAD_REQUEST, "요청 형식이 올바르지 않아요."));
     }
 
     /**
@@ -51,7 +52,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(RequestRejectedException.class)
     ResponseEntity<ErrorResponse> handleRejected(RequestRejectedException e) {
-        return ResponseEntity.badRequest().body(ErrorResponse.of("BAD_REQUEST",
+        return ResponseEntity.badRequest().body(ErrorResponse.of(BAD_REQUEST,
                 "요청 헤더에 쓸 수 없는 문자(줄바꿈 등)가 있어요. 토큰을 쓰셨다면 다시 붙여 넣어 주세요."));
     }
 
@@ -92,6 +93,6 @@ public class GlobalExceptionHandler {
         if (status.value() == HttpStatus.NOT_ACCEPTABLE.value()) return response.build();
         HttpStatus known = HttpStatus.resolve(status.value());
         return response
-                .body(ErrorResponse.of(known == null ? "BAD_REQUEST" : known.name(), "요청 형식이 올바르지 않아요."));
+                .body(ErrorResponse.of(known == null ? BAD_REQUEST : known.name(), "요청 형식이 올바르지 않아요."));
     }
 }

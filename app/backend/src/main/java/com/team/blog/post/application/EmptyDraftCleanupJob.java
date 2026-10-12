@@ -62,11 +62,12 @@ public class EmptyDraftCleanupJob {
                 log.warn("자동 저장 확인을 못해 빈 임시글 정리를 멈춥니다: {}", e.getMessage());
                 break; // Redis를 확인할 수 없으면 지우지 않는다 (쓰던 내용이 있을 수 있음)
             }
-            if (hasAutosave) continue;
-            deleted += jdbc.update("""
-                    DELETE FROM post WHERE id = ? AND status = 'DRAFT' AND btrim(title) = '' AND btrim(content_md) = ''
-                      AND created_at < ? AND updated_at < ?
-                    """, id, cutoff, cutoff);
+            if (!hasAutosave) {
+                deleted += jdbc.update("""
+                        DELETE FROM post WHERE id = ? AND status = 'DRAFT' AND btrim(title) = '' AND btrim(content_md) = ''
+                          AND created_at < ? AND updated_at < ?
+                        """, id, cutoff, cutoff);
+            }
         }
         if (deleted > 0) log.info("빈 임시글 {}개를 정리했습니다", deleted);
         return deleted;

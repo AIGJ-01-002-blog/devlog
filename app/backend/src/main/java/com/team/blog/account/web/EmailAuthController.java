@@ -125,15 +125,15 @@ public class EmailAuthController {
         LoginOutcome outcome = accounts.login(b.email(), b.password());
         HttpSession session = request.getSession(true);
         return switch (outcome) {
-            case LoginOutcome.LoggedIn in -> {
+            case LoginOutcome.LoggedIn(MemberPrincipal principal) -> {
                 String target = LoginFlow.popRedirect(session);
-                sessions.login(request, response, in.principal());
-                yield Map.of("redirect", in.principal().agreementRequired()
+                sessions.login(request, response, principal);
+                yield Map.of("redirect", principal.agreementRequired()
                         ? "/agreements?redirect=" + java.net.URLEncoder.encode(target, java.nio.charset.StandardCharsets.UTF_8)
                         : target);
             }
-            case LoginOutcome.Suspended s -> throw new ApiException(HttpStatus.FORBIDDEN, "ACCOUNT_SUSPENDED", "정지된 계정이에요.",
-                    List.of(), new SuspendedDetails(s.endsAt(), s.reason()));
+            case LoginOutcome.Suspended(Instant endsAt, String reason) -> throw new ApiException(HttpStatus.FORBIDDEN, "ACCOUNT_SUSPENDED",
+                    "정지된 계정이에요.", List.of(), new SuspendedDetails(endsAt, reason));
             case LoginOutcome.NeedsSignup n -> throw new IllegalStateException("이메일 로그인에는 가입 대기가 없다");
         };
     }

@@ -42,6 +42,7 @@ public class CommentService {
     static final int EDIT_PER_MINUTE = 20;
     private static final Duration DEDUPE_TTL = Duration.ofSeconds(10);
     private static final String PENDING = "-";
+    private static final String PARENT_ID = "parent_id";
 
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
@@ -124,7 +125,7 @@ public class CommentService {
                 WHERE c.id = ? AND c.post_id = ? AND c.deleted_at IS NULL AND c.hidden_at IS NULL
                   AND m.withdrawn_at IS NULL AND m.deleted_at IS NULL
                 FOR SHARE OF c
-                """, (rs, i) -> new Target(rs.getLong("id"), rs.getObject("parent_id", Long.class), rs.getLong("author_id")),
+                """, (rs, i) -> new Target(rs.getLong("id"), rs.getObject(PARENT_ID, Long.class), rs.getLong("author_id")),
                 commentId, postId);
         if (rows.isEmpty()) throw unavailable();
         return rows.get(0);
@@ -133,7 +134,7 @@ public class CommentService {
     public CommentQuery.CommentView update(long memberId, long commentId, String rawContent) {
         limit("comment:edit:" + memberId, EDIT_PER_MINUTE);
         Viewer viewer = new Viewer(memberId, false);
-        Long postId = tx.execute(s -> {
+        tx.execute(s -> {
             List<Map<String, Object>> rows = jdbc.queryForList("""
                     SELECT post_id, content, hidden_at IS NOT NULL AS hidden FROM comment
                     WHERE id = ? AND author_id = ? AND deleted_at IS NULL FOR UPDATE
@@ -166,7 +167,7 @@ public class CommentService {
             if (rows.isEmpty()) throw new NotFoundException();
             Map<String, Object> c = rows.get(0);
             long postId = ((Number) c.get("post_id")).longValue();
-            Long rootId = c.get("parent_id") == null ? null : ((Number) c.get("parent_id")).longValue();
+            Long rootId = c.get(PARENT_ID) == null ? null : ((Number) c.get(PARENT_ID)).longValue();
             Instant now = Times.now(clock);
             if (rootId == null) {
                 Boolean hasReplies = jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM comment WHERE parent_id = ?)", Boolean.class, commentId);

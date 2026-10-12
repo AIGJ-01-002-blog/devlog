@@ -8,6 +8,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.stereotype.Service;
 
 import com.team.blog.post.access.PostAccessPolicy;
@@ -79,10 +80,9 @@ public class SeriesProjects {
         List<Project> out = new ArrayList<>();
         jdbc.query("""
                 SELECT id, name, slug, project_period, project_summary, project_tech, project_team_work, project_my_role
-                FROM series WHERE member_id = ? AND portfolio ORDER BY updated_at DESC, id DESC""", rs -> {
-            out.add(new Project(rs.getLong(1), rs.getString(2), rs.getString(3), "/@" + handle + "/series/" + rs.getString(3),
-                    rs.getString(4), rs.getString(5), techList(rs.getString(6)), rs.getString(7), rs.getString(8), new ArrayList<>()));
-        }, ownerId);
+                FROM series WHERE member_id = ? AND portfolio ORDER BY updated_at DESC, id DESC""",
+                (RowCallbackHandler) rs -> out.add(new Project(rs.getLong(1), rs.getString(2), rs.getString(3), "/@" + handle + "/series/" + rs.getString(3),
+                        rs.getString(4), rs.getString(5), techList(rs.getString(6)), rs.getString(7), rs.getString(8), new ArrayList<>())), ownerId);
         for (Project p : out) {
             p.posts().addAll(jdbc.query("""
                     SELECT p.id, p.title, p.first_public_at FROM series_post sp JOIN post p ON p.id = sp.post_id

@@ -74,7 +74,8 @@ public class ClientIpResolver {
         boolean contains(String ip) {
             byte[] target = toBytes(ip);
             if (target == null || target.length != network.length) return false;
-            int full = prefix / 8, rest = prefix % 8;
+            int full = prefix / 8;
+            int rest = prefix % 8;
             for (int i = 0; i < full; i++) if (target[i] != network[i]) return false;
             if (rest == 0) return true;
             int mask = (0xFF << (8 - rest)) & 0xFF;

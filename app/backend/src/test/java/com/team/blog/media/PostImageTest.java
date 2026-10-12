@@ -88,7 +88,7 @@ class PostImageTest extends IntegrationTest {
         Map<String, Object> row = jdbc.queryForMap("""
                 SELECT r.size_bytes, ri.thumb_size_bytes, ri.width, ri.height FROM resource r JOIN resource_image ri ON ri.resource_id = r.id
                 WHERE r.storage_key = ?""", key);
-        assertThat(row.get("thumb_size_bytes")).isEqualTo(THUMB.length);
+        assertThat(row).containsEntry("thumb_size_bytes", THUMB.length);
         mvc.perform(get("/media/" + key)).andExpect(status().isOk());
 
         long id = publish(s, "본문\n\n![](" + up.path("url").asString() + ")\n\n끝");

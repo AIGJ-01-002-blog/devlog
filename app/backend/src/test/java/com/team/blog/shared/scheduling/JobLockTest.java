@@ -72,7 +72,8 @@ class JobLockTest {
     @Test
     void releasesEvenWhenTheJobFails() {
         acquire(true);
-        assertThatThrownBy(() -> lock.runExclusively("purge", Duration.ofMinutes(5), () -> { throw new IllegalStateException("job"); }))
+        Duration ttl = Duration.ofMinutes(5);
+        assertThatThrownBy(() -> lock.runExclusively("purge", ttl, () -> { throw new IllegalStateException("job"); }))
                 .isInstanceOf(IllegalStateException.class).hasMessage("job");
         verify(redis).execute(any(RedisScript.class), eq(List.of("lock:job:purge")), anyString());
     }

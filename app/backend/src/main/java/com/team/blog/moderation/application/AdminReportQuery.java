@@ -27,6 +27,9 @@ import com.team.blog.shared.time.Times;
 public class AdminReportQuery {
     static final int PAGE = 20;
     private static final int PREVIEW = 80;
+    private static final String COL_STATUS = "status";
+    private static final String COL_HANDLE = "handle";
+    private static final String COL_CREATED_AT = "created_at";
 
     private final JdbcTemplate jdbc;
     private final CursorCodec cursors;
@@ -118,8 +121,8 @@ public class AdminReportQuery {
         String content = rs.getString("snapshot_content");
         String preview = title != null ? title : preview(content);
         Timestamp handled = rs.getTimestamp("handled_at");
-        return new Row(rs.getLong("id"), ReportTarget.valueOf(rs.getString("target_type")), rs.getString("status"), preview,
-                rs.getString("handle"), rs.getInt("report_count"), reasons(rs), rs.getTimestamp("latest_at").toInstant(),
+        return new Row(rs.getLong("id"), ReportTarget.valueOf(rs.getString("target_type")), rs.getString(COL_STATUS), preview,
+                rs.getString(COL_HANDLE), rs.getInt("report_count"), reasons(rs), rs.getTimestamp("latest_at").toInstant(),
                 handled == null ? null : handled.toInstant(), rs.getBoolean("hidden_now"));
     }
 
@@ -168,33 +171,41 @@ public class AdminReportQuery {
             hiddenReason = null;
         } else if (type == ReportTarget.POST) {
             hiddenReason = rs.getString("post_hidden_reason");
-            state = withdrawn ? TargetState.AUTHOR_WITHDRAWN : rs.getBoolean("post_deleted") ? TargetState.TRASH
-                    : rs.getBoolean("post_hidden") ? TargetState.HIDDEN
-                    : "DRAFT".equals(rs.getString("post_status")) ? TargetState.DRAFT
-                    : TargetState.valueOf(rs.getString("post_visibility"));
-            link = "/@" + rs.getString("handle") + "/posts/" + targetId;
+            state = withdrawn ? TargetState.AUTHOR_WITHDRAWN : postState(rs);
+            link = "/@" + rs.getString(COL_HANDLE) + "/posts/" + targetId;
         } else {
             hiddenReason = rs.getString("comment_hidden_reason");
-            state = withdrawn ? TargetState.AUTHOR_WITHDRAWN : rs.getBoolean("comment_deleted") || rs.getBoolean("comment_post_deleted")
-                    ? TargetState.DELETED_COMMENT : rs.getBoolean("comment_hidden") ? TargetState.HIDDEN : TargetState.PUBLIC;
+            state = withdrawn ? TargetState.AUTHOR_WITHDRAWN : commentState(rs);
             long postId = rs.getLong("comment_post_id");
             link = "/@" + rs.getString("comment_post_handle") + "/posts/" + postId + "?comment=" + targetId + "#comment-" + targetId;
         }
         long authorId = rs.getLong("author_id");
         List<ReportLine> reports = jdbc.query("SELECT reason, detail, created_at FROM report WHERE case_id = ? ORDER BY created_at, id",
-                (r, i) -> new ReportLine(ReportReason.valueOf(r.getString("reason")), r.getString("detail"), r.getTimestamp("created_at").toInstant()),
+                (r, i) -> new ReportLine(ReportReason.valueOf(r.getString("reason")), r.getString("detail"), r.getTimestamp(COL_CREATED_AT).toInstant()),
                 caseId);
         Map<ReportReason, Integer> reasons = new EnumMap<>(ReportReason.class);
         reports.forEach(l -> reasons.merge(l.reason(), 1, Integer::sum));
         List<Suspension> history = suspensions.findByMemberIdOrderByStartedAtDesc(authorId).stream()
                 .map(s -> new Suspension(s.getId(), s.getReason(), s.getStartedAt(), s.getEndsAt(), s.getLiftedAt())).toList();
-        AuthorInfo author = new AuthorInfo(rs.getString("handle"), withdrawn ? null : rs.getString("nickname"),
+        AuthorInfo author = new AuthorInfo(rs.getString(COL_HANDLE), withdrawn ? null : rs.getString("nickname"),
                 rs.getTimestamp("joined_at").toInstant(), rs.getLong("hidden_count"), "SUSPENDED".equals(rs.getString("member_status")),
                 !"USER".equals(rs.getString("member_role")), history, rs.getString("member_role"));
         Timestamp handled = rs.getTimestamp("handled_at");
-        return new Detail(caseId, type, targetId, rs.getString("status"), state, link, rs.getString("snapshot_title"),
+        return new Detail(caseId, type, targetId, rs.getString(COL_STATUS), state, link, rs.getString("snapshot_title"),
                 rs.getString("snapshot_content"), reasons, reports, hiddenReason == null ? null : ReportReason.valueOf(hiddenReason),
-                rs.getTimestamp("created_at").toInstant(), handled == null ? null : handled.toInstant(), author, authorId == adminId);
+                rs.getTimestamp(COL_CREATED_AT).toInstant(), handled == null ? null : handled.toInstant(), author, authorId == adminId);
+    }
+
+    private static TargetState postState(ResultSet rs) throws SQLException {
+        if (rs.getBoolean("post_deleted")) return TargetState.TRASH;
+        if (rs.getBoolean("post_hidden")) return TargetState.HIDDEN;
+        if ("DRAFT".equals(rs.getString("post_status"))) return TargetState.DRAFT;
+        return TargetState.valueOf(rs.getString("post_visibility"));
+    }
+
+    private static TargetState commentState(ResultSet rs) throws SQLException {
+        if (rs.getBoolean("comment_deleted") || rs.getBoolean("comment_post_deleted")) return TargetState.DELETED_COMMENT;
+        return rs.getBoolean("comment_hidden") ? TargetState.HIDDEN : TargetState.PUBLIC;
     }
 
     /** 관리자 대시보드(062): 처리를 기다리는 신고 사건 수 */
@@ -218,8 +229,8 @@ public class AdminReportQuery {
                        (SELECT count(*) FROM post x WHERE x.author_id = m.id AND x.hidden_at IS NOT NULL)
                        + (SELECT count(*) FROM comment y WHERE y.author_id = m.id AND y.hidden_at IS NOT NULL) AS hidden_count
                 FROM member m WHERE m.handle = ? AND m.deleted_at IS NULL
-                """, (rs, i) -> new AuthorInfo(rs.getString("handle"), rs.getString("nickname"), rs.getTimestamp("created_at").toInstant(),
-                rs.getLong("hidden_count"), "SUSPENDED".equals(rs.getString("status")), !"USER".equals(rs.getString("role")),
+                """, (rs, i) -> new AuthorInfo(rs.getString(COL_HANDLE), rs.getString("nickname"), rs.getTimestamp(COL_CREATED_AT).toInstant(),
+                rs.getLong("hidden_count"), "SUSPENDED".equals(rs.getString(COL_STATUS)), !"USER".equals(rs.getString("role")),
                 suspensions.findByMemberIdOrderByStartedAtDesc(rs.getLong("id")).stream()
                         .map(s -> new Suspension(s.getId(), s.getReason(), s.getStartedAt(), s.getEndsAt(), s.getLiftedAt())).toList(),
                 rs.getString("role")),

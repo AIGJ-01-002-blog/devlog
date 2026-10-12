@@ -92,7 +92,9 @@ public class SignupEmailCode {
             case INVALID -> throw ApiException.badRequest("EMAIL_INVALID", state.message());
             case TAKEN -> throw ApiException.conflict("EMAIL_TAKEN", state.message());
             case WITHDRAWN -> throw ApiException.conflict("WITHDRAWN_ACCOUNT", state.message());
-            case AVAILABLE -> { }
+            case AVAILABLE -> {
+                // 보낼 수 있는 상태라 그대로 진행한다
+            }
         }
         limiter.check("signup-code:min:" + email, 1, Duration.ofMinutes(1));
         limiter.check("signup-code:day:" + email, 10, Duration.ofDays(1));

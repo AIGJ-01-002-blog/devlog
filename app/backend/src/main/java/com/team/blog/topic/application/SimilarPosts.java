@@ -41,13 +41,12 @@ public class SimilarPosts {
         Set<Long> ids = new LinkedHashSet<>();
         List<Long> near = semantic.neighbors(postId, limit * 4);
         if (!near.isEmpty()) {
-            List<Long> allowed = jdbc.query(con -> {
-                var ps = con.prepareStatement("SELECT p.id" + BASE + " AND p.id = ANY (?)");
+            // BASE의 자리표시자 셋(p.id <> ?, 시리즈·주제 조건) 다음 넷째가 후보 목록이다
+            List<Long> allowed = jdbc.query("SELECT p.id" + BASE + " AND p.id = ANY (?)", ps -> {
                 ps.setLong(1, postId);
                 ps.setLong(2, postId);
                 ps.setLong(3, postId);
-                ps.setArray(4, con.createArrayOf("bigint", near.toArray()));
-                return ps;
+                ps.setArray(4, ps.getConnection().createArrayOf("bigint", near.toArray()));
             }, (rs, i) -> rs.getLong(1));
             near.stream().filter(allowed::contains).limit(limit).forEach(ids::add);
         }

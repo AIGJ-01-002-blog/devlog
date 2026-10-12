@@ -32,8 +32,12 @@ class NotificationEventListener {
     @TransactionalEventListener
     public void on(CommentEvents.CommentCreated e) {
         // 답글 대상: 답글에 답했으면 그 사람, 아니면 최상위 댓글 작성자 (FR-003)
-        Long target = e.rootId() == null ? null : e.replyToMemberId() != null ? e.replyToMemberId() : e.rootAuthorId();
+        Long target = e.rootId() == null ? null : replyTarget(e);
         run("comment", () -> notifications.commentCreated(e.commentId(), e.postId(), e.postAuthorId(), e.authorId(), target, e.at()));
+    }
+
+    private static Long replyTarget(CommentEvents.CommentCreated e) {
+        return e.replyToMemberId() != null ? e.replyToMemberId() : e.rootAuthorId();
     }
 
     @Async(NotificationAsyncConfig.EXECUTOR)

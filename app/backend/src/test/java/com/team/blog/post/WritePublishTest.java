@@ -13,7 +13,6 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -122,7 +121,7 @@ class WritePublishTest extends IntegrationTest {
         Map<String, Object> p = row(id);
         assertThat(p).containsEntry("status", "PUBLISHED").containsEntry("title", "JPA N+1 정리");
         assertThat(p.get("published_at")).isNotNull();
-        assertThat(p.get("first_public_at")).isEqualTo(p.get("published_at"));
+        assertThat(p).containsEntry("first_public_at", p.get("published_at"));
         assertThat(p.get("edited_at")).isNull();
         assertThat(p).doesNotContainKeys("content_html", "excerpt", "thumbnail_url", "view_count");
         JsonNode d = detail(id);
@@ -194,13 +193,13 @@ class WritePublishTest extends IntegrationTest {
         start.countDown();
         for (Future<?> f : fs) f.get();
         pool.shutdown();
-        assertThat(row(id).get("edit_version")).isEqualTo(1L);
-        assertThat(outcomes.getOrDefault("ok", 0)).isGreaterThanOrEqualTo(1);
+        assertThat(row(id)).containsEntry("edit_version", 1L);
+        assertThat(outcomes.getOrDefault("ok", 0)).isPositive();
         assertThat(outcomes.keySet()).allMatch(k -> k.equals("ok") || k.equals("IN_PROGRESS"));
         // 끝난 뒤 같은 키로 다시 보내면 저장된 응답을 그대로 돌려준다 (다시 발행하지 않음)
         JsonNode again = read(publish(s, id, "동시", "본문", "PUBLIC", 0, key).andExpect(status().isOk()).andReturn());
         assertThat(again.path("version").asLong()).isEqualTo(1);
-        assertThat(row(id).get("edit_version")).isEqualTo(1L);
+        assertThat(row(id)).containsEntry("edit_version", 1L);
         // 같은 키로 다른 내용을 보내면 422
         publish(s, id, "다른 제목", "본문", "PUBLIC", 0, key)
                 .andExpect(status().isUnprocessableContent())
@@ -238,7 +237,7 @@ class WritePublishTest extends IntegrationTest {
         Session s = signup(uniqueLogin("rlo"));
         long id = newPost(s);
         publish(s, id, "invoice\u202Efdp.exe 관\u200B리\u200D자", "본문", "PUBLIC", 0, null).andExpect(status().isOk());
-        assertThat(row(id).get("title")).isEqualTo("invoicefdp.exe 관리자");
+        assertThat(row(id)).containsEntry("title", "invoicefdp.exe 관리자");
     }
 
     // ---------------------------------------------------------------- US2 저장·이어 쓰기·충돌
@@ -370,8 +369,8 @@ class WritePublishTest extends IntegrationTest {
         assertThat(after).containsEntry("title", "v3 제목");
         assertThat(detail(id).path("viewCount").asLong()).isEqualTo(120);
         assertThat(detail(id).path("contentHtml").asString()).contains("v3 본문").doesNotContain("v1 본문");
-        assertThat(after.get("published_at")).isEqualTo(first.get("published_at"));
-        assertThat(after.get("first_public_at")).isEqualTo(first.get("first_public_at"));
+        assertThat(after).containsEntry("published_at", first.get("published_at"));
+        assertThat(after).containsEntry("first_public_at", first.get("first_public_at"));
         assertThat(after.get("edited_at")).isNotNull();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM post_draft WHERE post_id = ?", Integer.class, id)).isZero();
         assertThat(redis.hasKey("autosave:post:" + id)).isFalse();
@@ -413,7 +412,7 @@ class WritePublishTest extends IntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.visibility").value("PRIVATE"));
         s.http().perform(asJson(patch("/api/posts/" + id + "/visibility"), Map.of("visibility", "PUBLIC")))
                 .andExpect(status().isOk());
-        assertThat(row(id).get("first_public_at")).isEqualTo(firstPublic);
+        assertThat(row(id)).containsEntry("first_public_at", firstPublic);
         assertThat(row(id).get("edited_at")).isNull();
         s.http().perform(asJson(patch("/api/posts/" + id + "/visibility"), Map.of("visibility", "GROUP")))
                 .andExpect(status().isBadRequest());

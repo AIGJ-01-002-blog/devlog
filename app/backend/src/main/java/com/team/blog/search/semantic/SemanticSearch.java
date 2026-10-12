@@ -35,6 +35,14 @@ public class SemanticSearch {
     private static final Logger log = LoggerFactory.getLogger(SemanticSearch.class);
     static final String DOWN = "search:embed:down";
     static final String QUERY_CACHE = "search:qvec:";
+    private static final String SIMILAR_PAIRS = """
+            SELECT a.post_id, n.post_id, n.distance FROM post_embedding a
+            CROSS JOIN LATERAL (
+                SELECT b.post_id, a.embedding <=> b.embedding AS distance FROM post_embedding b
+                WHERE b.model = a.model AND b.post_id = ANY (?) AND b.post_id <> a.post_id
+                ORDER BY a.embedding <=> b.embedding LIMIT ?
+            ) n
+            WHERE a.model = ? AND a.post_id = ANY (?) AND n.distance <= ?""";
 
     private final JdbcTemplate jdbc;
     private final StringRedisTemplate redis;
@@ -56,7 +64,10 @@ public class SemanticSearch {
             log.info("의미 검색 꺼짐: 임베딩 공급자가 설정되지 않았습니다. 검색은 키워드만 씁니다");
             return;
         }
-        log.info("의미 검색 {}: 공급자 {}, 모델 {}", tableReady() ? "켜짐" : "꺼짐(post_embedding 표 없음)", client.provider(), client.model());
+        boolean ready = tableReady();
+        if (log.isInfoEnabled()) {
+            log.info("의미 검색 {}: 공급자 {}, 모델 {}", ready ? "켜짐" : "꺼짐(post_embedding 표 없음)", client.provider(), client.model());
+        }
     }
 
     /** 의미 검색을 쓸 수 있게 설정돼 있는지 (공급자가 지금 켜져 있는지는 보지 않는다) */
@@ -126,14 +137,7 @@ public class SemanticSearch {
         double max = client.maxDistance() * distanceFactor;
         try {
             return jdbc.query(con -> {
-                var ps = con.prepareStatement("""
-                        SELECT a.post_id, n.post_id, n.distance FROM post_embedding a
-                        CROSS JOIN LATERAL (
-                            SELECT b.post_id, a.embedding <=> b.embedding AS distance FROM post_embedding b
-                            WHERE b.model = a.model AND b.post_id = ANY (?) AND b.post_id <> a.post_id
-                            ORDER BY a.embedding <=> b.embedding LIMIT ?
-                        ) n
-                        WHERE a.model = ? AND a.post_id = ANY (?) AND n.distance <= ?""");
+                var ps = con.prepareStatement(SIMILAR_PAIRS);
                 var ids = con.createArrayOf("bigint", postIds.toArray());
                 ps.setArray(1, ids);
                 ps.setInt(2, perPost);
@@ -177,15 +181,19 @@ public class SemanticSearch {
         }
         try {
             String v = EmbeddingClient.literal(client.embed(List.of(query), Purpose.QUERY, props.queryTimeout()).get(0));
-            try {
-                redis.opsForValue().set(key, v, props.queryCacheTtl());
-            } catch (RuntimeException ignored) {
-                // 보관하지 못해도 이번 검색에는 쓴다
-            }
+            cacheQueryVector(key, v);
             return Optional.of(v);
         } catch (EmbedException e) {
             markDown(e);
             return Optional.empty();
+        }
+    }
+
+    private void cacheQueryVector(String key, String v) {
+        try {
+            redis.opsForValue().set(key, v, props.queryCacheTtl());
+        } catch (RuntimeException ignored) {
+            // 보관하지 못해도 이번 검색에는 쓴다
         }
     }
 
@@ -198,7 +206,7 @@ public class SemanticSearch {
         }
     }
 
-    boolean down() {
+    boolean isDown() {
         try {
             return Boolean.TRUE.equals(redis.hasKey(DOWN));
         } catch (RuntimeException e) {

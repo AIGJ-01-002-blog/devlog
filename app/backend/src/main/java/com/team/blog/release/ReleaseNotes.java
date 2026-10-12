@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -22,7 +23,7 @@ import com.team.blog.shared.markdown.ContentRenderer;
 @Service
 public class ReleaseNotes {
     static final String RESOURCE = "release/CHANGELOG.md";
-    private static final Pattern HEADING = Pattern.compile("^## \\[([0-9]+\\.[0-9]+\\.[0-9]+)](?:\\s*-\\s*(\\S+))?.*$");
+    private static final Pattern HEADING = Pattern.compile("^## \\[(\\d+\\.\\d+\\.\\d+)](?:\\s*-\\s*(\\S+))?.*$");
 
     /** @param html 그 버전의 본문(### 추가·고침 …)을 정화한 HTML */
     public record Release(String version, String date, String html) {}
@@ -31,7 +32,7 @@ public class ReleaseNotes {
 
     private final ContentRenderer renderer;
     private final List<Section> sections;
-    private volatile List<Release> rendered;
+    private final AtomicReference<List<Release>> rendered = new AtomicReference<>();
 
     public ReleaseNotes(ContentRenderer renderer) {
         this.renderer = renderer;
@@ -48,10 +49,10 @@ public class ReleaseNotes {
     }
 
     public List<Release> all() {
-        List<Release> r = rendered;
+        List<Release> r = rendered.get();
         if (r == null) {
             r = sections.stream().map(s -> new Release(s.version(), s.date(), renderer.render(s.markdown(), 0L).html())).toList();
-            rendered = r;
+            rendered.set(r);
         }
         return r;
     }

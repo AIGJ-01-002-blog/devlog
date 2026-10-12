@@ -17,10 +17,10 @@ class McpGuidePageTest extends IntegrationTest {
     void AI_연결_안내는_비회원도_열고_검색_엔진이_읽는다() throws Exception {
         String page = mvc.perform(get("/mcp")).andExpect(status().isOk()).andReturn().getResponse()
                 .getContentAsString(StandardCharsets.UTF_8);
-        assertThat(page).contains("<link rel=\"canonical\" href=\"http://localhost:8080/mcp\">");
-        assertThat(page).contains("<h1>당신의 AI가 개발 일지를 씁니다</h1>");
-        assertThat(page).contains(PageController.SLOGAN);
-        assertThat(page).doesNotContain("noindex");
+        assertThat(page).contains("<link rel=\"canonical\" href=\"http://localhost:8080/mcp\">")
+                .contains("<h1>당신의 AI가 개발 일지를 씁니다</h1>")
+                .contains(PageController.SLOGAN)
+                .doesNotContain("noindex");
     }
 
     @Test

@@ -131,7 +131,7 @@ class EmailAuthTest extends IntegrationTest {
                 .andExpect(jsonPath("$.emailVerified").value(false))
                 .andExpect(jsonPath("$.previousLogin.provider").value("LOCAL"));
         Map<String, Object> row = jdbc.queryForMap("SELECT provider, provider_user_id, email, password_hash, email_verified_at FROM auth_identity WHERE member_id = ?", a.memberId());
-        assertThat(row.get("provider_user_id")).isEqualTo(email);
+        assertThat(row).containsEntry("provider_user_id", email);
         assertThat(row.get("email_verified_at")).isNull();
         assertThat((String) row.get("password_hash")).startsWith("$2").doesNotContain(PASSWORD);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM member_agreement WHERE member_id = ?", Integer.class, a.memberId())).isEqualTo(2);

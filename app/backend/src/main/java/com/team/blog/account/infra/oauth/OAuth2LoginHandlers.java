@@ -22,6 +22,8 @@ import com.team.blog.account.web.LoginFlow;
 /** 소셜(GitHub·Google·카카오·Facebook) OAuth2 성공·실패 처리. 성공하면 우리 로그인 흐름(LoginFlow)으로 넘긴다. */
 @Component
 public class OAuth2LoginHandlers implements AuthenticationSuccessHandler, AuthenticationFailureHandler {
+    private static final String EMAIL = "email";
+
     private final LoginFlow loginFlow;
 
     public OAuth2LoginHandlers(LoginFlow loginFlow) {
@@ -44,7 +46,7 @@ public class OAuth2LoginHandlers implements AuthenticationSuccessHandler, Authen
                     str(user.getAttributes().get("sub")),
                     null,
                     str(user.getAttributes().get("name")),
-                    Boolean.TRUE.equals(user.getAttributes().get("email_verified")) ? str(user.getAttributes().get("email")) : null,
+                    Boolean.TRUE.equals(user.getAttributes().get("email_verified")) ? str(user.getAttributes().get(EMAIL)) : null,
                     str(user.getAttributes().get("picture")));
             case "kakao" -> kakao(user.getAttributes());
             case "facebook" -> facebook(user.getAttributes());
@@ -73,7 +75,7 @@ public class OAuth2LoginHandlers implements AuthenticationSuccessHandler, Authen
                 String.valueOf(attrs.get("id")),
                 null,
                 str(profile.get("nickname")),
-                emailOk ? str(account.get("email")) : null,
+                emailOk ? str(account.get(EMAIL)) : null,
                 photo);
     }
 
@@ -88,7 +90,7 @@ public class OAuth2LoginHandlers implements AuthenticationSuccessHandler, Authen
                 str(attrs.get("id")),
                 null,
                 str(attrs.get("name")),
-                str(attrs.get("email")),
+                str(attrs.get(EMAIL)),
                 photo);
     }
 

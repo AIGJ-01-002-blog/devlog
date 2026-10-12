@@ -36,7 +36,7 @@ public class PostRevisionController {
     }
 
     private static long parseLong(String raw) {
-        if (raw == null || !raw.matches("[1-9][0-9]{0,17}")) throw new NotFoundException();
+        if (raw == null || !raw.matches("[1-9]\\d{0,17}")) throw new NotFoundException();
         return Long.parseLong(raw);
     }
 }

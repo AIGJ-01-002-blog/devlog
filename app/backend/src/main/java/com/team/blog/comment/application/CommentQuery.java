@@ -51,6 +51,7 @@ public class CommentQuery {
 
             LEFT JOIN member rt ON rt.id = c.reply_to_member_id
             """;
+    private static final String SELECT_ROWS = "SELECT " + COLUMNS + FROM;
 
     private final JdbcTemplate jdbc;
     private final PostAccessPolicy policy;
@@ -121,7 +122,7 @@ public class CommentQuery {
         Long expandTarget = null;
         if (before != null && !before.isBlank()) {
             long[] k = cursors.decode(before, list + ":prev", 2);
-            roots = jdbc.query("SELECT " + COLUMNS + FROM
+            roots = jdbc.query(SELECT_ROWS
                             + " WHERE c.post_id = ? AND c.parent_id IS NULL AND (c.created_at, c.id) < (?, ?)"
                             + " ORDER BY c.created_at DESC, c.id DESC LIMIT " + (PAGE_SIZE + 1),
                     this::row, postId, ts(k[0]), k[1]);
@@ -136,7 +137,7 @@ public class CommentQuery {
         Optional<Row> anchor = around == null ? Optional.empty() : anchorRoot(postId, around);
         if (anchor.isPresent()) {
             Row root = anchor.get();
-            roots = jdbc.query("SELECT " + COLUMNS + FROM
+            roots = jdbc.query(SELECT_ROWS
                             + " WHERE c.post_id = ? AND c.parent_id IS NULL AND (c.created_at, c.id) >= (?, ?)"
                             + " ORDER BY c.created_at, c.id LIMIT " + (PAGE_SIZE + 1),
                     this::row, postId, Timestamp.from(root.createdAt), root.id);
@@ -153,7 +154,7 @@ public class CommentQuery {
                 args.add(ts(k[0]));
                 args.add(k[1]);
             }
-            roots = jdbc.query("SELECT " + COLUMNS + FROM + " WHERE c.post_id = ? AND c.parent_id IS NULL" + after
+            roots = jdbc.query(SELECT_ROWS + " WHERE c.post_id = ? AND c.parent_id IS NULL" + after
                     + " ORDER BY c.created_at, c.id LIMIT " + (PAGE_SIZE + 1), this::row, args.toArray());
         }
         String next = null;
@@ -181,7 +182,7 @@ public class CommentQuery {
             args.add(ts(k[0]));
             args.add(k[1]);
         }
-        List<Row> rows = jdbc.query("SELECT " + COLUMNS + FROM + " WHERE c.parent_id = ?" + after
+        List<Row> rows = jdbc.query(SELECT_ROWS + " WHERE c.parent_id = ?" + after
                 + " ORDER BY c.created_at, c.id LIMIT " + (PAGE_SIZE + 1), this::row, args.toArray());
         String next = null;
         if (rows.size() > PAGE_SIZE) {
@@ -195,7 +196,7 @@ public class CommentQuery {
 
     /** 작성·수정 응답용 댓글 하나. */
     public CommentView one(long commentId, Viewer viewer) {
-        List<Row> rows = jdbc.query("SELECT " + COLUMNS + FROM + " WHERE c.id = ?", this::row, commentId);
+        List<Row> rows = jdbc.query(SELECT_ROWS + " WHERE c.id = ?", this::row, commentId);
         if (rows.isEmpty()) throw new NotFoundException();
         Row r = rows.get(0);
         PostGate gate = readable(r.postId, viewer);
@@ -211,7 +212,7 @@ public class CommentQuery {
 
     /** 특정 댓글의 최상위. 그 글의 정상 댓글이 아니면 비어 있다(있는지 드러내지 않음, FR-027). */
     private Optional<Row> anchorRoot(long postId, long commentId) {
-        List<Row> rows = jdbc.query("SELECT " + COLUMNS + FROM + """
+        List<Row> rows = jdbc.query(SELECT_ROWS + """
                  WHERE c.id = (SELECT COALESCE(t.parent_id, t.id) FROM comment t JOIN member tm ON tm.id = t.author_id
                                WHERE t.id = ? AND t.post_id = ? AND t.deleted_at IS NULL AND t.hidden_at IS NULL
                                  AND tm.withdrawn_at IS NULL AND tm.deleted_at IS NULL)
@@ -268,13 +269,24 @@ public class CommentQuery {
 
     private CommentView view(Row r, PostGate gate, Viewer viewer, List<CommentView> replies, Integer replyCount, String more) {
         boolean mine = viewer.is(r.authorId);
-        State state = r.authorGone ? State.WITHDRAWN_AUTHOR : r.deleted ? State.DELETED : r.hidden ? State.HIDDEN : State.NORMAL;
+        State state = stateOf(r);
         boolean showBody = state == State.NORMAL || (state == State.HIDDEN && mine);
         Author author = showBody ? new Author(r.handle, r.nickname, imageUrls.urlOf(r.profileImageKey), r.authorId == gate.authorId()) : null;
-        ReplyTo replyTo = r.replyToMemberId == null || !showBody ? null
-                : r.replyToGone ? new ReplyTo(null, null, true) : new ReplyTo(r.replyToHandle, r.replyToNickname, false);
+        ReplyTo replyTo = r.replyToMemberId == null || !showBody ? null : replyToOf(r);
         return new CommentView(r.id, state, showBody ? r.content : null, r.createdAt,
                 showBody && r.updatedAt.isAfter(r.createdAt), author, replyTo, mine && state != State.DELETED, replies, replyCount, more);
+    }
+
+    /** 탈퇴 → 삭제된 자리 → 숨김 → 정상 순서로 하나만. */
+    private static State stateOf(Row r) {
+        if (r.authorGone) return State.WITHDRAWN_AUTHOR;
+        if (r.deleted) return State.DELETED;
+        if (r.hidden) return State.HIDDEN;
+        return State.NORMAL;
+    }
+
+    private static ReplyTo replyToOf(Row r) {
+        return r.replyToGone ? new ReplyTo(null, null, true) : new ReplyTo(r.replyToHandle, r.replyToNickname, false);
     }
 
     private String prevCursor(String list, Row first) {
@@ -291,7 +303,7 @@ public class CommentQuery {
                        boolean replyToGone) {}
 
     private Row row(ResultSet rs, int i) throws SQLException {
-        return new Row(rs.getLong("id"), rs.getLong("post_id"), (Long) rs.getObject("parent_id", Long.class),
+        return new Row(rs.getLong("id"), rs.getLong("post_id"), rs.getObject("parent_id", Long.class),
                 rs.getLong("author_id"), rs.getString("content"), rs.getTimestamp("created_at").toInstant(),
                 rs.getTimestamp("updated_at").toInstant(), rs.getBoolean("deleted"), rs.getBoolean("hidden"),
                 rs.getBoolean("author_gone"), rs.getString("handle"), rs.getString("nickname"), rs.getString("profile_image_key"),

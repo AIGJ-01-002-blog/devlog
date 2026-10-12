@@ -131,7 +131,7 @@ class VisitTest extends IntegrationTest {
                 INSERT INTO site_visit (day, visitor, member, visits, first_at, last_at)
                 VALUES (current_date - 401, 'old0000000000000000000000000000x', false, 1, now() - interval '401 days', now() - interval '401 days')
                 """);
-        assertThat(visits.purge()).isGreaterThanOrEqualTo(1);
+        assertThat(visits.purge()).isPositive();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM site_visit WHERE day < current_date - 400", Long.class)).isZero();
     }
 }

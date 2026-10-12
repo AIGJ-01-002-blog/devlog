@@ -19,6 +19,19 @@ import com.team.blog.tag.application.TagSql;
 /** 주제 브랜치 읽기 (072). 공개 글만 세므로 누구에게나 같은 응답이다. */
 @Service
 public class TopicQuery {
+    private static final String BRANCH_URL = "/?branch=t";
+    private static final String BRANCHES_SQL = """
+            WITH wanted AS (SELECT DISTINCT t.topic_key FROM post_topic t WHERE t.post_id = ANY (?)),
+            listed AS (
+                SELECT t.post_id, t.topic_key, t.topic_name,
+                       row_number() OVER (PARTITION BY t.topic_key ORDER BY p.first_public_at, p.id) AS idx,
+                       count(*) OVER (PARTITION BY t.topic_key) AS total
+                FROM post_topic t JOIN wanted w ON w.topic_key = t.topic_key
+                JOIN post p ON p.id = t.post_id JOIN member m ON m.id = p.author_id
+                WHERE\s""" + PostAccessPolicy.PUBLIC_LIST_CONDITION + """
+            )
+            SELECT post_id, topic_key, topic_name, idx, total FROM listed WHERE post_id = ANY (?) AND total > 1""";
+
     private final JdbcTemplate jdbc;
 
     public TopicQuery(JdbcTemplate jdbc) {
@@ -30,17 +43,7 @@ public class TopicQuery {
         Map<Long, PostCard.Branch> byPost = new HashMap<>();
         if (postIds.isEmpty()) return byPost;
         jdbc.query(con -> {
-            var ps = con.prepareStatement("""
-                    WITH wanted AS (SELECT DISTINCT t.topic_key FROM post_topic t WHERE t.post_id = ANY (?)),
-                    listed AS (
-                        SELECT t.post_id, t.topic_key, t.topic_name,
-                               row_number() OVER (PARTITION BY t.topic_key ORDER BY p.first_public_at, p.id) AS idx,
-                               count(*) OVER (PARTITION BY t.topic_key) AS total
-                        FROM post_topic t JOIN wanted w ON w.topic_key = t.topic_key
-                        JOIN post p ON p.id = t.post_id JOIN member m ON m.id = p.author_id
-                        WHERE\s""" + PostAccessPolicy.PUBLIC_LIST_CONDITION + """
-                    )
-                    SELECT post_id, topic_key, topic_name, idx, total FROM listed WHERE post_id = ANY (?) AND total > 1""");
+            var ps = con.prepareStatement(BRANCHES_SQL);
             var arr = con.createArrayOf("bigint", postIds.toArray());
             ps.setArray(1, arr);
             ps.setArray(2, arr);
@@ -48,7 +51,7 @@ public class TopicQuery {
         }, rs -> {
             long key = rs.getLong(2);
             byPost.put(rs.getLong(1), new PostCard.Branch(PostCard.Branch.TOPIC, "t" + key, rs.getString(3), rs.getInt(4),
-                    rs.getInt(5), "/?branch=t" + key));
+                    rs.getInt(5), BRANCH_URL + key));
         });
         return byPost;
     }
@@ -64,7 +67,7 @@ public class TopicQuery {
                 WHERE\s""" + PostAccessPolicy.PUBLIC_LIST_CONDITION + """
                  GROUP BY t.topic_key HAVING count(*) > 1
                 ORDER BY cnt DESC, max(p.first_public_at) DESC LIMIT ?
-                """, (rs, i) -> new Popular("t" + rs.getLong(1), rs.getString(2), rs.getInt(3), "/?branch=t" + rs.getLong(1)), limit);
+                """, (rs, i) -> new Popular("t" + rs.getLong(1), rs.getString(2), rs.getInt(3), BRANCH_URL + rs.getLong(1)), limit);
     }
 
     public record Item(long id, String title, String url, Instant firstPublicAt) {}
@@ -90,7 +93,7 @@ public class TopicQuery {
         for (int i = 0; i < items.size(); i++) {
             if (items.get(i).id() == postId) index = i + 1;
         }
-        return Optional.of(new Navigation("t" + key, (String) head.get(0)[1], "/?branch=t" + key, index, items));
+        return Optional.of(new Navigation("t" + key, (String) head.get(0)[1], BRANCH_URL + key, index, items));
     }
 
     /** @param tags 브랜치 글에 쓰인 태그(겹치면 한 번) */
@@ -109,7 +112,7 @@ public class TopicQuery {
             counts.merge(key, 1, Integer::sum);
             List<String> list = tags.computeIfAbsent(key, k -> new ArrayList<>());
             for (Object tag : (Object[]) rs.getArray(3).getArray()) {
-                if (!list.contains((String) tag)) list.add((String) tag);
+                if (!list.contains(tag)) list.add((String) tag);
             }
         });
         List<TagProfile> out = new ArrayList<>();
@@ -136,7 +139,7 @@ public class TopicQuery {
 
     /** 브랜치 이름 (거른 홈 화면 제목). 없으면 null */
     public String name(long topicKey) {
-        List<String> names = jdbc.queryForList("SELECT topic_name FROM post_topic WHERE topic_key = ? LIMIT 1", String.class, topicKey);
+        List<String> names = jdbc.query("SELECT topic_name FROM post_topic WHERE topic_key = ? LIMIT 1", (rs, i) -> rs.getString(1), topicKey);
         return names.isEmpty() ? null : names.get(0);
     }
 }

@@ -124,9 +124,10 @@ class NormalizedSchemaTest extends IntegrationTest {
         long reply = jdbc.queryForObject("INSERT INTO comment (post_id, author_id, parent_id, content) VALUES (?, ?, ?, '답글') RETURNING id",
                 Long.class, id, s.memberId(), root);
         assertThat(reply).isPositive();
-        assertThatThrownBy(() -> jdbc.update("INSERT INTO comment (post_id, author_id, parent_id, content) VALUES (?, ?, ?, '답글의 답글')", id, s.memberId(), reply))
+        long me = s.memberId();
+        assertThatThrownBy(() -> jdbc.update("INSERT INTO comment (post_id, author_id, parent_id, content) VALUES (?, ?, ?, '답글의 답글')", id, me, reply))
                 .isInstanceOf(DataIntegrityViolationException.class);
-        assertThatThrownBy(() -> jdbc.update("INSERT INTO comment (post_id, author_id, parent_id, content) VALUES (?, ?, ?, '다른 글')", other, s.memberId(), root))
+        assertThatThrownBy(() -> jdbc.update("INSERT INTO comment (post_id, author_id, parent_id, content) VALUES (?, ?, ?, '다른 글')", other, me, root))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 

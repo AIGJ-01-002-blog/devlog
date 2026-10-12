@@ -68,15 +68,13 @@ public final class AiInput {
                 } else if (codeLines++ < CODE_LINES) {
                     out.append(line).append('\n');
                 }
-                continue;
-            }
-            if (m.matches()) {
+            } else if (m.matches()) {
                 fence = m.group(1);
                 codeLines = 0;
                 if (!m.group(2).isEmpty()) out.append(m.group(2)).append('\n');
-                continue;
+            } else {
+                out.append(cleanLine(line)).append('\n');
             }
-            out.append(cleanLine(line)).append('\n');
         }
         return SPACES.matcher(out).replaceAll(" ").strip();
     }

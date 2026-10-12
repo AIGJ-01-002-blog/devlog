@@ -17,6 +17,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import tools.jackson.databind.json.JsonMapper;
 
+import com.team.blog.account.domain.Member;
 import com.team.blog.account.domain.MemberStatus;
 import com.team.blog.account.infra.AuthIdentityRepository;
 import com.team.blog.account.infra.MemberRepository;
@@ -84,7 +85,7 @@ public class AccountStateFilter extends OncePerRequestFilter {
             return;
         }
         String path = request.getRequestURI();
-        MemberStatus status = members.findById(principal.id()).map(m -> m.getStatus()).orElse(null);
+        MemberStatus status = members.findById(principal.id()).map(Member::getStatus).orElse(null);
         if (status == null) {
             SecurityContextHolder.clearContext();
             chain.doFilter(request, response);

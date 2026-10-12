@@ -283,7 +283,7 @@ class ReportTest extends IntegrationTest {
         purge.run();
         assertThat(jdbc.queryForObject("SELECT snapshot_content FROM report_case WHERE id = ?", String.class, caseId)).isNotNull();
         jdbc.update("UPDATE report_case SET handled_at = now() - interval '31 days' WHERE id = ?", caseId);
-        assertThat(purge.run()).isGreaterThanOrEqualTo(1);
+        assertThat(purge.run()).isPositive();
         assertThat(jdbc.queryForMap("SELECT snapshot_title, snapshot_content, status FROM report_case WHERE id = ?", caseId))
                 .containsEntry("snapshot_title", null).containsEntry("snapshot_content", null).containsEntry("status", "REJECTED");
         assertThat(jdbc.queryForMap("SELECT reason, detail FROM report WHERE case_id = ?", caseId))
