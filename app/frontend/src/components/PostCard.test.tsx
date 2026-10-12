@@ -18,7 +18,7 @@ async function render(c: Card) {
   return el
 }
 
-describe('PostCard 표지 (048)', () => {
+describe('PostCard 표지 (048, 문의 #1)', () => {
   it('같은 글은 언제나 같은 색이고 0~3 안에 있다', () => {
     expect([0, 1, 2, 3, 4, 7].map(coverTone)).toEqual([0, 1, 2, 3, 0, 3])
     expect(coverTone(-1)).toBe(3)
@@ -31,14 +31,16 @@ describe('PostCard 표지 (048)', () => {
     expect(coverGlyph('')).toBe('#')
   })
 
-  it('사진이 없으면 그라데이션 표지, 있으면 사진', async () => {
+  it('사진이 없으면 devlog 로고 표지, 있으면 사진 (문의 #1)', async () => {
     const empty = await render(card())
-    const cover = empty.querySelector('.card-cover')!
-    expect(cover.getAttribute('data-tone')).toBe('3')
-    expect(cover.textContent).toContain('운')
+    const cover = empty.querySelector('.card-logo-cover')!
+    expect(cover.querySelector('.logo-mark')).not.toBeNull()
+    expect(cover.textContent).toBe('devlog')
+    expect(cover.textContent).not.toContain('운')
+    expect(empty.querySelector('.card-cover')).toBeNull()
     expect(cover.closest('[aria-hidden="true"]')).not.toBeNull()
     const withImage = await render(card({ thumbnailUrl: '/media/a.webp' }))
-    expect(withImage.querySelector('.card-cover')).toBeNull()
+    expect(withImage.querySelector('.card-logo-cover')).toBeNull()
     expect(withImage.querySelector('img')?.getAttribute('src')).toBe('/media/a.webp')
   })
 })

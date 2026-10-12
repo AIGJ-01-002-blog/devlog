@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { PostCard } from '../components/PostCard'
+import { LogoCover, PostCard } from '../components/PostCard'
 import { ProjectEditor } from '../components/ProjectEditor'
 import { ApiError } from '../lib/api'
 import { loginPath, useAuth } from '../lib/auth'
@@ -184,7 +184,7 @@ export function BlogSeries({ handle, mine }: { handle: string; mine: boolean }) 
       {list.map((s) => (
         <article key={s.id} className="card">
           <Link to={seriesPath(handle, s.slug)} className="card-thumb" tabIndex={-1} aria-hidden="true">
-            {s.thumbnailUrl ? <img src={s.thumbnailUrl} alt="" loading="lazy" /> : <span className="card-thumb-empty" />}
+            {s.thumbnailUrl ? <img src={s.thumbnailUrl} alt="" loading="lazy" /> : <LogoCover />}
           </Link>
           <div className="card-body">
             <h2 className="card-title"><Link to={seriesPath(handle, s.slug)}>{s.name}</Link></h2>

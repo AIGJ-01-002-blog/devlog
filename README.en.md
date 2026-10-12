@@ -371,6 +371,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v1.65.6 | 2026-10-12 | Posts and series without a thumbnail now show the devlog logo as their cover | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.6) |
 | v1.65.5 | 2026-10-12 | Bigger thumbnails in the home post list so text in cover images is readable (280px 16:9 on PC, full width above the post on mobile) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.5) |
 | v1.65.4 | 2026-10-12 | Release notes: fixed the [Show older versions] button layout and the font of Latin section labels like "DB" | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.4) |
 | v1.65.3 | 2026-10-12 | Fixed 2 new-code Sonar issues so the quality gate passes again (no visible change) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.3) |
