@@ -37,7 +37,7 @@ scripts/check-all.sh        # 전부 실행하고 요약
 
 ```bash
 python3 scripts/check-readmes.py      # 언어별 README(한·영·일·중)가 서로, 그리고 저장소와 맞는지
-python3 scripts/build-org-profile.py  # README.md로 조직 프로필 README를 build/에 만든다
+python3 scripts/build-org-profile.py  # profile/README.md로 조직 프로필 README를 build/에 만든다
 ```
 
 `check-readmes.py`는 README.md(한국어)를 기준으로 번역판의 제목·표·목록·그림 수, 릴리스 표 버전, CHANGELOG 맨 위 버전, Flyway 범위(V1~Vn), 기술 스택 버전, 상대 링크와 앵커를 대조한다. PR에서 `README 검사` 워크플로가 같은 검사를 돌린다. 그래서 CHANGELOG에 새 버전을 올리는 PR은 네 README의 릴리스 표에도 그 행을 함께 넣어야 통과한다.

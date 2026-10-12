@@ -1,4 +1,4 @@
-# README.md가 바뀌면 조직 프로필(AIGJ-01-002-blog/.github의 profile/README.md)을 자동으로 맞춘다.
+# profile/README.md가 바뀌면 조직 프로필(AIGJ-01-002-blog/.github의 profile/README.md)을 자동으로 맞춘다. 기능 소개는 README.md, 조직 프로필은 기술·이유·과정을 맡는다.
 # 레포 Secret ORG_PROFILE_TOKEN(.github 저장소 Contents 읽기·쓰기만 준 fine-grained 토큰)이 있을 때만 돈다. 없으면 안내만 남기고 넘어간다.
 name: 조직 프로필 동기화
 
@@ -6,8 +6,8 @@ on:
   push:
     branches: [main]
     paths:
-      - "README.md"
       - "assets/images/**"
+      - "profile/**"
       - "scripts/build-org-profile.py"
       - ".github/workflows/org-profile-sync.yml"
   workflow_dispatch:

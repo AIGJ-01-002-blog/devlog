@@ -11,6 +11,7 @@ on:
       - "app/backend/src/main/resources/db/migration/**"
       - "app/frontend/package.json"
       - "scripts/check-readmes.py"
+      - "profile/**"
       - "scripts/build-org-profile.py"
       - ".github/workflows/readme-check.yml"
   push:
