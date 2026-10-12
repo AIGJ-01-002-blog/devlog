@@ -371,6 +371,9 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v1.66.2 | 2026-10-12 | 未写任何内容就离开编辑器时，空草稿不进回收站直接删除 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.66.2) |
+| v1.66.1 | 2026-10-12 | 没有文章的标签地址返回 404(避免搜索引擎软 404)，站点地图加入 AI 连接指南和发布说明 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.66.1) |
+| v1.66.0 | 2026-10-12 | 标签页改版：搜索、排序，以及每个标签的热门文章横向滑动行 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.66.0) |
 | v1.65.6 | 2026-10-12 | 未设置缩略图的文章和系列封面改为显示 devlog 标志 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.6) |
 | v1.65.5 | 2026-10-12 | 放大首页文章列表缩略图，让封面图中的文字看得清(PC 为 280px 16:9，移动端在文章上方占满屏宽) | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.5) |
 | v1.65.4 | 2026-10-12 | 修复发布说明中[查看更早版本]按钮的样式和“DB”等英文小标题的字体 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.4) |

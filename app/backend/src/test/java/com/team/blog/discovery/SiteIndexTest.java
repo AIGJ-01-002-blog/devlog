@@ -49,6 +49,7 @@ class SiteIndexTest extends IntegrationTest {
                 .contains("/@" + s.handle() + "/posts/" + open + "</loc>")
                 .contains("/@" + s.handle() + "</loc>")
                 .contains("/about</loc>").contains("/privacy</loc>").contains("/terms</loc>")
+                .contains("/mcp</loc>").contains("/releases</loc>")
                 .doesNotContain("/posts/" + friends + "<").doesNotContain("/posts/" + priv + "<")
                 .doesNotContain("/posts/" + hidden + "<")
                 .doesNotContain("/@" + quiet.handle() + "<")
@@ -61,5 +62,22 @@ class SiteIndexTest extends IntegrationTest {
         assertThat(txt).startsWith("User-agent: *").contains("Disallow: /api/").contains("Disallow: /admin")
                 .contains("Disallow: /write").contains("Sitemap: ").contains("/sitemap.xml")
                 .doesNotContain("Disallow: /\n");
+    }
+
+    @Test
+    void 사이트맵에는_robots가_막은_주소가_없다() throws Exception {
+        Session s = signup(uniqueLogin("smapr"));
+        publish(s, "열린 글", "PUBLIC");
+        java.util.List<String> disallow = body("/robots.txt", "text/plain").lines()
+                .filter(l -> l.startsWith("Disallow: ")).map(l -> l.substring("Disallow: ".length())).toList();
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("<loc>https?://[^/]+([^<]*)</loc>")
+                .matcher(body("/sitemap.xml", "application/xml"));
+        int n = 0;
+        while (m.find()) {
+            String path = m.group(1);
+            n++;
+            assertThat(disallow).as(path).noneMatch(path::startsWith);
+        }
+        assertThat(n).isGreaterThan(5);
     }
 }

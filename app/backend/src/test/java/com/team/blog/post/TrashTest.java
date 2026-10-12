@@ -110,6 +110,61 @@ class TrashTest extends IntegrationTest {
         assertThat(myPosts(s, "TRASH").path("counts").path("trash").asLong()).isZero();
     }
 
+    boolean leaveEditor(Session s, long id) throws Exception {
+        return read(s.http().perform(delete("/api/posts/" + id + "/if-empty").with(csrf()))
+                .andExpect(status().isOk()).andReturn()).path("deleted").asBoolean();
+    }
+
+    @Test
+    void 아무것도_쓰지_않고_나가면_휴지통_없이_바로_지워진다() throws Exception {
+        Session s = signup(uniqueLogin("leaveempty"));
+        long id = draft(s, "", "");
+        assertThat(leaveEditor(s, id)).isTrue();
+        assertThat(exists(id)).isFalse();
+        assertThat(myPosts(s, "TRASH").path("counts").path("trash").asLong()).isZero();
+        // 다시 보내도 404다 (이미 지워짐)
+        s.http().perform(delete("/api/posts/" + id + "/if-empty").with(csrf())).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void 무언가_쓴_글은_나가도_그대로_남는다() throws Exception {
+        Session s = signup(uniqueLogin("leavekeep"));
+        long titled = draft(s, "제목만", "");
+        assertThat(leaveEditor(s, titled)).isFalse();
+        assertThat(exists(titled)).isTrue();
+
+        // 서버에 잠시 보관 중인 자동 저장분도 쓴 내용이다
+        long typed = draft(s, "", "");
+        s.http().perform(asJson(put("/api/posts/" + typed + "/autosave"),
+                Map.of("title", "", "contentMd", "한 줄", "baseVersion", 0))).andExpect(status().isOk());
+        assertThat(leaveEditor(s, typed)).isFalse();
+        assertThat(jdbc.queryForObject("SELECT content_md FROM post WHERE id = ?", String.class, typed)).isEqualTo("한 줄");
+
+        long pub = published(s, "발행한 글");
+        assertThat(leaveEditor(s, pub)).isFalse();
+        assertThat(exists(pub)).isTrue();
+    }
+
+    @Test
+    void 제목과_본문이_비어도_태그가_달린_임시글은_빈_글이_아니다() throws Exception {
+        Session s = signup(uniqueLogin("leavetag"));
+        long id = draft(s, "", "");
+        String name = "leave" + (System.nanoTime() % 1_000_000);
+        jdbc.update("INSERT INTO tag (name) VALUES (?)", name);
+        jdbc.update("INSERT INTO post_tag (post_id, tag_id, position) SELECT ?, id, 0 FROM tag WHERE name = ?", id, name);
+        assertThat(leaveEditor(s, id)).isFalse();
+        assertThat(trash(s, id).path("result").asString()).isEqualTo("TRASHED");
+    }
+
+    @Test
+    void 남의_임시글은_나가기로_지울_수_없다() throws Exception {
+        Session owner = signup(uniqueLogin("leaveowner"));
+        Session other = signup(uniqueLogin("leaveother"));
+        long id = draft(owner, "", "");
+        other.http().perform(delete("/api/posts/" + id + "/if-empty").with(csrf())).andExpect(status().isNotFound());
+        assertThat(exists(id)).isTrue();
+    }
+
     @Test
     void 삭제_직전의_자동_저장분이_남는다() throws Exception {
         Session s = signup(uniqueLogin("trashflush"));

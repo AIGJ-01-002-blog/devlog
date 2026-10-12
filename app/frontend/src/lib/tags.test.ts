@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { addTag, blogTagPath, moveTag, normalizeTag, tagErrors, tagFormatError, tagPath } from './tags'
+import {
+  addTag, blogTagPath, browseEndpoint, moveTag, normalizeTag, parseTagSort, tagErrors, tagFormatError, tagPath, tagsIndexPath,
+} from './tags'
 
 describe('normalizeTag (docs/22 §2-1)', () => {
   it.each([
@@ -47,5 +49,25 @@ describe('칩 목록', () => {
     expect(m.get(2)).toBe('형식')
     expect(m.get(-1)).toBe('너무 많음')
     expect(m.size).toBe(2)
+  })
+})
+
+describe('태그 둘러보기 주소 (spec 089)', () => {
+  it('기본값(빈 검색어·인기순)은 주소에서 빼고, 나머지는 남긴다', () => {
+    expect(tagsIndexPath('', 'popular')).toBe('/tags')
+    expect(tagsIndexPath('  ', 'popular')).toBe('/tags')
+    expect(tagsIndexPath(' c# ', 'name')).toBe('/tags?q=c%23&sort=name')
+    expect(tagsIndexPath('spring', 'popular')).toBe('/tags?q=spring')
+  })
+
+  it('모르는 정렬은 인기순', () => {
+    expect(parseTagSort('recent')).toBe('recent')
+    expect(parseTagSort('NAME')).toBe('popular')
+    expect(parseTagSort(null)).toBe('popular')
+  })
+
+  it('API 주소에 정렬·검색어·커서를 싣는다', () => {
+    expect(browseEndpoint('', 'popular')).toBe('/api/tags/browse?sort=popular')
+    expect(browseEndpoint('c++', 'recent', '6')).toBe('/api/tags/browse?sort=recent&q=c%2B%2B&cursor=6')
   })
 })

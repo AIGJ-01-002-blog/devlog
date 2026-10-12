@@ -22,6 +22,7 @@ import { ALT_SOFT_LIMIT, bodyImages, formatBytes, forPreview, pendingIds, restor
 import { useImageUploads } from '../lib/useImageUploads'
 import { decideRestore } from '../lib/restore'
 import { navigate, setLeaveGuard } from '../lib/router'
+import { discardIfEmpty, isBlankDraft } from '../lib/trash'
 import { isPublishField, SUMMARY_MAX, summaryLength } from '../lib/postSummary'
 import { initialThumbnail, thumbnailRequest } from '../lib/postThumbnail'
 import { aiHint, type AiHint } from '../lib/mcp'
@@ -192,9 +193,13 @@ function Editor({ view, local, memberId }: { view: EditorView; local: LocalDraft
     void localDrafts.backups(memberId, view.id).then(setBackups)
   }, [restore, memberId, view.id])
 
+  const mounted = useRef(false)
+  const discarded = useRef(false)
+
   // 탭이 가려지거나 떠날 때 바로 저장, 미저장이면 떠나기 전에 묻는다 (FR-011, FR-015)
   useEffect(() => {
     const s = saver.current!
+    mounted.current = true
     const onHide = () => { if (document.visibilityState === 'hidden') void s.flushNow(true) }
     const onPageHide = () => void s.flushNow(true)
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -214,8 +219,17 @@ function Editor({ view, local, memberId }: { view: EditorView; local: LocalDraft
       setLeaveGuard(null)
       // 미전송 내용이 없으면 이 글의 기기 데이터를 지운다 (FR-009). 있으면 남겨 다시 열 때 복구한다
       if (!(s.hasUnsaved || s.isConflict)) void localDrafts.remove(memberId, view.id)
-      void s.flushNow(true)
+      const flushed = s.flushNow(true)
       s.stop()
+      // 아무것도 쓰지 않고 나가면 빈 임시글을 남기지 않는다 (091). 개발 모드(StrictMode)의 정리·재실행에는 지우지 않는다
+      mounted.current = false
+      if (!discarded.current && !s.isConflict && isBlankDraft(view.status, { title: latest.current.title, contentMd: latest.current.content })) {
+        setTimeout(() => {
+          if (mounted.current || discarded.current) return
+          discarded.current = true
+          void flushed.finally(() => discardIfEmpty(view.id, memberId, true))
+        }, 0)
+      }
     }
   }, [])
 
@@ -237,6 +251,17 @@ function Editor({ view, local, memberId }: { view: EditorView; local: LocalDraft
   }, [preview, tab])
 
   const current = (): Content => ({ title, contentMd: content })
+
+  // [나가기]: 빈 임시글은 먼저 지우고 나가, 돌아간 목록에 남아 보이지 않게 한다 (091)
+  const leave = async () => {
+    const s = saver.current!
+    if (!discarded.current && !s.hasUnsaved && !s.isConflict && isBlankDraft(view.status, { title, contentMd: content })) {
+      discarded.current = true
+      await discardIfEmpty(view.id, memberId)
+    }
+    if (history.length > 1) history.back()
+    else navigate('/manage/posts')
+  }
 
   const saveNow = useCallback(async (base?: number) => {
     const s = saver.current!
@@ -325,7 +350,7 @@ function Editor({ view, local, memberId }: { view: EditorView; local: LocalDraft
     <main className="editor">
       <div className="editor-toolbar">
         <div className="row">
-          <button type="button" className="btn btn-text" data-tip={t('에디터 닫기. 쓴 내용은 자동으로 저장돼요')} onClick={() => history.length > 1 ? history.back() : navigate('/manage/posts')}>{t('← 나가기')}</button>
+          <button type="button" className="btn btn-text" data-tip={t('에디터 닫기. 쓴 내용은 자동으로 저장되고, 아무것도 쓰지 않은 글은 남기지 않아요')} onClick={() => void leave()}>{t('← 나가기')}</button>
           <SaveIndicator state={state} localStored={localStored} onCompare={() => setShowConflict(true)} />
         </div>
         <div className="row">

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""README.md로 조직 프로필 README(AIGJ-01-002-blog/.github의 profile/README.md)를 만든다.
+"""profile/README.md로 조직 프로필 README(AIGJ-01-002-blog/.github의 profile/README.md)를 만든다.
+
+조직 프로필은 기능 소개(README.md)가 아니라 만들면서 고른 기술·이유·과정을 보여 준다(2026-10-12 강사님 피드백).
 
 조직 페이지에서는 상대 경로가 열리지 않으므로 링크와 그림을 이 저장소 main의 절대 주소로 바꾼다.
   scripts/build-org-profile.py            # build/org-profile-README.md에 쓴다
@@ -28,7 +30,7 @@ def absolute(path):
 
 
 def build():
-    text = (ROOT / "README.md").read_text(encoding="utf-8")
+    text = (ROOT / "profile/README.md").read_text(encoding="utf-8")
     text = re.sub(r"\]\(([^)\s]+)\)", lambda m: "](" + absolute(m.group(1)) + ")", text)
     return re.sub(r'(src|srcset)="([^"]+)"', lambda m: f'{m.group(1)}="{absolute(m.group(2))}"', text)
 

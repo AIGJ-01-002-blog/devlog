@@ -110,9 +110,11 @@ public class PageController {
         return "/tags/" + UriUtils.encodePathSegment(name, java.nio.charset.StandardCharsets.UTF_8);
     }
 
+    /** 전체 태그 (spec 089): 서버는 상위 100개 태그 링크를 그리고, 화면이 쓸 첫 태그 줄(검색어·정렬 반영)을 함께 내려준다. */
     @GetMapping("/tags")
-    public ResponseEntity<String> tagIndex() {
+    public ResponseEntity<String> tagIndex(@RequestParam(required = false) String q, @RequestParam(required = false) String sort) {
         var top = tags.top(100);
+        var browse = tagApi.browse(q, sort, null).getBody();
         StringBuilder body = new StringBuilder("<main><h1>태그</h1>");
         if (top.isEmpty()) body.append("<p>아직 태그가 없어요.</p>");
         else {
@@ -123,19 +125,26 @@ public class PageController {
         }
         body.append(MAIN_END);
         HeadMeta meta = HeadMeta.site("태그 - " + site.name(), "공개 글에 쓰인 태그", absolute("/tags"), absolute(site.defaultOgImage()));
-        return html(HttpStatus.OK, shell.render(meta, body.toString(), Map.of("page", "tags", "tags", top)), CacheControl.noCache());
+        // 검색어로 거른 목록은 /tags의 일부라 따로 수집하지 않는다 (정렬만 바꾼 주소는 정규 주소가 /tags다)
+        if (q != null && !q.isBlank()) meta = HeadMeta.privatePage(site.name(), "태그");
+        return html(HttpStatus.OK, shell.render(meta, body.toString(), Map.of("page", "tags", "tags", top, "browse", browse)),
+                CacheControl.noCache());
     }
 
-    /** 태그별 목록 (010 FR-019~FR-022): 형식 안 맞음 404, 정규화 안 된 주소 301, 공개 글 없으면 200 + 빈 상태. */
+    /**
+     * 태그별 목록 (010 FR-019~FR-022): 형식 안 맞음 404, 정규화 안 된 주소 301.
+     * 공개 글이 없는 태그(없는 태그, 글이 지워진 태그)는 404로 내린다. 200 + 빈 상태는 검색 엔진이 Soft 404로 본다 (spec 090).
+     * 화면 안에서 옮겨 오면 React가 API로 빈 상태를 그대로 보여 준다.
+     */
     @GetMapping("/tags/{name}")
     public ResponseEntity<String> tag(@PathVariable String name) {
         var canonical = TagNormalizer.canonical(name);
         if (canonical.isEmpty()) return notFound();
         if (!canonical.get().equals(name)) return redirect(HttpStatus.MOVED_PERMANENTLY, tagPath(canonical.get()));
         TagController.TagPage page = tagApi.page(name, null);
+        if (page.postCount() == null || page.postCount() < 1 || page.items().isEmpty()) return notFound();
         String body = "<main><h1>#" + SpaShell.esc(name) + "</h1><p>공개 글 " + page.postCount() + "</p>"
-                + (page.items().isEmpty() ? "<p>아직 이 태그로 공개된 글이 없어요.</p>"
-                : cards(new PostCardPage(page.items(), page.nextCursor()))) + MAIN_END;
+                + cards(new PostCardPage(page.items(), page.nextCursor())) + MAIN_END;
         HeadMeta meta = HeadMeta.site("#" + name + " - " + site.name(), "#" + name + " 태그가 달린 글", absolute(tagPath(name)),
                 absolute(site.defaultOgImage()));
         // 글이 하나뿐인 태그 화면은 그 글과 내용이 겹치는 얇은 화면이라 검색 수집·광고에서 뺀다 (spec 085, 애드센스 "가치가 별로 없는 콘텐츠")
