@@ -110,9 +110,11 @@ public class PageController {
         return "/tags/" + UriUtils.encodePathSegment(name, java.nio.charset.StandardCharsets.UTF_8);
     }
 
+    /** 전체 태그 (spec 089): 서버는 상위 100개 태그 링크를 그리고, 화면이 쓸 첫 태그 줄(검색어·정렬 반영)을 함께 내려준다. */
     @GetMapping("/tags")
-    public ResponseEntity<String> tagIndex() {
+    public ResponseEntity<String> tagIndex(@RequestParam(required = false) String q, @RequestParam(required = false) String sort) {
         var top = tags.top(100);
+        var browse = tagApi.browse(q, sort, null).getBody();
         StringBuilder body = new StringBuilder("<main><h1>태그</h1>");
         if (top.isEmpty()) body.append("<p>아직 태그가 없어요.</p>");
         else {
@@ -123,7 +125,10 @@ public class PageController {
         }
         body.append(MAIN_END);
         HeadMeta meta = HeadMeta.site("태그 - " + site.name(), "공개 글에 쓰인 태그", absolute("/tags"), absolute(site.defaultOgImage()));
-        return html(HttpStatus.OK, shell.render(meta, body.toString(), Map.of("page", "tags", "tags", top)), CacheControl.noCache());
+        // 검색어로 거른 목록은 /tags의 일부라 따로 수집하지 않는다 (정렬만 바꾼 주소는 정규 주소가 /tags다)
+        if (q != null && !q.isBlank()) meta = HeadMeta.privatePage(site.name(), "태그");
+        return html(HttpStatus.OK, shell.render(meta, body.toString(), Map.of("page", "tags", "tags", top, "browse", browse)),
+                CacheControl.noCache());
     }
 
     /** 태그별 목록 (010 FR-019~FR-022): 형식 안 맞음 404, 정규화 안 된 주소 301, 공개 글 없으면 200 + 빈 상태. */
