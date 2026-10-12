@@ -154,7 +154,7 @@ flowchart LR
     T[Telegram] -->|Bot API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>multiple pods]
     I -->|/blog-images| M[(MinIO / S3<br/>images · attachments)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V31)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V32)]
     A --> R[(Redis<br/>sessions · rate limits · views · cache)]
     A --> M
     A -.optional.-> G[Google Gemini]
@@ -246,7 +246,7 @@ Code lives in this repository; design documents live in the documentation reposi
 
 | Path | Description |
 | --- | --- |
-| [app/backend](app/backend) | Backend: Spring Boot 4.1, Java 21. Feature modules, Flyway migrations (V1~V31), tests |
+| [app/backend](app/backend) | Backend: Spring Boot 4.1, Java 21. Feature modules, Flyway migrations (V1~V32), tests |
 | [app/frontend](app/frontend) | Frontend: React 19 SPA, TypeScript, Vite. Screens, autosave (IndexedDB), dark mode |
 | [deploy](deploy) | Deployment: Dockerfile, Kubernetes manifests (base, selfhosted, nhn, local), deploy, rollback and secret-check scripts |
 | [.github](.github) | CI/CD: backend and frontend tests, image build and deploy, releases, Discord and Telegram notifications |
@@ -325,7 +325,7 @@ To try it on Kubernetes, run `kubectl apply -k deploy/k8s/overlays/local` on kin
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub, Google, Kakao and Facebook login, sessions, CSRF, per-path authorization |
 | Spring Data JPA (Hibernate) | Boot 4.1 | All domains | Storing members, posts, comments and other domain data |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | Sessions, rate limits, views, cache | Lets multiple pods share sessions, and decides concurrent requests with a single Redis script |
-| Flyway | Boot 4.1 | Database | Manages the schema as migrations V1~V31, applied at startup |
+| Flyway | Boot 4.1 | Database | Manages the schema as migrations V1~V32, applied at startup |
 | commonmark-java (+ GFM extensions) | 0.30.0 | Body rendering | Markdown → HTML: tables, strikethrough, task lists, autolinks, heading anchors |
 | OWASP Java HTML Sanitizer | 20260924.2 | Body sanitizing | Sanitizes rendered HTML against an allow list to prevent XSS |
 | AWS SDK for Java (S3) | 2.55.12 | media | Uploads images and attachments to MinIO and S3 |
@@ -371,6 +371,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v1.65.0 | 2026-10-12 | AI diary posts stay visible on the blog but are left out of search indexing (noindex), the sitemap, and ads | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.65.0) |
 | v1.64.2 | 2026-10-11 | Terms and privacy pages now show their title, effective date, and links in English, Japanese, and Chinese (with a note that the body is the original Korean); missing specs added to the spec index | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.64.2) |
 | v1.64.1 | 2026-10-11 | ChatGPT guide notes that creating, publishing, and deleting drafts actually worked on Plus | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.64.1) |
 | v1.64.0 | 2026-10-11 | Settings › AI connections now walks through connecting ChatGPT, the Claude app, and Claude Code, with an FAQ | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.64.0) |
