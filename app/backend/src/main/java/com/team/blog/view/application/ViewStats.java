@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.stereotype.Service;
 
 import com.team.blog.shared.stats.Counts;
@@ -58,7 +59,7 @@ public class ViewStats {
     private Map<LocalDate, Long> dayCounts(String agg, Instant from) {
         Map<LocalDate, Long> out = new java.util.HashMap<>();
         jdbc.query("SELECT day AS d, " + agg + " AS n FROM site_visit WHERE day >= ? GROUP BY day",
-                rs -> { out.put(rs.getObject("d", LocalDate.class), rs.getLong("n")); }, LocalDate.ofInstant(from, Counts.KST));
+                (RowCallbackHandler) rs -> out.put(rs.getObject("d", LocalDate.class), rs.getLong("n")), LocalDate.ofInstant(from, Counts.KST));
         return out;
     }
 
@@ -81,7 +82,7 @@ public class ViewStats {
     public Map<LocalDate, Long> searchVisitsByDay(Instant from) {
         Map<LocalDate, Long> out = new java.util.HashMap<>();
         jdbc.query("SELECT day AS d, sum(visits) AS n FROM visit_source_day WHERE day >= ? AND source = ANY (?) GROUP BY day",
-                rs -> { out.put(rs.getObject("d", LocalDate.class), rs.getLong("n")); }, LocalDate.ofInstant(from, Counts.KST),
+                (RowCallbackHandler) rs -> out.put(rs.getObject("d", LocalDate.class), rs.getLong("n")), LocalDate.ofInstant(from, Counts.KST),
                 VisitSources.SEARCH.toArray(String[]::new));
         return out;
     }

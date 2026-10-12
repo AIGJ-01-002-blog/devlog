@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.stereotype.Service;
 
 import com.team.blog.account.domain.Visibility;
@@ -106,9 +107,7 @@ public class SeriesQuery {
                     WHERE sp.post_id = ANY (?)""");
             ps.setArray(1, con.createArrayOf("bigint", postIds.toArray()));
             return ps;
-        }, rs -> {
-            byPost.put(rs.getLong(1), rs.getString(2));
-        });
+        }, (RowCallbackHandler) rs -> byPost.put(rs.getLong(1), rs.getString(2)));
         return byPost;
     }
 

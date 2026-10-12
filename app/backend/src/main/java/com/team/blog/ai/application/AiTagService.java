@@ -124,7 +124,7 @@ public class AiTagService {
             throw ApiException.badRequest("AI_TOO_SHORT", "글을 조금 더 쓴 뒤 추천받아 보세요.");
         }
         Set<String> attached = attached(req.tags());
-        int room = Math.clamp(postProps.maxTags() - attached.size(), 0, TagPrompt.MAX_TAGS);
+        int room = Math.clamp(postProps.maxTags() - (long) attached.size(), 0, TagPrompt.MAX_TAGS);
         try {
             return run(memberId, postId, input, attached, room, req.again());
         } catch (DataAccessException e) {

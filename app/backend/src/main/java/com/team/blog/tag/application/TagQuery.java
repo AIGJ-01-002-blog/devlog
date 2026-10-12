@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.stereotype.Service;
 
 import tools.jackson.core.type.TypeReference;
@@ -67,9 +68,7 @@ public class TagQuery {
                     WHERE pt.post_id = ANY (?) ORDER BY pt.post_id, pt.position""");
             ps.setArray(1, con.createArrayOf("bigint", postIds.toArray()));
             return ps;
-        }, rs -> {
-            byPost.computeIfAbsent(rs.getLong(1), k -> new ArrayList<>()).add(rs.getString(2));
-        });
+        }, (RowCallbackHandler) rs -> byPost.computeIfAbsent(rs.getLong(1), k -> new ArrayList<>()).add(rs.getString(2)));
         return byPost;
     }
 
@@ -82,9 +81,7 @@ public class TagQuery {
                     + " AND t.name = ANY (?) GROUP BY t.name");
             ps.setArray(1, con.createArrayOf("varchar", names.toArray()));
             return ps;
-        }, rs -> {
-            out.put(rs.getString(1), rs.getLong(2));
-        });
+        }, (RowCallbackHandler) rs -> out.put(rs.getString(1), rs.getLong(2)));
         return out;
     }
 

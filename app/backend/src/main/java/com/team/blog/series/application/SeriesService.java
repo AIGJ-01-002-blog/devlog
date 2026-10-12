@@ -162,7 +162,7 @@ public class SeriesService {
         if (position == null) return at + 1;
         List<Long> order = new java.util.ArrayList<>(live);
         order.remove(postId);
-        at = Math.clamp(position - 1, 0, order.size());
+        at = Math.clamp(position - 1L, 0, order.size());
         order.add(at, postId);
         reorder(memberId, seriesId, order);
         return at + 1;

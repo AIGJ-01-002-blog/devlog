@@ -12,6 +12,7 @@ import java.util.Locale;
 import java.util.Map;
 
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.stereotype.Service;
 
 import com.team.blog.shared.stats.Counts;
@@ -85,10 +86,9 @@ public class PostStats {
                        count(*) FILTER (WHERE status = 'DRAFT') AS drafts,
                        count(*) FILTER (WHERE hidden_at IS NOT NULL) AS hidden
                 FROM post WHERE author_id = ANY (?) AND deleted_at IS NULL GROUP BY author_id
-                """, rs -> {
-            out.put(rs.getLong(AUTHOR_ID), new AuthorCounts(rs.getLong("published"), rs.getLong("public_posts"), rs.getLong("drafts"),
-                    rs.getLong(HIDDEN)));
-        }, (Object) authorIds.toArray(Long[]::new));
+                """, (RowCallbackHandler) rs -> out.put(rs.getLong(AUTHOR_ID),
+                new AuthorCounts(rs.getLong("published"), rs.getLong("public_posts"), rs.getLong("drafts"), rs.getLong(HIDDEN))),
+                (Object) authorIds.toArray(Long[]::new));
         return out;
     }
 
@@ -103,9 +103,7 @@ public class PostStats {
         jdbc.query("""
                 SELECT to_char(published_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM') AS m, count(*) AS n
                 FROM post WHERE author_id = ? AND published_at >= ? AND deleted_at IS NULL GROUP BY m
-                """, rs -> {
-            out.put(rs.getString("m"), rs.getLong("n"));
-        }, authorId, Timestamp.from(from));
+                """, (RowCallbackHandler) rs -> out.put(rs.getString("m"), rs.getLong("n")), authorId, Timestamp.from(from));
         return out;
     }
 
@@ -121,7 +119,7 @@ public class PostStats {
         switch (f) {
             case "public" -> where.append(" AND p.visibility = 'PUBLIC' AND p.hidden_at IS NULL");
             case "private" -> where.append(" AND p.visibility <> 'PUBLIC'");
-            case "hidden" -> where.append(" AND p.hidden_at IS NOT NULL");
+            case HIDDEN -> where.append(" AND p.hidden_at IS NOT NULL");
             default -> {
                 // all이나 모르는 값은 거르지 않는다
             }
@@ -156,9 +154,7 @@ public class PostStats {
                 SELECT p.id, p.author_id, m.handle, p.title, p.visibility, p.hidden_at IS NOT NULL AS hidden, p.hidden_reason, p.published_at
                 FROM post p JOIN member m ON m.id = p.author_id
                 WHERE p.id = ANY (?) AND p.status = 'PUBLISHED' AND p.deleted_at IS NULL
-                """, rs -> {
-            out.put(rs.getLong("id"), row(rs));
-        }, (Object) ids.toArray(Long[]::new));
+                """, (RowCallbackHandler) rs -> out.put(rs.getLong("id"), row(rs)), (Object) ids.toArray(Long[]::new));
         return out;
     }
 

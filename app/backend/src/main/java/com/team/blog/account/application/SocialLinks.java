@@ -11,6 +11,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -80,7 +81,7 @@ public class SocialLinks {
     public Links of(long memberId) {
         Map<Kind, String> m = new EnumMap<>(Kind.class);
         jdbc.query("SELECT kind, value FROM member_social_link WHERE member_id = ?",
-                rs -> { m.put(Kind.valueOf(rs.getString("kind")), rs.getString("value")); }, memberId);
+                (RowCallbackHandler) rs -> m.put(Kind.valueOf(rs.getString("kind")), rs.getString("value")), memberId);
         return Links.of(m);
     }
 
