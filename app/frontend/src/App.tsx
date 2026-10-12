@@ -1,4 +1,4 @@
-import { Suspense, useEffect, type ReactNode } from 'react'
+import { Suspense, useEffect, useRef, type ReactNode } from 'react'
 import { Flash } from './components/Flash'
 import { Header } from './components/Header'
 import { SkipLink } from './components/SkipLink'
@@ -30,6 +30,7 @@ import { lazyPage } from './lib/lazyPage'
 import { PageErrorBoundary } from './components/PageErrorBoundary'
 import { sendPage } from './lib/views'
 import { t } from './lib/i18n'
+import { armMotion, fadeInPage } from './lib/motion'
 
 // 글 읽기(홈·글·블로그·태그·검색·피드)는 첫 묶음에 두고, 쓰기·설정·가입·관리자 화면은 처음 열 때 받는다.
 // 독자가 받는 첫 JS를 줄이려는 것이다 (spec 028).
@@ -65,6 +66,7 @@ const AboutPage = lazyPage(() => import('./pages/AboutPage'), 'AboutPage')
 export function App() {
   const { path } = useLocation()
   useEffect(() => { sendPage(path) }, [path])
+  useEffect(() => armMotion(), [])
   return (
     <>
       <SkipLink />
@@ -73,13 +75,27 @@ export function App() {
       {path !== '/verify-email' && <VerifyBanner />}
       <Flash path={path} />
       <div id={MAIN_ID} tabIndex={-1}>
-        <WithdrawnGate path={path}><AgreementGate path={path}><PageErrorBoundary path={path}><Suspense fallback={<Loading />}>{route(path)}</Suspense></PageErrorBoundary></AgreementGate></WithdrawnGate>
+        <WithdrawnGate path={path}><AgreementGate path={path}><PageErrorBoundary path={path}><Suspense fallback={<Loading />}>{route(path)}<FadeOnShow path={path} /></Suspense></PageErrorBoundary></AgreementGate></WithdrawnGate>
       </div>
       {!path.startsWith('/write') && path !== '/account/restore' && !path.startsWith('/oauth/') && !path.startsWith('/admin') && !path.startsWith('/manage/') && <SiteFooter />}
       {!path.startsWith('/write') && path !== '/account/restore' && !path.startsWith('/oauth/') && <MobileNav path={path} />}
       <TooltipLayer />
     </>
   )
+}
+
+/**
+ * 화면을 옮기면 본문 자리를 부드럽게 보인다 (095). 첫 화면은 그대로 둔다.
+ * Suspense 안에 두어, 처음 여는 화면 묶음을 받는 동안(불러오는 중 표시)이 아니라 화면이 실제로 그려진 뒤에 움직인다.
+ */
+function FadeOnShow({ path }: { path: string }) {
+  const firstPath = useRef<string | null>(path)
+  useEffect(() => {
+    if (path === firstPath.current) return
+    firstPath.current = null
+    fadeInPage(document.getElementById(MAIN_ID))
+  }, [path])
+  return null
 }
 
 function route(path: string): ReactNode {

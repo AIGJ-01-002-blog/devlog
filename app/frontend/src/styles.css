@@ -70,6 +70,12 @@
   --mono: "JetBrains Mono", "Fira Code", "Fira Mono", "SFMono-Regular", Menlo, Consolas, monospace;
   --shadow: 0 1px 2px var(--shadow-color);
   --shadow-lg: 0 12px 32px -8px var(--shadow-color);
+  /* 움직임 (095): 짧게(누름·메뉴) · 보통(모달·띠) · 길게(카드 등장). 곡선은 빨리 시작해 부드럽게 멈춘다 */
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --motion-slow: 320ms;
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 :root[data-theme="dark"] {
   --color-bg: #14161b;
@@ -290,10 +296,10 @@ img { max-width: 100%; }
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   height: 34px; padding: 0 14px; border-radius: var(--radius); border: 1px solid transparent;
   background: var(--color-surface-2); font-weight: 600; font-size: 0.9375rem; cursor: pointer; white-space: nowrap;
-  transition: background-color 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, transform var(--motion-fast) var(--ease-out);
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn:active:not(:disabled) { filter: brightness(0.95); }
+.btn:active:not(:disabled) { filter: brightness(0.95); transform: scale(0.97); }
 .btn-primary { background: var(--color-brand-fill); color: var(--color-on-fill); }
 .btn-primary:hover:not(:disabled) { background: var(--color-brand-fill-hover); }
 .btn-danger { background: var(--color-danger-fill); color: var(--color-on-fill); }
@@ -342,6 +348,8 @@ select { width: auto; }
 .tabs a, .tabs button {
   padding: 8px 16px; background: none; border: 0; border-bottom: 2px solid transparent;
   color: var(--color-text-muted); font-weight: 600; cursor: pointer; white-space: nowrap;
+  transition: color var(--motion-base) var(--ease-out), border-color var(--motion-base) var(--ease-out),
+    background-color var(--motion-base) var(--ease-out), box-shadow var(--motion-base) var(--ease-out);
 }
 .tabs .active { color: var(--color-text); border-bottom-color: var(--color-brand); }
 .tabs-mobile { display: none; }
@@ -860,6 +868,10 @@ input[type="checkbox"], input[type="radio"] { width: auto; flex-shrink: 0; margi
 }
 .like-button:hover { border-color: var(--color-brand); }
 .like-button.liked { border-color: var(--color-brand); color: var(--color-brand); }
+.like-button { transition: border-color var(--motion-base), color var(--motion-base), transform var(--motion-fast) var(--ease-out); }
+.like-button:active { transform: scale(0.95); }
+.like-heart { display: inline-block; }
+.like-button.pop .like-heart { animation: like-pop 420ms var(--ease-spring); }
 .like-notice { font-size: 0.8125rem; color: var(--color-text-muted); }
 .like-notice.error { color: var(--color-danger); }
 
@@ -1385,10 +1397,52 @@ a.attachment-name:hover { color: var(--color-brand); }
   .admin-inquiry-form .btn { justify-self: stretch; }
 }
 
+/*
+ * 움직임 (095). 원칙: 위치는 조금(4~10px), 시간은 짧게(0.12~0.32초), transform·opacity만 움직여 다시 그리기를 줄인다.
+ * 등장만 움직이고 사라질 때는 바로 닫는다(닫힘을 기다리게 하지 않는다). 카드에 마우스를 올렸을 때 뜨는 효과는 068에서 뺀 그대로 둔다.
+ * 카드·배지 등장은 html.motion-ready(첫 사용자 동작 뒤, lib/motion.ts)에서만: 서버가 그린 첫 화면을 다시 그릴 때 깜빡이지 않게.
+ */
+@keyframes motion-fade { from { opacity: 0; } }
+@keyframes motion-rise { from { opacity: 0; transform: translateY(10px); } }
+@keyframes motion-pop { from { opacity: 0; transform: translateY(8px) scale(0.97); } }
+@keyframes motion-drop { from { opacity: 0; transform: translateY(-6px) scale(0.98); } }
+@keyframes motion-slide-down { from { opacity: 0; transform: translateY(-8px); } }
+@keyframes motion-badge { from { transform: scale(0); } }
+@keyframes like-pop { 0% { transform: scale(1); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
+/* 카드: 새로 받은 목록이 아래에서 살짝 올라오며 나타난다. 한 화면 분량(앞 6장)만 0.04초씩 엇갈린다 */
+.motion-ready .card { animation: motion-rise var(--motion-slow) var(--ease-out) both; }
+.motion-ready .card:nth-child(2) { animation-delay: 40ms; }
+.motion-ready .card:nth-child(3) { animation-delay: 80ms; }
+.motion-ready .card:nth-child(4) { animation-delay: 120ms; }
+.motion-ready .card:nth-child(5) { animation-delay: 160ms; }
+.motion-ready .card:nth-child(6) { animation-delay: 200ms; }
+/* 첫 화면 브랜치 목록: 줄기 그림은 제자리에 두고 글 내용만 올라온다(줄이 끊겨 보이지 않게) */
+.motion-ready .bl-body { animation: motion-rise var(--motion-slow) var(--ease-out) both; }
+.motion-ready .bl-row:nth-child(3) .bl-body { animation-delay: 40ms; }
+.motion-ready .bl-row:nth-child(4) .bl-body { animation-delay: 80ms; }
+.motion-ready .bl-row:nth-child(5) .bl-body { animation-delay: 120ms; }
+.motion-ready .bl-row:nth-child(6) .bl-body { animation-delay: 160ms; }
+.motion-ready .bl-row:nth-child(7) .bl-body { animation-delay: 200ms; }
+/* 최신·트렌딩, 브랜치 칩, 둘 중 하나 고르기: 고른 칸의 바탕이 부드럽게 옮겨 간다 */
+.branch-chip, .segmented button {
+  transition: background-color var(--motion-base) var(--ease-out), color var(--motion-base) var(--ease-out),
+    border-color var(--motion-base) var(--ease-out), box-shadow var(--motion-base) var(--ease-out), transform var(--motion-fast) var(--ease-out);
+}
+.branch-chip:active, .segmented button:active { transform: scale(0.96); }
+.motion-ready .bell-badge { animation: motion-badge var(--motion-base) var(--ease-spring); }
+/* 모달: 막은 흐려지며, 상자는 아래에서 살짝 커지며 */
+.dialog-backdrop { animation: motion-fade var(--motion-base) var(--ease-out); }
+.dialog { animation: motion-pop var(--motion-base) var(--ease-out); }
+/* 내 메뉴·알림·언어 목록: 단추 쪽(오른쪽 위)에서 펼쳐진다 */
+.menu-list { transform-origin: top right; animation: motion-drop var(--motion-fast) var(--ease-out); }
+.menu-list a, .menu-list button { transition: background-color var(--motion-fast), color var(--motion-fast); }
+/* 알림 띠(저장했어요 등): 위에서 내려온다 */
+.flash { animation: motion-slide-down var(--motion-base) var(--ease-out); }
+
 /* 움직임 줄이기: 운영체제에서 켠 사람에게는 화면 전체에서 움직이는 효과를 끄고, 카드·목차의 위치·크기 변화도 하지 않는다 */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
-    transition-duration: 0.01ms !important; animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-delay: 0s !important;
     animation-iteration-count: 1 !important; scroll-behavior: auto !important;
   }
   .manage-skeleton { animation: none; }
@@ -1432,8 +1486,11 @@ a.attachment-name:hover { color: var(--color-brand); }
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 56px;
     font-size: 0.6875rem; font-weight: 600; color: var(--color-text-muted);
   }
+  .mobile-nav a { transition: color var(--motion-base) var(--ease-out); }
   .mobile-nav a.on { color: var(--color-brand); }
   .mobile-nav a:active { background: var(--color-hover); }
+  .mobile-nav a svg { transition: transform var(--motion-fast) var(--ease-out); }
+  .mobile-nav a:active svg { transform: scale(0.88); }
   body { padding-bottom: calc(57px + env(safe-area-inset-bottom)); }
   html { scroll-padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
   /* 머리말 아이콘 버튼은 손가락으로 누르기 쉽게 40px 이상 (WCAG 2.5.8은 24px, 애플·구글 권장은 44·48px) */
