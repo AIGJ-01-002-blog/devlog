@@ -20,6 +20,8 @@ public record PostInput(String title, String contentMd) {
     /** 업로드가 끝나지 않은 사진(브라우저 임시 주소)이 본문에 남았는지 (docs/04 §4-3). */
     private static final Pattern PENDING_IMAGE = Pattern.compile("\\]\\(\\s*local:");
     private static final Pattern WHITESPACE = Pattern.compile("\\s+");
+    private static final String CONTENT_FIELD = "contentMd";
+    private static final String MAX_LENGTH_SUFFIX = "자까지 쓸 수 있어요.";
 
     public static PostInput forSave(String rawTitle, String rawContent, BlogProperties.Post rules) {
         PostInput in = clean(rawTitle, rawContent);
@@ -33,10 +35,10 @@ public record PostInput(String title, String contentMd) {
                                        List<FieldErrorItem> errors) {
         PostInput in = clean(rawTitle, rawContent);
         if (in.title.isEmpty()) errors.add(new FieldErrorItem("title", "TITLE_REQUIRED", "제목을 입력해 주세요."));
-        if (in.contentMd.isBlank()) errors.add(new FieldErrorItem("contentMd", "CONTENT_REQUIRED", "본문을 입력해 주세요."));
+        if (in.contentMd.isBlank()) errors.add(new FieldErrorItem(CONTENT_FIELD, "CONTENT_REQUIRED", "본문을 입력해 주세요."));
         in.checkLengths(rules, errors);
         if (PENDING_IMAGE.matcher(in.contentMd).find()) {
-            errors.add(new FieldErrorItem("contentMd", "PENDING_IMAGES", "아직 올라가지 않은 사진이 있어요. 업로드가 끝난 뒤 발행해 주세요."));
+            errors.add(new FieldErrorItem(CONTENT_FIELD, "PENDING_IMAGES", "아직 올라가지 않은 사진이 있어요. 업로드가 끝난 뒤 발행해 주세요."));
         }
         return in;
     }
@@ -49,7 +51,7 @@ public record PostInput(String title, String contentMd) {
         String s = raw == null ? "" : TextCleaner.cleanLine(WHITESPACE.matcher(raw).replaceAll(" "));
         if (s.isEmpty()) return null;
         if (s.codePointCount(0, s.length()) > MAX_SUMMARY) {
-            errors.add(new FieldErrorItem("summary", "SUMMARY_TOO_LONG", "짧은 소개는 " + MAX_SUMMARY + "자까지 쓸 수 있어요."));
+            errors.add(new FieldErrorItem("summary", "SUMMARY_TOO_LONG", "짧은 소개는 " + MAX_SUMMARY + MAX_LENGTH_SUFFIX));
         }
         return s;
     }
@@ -63,12 +65,12 @@ public record PostInput(String title, String contentMd) {
 
     private void checkLengths(BlogProperties.Post rules, List<FieldErrorItem> errors) {
         if (title.codePointCount(0, title.length()) > rules.maxTitleLength()) {
-            errors.add(new FieldErrorItem("title", "TITLE_TOO_LONG", "제목은 " + rules.maxTitleLength() + "자까지 쓸 수 있어요."));
+            errors.add(new FieldErrorItem("title", "TITLE_TOO_LONG", "제목은 " + rules.maxTitleLength() + MAX_LENGTH_SUFFIX));
         }
         // DB CHECK(char_length)와 같은 기준(코드 포인트)으로 센다
         if (contentMd.codePointCount(0, contentMd.length()) > rules.maxContentLength()) {
-            errors.add(new FieldErrorItem("contentMd", "CONTENT_TOO_LONG",
-                    "본문은 " + String.format("%,d", rules.maxContentLength()) + "자까지 쓸 수 있어요."));
+            errors.add(new FieldErrorItem(CONTENT_FIELD, "CONTENT_TOO_LONG",
+                    "본문은 " + String.format("%,d", rules.maxContentLength()) + MAX_LENGTH_SUFFIX));
         }
     }
 }

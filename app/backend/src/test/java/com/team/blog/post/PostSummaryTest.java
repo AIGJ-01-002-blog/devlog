@@ -14,7 +14,6 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.ResultActions;
 
-import tools.jackson.databind.JsonNode;
 
 import com.team.blog.support.IntegrationTest;
 

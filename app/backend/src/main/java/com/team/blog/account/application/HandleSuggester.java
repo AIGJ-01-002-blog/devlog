@@ -76,7 +76,8 @@ public class HandleSuggester {
     }
 
     private static String trimUnderscore(String s) {
-        int start = 0, end = s.length();
+        int start = 0;
+        int end = s.length();
         while (start < end && s.charAt(start) == '_') start++;
         while (end > start && s.charAt(end - 1) == '_') end--;
         return s.substring(start, end);

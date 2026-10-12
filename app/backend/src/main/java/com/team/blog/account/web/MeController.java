@@ -23,7 +23,6 @@ import com.team.blog.account.application.MemberSettingsService;
 import com.team.blog.account.application.NicknameService;
 import com.team.blog.account.application.ProfileService;
 import com.team.blog.account.application.WithdrawalService;
-import com.team.blog.account.domain.AgreementType;
 import com.team.blog.account.domain.Visibility;
 import com.team.blog.media.ProfileImages;
 import com.team.blog.shared.error.ApiException;
@@ -183,6 +182,6 @@ public class MeController {
     }
 
     private static ApiException tooLarge() {
-        return new ApiException(HttpStatus.PAYLOAD_TOO_LARGE, "IMAGE_TOO_LARGE", "프로필 사진은 1MB까지 올릴 수 있어요.");
+        return new ApiException(HttpStatus.CONTENT_TOO_LARGE, "IMAGE_TOO_LARGE", "프로필 사진은 1MB까지 올릴 수 있어요.");
     }
 }

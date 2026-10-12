@@ -44,19 +44,19 @@ public class LoginFlow {
         HttpSession session = request.getSession(true);
         session.removeAttribute(PendingSignup.SESSION_KEY);
         return switch (outcome) {
-            case LoginOutcome.LoggedIn in -> {
+            case LoginOutcome.LoggedIn(var principal) -> {
                 String target = popRedirect(session);
-                sessions.login(request, response, in.principal());
-                yield in.principal().agreementRequired() ? "/agreements?redirect=" + encode(target) : target;
+                sessions.login(request, response, principal);
+                yield principal.agreementRequired() ? "/agreements?redirect=" + encode(target) : target;
             }
-            case LoginOutcome.NeedsSignup needs -> {
+            case LoginOutcome.NeedsSignup(PendingSignup pending) -> {
                 sessions.clearAuthentication(request, response);
-                request.getSession(true).setAttribute(PendingSignup.SESSION_KEY, needs.pending());
+                request.getSession(true).setAttribute(PendingSignup.SESSION_KEY, pending);
                 yield "/signup/social";
             }
-            case LoginOutcome.Suspended s -> {
+            case LoginOutcome.Suspended(Instant endsAt, String reason) -> {
                 sessions.clearAuthentication(request, response);
-                session.setAttribute(ERROR_KEY, new LoginError("ACCOUNT_SUSPENDED", s.endsAt(), s.reason()));
+                session.setAttribute(ERROR_KEY, new LoginError("ACCOUNT_SUSPENDED", endsAt, reason));
                 yield "/login?error=ACCOUNT_SUSPENDED";
             }
         };

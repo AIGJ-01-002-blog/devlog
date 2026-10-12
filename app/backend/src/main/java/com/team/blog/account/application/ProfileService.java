@@ -26,6 +26,8 @@ import com.team.blog.shared.time.Times;
  */
 @Service
 public class ProfileService {
+    private static final String NICKNAME_FIELD = "nickname";
+
     private final MemberRepository members;
     private final NicknamePolicy nicknamePolicy;
     private final BioPolicy bioPolicy;
@@ -58,7 +60,7 @@ public class ProfileService {
         try {
             return tx.execute(s -> apply(memberId, patch));
         } catch (DataIntegrityViolationException e) {
-            throw ApiException.validation(List.of(new FieldErrorItem("nickname", "NICKNAME_TAKEN", "방금 다른 분이 이 닉네임을 사용했어요.")));
+            throw ApiException.validation(List.of(new FieldErrorItem(NICKNAME_FIELD, "NICKNAME_TAKEN", "방금 다른 분이 이 닉네임을 사용했어요.")));
         }
     }
 
@@ -79,12 +81,12 @@ public class ProfileService {
             if (!nickname.equals(m.getNickname())) {
                 NicknamePolicy.Code code = nicknamePolicy.check(nickname, memberId);
                 if (code != null) {
-                    errors.add(new FieldErrorItem("nickname", code == NicknamePolicy.Code.NICKNAME_DUPLICATE ? "NICKNAME_TAKEN" : code.name(),
+                    errors.add(new FieldErrorItem(NICKNAME_FIELD, code == NicknamePolicy.Code.NICKNAME_DUPLICATE ? "NICKNAME_TAKEN" : code.name(),
                             code.message()));
                 } else if (m.getNicknameChangedAt() != null
                         && m.getNicknameChangedAt().plus(props.nickname().changeCooldown()).isAfter(now)) {
                     nextChangeableAt = m.getNicknameChangedAt().plus(props.nickname().changeCooldown());
-                    errors.add(new FieldErrorItem("nickname", "NICKNAME_CHANGE_TOO_SOON", "닉네임은 바꾼 뒤 30일 동안 다시 바꿀 수 없어요."));
+                    errors.add(new FieldErrorItem(NICKNAME_FIELD, "NICKNAME_CHANGE_TOO_SOON", "닉네임은 바꾼 뒤 30일 동안 다시 바꿀 수 없어요."));
                 }
             }
         }

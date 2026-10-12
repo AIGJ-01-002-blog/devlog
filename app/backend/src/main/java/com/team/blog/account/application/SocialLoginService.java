@@ -45,12 +45,17 @@ public class SocialLoginService {
         if (profile.verifiedEmail() != null && !profile.verifiedEmail().equals(identity.getEmail())) {
             identity.updateEmail(profile.verifiedEmail());
         }
-        return login(identity, now);
+        return doLogin(identity, now);
     }
 
     /** 로그인 수단 하나로 회원을 로그인시킨다 (이메일 로그인도 이 경로를 쓴다). */
     @Transactional
     public LoginOutcome login(AuthIdentity identity, Instant now) {
+        return doLogin(identity, now);
+    }
+
+    // 같은 트랜잭션 안에서 부르는 본체 (자기 호출은 프록시를 거치지 않는다)
+    private LoginOutcome doLogin(AuthIdentity identity, Instant now) {
         Member member = members.findById(identity.getMemberId()).orElseThrow();
         Optional<MemberSuspension> suspension = suspensions.activeSuspension(member, now);
         if (suspension.isPresent()) {

@@ -58,7 +58,10 @@ public class PasswordPolicy {
         String p = password == null ? "" : password;
         int len = p.codePointCount(0, p.length());
         if (len < MIN || len > MAX) out.add(Code.PASSWORD_LENGTH);
-        boolean letter = false, digit = false, special = false, other = false;
+        boolean letter = false;
+        boolean digit = false;
+        boolean special = false;
+        boolean other = false;
         for (int i = 0; i < p.length(); i++) {
             char c = p.charAt(i);
             if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) letter = true;

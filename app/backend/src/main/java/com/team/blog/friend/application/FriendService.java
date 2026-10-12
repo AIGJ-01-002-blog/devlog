@@ -24,6 +24,8 @@ import com.team.blog.shared.time.Times;
  */
 @Service
 public class FriendService {
+    private static final String ACCEPTED = "ACCEPTED";
+
     private final JdbcTemplate jdbc;
     private final ApplicationEventPublisher events;
     private final TransactionTemplate tx;
@@ -45,7 +47,8 @@ public class FriendService {
     public Relation request(long me, String handle) {
         long target = activeMember(handle).orElseThrow(NotFoundException::new);
         if (target == me) throw ApiException.badRequest("FRIEND_SELF", "자기 자신에게는 친구 요청을 보낼 수 없어요.");
-        long a = Math.min(me, target), b = Math.max(me, target);
+        long a = Math.min(me, target);
+        long b = Math.max(me, target);
         return tx.execute(s -> {
             Instant now = Times.now(clock);
             // 맞요청이 동시에 오면 늦은 쪽은 앞 트랜잭션이 끝날 때까지 기다렸다가 충돌로 끝나고, 아래에서 상대 요청을 수락한다
@@ -59,7 +62,7 @@ public class FriendService {
             }
             Row row = lock(a, b).orElse(null);
             if (row == null) return Relation.NONE; // 그 사이 상대가 지웠다. 다시 누르면 새로 요청된다
-            if ("ACCEPTED".equals(row.status())) return Relation.FRIENDS;
+            if (ACCEPTED.equals(row.status())) return Relation.FRIENDS;
             if (row.requestedBy() == me) return Relation.SENT;
             accept(a, b, now);
             events.publishEvent(new FriendAccepted(target, me, now));
@@ -70,10 +73,11 @@ public class FriendService {
     /** [수락]: 받은 요청만, 받은 사람만 (FR-006). 이미 친구면 그대로. */
     public Relation accept(long me, String handle) {
         long other = activeMember(handle).orElseThrow(NotFoundException::new);
-        long a = Math.min(me, other), b = Math.max(me, other);
+        long a = Math.min(me, other);
+        long b = Math.max(me, other);
         return tx.execute(s -> {
             Row row = lock(a, b).orElseThrow(NotFoundException::new);
-            if ("ACCEPTED".equals(row.status())) return Relation.FRIENDS;
+            if (ACCEPTED.equals(row.status())) return Relation.FRIENDS;
             if (row.requestedBy() != other) throw new NotFoundException(); // 내가 보낸 요청을 내가 수락할 수는 없다
             Instant now = Times.now(clock);
             accept(a, b, now);
@@ -96,7 +100,7 @@ public class FriendService {
                 (rs, i) -> new Row(rs.getLong(1), rs.getString(2)), Math.min(viewer, other), Math.max(viewer, other));
         if (rows.isEmpty()) return Relation.NONE;
         Row r = rows.getFirst();
-        if ("ACCEPTED".equals(r.status())) return Relation.FRIENDS;
+        if (ACCEPTED.equals(r.status())) return Relation.FRIENDS;
         return r.requestedBy() == viewer ? Relation.SENT : Relation.RECEIVED;
     }
 

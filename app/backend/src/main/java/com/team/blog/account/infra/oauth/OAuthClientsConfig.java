@@ -25,6 +25,8 @@ import org.springframework.util.StringUtils;
 @Configuration
 @EnableConfigurationProperties(OAuth2ClientProperties.class)
 public class OAuthClientsConfig {
+    private static final String REDIRECT_PATH = "/login/oauth2/code/{registrationId}";
+
     @Bean
     ClientRegistrationRepository clientRegistrationRepository(OAuth2ClientProperties properties, Environment env) {
         List<ClientRegistration> all = new ArrayList<>(new OAuth2ClientPropertiesMapper(properties).asClientRegistrations().values());
@@ -34,7 +36,7 @@ public class OAuthClientsConfig {
                     .clientId(googleId)
                     .clientSecret(env.getProperty("GOOGLE_CLIENT_SECRET", ""))
                     .scope("openid", "profile", "email")
-                    .redirectUri(siteBaseUrl(env) + "/login/oauth2/code/{registrationId}")
+                    .redirectUri(siteBaseUrl(env) + REDIRECT_PATH)
                     .build());
         }
         String kakaoId = env.getProperty("KAKAO_CLIENT_ID");
@@ -60,7 +62,7 @@ public class OAuthClientsConfig {
                 .clientSecret(env.getProperty("KAKAO_CLIENT_SECRET", ""))
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
-                .redirectUri(siteBaseUrl(env) + "/login/oauth2/code/{registrationId}")
+                .redirectUri(siteBaseUrl(env) + REDIRECT_PATH)
                 .scope(StringUtils.commaDelimitedListToSet(scopes.replace(" ", "")))
                 .authorizationUri("https://kauth.kakao.com/oauth/authorize")
                 .tokenUri("https://kauth.kakao.com/oauth/token")
@@ -83,7 +85,7 @@ public class OAuthClientsConfig {
                 .clientSecret(env.getProperty("FACEBOOK_CLIENT_SECRET", ""))
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
-                .redirectUri(siteBaseUrl(env) + "/login/oauth2/code/{registrationId}")
+                .redirectUri(siteBaseUrl(env) + REDIRECT_PATH)
                 .scope("public_profile", "email")
                 .authorizationUri("https://www.facebook.com/v26.0/dialog/oauth")
                 .tokenUri(FACEBOOK_GRAPH + "/oauth/access_token")

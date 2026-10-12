@@ -22,7 +22,11 @@ import com.team.blog.shared.stats.Counts;
  */
 @Service
 public class PostStats {
-    public static final int PAGE = 20;
+    public static final int PAGE_SIZE = 20;
+
+    /** 열 이름 */
+    private static final String HIDDEN = "hidden";
+    private static final String AUTHOR_ID = "author_id";
 
     private final JdbcTemplate jdbc;
 
@@ -51,7 +55,7 @@ public class PostStats {
                        count(*) FILTER (WHERE deleted_at IS NULL AND hidden_at IS NOT NULL) AS hidden
                 FROM post
                 """, (rs, i) -> new Summary(rs.getLong("published"), rs.getLong("public_posts"), rs.getLong("private_posts"),
-                rs.getLong("drafts"), rs.getLong("trash"), rs.getLong("hidden")));
+                rs.getLong("drafts"), rs.getLong("trash"), rs.getLong(HIDDEN)));
     }
 
     /** 처음 발행한 날 기준 (다시 발행은 세지 않는다) */
@@ -68,7 +72,7 @@ public class PostStats {
                 SELECT author_id, count(*) AS n FROM post
                 WHERE published_at >= ? AND deleted_at IS NULL AND status = 'PUBLISHED'
                 GROUP BY author_id ORDER BY n DESC, author_id LIMIT ?
-                """, (rs, i) -> Map.entry(rs.getLong("author_id"), rs.getLong("n")), Timestamp.from(from), limit);
+                """, (rs, i) -> Map.entry(rs.getLong(AUTHOR_ID), rs.getLong("n")), Timestamp.from(from), limit);
     }
 
     public Map<Long, AuthorCounts> countsByAuthors(List<Long> authorIds) {
@@ -82,8 +86,8 @@ public class PostStats {
                        count(*) FILTER (WHERE hidden_at IS NOT NULL) AS hidden
                 FROM post WHERE author_id = ANY (?) AND deleted_at IS NULL GROUP BY author_id
                 """, rs -> {
-            out.put(rs.getLong("author_id"), new AuthorCounts(rs.getLong("published"), rs.getLong("public_posts"), rs.getLong("drafts"),
-                    rs.getLong("hidden")));
+            out.put(rs.getLong(AUTHOR_ID), new AuthorCounts(rs.getLong("published"), rs.getLong("public_posts"), rs.getLong("drafts"),
+                    rs.getLong(HIDDEN)));
         }, (Object) authorIds.toArray(Long[]::new));
         return out;
     }
@@ -118,7 +122,9 @@ public class PostStats {
             case "public" -> where.append(" AND p.visibility = 'PUBLIC' AND p.hidden_at IS NULL");
             case "private" -> where.append(" AND p.visibility <> 'PUBLIC'");
             case "hidden" -> where.append(" AND p.hidden_at IS NOT NULL");
-            default -> { }
+            default -> {
+                // all이나 모르는 값은 거르지 않는다
+            }
         }
         if (authorId != null) {
             where.append(" AND p.author_id = ?");
@@ -133,13 +139,13 @@ public class PostStats {
         }
         long total = Counts.one(jdbc, "SELECT count(*) FROM post p JOIN member m ON m.id = p.author_id WHERE " + where, args.toArray());
         int p = Math.max(1, page);
-        args.add(PAGE);
-        args.add((long) (p - 1) * PAGE);
+        args.add(PAGE_SIZE);
+        args.add((long) (p - 1) * PAGE_SIZE);
         List<Row> rows = jdbc.query("""
                 SELECT p.id, p.author_id, m.handle, p.title, p.visibility, p.hidden_at IS NOT NULL AS hidden, p.hidden_reason, p.published_at
                 FROM post p JOIN member m ON m.id = p.author_id
                 WHERE""" + " " + where + " ORDER BY p.published_at DESC, p.id DESC LIMIT ? OFFSET ?", (rs, i) -> row(rs), args.toArray());
-        return new Page(rows, p, total, PAGE);
+        return new Page(rows, p, total, PAGE_SIZE);
     }
 
     /** 번호 → 글 (대시보드의 많이 본 글). 휴지통·임시글은 빠진다 */
@@ -158,7 +164,7 @@ public class PostStats {
 
     private static Row row(ResultSet rs) throws SQLException {
         boolean open = "PUBLIC".equals(rs.getString("visibility"));
-        return new Row(rs.getLong("id"), rs.getLong("author_id"), rs.getString("handle"), open ? rs.getString("title") : null,
-                rs.getString("visibility"), rs.getBoolean("hidden"), rs.getString("hidden_reason"), rs.getTimestamp("published_at").toInstant());
+        return new Row(rs.getLong("id"), rs.getLong(AUTHOR_ID), rs.getString("handle"), open ? rs.getString("title") : null,
+                rs.getString("visibility"), rs.getBoolean(HIDDEN), rs.getString("hidden_reason"), rs.getTimestamp("published_at").toInstant());
     }
 }

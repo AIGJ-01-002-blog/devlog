@@ -25,6 +25,23 @@ import com.team.blog.shared.time.Times;
 public class AutosaveFlushJob {
     private static final Logger log = LoggerFactory.getLogger(AutosaveFlushJob.class);
 
+    /** 아직 발행하지 않은 글은 본문에 바로 쓴다 */
+    private static final String UPDATE_DRAFT = """
+            UPDATE post SET title = ?, content_md = ?, edit_version = ?, updated_at = ?
+            WHERE id = ? AND author_id = ? AND status = 'DRAFT' AND edit_version < ? AND deleted_at IS NULL
+            """;
+
+    /** 발행한 글은 작업본에 쓴다 */
+    private static final String UPSERT_WORKING_COPY = """
+            INSERT INTO post_draft (post_id, title, content_md, edit_version, created_at, updated_at)
+            SELECT id, ?, ?, ?, ?, ? FROM post
+            WHERE id = ? AND author_id = ? AND status = 'PUBLISHED' AND edit_version < ? AND deleted_at IS NULL
+            ON CONFLICT (post_id) DO UPDATE
+            SET title = EXCLUDED.title, content_md = EXCLUDED.content_md,
+                edit_version = EXCLUDED.edit_version, updated_at = EXCLUDED.updated_at
+            WHERE post_draft.edit_version < EXCLUDED.edit_version
+            """;
+
     private final AutosaveStore autosave;
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
@@ -80,20 +97,9 @@ public class AutosaveFlushJob {
     private boolean flush(long postId, AutosaveStore.Snapshot s) {
         Timestamp now = Timestamp.from(Times.now(clock));
         Boolean done = tx.execute(st -> {
-            int drafts = jdbc.update("""
-                    UPDATE post SET title = ?, content_md = ?, edit_version = ?, updated_at = ?
-                    WHERE id = ? AND author_id = ? AND status = 'DRAFT' AND edit_version < ? AND deleted_at IS NULL
-                    """, s.title(), s.contentMd(), s.version(), now, postId, s.memberId(), s.version());
+            int drafts = jdbc.update(UPDATE_DRAFT, s.title(), s.contentMd(), s.version(), now, postId, s.memberId(), s.version());
             if (drafts > 0) return true;
-            int working = jdbc.update("""
-                    INSERT INTO post_draft (post_id, title, content_md, edit_version, created_at, updated_at)
-                    SELECT id, ?, ?, ?, ?, ? FROM post
-                    WHERE id = ? AND author_id = ? AND status = 'PUBLISHED' AND edit_version < ? AND deleted_at IS NULL
-                    ON CONFLICT (post_id) DO UPDATE
-                    SET title = EXCLUDED.title, content_md = EXCLUDED.content_md,
-                        edit_version = EXCLUDED.edit_version, updated_at = EXCLUDED.updated_at
-                    WHERE post_draft.edit_version < EXCLUDED.edit_version
-                    """, s.title(), s.contentMd(), s.version(), now, now, postId, s.memberId(), s.version());
+            int working = jdbc.update(UPSERT_WORKING_COPY, s.title(), s.contentMd(), s.version(), now, now, postId, s.memberId(), s.version());
             if (working > 0) {
                 jdbc.update("UPDATE post SET updated_at = ? WHERE id = ?", now, postId);
                 return true;

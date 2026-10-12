@@ -22,7 +22,7 @@ import com.team.blog.shared.stats.Counts;
  */
 @Service
 public class MemberStats {
-    public static final int PAGE = 20;
+    public static final int PAGE_SIZE = 20;
 
     private static final String SELECT = """
             SELECT m.id, m.handle, m.nickname, m.role, m.status, m.created_at, m.last_active_at, a.provider
@@ -109,10 +109,10 @@ public class MemberStats {
         long total = Counts.one(jdbc, "SELECT count(*) FROM member m WHERE " + where, args.toArray());
         int p = Math.max(1, page);
         List<Object> pageArgs = new ArrayList<>(args);
-        pageArgs.add(PAGE);
-        pageArgs.add((long) (p - 1) * PAGE);
+        pageArgs.add(PAGE_SIZE);
+        pageArgs.add((long) (p - 1) * PAGE_SIZE);
         List<Row> rows = jdbc.query(SELECT + " WHERE " + where + " ORDER BY m.created_at DESC, m.id DESC LIMIT ? OFFSET ?", (rs, i) -> row(rs), pageArgs.toArray());
-        return new Page(rows, p, total, PAGE);
+        return new Page(rows, p, total, PAGE_SIZE);
     }
 
     public Optional<Row> byHandle(String handle) {

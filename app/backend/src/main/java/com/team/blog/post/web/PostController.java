@@ -36,6 +36,7 @@ import com.team.blog.shared.web.RateLimiter;
 public class PostController {
     /** 자동 저장·저장·발행 요청 본문 상한 (docs/04 §2-1). 본문 100,000자를 UTF-8로 넉넉히 담는 크기다. */
     static final long MAX_BODY_BYTES = 1024L * 1024;
+    private static final String DELETE_RATE_KEY = "post-delete:";
 
     private final PostCommandService commands;
     private final PostEditorQuery editor;
@@ -118,19 +119,19 @@ public class PostController {
     /** [삭제] → 휴지통 (007). 빈 임시글은 바로 지워진다. 같은 요청을 다시 보내도 결과가 같다. */
     @DeleteMapping("/{postId}")
     public PostTrashService.TrashResult trash(@CurrentMember MemberPrincipal me, @PathVariable long postId) {
-        rateLimiter.check("post-delete:" + me.id(), 60, Duration.ofMinutes(1));
+        rateLimiter.check(DELETE_RATE_KEY + me.id(), 60, Duration.ofMinutes(1));
         return trash.trash(me.id(), postId);
     }
 
     @PostMapping("/{postId}/restore")
     public PostTrashService.RestoreResult restore(@CurrentMember MemberPrincipal me, @PathVariable long postId) {
-        rateLimiter.check("post-delete:" + me.id(), 60, Duration.ofMinutes(1));
+        rateLimiter.check(DELETE_RATE_KEY + me.id(), 60, Duration.ofMinutes(1));
         return trash.restore(me.id(), postId);
     }
 
     @DeleteMapping("/{postId}/permanent")
     public ResponseEntity<Void> purge(@CurrentMember MemberPrincipal me, @PathVariable long postId) {
-        rateLimiter.check("post-delete:" + me.id(), 60, Duration.ofMinutes(1));
+        rateLimiter.check(DELETE_RATE_KEY + me.id(), 60, Duration.ofMinutes(1));
         trash.purge(me.id(), postId);
         return ResponseEntity.noContent().build();
     }

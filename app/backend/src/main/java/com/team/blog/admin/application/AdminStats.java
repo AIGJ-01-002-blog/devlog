@@ -124,7 +124,7 @@ public class AdminStats {
                 topPosts(periodStart), topAuthors(periodStart), views.sources(from, today, TOP), topPages(from, today));
     }
 
-    private static final java.util.regex.Pattern POST_PAGE = java.util.regex.Pattern.compile("^/@[^/]+/posts/([0-9]{1,18})$");
+    private static final java.util.regex.Pattern POST_PAGE = java.util.regex.Pattern.compile("^/@[^/]+/posts/(\\d{1,18})$");
 
     /** 많이 본 화면. 글 화면에는 공개 글 제목을 붙인다(비공개·숨김·지운 글은 주소만) */
     private List<PageLine> topPages(LocalDate from, LocalDate to) {

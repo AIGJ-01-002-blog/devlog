@@ -59,12 +59,17 @@ public class AgreementService {
     public void acceptCurrent(long memberId) {
         Instant now = Times.now(clock);
         for (AgreementType type : List.of(AgreementType.TERMS, AgreementType.PRIVACY)) {
-            agree(memberId, type, currentVersion(type), now);
+            upsert(memberId, type, currentVersion(type), now);
         }
     }
 
     @Transactional
     public void agree(long memberId, AgreementType type, String version, Instant now) {
+        upsert(memberId, type, version, now);
+    }
+
+    // 같은 트랜잭션 안에서 부르는 본체 (자기 호출은 프록시를 거치지 않는다)
+    private void upsert(long memberId, AgreementType type, String version, Instant now) {
         agreements.findById(new MemberAgreement.Key(memberId, type))
                 .ifPresentOrElse(a -> a.agree(version, now),
                         () -> agreements.save(new MemberAgreement(memberId, type, version, now)));
@@ -73,7 +78,7 @@ public class AgreementService {
     /** AI 동의 (018 FR-030): 지금 문구 버전과 일자로 기록한다. */
     @Transactional
     public void agreeAi(long memberId) {
-        agree(memberId, AgreementType.AI, currentVersion(AgreementType.AI), Times.now(clock));
+        upsert(memberId, AgreementType.AI, currentVersion(AgreementType.AI), Times.now(clock));
     }
 
     @Transactional(readOnly = true)

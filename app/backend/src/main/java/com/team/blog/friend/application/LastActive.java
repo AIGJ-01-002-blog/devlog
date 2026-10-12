@@ -17,6 +17,6 @@ public final class LastActive {
 
     public static int daysAgo(Instant lastActiveAt, Instant now) {
         long days = ChronoUnit.DAYS.between(LocalDate.ofInstant(lastActiveAt, ZONE), LocalDate.ofInstant(now, ZONE));
-        return (int) Math.clamp(days, 0, WEEK_OR_MORE);
+        return Math.clamp(days, 0, WEEK_OR_MORE);
     }
 }

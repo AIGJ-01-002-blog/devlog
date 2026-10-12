@@ -20,6 +20,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import tools.jackson.databind.JsonNode;
 
 import com.team.blog.account.application.WithdrawalPurgeJob;
+import com.team.blog.shared.mail.Mail;
 import com.team.blog.shared.mail.Mailer;
 import com.team.blog.shared.mail.OutboxMailer;
 import com.team.blog.support.Browser;
@@ -75,7 +76,7 @@ class WithdrawalTest extends IntegrationTest {
     }
 
     private List<String> mailSubjectsTo(String email) {
-        return ((OutboxMailer) mailer).recent().stream().filter(m -> m.to().equals(email)).map(m -> m.subject()).toList();
+        return ((OutboxMailer) mailer).recent().stream().filter(m -> m.to().equals(email)).map(Mail::subject).toList();
     }
 
     private void overdue(long memberId) {
@@ -281,7 +282,7 @@ class WithdrawalTest extends IntegrationTest {
         assertThat(count("SELECT count(*) FROM report WHERE reporter_id = ?", a.memberId())).isEqualTo(1);
         // (90) 익명 처리: 주소는 남고 개인 정보는 비움, 동의 기록은 남김
         Map<String, Object> m = jdbc.queryForMap("SELECT handle, nickname, bio, last_active_at, deleted_at FROM member WHERE id = ?", a.memberId());
-        assertThat(m.get("handle")).isEqualTo(a.handle());
+        assertThat(m).containsEntry("handle", a.handle());
         assertThat(m.get("nickname")).isNull();
         assertThat(m.get("bio")).isNull();
         assertThat(m.get("last_active_at")).isNull();

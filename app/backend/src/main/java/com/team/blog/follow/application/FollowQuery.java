@@ -55,7 +55,7 @@ public class FollowQuery {
 
     /** @param hidden 주인이 목록을 비공개로 둬서 보는 사람에게 보이지 않는다 (079). 이때 items는 비어 있다 */
     public record Page(List<Person> items, String nextCursor, boolean hidden) {
-        static final Page HIDDEN = new Page(List.of(), null, true);
+        static final Page HIDDEN_PAGE = new Page(List.of(), null, true);
     }
 
     public Counts counts(long memberId) {
@@ -79,7 +79,7 @@ public class FollowQuery {
                         (rs, i) -> new Owner(rs.getLong(1), rs.getBoolean(2)), handle)
                 .stream().findFirst().orElseThrow(NotFoundException::new);
         long owner = o.id();
-        if (!o.open() && !staff && (viewerId == null || viewerId != owner)) return Page.HIDDEN;
+        if (!o.open() && !staff && (viewerId == null || viewerId != owner)) return Page.HIDDEN_PAGE;
         boolean followers = direction == Direction.FOLLOWERS;
         String listName = (followers ? "followers:" : "following:") + owner;
         // 목록의 사람 = 팔로워 목록이면 팔로우한 쪽, 팔로잉 목록이면 받은 쪽

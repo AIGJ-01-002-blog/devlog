@@ -52,7 +52,7 @@ public class WordFilter {
         String low = value.toLowerCase(Locale.ROOT);
         Set<String> v = new LinkedHashSet<>();
         v.add(low);
-        v.add(low.replaceAll("[0-9]", ""));
+        v.add(low.replaceAll("\\d", ""));
         v.add(leet(low));
         v.add(low.replace('1', 'l'));
         return v;
