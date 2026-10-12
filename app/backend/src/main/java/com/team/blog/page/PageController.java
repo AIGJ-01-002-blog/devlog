@@ -227,7 +227,7 @@ public class PageController {
         PolicyDocuments.Kind kind = request.getRequestURI().endsWith("/terms") ? PolicyDocuments.Kind.TERMS : PolicyDocuments.Kind.PRIVACY;
         PolicyDocuments.Document doc = policies.get(kind);
         boolean terms = kind == PolicyDocuments.Kind.TERMS;
-        String body = "<main><h1>" + SpaShell.esc(doc.title()) + "</h1>"
+        String body = MAIN_H1 + SpaShell.esc(doc.title()) + H1_END
                 + (doc.effectiveDate() == null ? "" : "<p>시행일 " + SpaShell.esc(doc.effectiveDate()) + "</p>")
                 + doc.html()
                 + "<p><a href=\"" + (terms ? "/privacy\">개인정보 처리방침 보기" : "/terms\">이용약관 보기") + "</a></p></main>";

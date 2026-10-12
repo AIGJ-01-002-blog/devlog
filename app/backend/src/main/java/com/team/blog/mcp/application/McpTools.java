@@ -91,6 +91,7 @@ public class McpTools {
             + "'AI가 발행·삭제하도록 허용'을 켜야 쓸 수 있어요. 지금은 request_publish로 발행 대기만 표시할 수 있어요.";
 
     private static final String TITLE = "title";
+    private static final String CONTENT = "content";
     private static final String CONTENT_MD = "content_md";
     private static final String VISIBILITY = "visibility";
     private static final String SUMMARY = "summary";
@@ -734,9 +735,9 @@ public class McpTools {
     /** 일기 메모 (061). 회원이 고른 시각에 묶인다 (071) */
     private Result addNote(AccessTokens.Caller caller, JsonNode a) {
         // 메모는 그대로 일기 문장이 되고 일기는 바로 발행될 수 있으니 비밀값이 보이면 받지 않는다 (086)
-        List<String> secrets = SecretScanner.find(text(a, "topic"), text(a, "content"));
+        List<String> secrets = SecretScanner.find(text(a, "topic"), text(a, CONTENT));
         if (!secrets.isEmpty()) return Result.fail(SecretScanner.warning(secrets) + " 메모를 남기지 않았어요. 그 부분을 빼고 다시 남겨 주세요.");
-        AiJournal.NoteSaved n = journal.addNote(caller.memberId(), text(a, "topic"), text(a, "content"), tags(a));
+        AiJournal.NoteSaved n = journal.addNote(caller.memberId(), text(a, "topic"), text(a, CONTENT), tags(a));
         String when = AiJournal.hourLabel(journal.diary(caller.memberId()).hour());
         return Result.ok("메모를 남겼어요 (오늘 " + n.todayCount() + "개). 다음 " + when + "(한국 시간)에 일기로 묶여요"
                 + (caller.aiPublishAllowed() && "ACTIVE".equals(caller.status()) ? ". AI 발행을 허용해서 일기는 바로 발행돼요." : ". 일기는 임시글로 만들어져요."));
@@ -745,7 +746,7 @@ public class McpTools {
     /** 버그 신고 (054). 웹 문의와 같은 서비스·요청 제한(한 시간 10번, 하루 30번)을 쓴다. 신고자는 토큰 주인이다 */
     private Result reportBug(AccessTokens.Caller caller, JsonNode a) {
         long id = inquiries.reportFromAi(caller.memberId(),
-                new InquiryService.AiReport(text(a, TITLE), text(a, "content"), text(a, "tool"), caller.tokenName()));
+                new InquiryService.AiReport(text(a, TITLE), text(a, CONTENT), text(a, "tool"), caller.tokenName()));
         return Result.ok("devlog 운영자에게 버그를 신고했어요 (접수 번호 " + id + ").\n"
                 + "처리 상태와 답변은 사용자가 이 화면에서 볼 수 있어요: " + baseUrl + "/support?id=" + id);
     }

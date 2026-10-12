@@ -16,7 +16,7 @@ public final class SecretScanner {
 
     private static final List<Rule> RULES = List.of(
             new Rule("devlog 접근 토큰", Pattern.compile("\\bdv[lr]_[A-Za-z0-9_-]{30,}")),
-            new Rule("GitHub 토큰", Pattern.compile("\\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,})")),
+            new Rule("GitHub 토큰", Pattern.compile("\\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_\\w{40,})")),
             new Rule("AI API 키", Pattern.compile("\\bsk-(?:ant-|proj-)?[A-Za-z0-9_-]{24,}")),
             new Rule("Google API 키", Pattern.compile("\\bAIza[0-9A-Za-z_-]{35}")),
             new Rule("AWS 접근 키", Pattern.compile("\\b(?:AKIA|ASIA)[0-9A-Z]{16}\\b")),

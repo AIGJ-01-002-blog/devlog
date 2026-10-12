@@ -109,7 +109,7 @@ public class PostCommandService {
     public Created createAiDiary(long memberId, String rawTitle, String rawContent) {
         PostInput in = PostInput.forSave(rawTitle, rawContent, rules);
         return tx.execute(s -> {
-            Visibility v = members.findById(memberId).map(m -> m.getDefaultVisibility()).orElseThrow(NotFoundException::new);
+            Visibility v = members.findById(memberId).map(Member::getDefaultVisibility).orElseThrow(NotFoundException::new);
             Post p = posts.save(Post.newAiDiary(memberId, v, in.title(), in.contentMd(), Times.now(clock)));
             return new Created(p.getId(), p.getEditVersion(), p.getVisibility());
         });
