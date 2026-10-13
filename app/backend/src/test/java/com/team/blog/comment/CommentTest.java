@@ -181,6 +181,10 @@ class CommentTest extends IntegrationTest {
         JsonNode replies = list(null, p, null).path("items").get(0).path("replies");
         assertThat(ids(replies)).containsExactly(r1, r2, r3);
         assertThat(replies.get(1).path("replyTo").path("nickname").asString()).isNotEmpty();
+        // 화면이 가지 선을 그리도록 답한 답글 번호를 준다. 최상위에 바로 단 답글은 없다 (FR-011a)
+        assertThat(replies.get(0).path("replyToCommentId").isNull()).isTrue();
+        assertThat(replies.get(1).path("replyToCommentId").asLong()).isEqualTo(r1);
+        assertThat(replies.get(2).path("replyToCommentId").asLong()).isEqualTo(r1);
         // 대상이 탈퇴하면 "탈퇴한 사용자에게"
         jdbc.update("UPDATE member SET withdrawn_at = now(), status = 'WITHDRAWN' WHERE id = ?", b.memberId());
         JsonNode after = list(null, p, null).path("items").get(0).path("replies");
@@ -285,6 +289,21 @@ class CommentTest extends IntegrationTest {
         assertThat(others.path("author").isNull()).isTrue();
         assertThat(count(p)).isZero();
         b.http().perform(delete("/api/comments/" + id).with(csrf())).andExpect(status().isNoContent());
+    }
+
+    @Test
+    void 가지의_시작_답글이_지워지면_그_아래_답글은_최상위에서_갈라진다() throws Exception {
+        Session a = signup(uniqueLogin("cmx")), b = signup(uniqueLogin("cmy"));
+        long p = postOf(a, "PUBLIC");
+        long root = comment(a, p, "질문");
+        long r1 = reply(b, p, root, "답");
+        long r2 = reply(a, p, r1, "답의 답");
+
+        b.http().perform(delete("/api/comments/" + r1).with(csrf())).andExpect(status().isNoContent());
+        JsonNode replies = list(null, p, null).path("items").get(0).path("replies");
+        assertThat(ids(replies)).containsExactly(r2);
+        assertThat(replies.get(0).path("replyToCommentId").isNull()).isTrue();
+        assertThat(replies.get(0).path("replyTo").path("nickname").asString()).isNotEmpty();
     }
 
     @Test

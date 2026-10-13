@@ -13,6 +13,8 @@ export interface CommentView {
   edited: boolean
   author: { handle: string; nickname: string; profileImageUrl: string | null; isPostAuthor: boolean } | null
   replyTo: { handle: string | null; nickname: string | null; withdrawn: boolean } | null
+  /** 답글에 답했을 때 그 답글 번호. 화면이 가지 선을 잇는 데 쓴다 (FR-011a) */
+  replyToCommentId?: number | null
   mine: boolean
   /** 최상위에만 있다 */
   replies: CommentView[] | null
@@ -47,6 +49,34 @@ export const commentsApi = {
 /** 서버와 같은 글자 수 (코드 포인트, 이모지 하나 = 1자). */
 export function commentLength(s: string): number {
   return [...s.trim()].length
+}
+
+/** 대댓글 가지 하나: 답글과 그 답글에서 갈라진 답글들. */
+export interface ReplyNode {
+  c: CommentView
+  children: ReplyNode[]
+}
+
+/** 가지를 이만큼까지만 들여 쓴다. 더 깊은 답글은 마지막 가지 안에 나란히 둔다(휴대폰에서 칸이 너무 좁아지지 않게). */
+export const MAX_BRANCH_DEPTH = 3
+
+/**
+ * 한 최상위 아래 답글(시간순)을 Git 브랜치처럼 가지로 묶는다 (FR-011a). 답한 답글이 목록에 없으면(지워졌거나 아직 안 불러옴)
+ * 최상위에서 갈라진 것으로 둔다. 깊이 MAX_BRANCH_DEPTH에 닿으면 그 아래는 같은 가지에 시간순으로 붙인다.
+ */
+export function replyTree(replies: CommentView[]): ReplyNode[] {
+  const nodes = new Map<number, { node: ReplyNode; parent: ReplyNode | null; depth: number }>()
+  const top: ReplyNode[] = []
+  for (const c of replies) {
+    const node: ReplyNode = { c, children: [] }
+    let at = c.replyToCommentId != null ? nodes.get(c.replyToCommentId) : undefined
+    // 깊이 제한에 닿은 답글에 답하면 그 답글과 같은 가지(형제)로 붙인다
+    if (at && at.depth >= MAX_BRANCH_DEPTH) at = at.parent ? nodes.get(at.parent.c.id) : undefined
+    if (at) at.node.children.push(node)
+    else top.push(node)
+    nodes.set(c.id, { node, parent: at?.node ?? null, depth: at ? at.depth + 1 : 1 })
+  }
+  return top
 }
 
 /** 이어 붙일 때 이미 있는 댓글은 건너뛴다. */
