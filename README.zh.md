@@ -63,7 +63,7 @@
 
 生产服务器准备就绪后将在 https://devlog.life 上线。在那之前，可以按下面的步骤在自己的电脑上运行。
 
-1. 用 GitHub、Google、Kakao、Facebook 账号或邮箱注册，设定博客地址（`/@your-id`）和昵称。
+1. 用 GitHub、Google、Kakao、Naver、Facebook 账号或邮箱注册，设定博客地址（`/@your-id`）和昵称。
 2. 点击 **写文章**，用 Markdown 写作。左边输入，右边立即显示预览，写作过程中会自动保存。
 3. 点击 **发布** 并选择标签和公开范围，文章就会出现在首页、标签、搜索和关注者的动态中。
 
@@ -139,7 +139,7 @@ cd app/frontend && npm install && npm run dev            # http://localhost:5173
 
 ### 账号与运营
 
-- **注册与登录**：GitHub、Google、Kakao、Facebook 的 OAuth2，或邮箱（验证邮件、重置密码）。博客地址和昵称的规则、保留词。
+- **注册与登录**：GitHub、Google、Kakao、Naver、Facebook 的 OAuth2，或邮箱（验证邮件、重置密码）。博客地址和昵称的规则、保留词。
 - **个人资料与设置**：头像裁剪、昵称和自我介绍、博客简介标签页、社交链接、默认公开范围、粉丝与关注列表是否公开、通知设置。界面可选韩语、English、日本語、中文。
 - **举报、隐藏、封禁**：举报文章和评论（6 种理由），管理员的举报处理页面，从 1 天到永久的封禁。
 - **注销与恢复**：在 30 天宽限期内登录即可恢复账号。之后每天逐个账号在一个事务中删除。
@@ -166,7 +166,7 @@ flowchart LR
 
 | 模块 | 职责 | 存储 |
 | --- | --- | --- |
-| **account** | 注册与登录（GitHub、Google、Kakao、Facebook、邮箱）、博客地址与昵称、个人资料与设置、简介、社交链接、注销与恢复 | PostgreSQL、Redis（会话） |
+| **account** | 注册与登录（GitHub、Google、Kakao、Naver、Facebook、邮箱）、博客地址与昵称、个人资料与设置、简介、社交链接、注销与恢复 | PostgreSQL、Redis（会话） |
 | **post** | 写作、自动保存、发布、编辑、公开范围、回收站、文章管理、Markdown 预览 | PostgreSQL、Redis（自动保存、幂等键） |
 | **media** | 图片、GIF、附件的上传与检查，清理未使用的文件 | MinIO/S3（未配置时使用本地文件夹） |
 | **discovery · page** | 首页、博客、文章页面、上下篇文章、RSS、包含链接预览 head 信息的页面外壳 | PostgreSQL |
@@ -323,7 +323,7 @@ npm run dev        # http://localhost:5173
 | --- | --- | --- | --- |
 | Java | 21 | 整个应用 | LTS 版本。用 record 简洁地定义请求和响应的结构 |
 | Spring Boot | 4.1.1 | 整个应用 | 把 Web MVC、校验、安全、邮件、Actuator 健康检查（Kubernetes 就绪探针）统一到一个版本 |
-| Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub、Google、Kakao、Facebook 登录，会话，CSRF，按路径的权限 |
+| Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub、Google、Kakao、Naver、Facebook 登录，会话，CSRF，按路径的权限 |
 | Spring Data JPA (Hibernate) | Boot 4.1 | 所有领域 | 保存会员、文章、评论等领域数据 |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | 会话、限流、浏览数、缓存 | 多个 Pod 共享同一会话，并发请求也由一个 Redis 脚本判定 |
 | Flyway | Boot 4.1 | 数据库 | 用 V1~V35 迁移管理模式，启动时自动应用 |
