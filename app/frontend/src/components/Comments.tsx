@@ -1,9 +1,10 @@
 import { ReportButton } from './ReportButton'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { api, ApiError } from '../lib/api'
 import { loginPath, useAuth } from '../lib/auth'
 import {
-  appendUnique, commentLength, commentsApi, countsTowardTotal, insertComment, MAX_COMMENT, removeComment, replaceComment,
+  appendUnique, commentLength, commentsApi, countsTowardTotal, insertComment, MAX_COMMENT, removeComment, replaceComment, replyTree,
+  type ReplyNode,
   type CommentPage, type CommentView,
 } from '../lib/comments'
 import { fullDate, relativeDate } from '../lib/format'
@@ -213,7 +214,23 @@ function Editor({ initial = '', placeholder, submitLabel, busyLabel, onSubmit, o
   )
 }
 
-function CommentItem({ c, rootId, ctx }: { c: CommentView; rootId: number | null; ctx: Ctx }) {
+/** 대댓글 가지 (FR-011a). 깊이마다 들여 쓰고 Git 브랜치 그래프처럼 선으로 잇는다(선은 styles.css의 .branch). */
+function Branch({ nodes, depth, rootId, ctx }: { nodes: ReplyNode[]; depth: number; rootId: number; ctx: Ctx }) {
+  return (
+    <ol className={`comment-list replies branch depth-${depth}`}>
+      {nodes.map((n) => (
+        <CommentItem key={n.c.id} c={n.c} rootId={rootId} ctx={ctx} trunk={depth + 1}>
+          {n.children.length > 0 && <Branch nodes={n.children} depth={depth + 1} rootId={rootId} ctx={ctx} />}
+        </CommentItem>
+      ))}
+    </ol>
+  )
+}
+
+/** @param trunk 이 댓글 아래 가지의 깊이(선 색). children은 이 답글에서 갈라진 가지 */
+function CommentItem({ c, rootId, ctx, trunk = 1, children }: {
+  c: CommentView; rootId: number | null; ctx: Ctx; trunk?: number; children?: ReactNode
+}) {
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [loadingReplies, setLoadingReplies] = useState(false)
@@ -251,8 +268,11 @@ function CommentItem({ c, rootId, ctx }: { c: CommentView; rootId: number | null
 
   const shown = c.replies?.length ?? 0
   const hiddenReplies = (c.replyCount ?? 0) - shown
+  // 아래로 가지가 나가면 프로필 아래에서 세로선(줄기)을 내린다
+  const branched = isRoot ? shown > 0 : Boolean(children)
   return (
-    <li id={`comment-${c.id}`} className={`comment${isRoot ? '' : ' reply'}${ctx.highlight === c.id ? ' highlight' : ''}`}>
+    <li id={`comment-${c.id}`} className={`comment${isRoot ? '' : ' reply'}${ctx.highlight === c.id ? ' highlight' : ''}${branched ? ` has-branch trunk-${trunk}` : ''}`}>
+      <div className="comment-main">
       <div className="comment-head">
         {c.author ? (
           <>
@@ -309,12 +329,10 @@ function CommentItem({ c, rootId, ctx }: { c: CommentView; rootId: number | null
         <Editor placeholder={t('답글을 남겨 보세요')} submitLabel={t('등록')} busyLabel={t('등록 중…')} autoFocus onCancel={() => ctx.setReplyingTo(null)}
                 onSubmit={async (text) => ctx.added(await commentsApi.create(ctx.postId, text, c.id), rootId ?? c.id)} />
       )}
+      </div>
 
-      {isRoot && (c.replies?.length ?? 0) > 0 && (
-        <ol className="comment-list replies">
-          {c.replies!.map((r) => <CommentItem key={r.id} c={r} rootId={c.id} ctx={ctx} />)}
-        </ol>
-      )}
+      {children}
+      {isRoot && (c.replies?.length ?? 0) > 0 && <Branch nodes={replyTree(c.replies!)} depth={1} rootId={c.id} ctx={ctx} />}
       {isRoot && hiddenReplies > 0 && c.repliesNextCursor && (
         repliesFailed
           ? <p className="feed-error small" role="alert">{t('불러오지 못했어요')} <button type="button" className="btn btn-text" onClick={moreReplies}>{t('다시 시도')}</button></p>

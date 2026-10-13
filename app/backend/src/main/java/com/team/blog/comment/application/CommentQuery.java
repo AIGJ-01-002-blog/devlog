@@ -41,7 +41,7 @@ public class CommentQuery {
             (m.withdrawn_at IS NOT NULL OR m.deleted_at IS NOT NULL) AS author_gone, m.handle, m.nickname,
             """ + PostSql.PROFILE_IMAGE_KEY + """
             ,
-            c.reply_to_member_id, rt.handle AS rt_handle, rt.nickname AS rt_nickname,
+            c.reply_to_member_id, c.reply_to_comment_id, rt.handle AS rt_handle, rt.nickname AS rt_nickname,
             (rt.withdrawn_at IS NOT NULL OR rt.deleted_at IS NOT NULL) AS rt_gone
             """;
     private static final String FROM = """
@@ -73,8 +73,8 @@ public class CommentQuery {
     public record ReplyTo(String handle, String nickname, boolean withdrawn) {}
 
     public record CommentView(long id, State state, String content, Instant createdAt, boolean edited, Author author,
-                              ReplyTo replyTo, boolean mine, List<CommentView> replies, Integer replyCount,
-                              String repliesNextCursor) {}
+                              ReplyTo replyTo, Long replyToCommentId, boolean mine, List<CommentView> replies,
+                              Integer replyCount, String repliesNextCursor) {}
 
     /**
      * @param canWrite    지금 보는 사람이 댓글을 쓸 수 있는지 (로그인 + 쓸 수 있는 글)
@@ -274,7 +274,7 @@ public class CommentQuery {
         Author author = showBody ? new Author(r.handle, r.nickname, imageUrls.urlOf(r.profileImageKey), r.authorId == gate.authorId()) : null;
         ReplyTo replyTo = r.replyToMemberId == null || !showBody ? null : replyToOf(r);
         return new CommentView(r.id, state, showBody ? r.content : null, r.createdAt,
-                showBody && r.updatedAt.isAfter(r.createdAt), author, replyTo, mine && state != State.DELETED, replies, replyCount, more);
+                showBody && r.updatedAt.isAfter(r.createdAt), author, replyTo, r.replyToCommentId, mine && state != State.DELETED, replies, replyCount, more);
     }
 
     /** 탈퇴 → 삭제된 자리 → 숨김 → 정상 순서로 하나만. */
@@ -300,7 +300,7 @@ public class CommentQuery {
     private record Row(long id, long postId, Long parentId, long authorId, String content, Instant createdAt, Instant updatedAt,
                        boolean deleted, boolean hidden, boolean authorGone, String handle, String nickname,
                        String profileImageKey, Long replyToMemberId, String replyToHandle, String replyToNickname,
-                       boolean replyToGone) {}
+                       boolean replyToGone, Long replyToCommentId) {}
 
     private Row row(ResultSet rs, int i) throws SQLException {
         return new Row(rs.getLong("id"), rs.getLong("post_id"), rs.getObject("parent_id", Long.class),
@@ -308,6 +308,6 @@ public class CommentQuery {
                 rs.getTimestamp("updated_at").toInstant(), rs.getBoolean("deleted"), rs.getBoolean("hidden"),
                 rs.getBoolean("author_gone"), rs.getString("handle"), rs.getString("nickname"), rs.getString("profile_image_key"),
                 rs.getObject("reply_to_member_id", Long.class), rs.getString("rt_handle"), rs.getString("rt_nickname"),
-                rs.getBoolean("rt_gone"));
+                rs.getBoolean("rt_gone"), rs.getObject("reply_to_comment_id", Long.class));
     }
 }
