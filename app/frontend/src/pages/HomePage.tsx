@@ -155,6 +155,8 @@ function HomeAside() {
         <Link to="/releases">{t('릴리스 노트')}</Link>
         <span aria-hidden="true">·</span>
         <Link to="/support">{t('문의·신고')}</Link>
+        <span aria-hidden="true">·</span>
+        <GitHubLink className="aside-github" size={14} />
       </nav>
     </aside>
   )
