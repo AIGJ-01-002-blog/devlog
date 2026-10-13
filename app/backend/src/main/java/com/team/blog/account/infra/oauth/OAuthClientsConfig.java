@@ -48,7 +48,8 @@ public class OAuthClientsConfig {
             all.add(facebook(facebookId, env));
         }
         String naverId = env.getProperty("NAVER_CLIENT_ID");
-        if (StringUtils.hasText(naverId) && all.stream().noneMatch(r -> r.getRegistrationId().equals("naver"))) {
+        // 네이버 토큰 API는 Client Secret이 꼭 있어야 해서, 둘 다 있을 때만 버튼을 켠다
+        if (StringUtils.hasText(naverId) && StringUtils.hasText(env.getProperty("NAVER_CLIENT_SECRET")) && all.stream().noneMatch(r -> r.getRegistrationId().equals("naver"))) {
             all.add(naver(naverId, env));
         }
         return new InMemoryClientRegistrationRepository(all);

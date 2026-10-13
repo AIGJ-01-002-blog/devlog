@@ -29,6 +29,7 @@ jobs:
       - name: 운영 서버 측정(읽기 전용)
         run: |
           [ -n "$SSHPASS" ] || { echo "::error::Secret SCHOOL_SSH_PASSWORD가 없습니다"; exit 1; }
+          set -o pipefail  # ssh가 실패하면 tee가 성공해도 단계가 실패하게
           sudo apt-get install -y -qq sshpass >/dev/null
           sshpass -e ssh -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 \
             "$SSH_USER@$HOST" 'bash -s' < deploy/scripts/infra-bench-prod.sh | tee result.txt

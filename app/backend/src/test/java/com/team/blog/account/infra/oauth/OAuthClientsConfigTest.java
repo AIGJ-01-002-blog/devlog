@@ -93,6 +93,11 @@ class OAuthClientsConfigTest {
     }
 
     @Test
+    void naverIsOffWithoutClientSecret() throws Exception {
+        assertThat(repository(Map.of("NAVER_CLIENT_ID", "n-id")).findByRegistrationId("naver")).isNull();
+    }
+
+    @Test
     void naverPostsSecretAndReadsResponseWrapper() throws Exception {
         var naver = repository(Map.of("SITE_BASE_URL", "https://devlog.life", "NAVER_CLIENT_ID", "n-id",
                 "NAVER_CLIENT_SECRET", "n-secret")).findByRegistrationId("naver");
