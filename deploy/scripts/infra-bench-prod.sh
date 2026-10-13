@@ -75,3 +75,20 @@ if [ -n "$IMG" ]; then
 fi
 echo "### 서버 → Cloudflare 왕복 (캐시된 정적 파일)"
 printf '  favicon.svg                                 '; bash -c "$LOOP" _ "$N" "https://devlog.life/favicon.svg" "" 2>/dev/null | stats
+
+echo
+echo "## 4. 서버 ↔ Cloudflare 구간 나눠 보기 (ms: DNS / TCP / TLS / 첫 바이트 / 전체, 10번 중앙값)"
+W='%{time_namelookup} %{time_connect} %{time_appconnect} %{time_starttransfer} %{time_total}\n'
+med() { sort -n -k5 | awk '{l[NR]=$0} END {split(l[int((NR+1)/2)], v, " "); printf "dns=%.0f tcp=%.0f tls=%.0f ttfb=%.0f total=%.0f\n", v[1]*1000, v[2]*1000, v[3]*1000, v[4]*1000, v[5]*1000}'; }
+for u in https://devlog.life/favicon.svg https://devlog.life/api/auth/me https://www.cloudflare.com/cdn-cgi/trace https://www.google.com/generate_204; do
+  printf '  %-44s ' "$u"; for i in $(seq 10); do curl -s -o /dev/null -w "$W" "$u"; done | med
+done
+echo "### 같은 연결을 다시 쓸 때(keep-alive, 10번째 요청)"
+printf '  /api/auth/me x10 한 연결: '; curl -s -o /dev/null -w '%{time_total}\n' $(for i in $(seq 10); do echo https://devlog.life/api/auth/me; done) | sort -n | awk '{a[NR]=$1*1000} END {printf "p50=%.0f min=%.0f max=%.0f\n", a[5], a[1], a[NR]}'
+echo "### 서버가 붙는 Cloudflare 위치"
+curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E '^(colo|loc|warp|http)='
+CF=$(kubectl -n blog get pod -l app.kubernetes.io/name=cloudflared -o name | head -1)
+echo "### 터널(cloudflared) 연결 위치와 지연"
+kubectl -n blog logs "$CF" --tail=400 2>/dev/null | grep -oE 'location=[a-z0-9]+' | sort | uniq -c
+kubectl -n blog exec "$CF" -- sh -c 'wget -qO- http://127.0.0.1:2000/metrics 2>/dev/null || true' 2>/dev/null \
+  | grep -E '^cloudflared_tunnel_(server_locations|ha_connections|request_errors|total_requests|concurrent_requests_per_tunnel)|^cloudflared_proxy_connect_latency|^quic_client_latest_rtt' | head -20
