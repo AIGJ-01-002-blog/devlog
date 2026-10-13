@@ -49,7 +49,7 @@ jobs:
               echo '|---|---|---|'
               for n in $prs; do
                 gh pr view "$n" --repo "$REPO" --json number,title,headRefName \
-                  --jq '"| #\(.number) | \(.title | gsub("\\|"; "\\|")) | `\(.headRefName)` |"' 2>/dev/null || echo "| #$n | | |"
+                  --jq '"| #\(.number) | \(.title | gsub("\\|"; "\\|")) | `\(.headRefName | gsub("\\|"; "\\|"))` |"' 2>/dev/null || echo "| #$n | | |"
               done
             else
               echo

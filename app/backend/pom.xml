@@ -109,6 +109,10 @@
                                         <include>**/*.jpeg</include>
                                         <include>**/*.gif</include>
                                     </includes>
+                                    <!-- 작업 중 사진(unreleased/)은 릴리스 전까지 배포하지 않는다 -->
+                                    <excludes>
+                                        <exclude>unreleased/**</exclude>
+                                    </excludes>
                                 </resource>
                             </resources>
                         </configuration>
