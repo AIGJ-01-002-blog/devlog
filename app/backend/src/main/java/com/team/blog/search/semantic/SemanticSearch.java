@@ -181,7 +181,8 @@ public class SemanticSearch {
      * warmEvery에 한 번만 보내고, 그 동안은 검색어 임베딩이 늦어도 공급자가 내려간 것으로 표시하지 않는다.
      */
     public void warmUp() {
-        if (!enabled()) return;
+        // Gemini에는 올릴 모델이 없고 요청이 할당량만 쓴다
+        if (client.provider() != EmbeddingClient.Provider.LOCAL || !enabled()) return;
         try {
             if (Boolean.TRUE.equals(redis.hasKey(DOWN))) return;
             if (!Boolean.TRUE.equals(redis.opsForValue().setIfAbsent(WARMING, "1", props.warmEvery()))) return;

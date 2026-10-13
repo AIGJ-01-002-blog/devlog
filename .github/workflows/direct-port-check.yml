@@ -41,7 +41,7 @@ jobs:
                   with socket.create_connection((host, port), timeout=5):
                       r = "OPEN(무언가 듣고 있음)"
               except ConnectionRefusedError:
-                  r = "REFUSED(방화벽 통과, 듣는 프로그램 없음)"
+                  r = "REFUSED(연결 거부: 방화벽 거부 또는 듣는 프로그램 없음)"
               except socket.timeout:
                   r = "TIMEOUT(방화벽이 막음으로 보임)"
               except OSError as e:
@@ -73,7 +73,7 @@ jobs:
         run: |
           # 학교 서버 SSH 키를 저장소 변수 SCHOOL_SSH_KNOWN_HOSTS로 고정한다. 변수가 없을 때만 예전처럼 처음 보는 키를 받는다
           if [ -n "$KNOWN_HOSTS" ]; then mkdir -p ~/.ssh && printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 600 ~/.ssh/known_hosts; HKC=yes
-          else HKC=accept-new; echo "::warning::변수 SCHOOL_SSH_KNOWN_HOSTS가 없어 서버 SSH 키를 확인하지 않고 붙습니다"; fi
+          else echo "::warning::변수 SCHOOL_SSH_KNOWN_HOSTS가 없어 서버 안 점검은 건너뜁니다(점검용이라 검증 안 된 서버에 비밀번호를 보내지 않음). 위 키 줄을 변수에 넣은 뒤 다시 실행하세요"; exit 0; fi
           [ -n "$SSHPASS" ] || { echo "::error::Secret SCHOOL_SSH_PASSWORD가 없습니다"; exit 1; }
           sudo apt-get install -y -qq sshpass >/dev/null
           sshpass -e ssh -p "$SSH_PORT" -o StrictHostKeyChecking=$HKC -o ConnectTimeout=15 \
@@ -90,7 +90,7 @@ jobs:
           ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub | awk '{print $2}'
           echo "== 호스트 방화벽 도구"
           for t in ufw iptables nft; do printf '%s ' "$t"; command -v "$t" >/dev/null && echo 있음 || echo 없음; done
-          echo "== 서버 공인 주소와 바깥에서 본 주소"
+          echo "== 서버 주소 개수와 서버가 붙는 Cloudflare 위치"
           hostname -I | tr ' ' '\n' | grep -c . | sed 's/^/주소 개수 /'
           curl -s -m 8 https://www.cloudflare.com/cdn-cgi/trace | grep -E '^colo='
           EOF
