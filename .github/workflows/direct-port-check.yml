@@ -60,13 +60,23 @@ jobs:
                   r = f"ERROR {type(e).__name__}"
               print(f"  {name:4} {r}  {(time.time()-t)*1000:.0f}ms")
 
+      - name: 학교 서버 SSH 키 (변수 SCHOOL_SSH_KNOWN_HOSTS에 넣을 값)
+        run: |
+          # 공개 키라 비밀이 아니다. 아래 서버 안 지문과 같으면 이 줄을 변수에 넣는다
+          ssh-keyscan -p "$SSH_PORT" -t ed25519 "$HOST" 2>/dev/null | tee "$RUNNER_TEMP/scan"
+          echo "러너에서 받은 지문: $(ssh-keygen -lf "$RUNNER_TEMP/scan" | awk '{print $2}')"
+
       - name: 서버 안에서 포트 사용 여부(읽기 전용)
         env:
+          KNOWN_HOSTS: ${{ vars.SCHOOL_SSH_KNOWN_HOSTS }}
           SSHPASS: ${{ secrets.SCHOOL_SSH_PASSWORD }}
         run: |
+          # 학교 서버 SSH 키를 저장소 변수 SCHOOL_SSH_KNOWN_HOSTS로 고정한다. 변수가 없을 때만 예전처럼 처음 보는 키를 받는다
+          if [ -n "$KNOWN_HOSTS" ]; then mkdir -p ~/.ssh && printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 600 ~/.ssh/known_hosts; HKC=yes
+          else HKC=accept-new; echo "::warning::변수 SCHOOL_SSH_KNOWN_HOSTS가 없어 서버 SSH 키를 확인하지 않고 붙습니다"; fi
           [ -n "$SSHPASS" ] || { echo "::error::Secret SCHOOL_SSH_PASSWORD가 없습니다"; exit 1; }
           sudo apt-get install -y -qq sshpass >/dev/null
-          sshpass -e ssh -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 \
+          sshpass -e ssh -p "$SSH_PORT" -o StrictHostKeyChecking=$HKC -o ConnectTimeout=15 \
             "$SSH_USER@$HOST" "BASE=$API_PORT bash -s" <<'EOF'
           start=$((BASE - BASE % 10))
           echo "== 내 포트 근처(+0~+9)에서 듣는 주소"
@@ -76,6 +86,8 @@ jobs:
             mine=$(docker ps --filter name=k3d-devlog --format '{{.Ports}}' | grep -c ":$p->" || true)
             echo "  +$off listen=[${l:-없음}] 내컨테이너=$mine"
           done
+          echo "== 서버 안에서 읽은 SSH 키 지문(러너에서 받은 지문과 같아야 함)"
+          ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub | awk '{print $2}'
           echo "== 호스트 방화벽 도구"
           for t in ufw iptables nft; do printf '%s ' "$t"; command -v "$t" >/dev/null && echo 있음 || echo 없음; done
           echo "== 서버 공인 주소와 바깥에서 본 주소"

@@ -20,9 +20,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: 클러스터 상태 보기
+        env:
+          KNOWN_HOSTS: ${{ vars.SCHOOL_SSH_KNOWN_HOSTS }}
         run: |
+          # 학교 서버 SSH 키를 저장소 변수 SCHOOL_SSH_KNOWN_HOSTS로 고정한다. 변수가 없을 때만 예전처럼 처음 보는 키를 받는다
+          if [ -n "$KNOWN_HOSTS" ]; then mkdir -p ~/.ssh && printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 600 ~/.ssh/known_hosts; HKC=yes
+          else HKC=accept-new; echo "::warning::변수 SCHOOL_SSH_KNOWN_HOSTS가 없어 서버 SSH 키를 확인하지 않고 붙습니다"; fi
           [ -n "$SSHPASS" ] || { echo "::error::Secret SCHOOL_SSH_PASSWORD가 없습니다"; exit 1; }
           for v in HOST SSH_PORT SSH_USER; do [ -n "${!v}" ] || { echo "::error::변수 SCHOOL_SSH_HOST·SCHOOL_SSH_PORT·SCHOOL_SSH_USER를 설정하세요"; exit 1; }; done
           sudo apt-get install -y -qq sshpass >/dev/null
-          sshpass -e ssh -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 \
+          sshpass -e ssh -p "$SSH_PORT" -o StrictHostKeyChecking=$HKC -o ConnectTimeout=15 \
             "$SSH_USER@$HOST" 'bash -s' < deploy/scripts/cluster-status.sh

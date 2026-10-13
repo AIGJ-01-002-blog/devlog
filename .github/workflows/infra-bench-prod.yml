@@ -27,10 +27,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: 운영 서버 측정(읽기 전용)
+        env:
+          KNOWN_HOSTS: ${{ vars.SCHOOL_SSH_KNOWN_HOSTS }}
         run: |
+          # 학교 서버 SSH 키를 저장소 변수 SCHOOL_SSH_KNOWN_HOSTS로 고정한다. 변수가 없을 때만 예전처럼 처음 보는 키를 받는다
+          if [ -n "$KNOWN_HOSTS" ]; then mkdir -p ~/.ssh && printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 600 ~/.ssh/known_hosts; HKC=yes
+          else HKC=accept-new; echo "::warning::변수 SCHOOL_SSH_KNOWN_HOSTS가 없어 서버 SSH 키를 확인하지 않고 붙습니다"; fi
           [ -n "$SSHPASS" ] || { echo "::error::Secret SCHOOL_SSH_PASSWORD가 없습니다"; exit 1; }
           sudo apt-get install -y -qq sshpass >/dev/null
-          sshpass -e ssh -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 \
+          sshpass -e ssh -p "$SSH_PORT" -o StrictHostKeyChecking=$HKC -o ConnectTimeout=15 \
             "$SSH_USER@$HOST" 'bash -s' < deploy/scripts/infra-bench-prod.sh | tee result.txt
           { echo '```'; cat result.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - name: 러너(미국)에서 공개 주소
