@@ -372,6 +372,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v1.67.0 | 2026-10-13 | First goal-based release (deployment confidence and release records): Naver login, GitHub shortcuts on the home page and footer, replies linked like Git branches, UI motion, and release notes with screenshots | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.67.0) |
 | v1.66.2 | 2026-10-12 | Leaving the editor without writing anything now deletes the empty draft right away, skipping the trash | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.66.2) |
 | v1.66.1 | 2026-10-12 | Tag pages with no posts now return 404 (avoids soft 404s in search); the AI connection guide and release notes join the sitemap | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.66.1) |
 | v1.66.0 | 2026-10-12 | Tags page redesigned: search, sorting, and a swipeable row of popular posts for each tag | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.66.0) |

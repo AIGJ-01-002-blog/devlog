@@ -13,14 +13,36 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 ### 추가
 - "포트 직접 열기 점검" 워크플로: Cloudflare 터널 대신 학교 서버 포트를 바로 열 수 있는지 학교 밖에서 내 포트만 두드려 보고, 서버 안에서 그 포트를 누가 쓰는지와 SSH 키 지문을 읽기만 한다 (민서님 결정 "포트 직접")
 - "학교 안 포트 시험" 워크플로: 학교 서버 내 포트 범위 끝(+9)에 작은 시험 페이지를 2시간만 띄워, 학교 안에서 포트로 바로 열리는지와 Cloudflare 경로와의 응답 시간 차이를 화면에서 잰다. 운영 클러스터는 건드리지 않는다 (민서님 결정 "학교 안 시험")
-- 첫 화면 소개에 움직임을 넣었다. 이번 방문에서 처음 볼 때 이름표·제목·설명·버튼이 차례로 올라오고, 오른쪽 AI 장면이 대화처럼 한 줄씩 이어진 뒤 [AI에 devlog 연결하기]에 빛이 한 번 지나간다(약 2.4초). 강조 글귀 "기록은 devlog가." 밑에 형광펜 줄을 긋고, 이름표 점에서 신호가 천천히 퍼진다. 홈에 다시 와도 장면은 다시 틀지 않고, 동작 줄이기를 켜면 움직이지 않는다. [AI에 devlog 연결하기]·[직접 글쓰기]에 툴팁을 달았다 (spec 095 FR-007, 민서님 요청 "devlog의 첫인상을 좋게")
-- 구성 비교 측정: GitHub Actions "구성 비교 측정"이 같은 러너에서 지금 구성(k3d 쿠버네티스)과 가벼운 구성(Docker Compose)을 차례로 띄워 메모리·기동 시간·응답 시간·처리량을 재고, "운영 구성 측정"이 학교 서버를 읽기만 하며 단계별 응답 시간과 자원을 잰다. 결과는 docs 저장소 design/66. 쿠버네티스 층은 요청당 1~2ms, 느린 곳은 한국 → 해외 Cloudflare 경로였다 (#172, 강사님 피드백)
-- 첫 화면 [AI에 devlog 연결하기] 옆에 [GitHub] 버튼을 두고, 모든 화면 맨 아래 링크에도 GitHub을 더했다. 둘 다 새 탭에서 GitHub 조직(AIGJ-01-002-blog)을 열고, 마우스를 올리면 "devlog 소스 코드를 GitHub에서 보기 (새 탭)" 툴팁이 뜬다. 로그인한 사람은 첫 화면 소개가 안 보여서 오른쪽 칸의 [릴리스 노트 · 문의·신고] 줄과 맨 아래 링크로 찾는다 (민서님 요청 "우리 devlog에서도 바로 git으로 갈 수 있는 버튼", Crowfoot 첫 화면 참고)
-- 네이버 로그인. `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`을 넣으면 로그인 화면 카카오 아래에 초록 [네이버로 계속하기] 버튼이 생기고, `nv-` 블로그 주소로 가입한다. 네이버가 준 이메일은 다시 묻지 않고, 회원이 올린 프로필 사진을 쓸 수 있다. 키가 없으면 버튼이 없다. V34 마이그레이션이 로그인 수단 NAVER와 `nv-` 주소를 받는다 (spec 096, 민서님 요청 "네이버 소셜 로그인도 추가해줘")
 
 ### 바꿈
 - 검색 임베딩 모델(Ollama bge-m3)을 늘 올려 두지 않고 10분 동안 쓰지 않으면 내린다. 학교 서버 메모리 약 3GB·CPU 1.4코어를 돌려준다. 검색창에 들어가면 화면이 `GET /api/search/warm`으로 모델을 미리 올려(5분에 한 번, 서버는 여러 사람이 열어도 1분에 한 번) 검색어를 치는 동안 준비되고, 예열 중에 첫 검색이 늦으면 그 검색만 키워드로 끝내고 의미 검색을 1분 동안 끄지 않는다. 같은 검색어는 전처럼 하루 동안 벡터를 보관한다 (design/66 선택지 C, 민서님 결정 "바로 적용, 예열 작업을 캐싱해서 첫 검색을 빠르게")
 - GitHub Actions가 학교 서버에 SSH로 붙을 때 저장소 변수 `SCHOOL_SSH_KNOWN_HOSTS`의 서버 키에만 붙는다(배포·상태 확인·점검·준비·측정 워크플로 6개). 변수가 없으면 비밀번호를 보내지 않고 실패한다(점검 워크플로는 서버 안 점검만 건너뛴다) (#193 리뷰 지적, 민서님 결정 "고정")
+
+## [1.67.0] - 2026-10-13
+
+**목표: v1.67.0 배포 신뢰도와 릴리스 기록** ([목표 이슈 #169](https://github.com/AIGJ-01-002-blog/devlog/issues/169))
+
+목표 단위 Git Flow로 낸 첫 릴리스다. feature 브랜치에서 develop으로 모은 작업을 한 번에 내보내고, 이번부터 릴리스 노트에 화면 사진과 포함된 이슈·브랜치·PR, 이전 버전과의 비교 링크가 남는다. 지금 구성과 가벼운 구성의 실측 비교표도 생겼다. develop을 시험 환경에 자동 배포하는 일(#170)은 민서님 결정(2026-10-13 "지금 릴리스")으로 다음 목표로 옮겼다. 그동안 develop의 작업은 PR마다 도는 테스트로 확인한다.
+
+### 화면
+| 전 | 후 |
+|---|---|
+| ![첫 화면 GitHub 버튼 전](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.67.0/home-github-before.webp) | ![첫 화면 GitHub 버튼 후](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.67.0/home-github-after.webp) |
+| ![로그인 화면 네이버 전](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.67.0/login-naver-before.webp) | ![로그인 화면 네이버 후](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.67.0/login-naver-after.webp) |
+
+| PC | 휴대폰(다크 모드) |
+|---|---|
+| ![대댓글 가지 선 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.67.0/comment-branch-pc.webp) | ![대댓글 가지 선 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.67.0/comment-branch-m-dark.webp) |
+| ![내 답글에 답한 대상 표시 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.67.0/comment-reply-pc.webp) | ![내 답글에 답한 대상 표시 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.67.0/comment-reply-m-dark.webp) |
+| ![첫 화면 소개 움직임 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.67.0/home-hero-motion-pc.webp) | ![첫 화면 소개 움직임 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.67.0/home-hero-motion-m-dark.webp) |
+
+### 추가
+- 첫 화면 소개에 움직임을 넣었다. 이번 방문에서 처음 볼 때 이름표·제목·설명·버튼이 차례로 올라오고, 오른쪽 AI 장면이 대화처럼 한 줄씩 이어진 뒤 [AI에 devlog 연결하기]에 빛이 한 번 지나간다(약 2.4초). 강조 글귀 "기록은 devlog가." 밑에 형광펜 줄을 긋고, 이름표 점에서 신호가 천천히 퍼진다. 홈에 다시 와도 장면은 다시 틀지 않고, 동작 줄이기를 켜면 움직이지 않는다. [AI에 devlog 연결하기]·[직접 글쓰기]에 툴팁을 달았다 (spec 095 FR-007, 민서님 요청 "devlog의 첫인상을 좋게")
+- 구성 비교 측정: GitHub Actions "구성 비교 측정"이 같은 러너에서 지금 구성(k3d 쿠버네티스)과 가벼운 구성(Docker Compose)을 차례로 띄워 메모리·기동 시간·응답 시간·처리량을 재고, "운영 구성 측정"이 학교 서버를 읽기만 하며 단계별 응답 시간과 자원을 잰다. 결과는 docs 저장소 design/66. 쿠버네티스 층은 요청당 1~2ms, 느린 곳은 한국 → 해외 Cloudflare 경로였다 (#172, 강사님 피드백)
+- 첫 화면 [AI에 devlog 연결하기] 옆에 [GitHub] 버튼을 두고, 모든 화면 맨 아래 링크에도 GitHub을 더했다. 둘 다 새 탭에서 GitHub 조직(AIGJ-01-002-blog)을 열고, 마우스를 올리면 "devlog 소스 코드를 GitHub에서 보기 (새 탭)" 툴팁이 뜬다. 로그인한 사람은 첫 화면 소개가 안 보여서 오른쪽 칸의 [릴리스 노트 · 문의·신고] 줄과 맨 아래 링크로 찾는다 (민서님 요청 "우리 devlog에서도 바로 git으로 갈 수 있는 버튼", Crowfoot 첫 화면 참고)
+- 네이버 로그인. `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`을 넣으면 로그인 화면 카카오 아래에 초록 [네이버로 계속하기] 버튼이 생기고, `nv-` 블로그 주소로 가입한다. 이메일은 가입 마무리 화면에서 받아 인증 메일로 확인하고(네이버 응답에는 인증 여부 표시가 없어서), 회원이 올린 프로필 사진을 쓸 수 있다. Client ID와 Secret이 모두 있어야 버튼이 생긴다. 키가 없으면 버튼이 없다. V34 마이그레이션이 로그인 수단 NAVER와 `nv-` 주소를 받는다 (spec 096, 민서님 요청 "네이버 소셜 로그인도 추가해줘")
+
+### 바꿈
 - 대댓글을 Git 브랜치 그래프처럼 선으로 잇는다. 답한 댓글의 프로필에서 세로선이 내려와 둥글게 꺾여 새 답글로 들어가고, 깊이마다 선 색(보라·청록·주황)이 바뀐다. 3단계까지 들여 쓰고 더 깊은 답글은 3단계 가지에 나란히 둔다. 내용·버튼은 프로필 오른쪽 칸으로 옮겨 선이 글자를 가리지 않는다. V35 마이그레이션이 답한 답글 번호(`reply_to_comment_id`)를 더한다. 이전에 달린 답글은 최상위에서 갈라진 것으로 보인다 (spec 011 FR-011a, 민서님 요청 "대댓글에 대한 구분도 깃 브랜치처럼")
 - 릴리스 노트에 화면 전/후 사진과 포함된 작업이 보인다. GitHub Release 끝에는 이전 버전 뒤로 머지된 PR(번호·제목·브랜치) 표와 비교 링크가 자동으로 붙고, 사이트 릴리스 노트 화면(/releases)도 `assets/releases/`의 사진을 휴대폰에서 칸에 맞춰 보여 준다 (spec 093, #171)
 - 목표 단위 Git Flow로 전환: feature → develop → 릴리스 PR → main. 브랜치 전략·릴리스 절차(CONTRIBUTING.md)와 릴리스 노트 틀(.github/RELEASE_TEMPLATE.md)을 더했다
@@ -31,6 +53,23 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 - 탈퇴를 신청하면 친구 관계(요청 중·수락 모두)를 그 자리에서 지운다. 개인정보 처리방침은 "바로 지운다"고 적었는데 30일 뒤 정리 때 지우고 있었다. 30일 안에 복구해도 친구 관계는 되살리지 않는다(다시 친구 신청). 이미 탈퇴 신청한 회원의 남은 관계는 V33 마이그레이션이 한 번 지운다 (spec 020, 민서님 결정 2026-10-12)
 - 내 답글에 다시 답하면 "@닉네임에게" 대상 표시가 빠져 최상위에 바로 단 답글과 똑같이 보이던 것을 고쳤다. 대댓글을 달아도 달린 것처럼 보이지 않았다. 이제 내 답글에 답해도 대상을 남기고, 나에게 가는 알림은 그대로 없다. 이미 달린 답글은 바뀌지 않는다 (spec 011 FR-011, 민서님 신고 "댓글에서 대댓글이 작성 안 됨")
 - CHANGELOG의 1.66.0 제목 줄이 깨져(`## [1.66.0]`이 빠짐) 릴리스 노트 화면에서 1.66.0이 1.66.1에 붙어 보이던 것을 고쳤다. `specs/README.md`에 빠진 spec 089·091·095를 더했다 (매일 저장소·다국어 점검)
+
+### 포함된 작업
+| 이슈 | 브랜치 | PR |
+|---|---|---|
+| #171 릴리스 노트에 화면 사진·브랜치·PR·비교 링크 넣기 | `feature/093-release-notes` | #183 |
+| #172 지금 구성과 가벼운 구성 실측 비교 | `feature/my-page-image-delay-ubedyo` | #193 |
+| #176 화면 움직임 더하기 (spec 095) | `feature/ui-motion-2wgkcb` | #178 |
+| #179 탈퇴 신청 즉시 친구 관계 지우기 (spec 020) | `claude/project-thread-gew61l` | #180 |
+| #194 첫 화면 소개에 첫인상 움직임 넣기 | `feature/home-hero-motion-51xqld` | #195 |
+| 네이버 로그인 (spec 096) | `claude/project-thread-j6u267` | #185 |
+| 첫 화면·맨 아래 GitHub 바로가기 | `feature/github-button-ng5rvz` | #186 |
+| 대댓글 대상 표시 고침, 가지 선 (spec 011) | `feature/comment-reply-enter-bq7ist` | #190, #192 |
+| 매일 점검: CHANGELOG·spec 목록 | `feature/daily-sync-check-1013` | #182 |
+| 목표 단위 Git Flow 전환, CodeRabbit develop 리뷰 | `main`, `claude/main-backup-develop-branch-ffoe2m` | #173, #174, #177 |
+| 소나큐브 이슈 정리 | `claude/sonar-issues-2nj2gk` | #175, #184 |
+
+**비교:** [v1.66.2...v1.67.0](https://github.com/AIGJ-01-002-blog/devlog/compare/v1.66.2...v1.67.0)
 
 ## [1.66.2] - 2026-10-12
 
