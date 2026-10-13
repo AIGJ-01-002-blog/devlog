@@ -25,9 +25,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: 서버에 클러스터 만들기
+        env:
+          KNOWN_HOSTS: ${{ vars.SCHOOL_SSH_KNOWN_HOSTS }}
         run: |
+          # 학교 서버 SSH 키를 저장소 변수 SCHOOL_SSH_KNOWN_HOSTS로 고정한다. 변수가 없으면 붙지 않는다
+          if [ -n "$KNOWN_HOSTS" ]; then mkdir -p ~/.ssh && printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 600 ~/.ssh/known_hosts; HKC=yes
+          else echo "::error::변수 SCHOOL_SSH_KNOWN_HOSTS가 없어 학교 서버 SSH 키를 확인할 수 없습니다. 확인 안 된 서버에는 비밀번호를 보내지 않습니다"; exit 1; fi
           [ -n "$SSHPASS" ] || { echo "::error::Secret SCHOOL_SSH_PASSWORD가 없습니다"; exit 1; }
           for v in HOST SSH_PORT SSH_USER API_PORT; do [ -n "${!v}" ] || { echo "::error::변수 SCHOOL_SSH_HOST·SCHOOL_SSH_PORT·SCHOOL_SSH_USER·SCHOOL_K8S_API_PORT를 설정하세요"; exit 1; }; done
           sudo apt-get install -y -qq sshpass >/dev/null
-          sshpass -e ssh -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 \
+          sshpass -e ssh -p "$SSH_PORT" -o StrictHostKeyChecking=$HKC -o ConnectTimeout=15 \
             "$SSH_USER@$HOST" "API_PORT=$API_PORT bash -s" < deploy/scripts/school-setup.sh

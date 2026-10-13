@@ -38,6 +38,21 @@ export interface PeoplePage {
 
 export const SEARCH_MAX_LENGTH = 50
 
+const WARM_EVERY_MS = 5 * 60_000
+let warmedAt = -WARM_EVERY_MS
+
+/**
+ * 검색창에 들어가면 서버에 임베딩 모델을 미리 올려 달라고 한다. 운영 서버는 쓰지 않을 때 모델을 내려 두므로,
+ * 검색어를 치는 동안 올려 두면 첫 검색도 의미 검색까지 제때 끝난다. 결과는 기다리지 않고, 실패해도 검색에는 상관없다.
+ * @return 이번에 보냈으면 true (5분 안에 다시 들어가면 보내지 않는다)
+ */
+export function warmSearch(now = Date.now()): boolean {
+  if (now - warmedAt < WARM_EVERY_MS) return false
+  warmedAt = now
+  void fetch('/api/search/warm', { credentials: 'same-origin' }).catch(() => undefined)
+  return true
+}
+
 export const NOTICE_TEXT: Record<Exclude<SearchNotice, null>, string> = {
   TWO_CHAR_TITLE_TAG_ONLY: t('두 글자 단어는 제목·태그에서만 찾았어요'),
   TOO_SHORT: t('두 글자 이상 입력해 주세요'),
