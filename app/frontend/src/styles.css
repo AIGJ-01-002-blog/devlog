@@ -1388,6 +1388,10 @@ a.attachment-name:hover { color: var(--color-brand); }
 .release-body h4 { font-size: 1rem; margin: 14px 0 6px; }
 /* 릴리스 노트의 "더함·바꿈·DB" 같은 작은 구획 이름은 본문 글꼴로 둔다. 함렛은 한글은 고딕처럼, 영문은 명조로 보여 "DB"만 다른 글꼴처럼 보였다 */
 .markdown.release-body h4 { font-family: var(--font); }
+/* 093: 화면 전/후 사진 표. 두 칸을 반씩 나눠 휴대폰에서도 사진이 칸 안에 줄어 들어간다 */
+.release-body table { display: table; width: 100%; table-layout: fixed; }
+.release-body td, .release-body td code { overflow-wrap: anywhere; word-break: break-word; white-space: normal; }
+.release-body table img { margin: 0; width: 100%; max-height: none; border: 1px solid var(--color-border); }
 @media (max-width: 600px) {
   .support-categories { grid-template-columns: 1fr; }
   .support-item summary { grid-template-columns: 1fr; }
