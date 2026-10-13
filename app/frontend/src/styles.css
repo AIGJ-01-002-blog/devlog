@@ -2019,3 +2019,7 @@ html:lang(ja) *, html:lang(zh) * { word-break: normal; line-break: strict; }
 html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-title, .card-excerpt, .bl-title, .bl-excerpt, .blog-name, .bio, .comment-body) {
   word-break: keep-all; overflow-wrap: anywhere;
 }
+
+/* GitHub 바로가기 (첫 화면 버튼·맨 아래 링크): 표시와 글자 사이 간격 */
+.home-hero-github { gap: 8px; }
+.site-footer-links .site-footer-github { gap: 4px; }

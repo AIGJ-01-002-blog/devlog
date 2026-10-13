@@ -1377,4 +1377,5 @@ export const en: Record<string, string> = {
   "태그 이름으로 찾기": "Find a tag by name",
   "'{0}'에 맞는 태그가 없어요.": "No tags match '{0}'.",
   "태그를 더 불러오지 못했어요": "Couldn't load more tags",
+  "devlog 소스 코드를 GitHub에서 보기 (새 탭)": "View devlog's source code on GitHub (new tab)",
 }

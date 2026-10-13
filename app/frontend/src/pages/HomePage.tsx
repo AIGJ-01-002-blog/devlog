@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { BranchList, BranchMark } from '../components/BranchList'
 import { Feed } from '../components/Feed'
+import { GitHubLink } from '../components/GitHubLink'
 import { api, takeInitialData } from '../lib/api'
 import { branchChips } from '../lib/branch'
 import { loginPath, useAuth } from '../lib/auth'
@@ -160,7 +161,7 @@ function HomeAside() {
 }
 
 /**
- * 비회원 첫 화면 소개 (048, 051). 슬로건과 "AI에 devlog 연결하기", 그리고 AI가 개발 일지를 쓰는 모습을 보여 준다.
+ * 비회원 첫 화면 소개 (048, 051). 슬로건과 "AI에 devlog 연결하기"·GitHub·"직접 글쓰기" 버튼, 그리고 AI가 개발 일지를 쓰는 모습을 보여 준다.
  * 로그인한 사람에게는 바로 글 목록을 보인다. 제목 구조를 흐트리지 않게 소제목 태그는 쓰지 않는다.
  */
 function HomeHero() {
@@ -172,6 +173,7 @@ function HomeHero() {
         <p className="home-hero-sub">{t('내 AI 도구에 devlog를 연결하면, 오늘 작업한 대화와 커밋을 정리해 개발 일지 초안을 써 줘요. 나는 확인하고 [발행]만 누르면 돼요.')}</p>
         <div className="home-hero-actions">
           <Link to="/mcp" className="btn btn-primary btn-lg">{t('AI에 devlog 연결하기')}</Link>
+          <GitHubLink className="btn btn-outline btn-lg home-hero-github" size={18} />
           <Link to={loginPath('/write')} className="btn btn-outline btn-lg">{t('직접 글쓰기')}</Link>
         </div>
       </div>
