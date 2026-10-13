@@ -14,7 +14,10 @@ echo "## 1. 서버(호스트)"
 echo "cpu=$(nproc) $(free -m | awk '/^Mem:/{printf "mem_total_mb=%d used_mb=%d available_mb=%d", $2, $3, $7}') load=$(cut -d' ' -f1-3 /proc/loadavg)"
 echo "containers_total=$(docker ps -q | wc -l) containers_mine=$(docker ps -q --filter name=k3d-devlog | wc -l)"
 echo "### 내 컨테이너 (docker stats)"
-docker stats --no-stream --format '{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}' $(docker ps --format '{{.Names}}' --filter name=k3d-devlog)
+# 목록이 비면 docker stats가 모든 컨테이너를 보여 주므로, 내 컨테이너가 있을 때만 부른다
+mine=$(docker ps --format '{{.Names}}' --filter name=k3d-devlog)
+# shellcheck disable=SC2086
+if [ -n "$mine" ]; then docker stats --no-stream --format '{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}' $mine; else echo "(내 컨테이너 없음)"; fi
 echo "### 다른 컨테이너 합계(공용 서버 부하, 이름은 적지 않음)"
 others=$(docker ps --format '{{.Names}}' | grep -v '^k3d-devlog' || true)
 if [ -n "$others" ]; then
@@ -47,18 +50,20 @@ for t in "blog $APP" "ingress-nginx $ING"; do
   echo "tools $2: $(kubectl -n "$1" exec "$2" -- sh -c 'for x in curl wget; do command -v $x >/dev/null && printf "%s " $x; done' 2>/dev/null)"
 done
 
-# 그 자리에서 셸 하나로 N번 부르고 초 단위 값을 한 줄씩 낸다 ($1=N, $2=URL, $3=Host 머리)
+# 그 자리에서 셸 하나로 N번 부르고 "상태코드 초"를 한 줄씩 낸다 ($1=N, $2=URL, $3=Host 머리). wget은 실패하면 000을 낸다
 LOOP='n=$1; url=$2; host=$3; i=0
 while [ $i -lt $n ]; do
   if command -v curl >/dev/null 2>&1; then
-    if [ -n "$host" ]; then curl -s -o /dev/null -H "Host: $host" -w "%{time_total}\n" "$url"; else curl -s -o /dev/null -w "%{time_total}\n" "$url"; fi
+    if [ -n "$host" ]; then curl -s -o /dev/null -H "Host: $host" -w "%{http_code} %{time_total}\n" "$url" || :; else curl -s -o /dev/null -w "%{http_code} %{time_total}\n" "$url" || :; fi
   else
-    s=$(date +%s%N); if [ -n "$host" ]; then wget -q -O /dev/null --header "Host: $host" "$url"; else wget -q -O /dev/null "$url"; fi; e=$(date +%s%N)
-    awk -v d=$((e-s)) "BEGIN {printf \"%.6f\\n\", d/1e9}"
+    s=$(date +%s%N); if [ -n "$host" ]; then wget -q -O /dev/null --header "Host: $host" "$url"; else wget -q -O /dev/null "$url"; fi; r=$?; e=$(date +%s%N)
+    if [ $r -eq 0 ]; then c=200; else c=000; fi
+    awk -v d=$((e-s)) -v c=$c "BEGIN {printf \"%s %.6f\\n\", c, d/1e9}"
   fi
   i=$((i+1))
 done'
-stats() { sort -n | awk '{a[NR]=$1*1000; s+=$1*1000} END {if (NR==0) {print "(값 없음)"; exit} i=int(NR*0.95); if (i<1) i=1; printf "p50=%7.1f p95=%7.1f avg=%7.1f n=%d\n", a[int((NR+1)/2)], a[i], s/NR, NR}'; }
+# 2xx·3xx만 표본으로 쓰고 연결 실패(000)·4xx·5xx는 fail로 센다
+stats() { awk '$1>=200 && $1<400 {print $2; next} {f++} END {if (f) print "FAIL " f}' | sort -n | awk '/^FAIL/ {f=$2; next} {a[++n]=$1*1000; s+=$1*1000} END {if (n==0) {printf "(성공한 요청 없음) fail=%d\n", f; exit} m=(n%2)?a[(n+1)/2]:(a[n/2]+a[n/2+1])/2; i=int(n*0.95); if (i<n*0.95) i++; printf "p50=%7.1f p95=%7.1f avg=%7.1f n=%d fail=%d\n", m, a[i], s/n, n, f}'; }
 
 for p in "${PATHS[@]}"; do
   echo "### $p"

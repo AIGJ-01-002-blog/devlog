@@ -9,6 +9,7 @@ INGRESS_NGINX_VERSION="${INGRESS_NGINX_VERSION:-1.13.3}"
 C=bench
 log "## 지금 구성: k3d(Docker 안 k3s) + ingress-nginx + 앱 2개 + PostgreSQL·Redis·MinIO·Ollama"
 t0=$(date +%s)
+trap 'k3d cluster delete $C >/dev/null 2>&1 || true' EXIT
 k3d cluster create $C --image "$K3S_IMAGE" --no-lb --servers 1 --agents 0 --k3s-arg "--disable=traefik@server:0" --wait --timeout 300s >/dev/null
 k3d image import blog-app:bench -c $C >/dev/null
 kubectl apply -f "https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v${INGRESS_NGINX_VERSION}/deploy/static/provider/baremetal/deploy.yaml" >/dev/null
@@ -23,7 +24,8 @@ kubectl -n blog scale deploy blog-app --replicas=2 >/dev/null
 kubectl -n blog rollout status deploy/blog-app --timeout=600s >/dev/null || { kubectl -n blog get pods; kubectl -n blog describe deploy blog-app | tail -20; kubectl -n blog logs deploy/blog-app --tail=60 || true; exit 1; }
 log "- 클러스터 만들기부터 앱 2개 준비까지: $(( $(date +%s) - t0 ))초"
 # 임베딩 모델(bge-m3)을 다 받을 때까지 기다린다(최대 10분). 운영에서도 늘 떠 있는 파드다
-kubectl -n blog rollout status statefulset/ollama-embed --timeout=600s >/dev/null 2>&1 || log "- (Ollama가 시간 안에 준비되지 않음)"
+# 준비되지 않으면 운영과 다른 구성이라 비교에 쓸 수 없으니 측정을 멈춘다
+kubectl -n blog rollout status statefulset/ollama-embed --timeout=600s >/dev/null 2>&1 || { log "- Ollama가 10분 안에 준비되지 않아 측정을 멈춤"; kubectl -n blog get pods; exit 1; }
 
 kubectl -n ingress-nginx run client --image=alpine:3.20 --restart=Never --command -- sleep 3600 >/dev/null
 kubectl -n ingress-nginx wait --for=condition=Ready pod/client --timeout=120s >/dev/null
@@ -47,7 +49,7 @@ docker top $NODE -eo pid,rss,comm | awk 'NR>1 {m[$3]+=$2; n[$3]++} END {for (k i
 log '```'
 log ""
 log "### 응답 시간 (ms, ${N}번, 한 번에 하나)"
-log "| 경로 | 거치는 곳 | p50 | p95 | 평균 |"; log "|---|---|---|---|---|"
+log "| 경로 | 거치는 곳 | p50 | p95 | 평균 | 실패 |"; log "|---|---|---|---|---|---|"
 for p in "${PATHS[@]}"; do
   printf '| `%s` | 파드 → 앱 파드 IP (파드 네트워크만) ' "$p" | tee -a "$OUT"; X "$LOOP" _ "$N" "http://$APP_IP:8080$p" | stats | tee -a "$OUT"
   printf '| `%s` | 파드 → 서비스(kube-proxy) → 앱 ' "$p" | tee -a "$OUT"; X "$LOOP" _ "$N" "http://blog-app.blog.svc.cluster.local$p" | stats | tee -a "$OUT"
@@ -57,8 +59,7 @@ log ""
 log "### 부하 (동시 20개, 2000건, 운영 경로 = nginx 거침)"
 log "| 경로 | 초당 처리 | p95 ms | 실패 |"; log "|---|---|---|---|"
 for p in "/api/auth/me" "/api/posts"; do
-  printf '| `%s` ' "$p" | tee -a "$OUT"; X "ab -q -k -c 20 -n 2000 -H 'Host: $HOST' $ING$p 2>/dev/null" | awk '/Requests per second/ {r=$4} /^  95%/ {q=$2} /Failed requests/ {f=$3} END {printf "| %s | %s | %s |\n", r, q, f}' | tee -a "$OUT"
+  printf '| `%s` ' "$p" | tee -a "$OUT"; X "ab -q -k -c 20 -n 2000 -H 'Host: $HOST' $ING$p 2>/dev/null" | awk "$AB_PARSE" | tee -a "$OUT"
 done
 log "- 부하 직후 노드 컨테이너 메모리: $(mem_sum $NODE) MiB"
 log ""
-k3d cluster delete $C >/dev/null 2>&1 || true
