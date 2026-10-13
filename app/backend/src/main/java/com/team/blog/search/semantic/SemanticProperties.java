@@ -28,6 +28,8 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param indexInterval  글 임베딩 작업 간격
  * @param downFor        공급자 연결 실패 뒤 건너뛰는 시간 (집 PC가 꺼졌을 때 검색마다 기다리지 않게)
  * @param queryCacheTtl  같은 검색어 임베딩 보관 기간
+ * @param warmTimeout    예열(검색창을 열 때 모델을 미리 올리기) 요청 시간 제한. 모델을 디스크에서 올리는 시간까지 기다린다
+ * @param warmEvery      예열은 여러 사람이 검색창을 열어도 이 간격에 한 번만 보낸다. 이 동안 검색어 임베딩이 늦어도 내려간 것으로 보지 않는다
  */
 @ConfigurationProperties("blog.search.semantic")
 public record SemanticProperties(@DefaultValue("true") boolean enabled,
@@ -48,4 +50,6 @@ public record SemanticProperties(@DefaultValue("true") boolean enabled,
                                  @DefaultValue("20") int indexBatch,
                                  @DefaultValue("60s") Duration indexInterval,
                                  @DefaultValue("60s") Duration downFor,
-                                 @DefaultValue("1d") Duration queryCacheTtl) {}
+                                 @DefaultValue("1d") Duration queryCacheTtl,
+                                 @DefaultValue("30s") Duration warmTimeout,
+                                 @DefaultValue("60s") Duration warmEvery) {}

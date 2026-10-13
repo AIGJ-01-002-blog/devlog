@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { emptyMessage, hasShortWord, parseSort, postsEndpoint, searchPath } from './search'
+import { describe, expect, it, vi } from 'vitest'
+import { emptyMessage, hasShortWord, parseSort, postsEndpoint, searchPath, warmSearch } from './search'
 
 describe('search', () => {
   it('검색 주소는 기본값을 생략하고 공백을 %20으로 쓴다', () => {
@@ -19,5 +19,19 @@ describe('search', () => {
     expect(hasShortWord('트랜잭션 a')).toBe(false)
     expect(parseSort('latest')).toBe('latest')
     expect(parseSort('x')).toBe('relevance')
+  })
+
+  it('예열은 5분에 한 번만 보낸다', () => {
+    const fetchMock = vi.fn(() => Promise.resolve(new Response(null, { status: 204 })))
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      expect(warmSearch(1_000_000)).toBe(true)
+      expect(warmSearch(1_000_000 + 60_000)).toBe(false)
+      expect(warmSearch(1_000_000 + 5 * 60_000)).toBe(true)
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      expect(fetchMock).toHaveBeenCalledWith('/api/search/warm', { credentials: 'same-origin' })
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })
