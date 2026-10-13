@@ -8,6 +8,8 @@ import java.util.Collection;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +37,7 @@ public class SemanticSearch {
     private static final Logger log = LoggerFactory.getLogger(SemanticSearch.class);
     static final String DOWN = "search:embed:down";
     static final String QUERY_CACHE = "search:qvec:";
+    static final String WARMING = "search:embed:warming";
     private static final String SIMILAR_PAIRS = """
             SELECT a.post_id, n.post_id, n.distance FROM post_embedding a
             CROSS JOIN LATERAL (
@@ -49,6 +52,8 @@ public class SemanticSearch {
     private final EmbeddingClient client;
     private final SemanticProperties props;
     private volatile Boolean tableReady;
+    /** 예열 요청은 검색 응답을 기다리게 하지 않도록 따로 보낸다 */
+    private final ExecutorService warmer = Executors.newVirtualThreadPerTaskExecutor();
 
     public SemanticSearch(JdbcTemplate jdbc, StringRedisTemplate redis, EmbeddingClient client, SemanticProperties props) {
         this.jdbc = jdbc;
@@ -170,6 +175,37 @@ public class SemanticSearch {
         }
     }
 
+    /**
+     * 검색창을 열 때 임베딩 모델을 미리 올린다. 운영 Ollama는 쓰지 않으면 모델을 내려 메모리를 비우므로(OLLAMA_KEEP_ALIVE),
+     * 사람이 검색어를 치는 동안 모델을 올려 두면 첫 검색도 의미 검색까지 제때 끝난다. 여러 사람이 동시에 열어도
+     * warmEvery에 한 번만 보내고, 그 동안은 검색어 임베딩이 늦어도 공급자가 내려간 것으로 표시하지 않는다.
+     */
+    public void warmUp() {
+        // Gemini에는 올릴 모델이 없고 요청이 할당량만 쓴다
+        if (client.provider() != EmbeddingClient.Provider.LOCAL || !enabled()) return;
+        try {
+            if (Boolean.TRUE.equals(redis.hasKey(DOWN))) return;
+            if (!Boolean.TRUE.equals(redis.opsForValue().setIfAbsent(WARMING, "1", props.warmEvery()))) return;
+        } catch (RuntimeException e) {
+            return;
+        }
+        warmer.execute(() -> {
+            try {
+                client.embed(List.of("warm"), Purpose.QUERY, props.warmTimeout());
+            } catch (EmbedException e) {
+                markDown(e);
+            }
+        });
+    }
+
+    private boolean warming() {
+        try {
+            return Boolean.TRUE.equals(redis.hasKey(WARMING));
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
     private Optional<String> queryVector(String query) {
         String key = QUERY_CACHE + client.model() + ":" + hash(query);
         try {
@@ -184,7 +220,8 @@ public class SemanticSearch {
             cacheQueryVector(key, v);
             return Optional.of(v);
         } catch (EmbedException e) {
-            markDown(e);
+            // 예열 중이면 모델을 올리느라 늦은 것이라, 이번만 키워드로 끝내고 다음 검색은 다시 부른다
+            if (!warming()) markDown(e);
             return Optional.empty();
         }
     }

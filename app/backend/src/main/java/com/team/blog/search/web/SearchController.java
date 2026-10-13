@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.team.blog.discovery.application.FeedQuery;
 import com.team.blog.search.application.SearchQuery;
+import com.team.blog.search.semantic.SemanticSearch;
 import com.team.blog.shared.config.BlogProperties;
 import com.team.blog.shared.error.NotFoundException;
 import com.team.blog.shared.security.CurrentMember;
@@ -34,15 +35,17 @@ public class SearchController {
     private static final Logger log = LoggerFactory.getLogger(SearchController.class);
 
     private final SearchQuery search;
+    private final SemanticSearch semantic;
     private final FeedQuery feed;
     private final RateLimiter rateLimiter;
     private final ViewRecorder visitors;
     private final ClientIpResolver ipResolver;
     private final int perMinute;
 
-    public SearchController(SearchQuery search, FeedQuery feed, RateLimiter rateLimiter, ViewRecorder visitors,
+    public SearchController(SearchQuery search, SemanticSearch semantic, FeedQuery feed, RateLimiter rateLimiter, ViewRecorder visitors,
                             ClientIpResolver ipResolver, BlogProperties props) {
         this.search = search;
+        this.semantic = semantic;
         this.feed = feed;
         this.rateLimiter = rateLimiter;
         this.visitors = visitors;
@@ -66,6 +69,13 @@ public class SearchController {
         SearchQuery.PostPage page = search.posts(q, parseSort(sort), cursor, authorId);
         logTiming("posts", page.query(), started);
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(page);
+    }
+
+    /** 검색창을 열 때 화면이 부른다. 임베딩 모델을 미리 올리고 바로 돌아온다(응답을 기다리지 않음) */
+    @GetMapping("/api/search/warm")
+    public ResponseEntity<Void> warm() {
+        semantic.warmUp();
+        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
     }
 
     @GetMapping("/api/search/people")
