@@ -247,34 +247,38 @@ public class ContentRenderer {
             }
 
             @Override
-            public void visit(Image img) {
-                String key = imageUrls.keyOf(img.getDestination());
-                if (key != null && owned.containsKey(key)) {
-                    String original = imageUrls.urlOf(key); // 옛 주소로 쓴 사진도 지금 공개 주소로
-                    String thumb = owned.get(key).thumbKey();
-                    if (key.endsWith(".gif") && thumb != null && !(img.getParent() instanceof Link)) {
-                        // GIF: 처음엔 첫 장면 + 원본 링크. 화면 스크립트가 누르면 재생으로 바꾸고, 스크립트가 없으면 새 탭에서 원본 (FR-030)
-                        String alt = textOf(img);
-                        String label = alt.isBlank() ? GIF_LABEL : alt;
-                        Link link = new Link(original, label);
-                        Image still = new Image(imageUrls.urlOf(thumb), null);
-                        still.appendChild(new Text(label));
-                        link.appendChild(still);
-                        img.insertAfter(link);
-                        img.unlink();
-                        return;
-                    }
-                    img.setDestination(original);
-                    return;
-                }
-                if (releaseAsset.matcher(img.getDestination()).matches()) return; // 릴리스 노트 사진은 그대로 그린다
-                Link link = new Link(img.getDestination(), img.getTitle());
-                String alt = textOf(img);
-                link.appendChild(new Text("[이미지] " + (alt.isBlank() ? img.getDestination() : alt)));
-                img.insertAfter(link);
-                img.unlink();
-            }
+            public void visit(Image img) { rewriteImage(img, owned); }
         });
+    }
+
+    /** 내 사진은 지금 공개 주소로(GIF는 첫 장면 + 원본 링크), 릴리스 노트 사진은 그대로, 그 밖의 외부 사진은 링크로 바꾼다. */
+    private void rewriteImage(Image img, Map<String, ImageOwnership.OwnedImage> owned) {
+        String key = imageUrls.keyOf(img.getDestination());
+        if (key != null && owned.containsKey(key)) {
+            String original = imageUrls.urlOf(key); // 옛 주소로 쓴 사진도 지금 공개 주소로
+            String thumb = owned.get(key).thumbKey();
+            if (key.endsWith(".gif") && thumb != null && !(img.getParent() instanceof Link)) replaceGifWithStill(img, original, thumb);
+            else img.setDestination(original);
+            return;
+        }
+        if (releaseAsset.matcher(img.getDestination()).matches()) return; // 릴리스 노트 사진은 그대로 그린다
+        Link link = new Link(img.getDestination(), img.getTitle());
+        String alt = textOf(img);
+        link.appendChild(new Text("[이미지] " + (alt.isBlank() ? img.getDestination() : alt)));
+        img.insertAfter(link);
+        img.unlink();
+    }
+
+    /** GIF: 처음엔 첫 장면 + 원본 링크. 화면 스크립트가 누르면 재생으로 바꾸고, 스크립트가 없으면 새 탭에서 원본 (FR-030) */
+    private void replaceGifWithStill(Image img, String original, String thumb) {
+        String alt = textOf(img);
+        String label = alt.isBlank() ? GIF_LABEL : alt;
+        Link link = new Link(original, label);
+        Image still = new Image(imageUrls.urlOf(thumb), null);
+        still.appendChild(new Text(label));
+        link.appendChild(still);
+        img.insertAfter(link);
+        img.unlink();
     }
 
     /** 요약: 코드 블록·이미지·표를 빼고 글자만, 공백 정리 후 앞 200자(단어 중간이면 그 앞에서). */
