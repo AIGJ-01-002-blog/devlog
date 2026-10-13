@@ -154,7 +154,7 @@ flowchart LR
     T[Telegram] -->|Bot API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>複数 Pod]
     I -->|/blog-images| M[(MinIO / S3<br/>画像・添付)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V33)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V34)]
     A --> R[(Redis<br/>セッション・レート制限・閲覧数・キャッシュ)]
     A --> M
     A -.任意.-> G[Google Gemini]
@@ -246,7 +246,7 @@ GitHub Actions でテストし、イメージを作って GHCR に上げたあ�
 
 | パス | 説明 |
 | --- | --- |
-| [app/backend](app/backend) | バックエンド：Spring Boot 4.1、Java 21。機能モジュール、Flyway マイグレーション（V1~V33）、テスト |
+| [app/backend](app/backend) | バックエンド：Spring Boot 4.1、Java 21。機能モジュール、Flyway マイグレーション（V1~V34）、テスト |
 | [app/frontend](app/frontend) | フロントエンド：React 19 SPA、TypeScript、Vite。画面、自動保存（IndexedDB）、ダークモード |
 | [deploy](deploy) | デプロイ：Dockerfile、Kubernetes マニフェスト（base・selfhosted・nhn・local）、デプロイ・ロールバック・シークレット検査のスクリプト |
 | [.github](.github) | CI/CD：バックエンドと画面のテスト、イメージのビルドとデプロイ、リリース、Discord・Telegram 通知 |
@@ -290,6 +290,7 @@ GitHub Actions でテストし、イメージを作って GHCR に上げたあ�
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth クライアント | Google ログインを非表示 |
 | `KAKAO_CLIENT_ID` / `KAKAO_CLIENT_SECRET` / `KAKAO_SCOPES` | Kakao ログインアプリ(REST API キー・Client Secret・同意項目) | Kakao ログインを非表示 |
 | `FACEBOOK_CLIENT_ID` / `FACEBOOK_CLIENT_SECRET` | Facebook ログインアプリ(アプリ ID・app secret) | Facebook ログインを非表示 |
+| `NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET` | NAVER ログインアプリ(Client ID・Client Secret) | NAVER ログインを非表示 |
 | `SMTP_HOST` / `SMTP_USERNAME` / `SMTP_PASSWORD` | 認証・再設定メールの送信 | 送らずに保管 |
 | `S3_ENDPOINT` / `S3_BUCKET` / `S3_ACCESS_KEY` / `S3_SECRET_KEY` | 画像・添付の保存先（MinIO・S3） | ローカルフォルダーに保存 |
 | `GEMINI_API_KEY` / `OLLAMA_BASE_URL` | AI タグ提案 | 両方空なら機能オフ |
@@ -325,7 +326,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub・Google・カカオ・Facebook ログイン、セッション、CSRF、パスごとの権限 |
 | Spring Data JPA (Hibernate) | Boot 4.1 | ドメイン全体 | 会員・記事・コメントなどドメインデータの保存 |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | セッション、レート制限、閲覧数、キャッシュ | 複数の Pod が同じセッションを共有し、同時リクエストも Redis スクリプト 1 つで判定します |
-| Flyway | Boot 4.1 | DB | スキーマを V1~V33 のマイグレーションで管理し、起動時に適用します |
+| Flyway | Boot 4.1 | DB | スキーマを V1~V34 のマイグレーションで管理し、起動時に適用します |
 | commonmark-java (+ GFM 拡張) | 0.30.0 | 本文のレンダリング | Markdown → HTML。表・取り消し線・チェックリスト・自動リンク・見出しアンカー |
 | OWASP Java HTML Sanitizer | 20260924.2 | 本文のサニタイズ | レンダリングした HTML を許可リストでサニタイズし XSS を防ぎます |
 | AWS SDK for Java (S3) | 2.55.12 | media | MinIO・S3 に画像と添付をアップロードします |

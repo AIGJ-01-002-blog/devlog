@@ -28,6 +28,8 @@
   --color-on-kakao: rgba(0, 0, 0, 0.85);
   --color-facebook: #0866FF;
   --color-facebook-hover: #0757D9;
+  --color-naver: #03C75A;
+  --color-naver-hover: #02B350;
   --color-warn-bg: #fff9db;
   --color-warn-text: #8a6d00;
   --color-ok-bg: #e6fcf5;
@@ -101,6 +103,8 @@
   --color-on-kakao: rgba(0, 0, 0, 0.85);
   --color-facebook: #0866FF;
   --color-facebook-hover: #0757D9;
+  --color-naver: #03C75A;
+  --color-naver-hover: #02B350;
   --color-warn-bg: #3b3200;
   --color-warn-text: #ffe066;
   --color-ok-bg: #0b3d2e;
@@ -160,6 +164,8 @@
     --color-on-kakao: rgba(0, 0, 0, 0.85);
     --color-facebook: #0866FF;
     --color-facebook-hover: #0757D9;
+  --color-naver: #03C75A;
+  --color-naver-hover: #02B350;
     --color-warn-bg: #3b3200;
     --color-warn-text: #ffe066;
     --color-ok-bg: #0b3d2e;
@@ -622,7 +628,10 @@ input[type="checkbox"], input[type="radio"] { width: auto; flex-shrink: 0; margi
 .btn-kakao:hover { background: var(--color-kakao-hover); }
 .btn-facebook { background: var(--color-facebook); color: var(--color-on-fill); height: 48px; border-radius: var(--radius); font-size: 1rem; margin-bottom: 8px; }
 .btn-facebook:hover { background: var(--color-facebook-hover); }
-.auth-page .btn-github, .auth-page .btn-google, .auth-page .btn-kakao, .auth-page .btn-facebook { display: flex; width: 100%; justify-content: center; gap: 8px; }
+/* 네이버 로그인 버튼: 네이버 로그인 버튼 가이드대로 초록 바탕에 흰 글자를 다크 모드에서도 그대로 쓴다(서비스 검수 기준) */
+.btn-naver { background: var(--color-naver); color: var(--color-on-fill); height: 48px; border-radius: var(--radius); font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
+.btn-naver:hover { background: var(--color-naver-hover); }
+.auth-page .btn-github, .auth-page .btn-google, .auth-page .btn-kakao, .auth-page .btn-facebook, .auth-page .btn-naver { display: flex; width: 100%; justify-content: center; gap: 8px; }
 .divider { display: flex; align-items: center; gap: 12px; color: var(--color-text-muted); font-size: 0.875rem; margin: 24px 0 16px; }
 .divider::before, .divider::after { content: ""; flex: 1; border-top: 1px solid var(--color-border); }
 .auth-links { display: flex; flex-wrap: wrap; gap: 4px 8px; justify-content: center; margin-top: 12px; color: var(--color-text-muted); }

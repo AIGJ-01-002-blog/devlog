@@ -490,6 +490,29 @@ class EmailAuthTest extends IntegrationTest {
     }
 
     @Test
+    void 네이버는_nv_주소로_가입하고_이메일이_오면_다시_묻지_않는다() throws Exception {
+        String nid = "n" + (10_000_000L + System.nanoTime() % 90_000_000L);
+        String localPart = "nv" + nid.substring(1);
+        Browser b = browser();
+        b.perform(asJson(post("/api/dev/login"), Map.of("provider", "NAVER", "providerUserId", nid, "login", "", "name", "민서",
+                        "email", localPart + "@naver.com")))
+                .andExpect(jsonPath("$.redirect").value("/signup/social"));
+        b.perform(get("/api/auth/signup"))
+                .andExpect(jsonPath("$.provider").value("NAVER"))
+                .andExpect(jsonPath("$.prefix").value("nv-"))
+                .andExpect(jsonPath("$.handleBody").value(localPart))
+                .andExpect(jsonPath("$.emailRequired").value(false));
+        b.perform(asJson(post("/api/auth/signup"), Map.of("handleBody", localPart, "nickname", "네이버" + nid.substring(nid.length() - 5),
+                "agreeTerms", true, "agreePrivacy", true))).andExpect(status().isCreated());
+        b.perform(get("/api/auth/me")).andExpect(jsonPath("$.member.handle").value("nv-" + localPart));
+
+        Browser again = browser();
+        again.perform(asJson(post("/api/dev/login"), Map.of("provider", "NAVER", "providerUserId", nid, "login", "", "name", "민서")))
+                .andExpect(jsonPath("$.redirect").value("/"));
+        again.perform(get("/api/auth/me")).andExpect(jsonPath("$.member.handle").value("nv-" + localPart));
+    }
+
+    @Test
     void 인증된_이메일이_없는_GitHub_계정은_가입_때_이메일을_받아_메일로_인증한다() throws Exception {
         String gid = String.valueOf(800_000_000L + System.nanoTime() % 100_000_000L);
         Browser b = browser();

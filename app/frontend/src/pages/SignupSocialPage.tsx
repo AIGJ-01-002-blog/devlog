@@ -16,7 +16,7 @@ interface Draft {
 interface Check { available: boolean; message: string | null; suggestion?: string | null }
 
 /** 소셜 가입 마무리 (docs/08·09): 접두어 고정 + 본문 입력, 0.5초 뒤 중복 확인, 닉네임, 약관 동의. */
-const PROVIDER_NAMES: Record<string, string> = { GITHUB: 'GitHub', GOOGLE: 'Google', KAKAO: t('카카오'), FACEBOOK: 'Facebook' }
+const PROVIDER_NAMES: Record<string, string> = { GITHUB: 'GitHub', GOOGLE: 'Google', KAKAO: t('카카오'), FACEBOOK: 'Facebook', NAVER: t('네이버') }
 
 export function SignupSocialPage() {
   const { refresh } = useAuth()

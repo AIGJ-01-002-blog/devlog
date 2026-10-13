@@ -88,6 +88,25 @@ class OAuthClientsConfigTest {
     }
 
     @Test
+    void naverIsOffWithoutClientId() throws Exception {
+        assertThat(repository(Map.of("NAVER_CLIENT_ID", "")).findByRegistrationId("naver")).isNull();
+    }
+
+    @Test
+    void naverPostsSecretAndReadsResponseWrapper() throws Exception {
+        var naver = repository(Map.of("SITE_BASE_URL", "https://devlog.life", "NAVER_CLIENT_ID", "n-id",
+                "NAVER_CLIENT_SECRET", "n-secret")).findByRegistrationId("naver");
+        assertThat(naver.getRedirectUri()).isEqualTo("https://devlog.life/login/oauth2/code/{registrationId}");
+        assertThat(naver.getClientSecret()).isEqualTo("n-secret");
+        assertThat(naver.getClientAuthenticationMethod()).isEqualTo(ClientAuthenticationMethod.CLIENT_SECRET_POST);
+        var provider = naver.getProviderDetails();
+        assertThat(provider.getAuthorizationUri()).isEqualTo("https://nid.naver.com/oauth2.0/authorize");
+        assertThat(provider.getTokenUri()).isEqualTo("https://nid.naver.com/oauth2.0/token");
+        assertThat(provider.getUserInfoEndpoint().getUri()).isEqualTo("https://openapi.naver.com/v1/nid/me");
+        assertThat(provider.getUserInfoEndpoint().getUserNameAttributeName()).isEqualTo("response");
+    }
+
+    @Test
     void googleCallbackUsesSiteBaseUrlWithoutDoubleSlash() throws Exception {
         var repo = repository(Map.of("SITE_BASE_URL", "https://devlog.life/", "GOOGLE_CLIENT_ID", "g-id"));
         assertThat(repo.findByRegistrationId("google").getRedirectUri())
