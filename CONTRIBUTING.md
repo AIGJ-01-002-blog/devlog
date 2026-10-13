@@ -31,7 +31,7 @@ gitGraph
 | 브랜치 | 어디서 만드나 | 어디로 합치나 | 버전 | 배포 |
 |---|---|---|---|---|
 | `main` | - | - | 릴리스할 때만 올림 | 운영(devlog.life) 배포 + 태그 |
-| `develop` | `main` | `main`(릴리스 PR) | 올리지 않음 | 없음. PR·푸시마다 테스트만 |
+| `develop` | `main` | `main`(릴리스 PR) | 올리지 않음 | 시험 환경(dev.devlog.life, 변수 `STAGING_ENABLED=true`일 때). PR·푸시마다 테스트 |
 | `feature/<spec번호>-<이름>` | `develop` | `develop` | 올리지 않음 | 없음 |
 | `hotfix/<버전>` | `main` | `main`, 그다음 `develop` | Patch | 운영 배포 |
 
