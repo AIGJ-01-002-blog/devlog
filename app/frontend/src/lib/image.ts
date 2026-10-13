@@ -63,7 +63,7 @@ export function uploadProfileImage(blob: Blob): Promise<Uploaded> {
   return api<Uploaded>('/api/me/profile-image', { method: 'POST', rawBody: blob })
 }
 
-/** 소셜 사진을 256 이상 크기로 받도록 주소의 크기 값을 바꾼다. 허용된 네 곳이 아니면 null (FR-019). */
+/** 소셜 사진을 256 이상 크기로 받도록 주소의 크기 값을 바꾼다. 허용된 다섯 곳이 아니면 null (FR-019). */
 export function socialAvatarSource(url: string | null | undefined): string | null {
   if (!url) return null
   let u: URL
@@ -81,6 +81,8 @@ export function socialAvatarSource(url: string | null | undefined): string | nul
   if (u.hostname === 'k.kakaocdn.net') return u.toString()
   // Facebook 사진은 서버가 512px로 요청한 주소가 온다
   if (u.hostname === 'platform-lookaside.fbsbx.com') return u.toString()
+  // 네이버 사진은 회원이 올린 원본 크기 그대로 온다. 네이버 기본 사진(ssl.pstatic.net)은 받지 않는다
+  if (u.hostname === 'phinf.pstatic.net') return u.toString()
   if (u.hostname === 'lh3.googleusercontent.com') {
     // Google 사진 주소 끝의 "=s96-c" 같은 크기 지정을 512로 바꾼다
     const base = u.pathname.replace(/=[^/]*$/, '')

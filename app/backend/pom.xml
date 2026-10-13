@@ -13,7 +13,7 @@
 
     <groupId>com.team</groupId>
     <artifactId>blog</artifactId>
-    <version>1.66.2</version>
+    <version>1.67.0</version>
     <name>blog</name>
     <description>velog형 개발 블로그 (모듈러 모놀리스)</description>
 
@@ -87,6 +87,32 @@
                                 <resource>
                                     <directory>${project.basedir}/../..</directory>
                                     <includes><include>CHANGELOG.md</include></includes>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                    <!-- 릴리스 노트 사진(093): 저장소의 assets/releases/를 /release-assets/로 내보낸다.
+                         Dockerfile이 assets/releases/를 /assets/releases(= /src/../../assets/releases)에 둔다 -->
+                    <execution>
+                        <id>release-assets</id>
+                        <phase>generate-resources</phase>
+                        <goals><goal>copy-resources</goal></goals>
+                        <configuration>
+                            <outputDirectory>${project.build.outputDirectory}/static/release-assets</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${project.basedir}/../../assets/releases</directory>
+                                    <includes>
+                                        <include>**/*.webp</include>
+                                        <include>**/*.png</include>
+                                        <include>**/*.jpg</include>
+                                        <include>**/*.jpeg</include>
+                                        <include>**/*.gif</include>
+                                    </includes>
+                                    <!-- 작업 중 사진(unreleased/)은 릴리스 전까지 배포하지 않는다 -->
+                                    <excludes>
+                                        <exclude>unreleased/**</exclude>
+                                    </excludes>
                                 </resource>
                             </resources>
                         </configuration>

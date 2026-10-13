@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appendUnique, commentLength, insertComment, removeComment, type CommentView } from './comments'
+import { appendUnique, commentLength, insertComment, removeComment, replyTree, MAX_BRANCH_DEPTH, type CommentView, type ReplyNode } from './comments'
 
 const c = (id: number, extra: Partial<CommentView> = {}): CommentView => ({
   id, state: 'NORMAL', content: 'x', createdAt: '2026-10-07T00:00:00Z', edited: false,
@@ -33,5 +33,22 @@ describe('댓글 목록', () => {
     expect(list[0].replyCount).toBe(1)
     list = removeComment(list, 3)
     expect(list).toEqual([])
+  })
+})
+
+describe('replyTree (대댓글 가지, FR-011a)', () => {
+  const r = (id: number, to: number | null = null) => c(id, { replyToCommentId: to })
+  const shape = (ns: ReplyNode[]): unknown => ns.map((n) => n.children.length ? [n.c.id, shape(n.children)] : n.c.id)
+
+  it('답한 답글 아래로 가지를 친다', () => {
+    expect(shape(replyTree([r(1), r(2, 1), r(3), r(4, 2), r(5, 1)]))).toEqual([[1, [[2, [4]], 5]], 3])
+  })
+
+  it('답한 답글이 목록에 없으면 최상위에서 갈라진다', () => {
+    expect(shape(replyTree([r(2, 1), r(3, 2)]))).toEqual([[2, [3]]])
+  })
+
+  it(`${MAX_BRANCH_DEPTH}단계 아래는 더 들여 쓰지 않고 같은 가지에 나란히 둔다`, () => {
+    expect(shape(replyTree([r(1), r(2, 1), r(3, 2), r(4, 3), r(5, 4)]))).toEqual([[1, [[2, [3, 4, 5]]]]])
   })
 })

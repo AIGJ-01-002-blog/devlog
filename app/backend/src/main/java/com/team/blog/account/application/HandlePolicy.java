@@ -16,9 +16,9 @@ import com.team.blog.shared.config.BlogProperties;
  */
 @Component
 public class HandlePolicy {
-    public static final Pattern FULL = Pattern.compile("^((go|gi|ka|fb)-)?[a-z0-9][a-z0-9_]{1,18}[a-z0-9]$");
+    public static final Pattern FULL = Pattern.compile("^((go|gi|ka|fb|nv)-)?[a-z0-9][a-z0-9_]{1,18}[a-z0-9]$");
     private static final Pattern BODY = Pattern.compile("^[a-z0-9][a-z0-9_]{1,18}[a-z0-9]$");
-    private static final Pattern PREFIX_LOOKALIKE = Pattern.compile("^(go|gi|ka|fb)_");
+    private static final Pattern PREFIX_LOOKALIKE = Pattern.compile("^(go|gi|ka|fb|nv)_");
 
     private final Set<String> reserved;
     private final WordFilter wordFilter;
@@ -30,7 +30,7 @@ public class HandlePolicy {
 
     public enum Reason {
         INVALID_FORMAT("영문 소문자·숫자·밑줄(_)로 3~20자까지 쓸 수 있어요. 처음과 끝은 영문이나 숫자여야 해요."),
-        PREFIX_LOOKALIKE("소셜 가입 주소와 헷갈려서 go_·gi_·ka_·fb_로 시작할 수 없어요."),
+        PREFIX_LOOKALIKE("소셜 가입 주소와 헷갈려서 go_·gi_·ka_·fb_·nv_로 시작할 수 없어요."),
         RESERVED("사용할 수 없는 주소예요."),
         BANNED_WORD("사용할 수 없는 단어가 들어 있어요."),
         TAKEN("이미 사용 중인 주소예요.");
@@ -71,6 +71,7 @@ public class HandlePolicy {
         if (handle.startsWith("gi-")) return AuthProvider.GITHUB;
         if (handle.startsWith("ka-")) return AuthProvider.KAKAO;
         if (handle.startsWith("fb-")) return AuthProvider.FACEBOOK;
+        if (handle.startsWith("nv-")) return AuthProvider.NAVER;
         return AuthProvider.LOCAL;
     }
 

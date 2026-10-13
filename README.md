@@ -152,7 +152,7 @@ flowchart LR
     T[텔레그램] -->|봇 API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>파드 여러 개]
     I -->|/blog-images| M[(MinIO / S3<br/>사진·첨부)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V32)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V35)]
     A --> R[(Redis<br/>세션·요청 제한·조회수·캐시)]
     A --> M
     A -.선택.-> G[Google Gemini]
@@ -244,7 +244,7 @@ GitHub Actions로 테스트하고 이미지를 만들어 GHCR에 올린 뒤, kus
 
 | 경로 | 설명 |
 | --- | --- |
-| [app/backend](app/backend) | 백엔드 — Spring Boot 4.1, Java 21. 기능 모듈, Flyway 마이그레이션(V1~V32), 테스트 |
+| [app/backend](app/backend) | 백엔드 — Spring Boot 4.1, Java 21. 기능 모듈, Flyway 마이그레이션(V1~V35), 테스트 |
 | [app/frontend](app/frontend) | 프론트엔드 — React 19 SPA, TypeScript, Vite. 화면, 자동 저장(IndexedDB), 다크 모드 |
 | [deploy](deploy) | 배포 — Dockerfile, 쿠버네티스 매니페스트(base·selfhosted·nhn·local), 배포·롤백·비밀값 검사 스크립트 |
 | [.github](.github) | CI/CD — 백엔드·화면 테스트, 이미지 빌드·배포, 릴리스, Discord·텔레그램 알림 |
@@ -288,6 +288,7 @@ GitHub Actions로 테스트하고 이미지를 만들어 GHCR에 올린 뒤, kus
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth 클라이언트 | Google 로그인 숨김 |
 | `KAKAO_CLIENT_ID` / `KAKAO_CLIENT_SECRET` / `KAKAO_SCOPES` | 카카오 로그인 앱(REST API 키·Client Secret, 동의항목) | 카카오 로그인 숨김 |
 | `FACEBOOK_CLIENT_ID` / `FACEBOOK_CLIENT_SECRET` | Facebook 로그인 앱(앱 ID·앱 시크릿 코드) | Facebook 로그인 숨김 |
+| `NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET` | 네이버 로그인 앱(Client ID·Client Secret) | 네이버 로그인 숨김 |
 | `SMTP_HOST` / `SMTP_USERNAME` / `SMTP_PASSWORD` | 인증·재설정 메일 발송 | 보내지 않고 보관 |
 | `S3_ENDPOINT` / `S3_BUCKET` / `S3_ACCESS_KEY` / `S3_SECRET_KEY` | 사진·첨부 저장소(MinIO·S3) | 로컬 폴더에 저장 |
 | `GEMINI_API_KEY` / `OLLAMA_BASE_URL` | AI 태그 추천 | 둘 다 없으면 기능 꺼짐 |
@@ -323,7 +324,7 @@ npm run dev        # http://localhost:5173
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub·Google·카카오·Facebook 로그인, 세션, CSRF, 경로별 권한 |
 | Spring Data JPA (Hibernate) | Boot 4.1 | 도메인 전체 | 회원·글·댓글 등 도메인 저장 |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | 세션, 요청 제한, 조회수, 캐시 | 파드 여러 개가 같은 세션을 보고, 동시 요청도 Redis 스크립트 하나로 판정합니다 |
-| Flyway | Boot 4.1 | DB | 스키마를 V1~V32 마이그레이션으로 관리하고 앱 시작 때 적용합니다 |
+| Flyway | Boot 4.1 | DB | 스키마를 V1~V35 마이그레이션으로 관리하고 앱 시작 때 적용합니다 |
 | commonmark-java (+ GFM 확장) | 0.30.0 | 본문 렌더링 | Markdown → HTML. 표·취소선·체크 목록·자동 링크·제목 앵커 |
 | OWASP Java HTML Sanitizer | 20260924.2 | 본문 정화 | 렌더링한 HTML을 허용 목록으로 정화해 XSS를 막습니다 |
 | AWS SDK for Java (S3) | 2.55.12 | media | MinIO·S3에 사진과 첨부를 올립니다 |
@@ -369,6 +370,7 @@ npm run dev        # http://localhost:5173
 
 | 버전 | 날짜 | 주요 내용 | 릴리스 노트 |
 | --- | --- | --- | --- |
+| v1.67.0 | 2026-10-13 | 첫 목표 릴리스(배포 신뢰도와 릴리스 기록): 네이버 로그인, 첫 화면·맨 아래 GitHub 바로가기, 대댓글을 Git 브랜치처럼 선으로 잇기, 화면 움직임, 사진이 들어간 릴리스 노트 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.67.0) |
 | v1.66.2 | 2026-10-12 | 글쓰기를 눌렀다 아무것도 쓰지 않고 나오면 빈 임시글을 휴지통 없이 바로 삭제 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.66.2) |
 | v1.66.1 | 2026-10-12 | 글이 없는 태그 주소는 404로(검색 엔진 Soft 404 방지), 사이트맵에 AI 연결 안내·릴리스 노트 추가 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.66.1) |
 | v1.66.0 | 2026-10-12 | 태그 화면을 검색·정렬과 태그별 인기 글 가로 줄로 새로 구성 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.66.0) |

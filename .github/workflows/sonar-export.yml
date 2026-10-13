@@ -74,6 +74,14 @@ jobs:
                   print(f"SonarQube {r.read().decode().strip()}")
           except (urllib.error.URLError, TimeoutError):
               print("::warning::SonarQube 서버 판을 받지 못했습니다. 이슈 조회는 계속합니다")
+          # 품질 게이트가 왜 실패했는지(조건별 실제값·기준값) 먼저 찍는다
+          try:
+              gate = get("/api/qualitygates/project_status", projectKey=project)["projectStatus"]
+              print(f'GATE\t{gate["status"]}\tperiod={gate.get("period", {})}')
+              for c in gate.get("conditions", []):
+                  print(f'GATE\t{c["status"]}\t{c["metricKey"]}\t{c.get("comparator", "")}\t{c.get("errorThreshold", "")}\tactual={c.get("actualValue", "")}')
+          except urllib.error.HTTPError as e:
+              print(f"::warning::품질 게이트 상태를 받지 못했습니다(HTTP {e.code})")
           issues = pages("/api/issues/search", "issues", componentKeys=project, resolved="false")
           try:
               hotspots = pages("/api/hotspots/search", "hotspots", projectKey=project, status="TO_REVIEW")

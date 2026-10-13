@@ -19,7 +19,7 @@ import com.team.blog.account.application.SocialProfile;
 import com.team.blog.account.domain.AuthProvider;
 import com.team.blog.account.web.LoginFlow;
 
-/** 소셜(GitHub·Google·카카오·Facebook) OAuth2 성공·실패 처리. 성공하면 우리 로그인 흐름(LoginFlow)으로 넘긴다. */
+/** 소셜(GitHub·Google·카카오·Facebook·네이버) OAuth2 성공·실패 처리. 성공하면 우리 로그인 흐름(LoginFlow)으로 넘긴다. */
 @Component
 public class OAuth2LoginHandlers implements AuthenticationSuccessHandler, AuthenticationFailureHandler {
     private static final String EMAIL = "email";
@@ -50,6 +50,7 @@ public class OAuth2LoginHandlers implements AuthenticationSuccessHandler, Authen
                     str(user.getAttributes().get("picture")));
             case "kakao" -> kakao(user.getAttributes());
             case "facebook" -> facebook(user.getAttributes());
+            case "naver" -> naver(user.getAttributes());
             default -> throw new IllegalStateException("지원하지 않는 로그인 수단");
         };
         response.sendRedirect(loginFlow.complete(profile, request, response));
@@ -92,6 +93,22 @@ public class OAuth2LoginHandlers implements AuthenticationSuccessHandler, Authen
                 str(attrs.get("name")),
                 str(attrs.get(EMAIL)),
                 photo);
+    }
+
+    /**
+     * 네이버 사용자 정보 (spec 096). 값은 "response" 안에 온다. 사용자 식별은 앱마다 다른 id 문자열이다.
+     * 이메일은 넘기지 않는다. 네이버 응답에는 인증 여부 표시가 없어(카카오의 is_email_verified 같은 것) 가입 마무리 화면에서 받아 인증 메일로 확인한다.
+     * 닉네임이 없으면 이름을 쓴다. 사진은 회원이 올린 사진 서버(phinf.pstatic.net) 주소만 넘기므로 네이버 기본 사진은 빠진다.
+     */
+    static SocialProfile naver(Map<String, Object> attrs) {
+        Map<?, ?> r = attrs.get("response") instanceof Map<?, ?> m ? m : Map.of();
+        String nickname = str(r.get("nickname"));
+        return new SocialProfile(AuthProvider.NAVER,
+                str(r.get("id")),
+                null,
+                nickname == null || nickname.isBlank() ? str(r.get("name")) : nickname,
+                null,
+                str(r.get("profile_image")));
     }
 
     private static String str(Object o) {

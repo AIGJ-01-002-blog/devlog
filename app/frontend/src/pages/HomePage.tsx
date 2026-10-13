@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { BranchList, BranchMark } from '../components/BranchList'
 import { Feed } from '../components/Feed'
+import { GitHubLink } from '../components/GitHubLink'
 import { api, takeInitialData } from '../lib/api'
 import { branchChips } from '../lib/branch'
 import { loginPath, useAuth } from '../lib/auth'
@@ -9,6 +10,7 @@ import { TRENDING_ENDPOINT, TRENDING_HINT } from '../lib/trending'
 import { tagPath } from '../lib/tags'
 import type { Branch, Card, FeedPage } from '../lib/types'
 import { t } from '../lib/i18n'
+import { takeHeroIntro } from '../lib/motion'
 
 /**
  * 홈 (003, 017, 072): [최신] [트렌딩] 탭. 기본은 최신, 트렌딩은 `/?tab=trending`. 순위 숫자는 보이지 않는다.
@@ -154,25 +156,33 @@ function HomeAside() {
         <Link to="/releases">{t('릴리스 노트')}</Link>
         <span aria-hidden="true">·</span>
         <Link to="/support">{t('문의·신고')}</Link>
+        <span aria-hidden="true">·</span>
+        <GitHubLink className="aside-github" size={14} />
       </nav>
     </aside>
   )
 }
 
 /**
- * 비회원 첫 화면 소개 (048, 051). 슬로건과 "AI에 devlog 연결하기", 그리고 AI가 개발 일지를 쓰는 모습을 보여 준다.
+ * 비회원 첫 화면 소개 (048, 051). 슬로건과 "AI에 devlog 연결하기"·GitHub·"직접 글쓰기" 버튼, 그리고 AI가 개발 일지를 쓰는 모습을 보여 준다.
  * 로그인한 사람에게는 바로 글 목록을 보인다. 제목 구조를 흐트리지 않게 소제목 태그는 쓰지 않는다.
  */
+/**
+ * 로그인 전 첫 화면 소개 (048, 051, 097). 이번 방문에서 처음 볼 때만 글귀가 차례로 올라오고, 오른쪽 장면이
+ * 대화처럼 한 줄씩 이어진다(약 2.4초). 제목은 0.06초 뒤 바로 올라와 첫 화면 시간을 늦추지 않는다. 움직임은 styles.css의 .home-hero-intro.
+ */
 function HomeHero() {
+  const [intro] = useState(takeHeroIntro)
   return (
-    <section className="home-hero" aria-label={t('devlog 소개')}>
+    <section className={intro ? 'home-hero home-hero-intro' : 'home-hero'} aria-label={t('devlog 소개')}>
       <div className="home-hero-copy">
         <p className="home-hero-eyebrow"><span className="home-hero-dot" aria-hidden="true" />{t('MCP 개발 일지 · Claude · Cursor')}</p>
         <p className="home-hero-title">{t('코딩은 AI와,')}<br /><span className="home-hero-accent">{t('기록은 devlog가.')}</span></p>
         <p className="home-hero-sub">{t('내 AI 도구에 devlog를 연결하면, 오늘 작업한 대화와 커밋을 정리해 개발 일지 초안을 써 줘요. 나는 확인하고 [발행]만 누르면 돼요.')}</p>
         <div className="home-hero-actions">
-          <Link to="/mcp" className="btn btn-primary btn-lg">{t('AI에 devlog 연결하기')}</Link>
-          <Link to={loginPath('/write')} className="btn btn-outline btn-lg">{t('직접 글쓰기')}</Link>
+          <Link to="/mcp" className="btn btn-primary btn-lg" data-tip={t('내 AI 도구에 devlog를 연결하는 방법을 봐요')}>{t('AI에 devlog 연결하기')}</Link>
+          <GitHubLink className="btn btn-outline btn-lg home-hero-github" size={18} />
+          <Link to={loginPath('/write')} className="btn btn-outline btn-lg" data-tip={t('로그인하고 직접 글을 써요')}>{t('직접 글쓰기')}</Link>
         </div>
       </div>
       <HeroDemo />

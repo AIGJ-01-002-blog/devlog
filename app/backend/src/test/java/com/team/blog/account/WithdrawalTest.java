@@ -87,6 +87,33 @@ class WithdrawalTest extends IntegrationTest {
         return jdbc.queryForObject(sql, Long.class, args);
     }
 
+    private void friendship(long requester, long other, String status) {
+        long lo = Math.min(requester, other), hi = Math.max(requester, other);
+        jdbc.update("INSERT INTO friendship (member_a_id, member_b_id, requested_by, status, created_at, accepted_at) VALUES (?, ?, ?, ?, now(), "
+                + ("ACCEPTED".equals(status) ? "now()" : "NULL") + ")", lo, hi, requester, status);
+    }
+
+    @Test
+    void 탈퇴하면_친구_관계는_바로_지워지고_복구해도_되살아나지_않는다() throws Exception {
+        Session a = signup(uniqueLogin("wfa"));
+        Session b = signup(uniqueLogin("wfb"));
+        Session c = signup(uniqueLogin("wfc"));
+        Session d = signup(uniqueLogin("wfd"));
+        friendship(a.memberId(), b.memberId(), "ACCEPTED");
+        friendship(c.memberId(), a.memberId(), "PENDING");
+        friendship(b.memberId(), d.memberId(), "ACCEPTED");
+
+        withdraw(a.http(), true, null, "탈퇴").andExpect(status().isOk());
+
+        // 30일 정리를 기다리지 않고 신청 즉시 (처리방침 3절)
+        assertThat(count("SELECT count(*) FROM friendship WHERE member_a_id = ? OR member_b_id = ?", a.memberId(), a.memberId())).isZero();
+        assertThat(count("SELECT count(*) FROM friendship WHERE member_a_id IN (?, ?) AND member_b_id IN (?, ?)",
+                b.memberId(), d.memberId(), b.memberId(), d.memberId())).as("남의 친구 관계는 그대로").isEqualTo(1);
+
+        relogin(a).perform(post("/api/me/restore").with(csrf())).andExpect(status().isNoContent());
+        assertThat(count("SELECT count(*) FROM friendship WHERE member_a_id = ? OR member_b_id = ?", a.memberId(), a.memberId())).isZero();
+    }
+
     @Test
     void 소셜_회원은_탈퇴를_입력해_탈퇴하고_모든_기기에서_로그아웃되며_복구하면_원래대로다() throws Exception {
         Session a = signup(uniqueLogin("wda"));

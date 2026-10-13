@@ -68,11 +68,15 @@ public class ContentRenderer {
     private static final Pattern LANG = Pattern.compile("language-[a-z0-9+#-]{1,20}");
     private static final Pattern SPACES = Pattern.compile("\\s+");
     static final String GIF_LABEL = "움직이는 이미지 재생";
+    /** 릴리스 노트 사진 경로 (093). 빌드가 저장소의 assets/releases/를 jar의 static/release-assets/로 옮긴다 */
+    public static final String RELEASE_ASSETS = "/release-assets/";
 
     private final ImageUrls imageUrls;
     private final ImageOwnership ownership;
     private final String siteBase;
     private final PolicyFactory policy;
+    /** 릴리스 노트 사진(093)으로 받는 주소: 이 사이트의 /release-assets/<폴더>/<파일>. 폴더·파일 이름은 영숫자로 시작해 ..이 될 수 없다 */
+    private final Pattern releaseAsset;
     private final int maxDepth;
     private final long timeoutMillis;
     private final int excerptLength;
@@ -87,6 +91,9 @@ public class ContentRenderer {
         this.timeoutMillis = props.post().renderTimeout().toMillis();
         this.excerptLength = props.post().excerptLength();
         String imgPrefix = imageUrls.publicBaseUrl() + "/";
+        // 릴리스 노트 사진(093)은 jar에 함께 실려 이 사이트의 /release-assets/에서 나간다
+        this.releaseAsset = Pattern.compile(Pattern.quote(this.siteBase + RELEASE_ASSETS)
+                + "[A-Za-z0-9][\\w.-]{0,40}/[A-Za-z0-9][\\w.-]{0,80}\\.(?:webp|png|jpe?g|gif)");
         this.policy = new HtmlPolicyBuilder()
                 .allowElements("p", "br", "hr", "blockquote", "h2", "h3", "h4", "h5", "h6", "strong", "em", "del",
                         "ul", "ol", "li", INPUT, "code", "pre", "table", "thead", "tbody", "tr", "th", "td", "a", "img")
@@ -100,7 +107,7 @@ public class ContentRenderer {
                 .allowAttributes("href", "title").onElements("a")
                 .allowAttributes("target").matching(Pattern.compile("_blank")).onElements("a")
                 .allowAttributes("rel").matching(Pattern.compile("noopener noreferrer nofollow ugc")).onElements("a")
-                .allowAttributes("src").matching((el, attr, v) -> v.startsWith(imgPrefix) ? v : null).onElements("img")
+                .allowAttributes("src").matching((el, attr, v) -> v.startsWith(imgPrefix) || releaseAsset.matcher(v).matches() ? v : null).onElements("img")
                 .allowAttributes("alt", "title").onElements("img")
                 .allowAttributes("loading").matching(Pattern.compile("lazy")).onElements("img")
                 .allowAttributes("decoding").matching(Pattern.compile("async")).onElements("img")
@@ -240,33 +247,38 @@ public class ContentRenderer {
             }
 
             @Override
-            public void visit(Image img) {
-                String key = imageUrls.keyOf(img.getDestination());
-                if (key != null && owned.containsKey(key)) {
-                    String original = imageUrls.urlOf(key); // 옛 주소로 쓴 사진도 지금 공개 주소로
-                    String thumb = owned.get(key).thumbKey();
-                    if (key.endsWith(".gif") && thumb != null && !(img.getParent() instanceof Link)) {
-                        // GIF: 처음엔 첫 장면 + 원본 링크. 화면 스크립트가 누르면 재생으로 바꾸고, 스크립트가 없으면 새 탭에서 원본 (FR-030)
-                        String alt = textOf(img);
-                        String label = alt.isBlank() ? GIF_LABEL : alt;
-                        Link link = new Link(original, label);
-                        Image still = new Image(imageUrls.urlOf(thumb), null);
-                        still.appendChild(new Text(label));
-                        link.appendChild(still);
-                        img.insertAfter(link);
-                        img.unlink();
-                        return;
-                    }
-                    img.setDestination(original);
-                    return;
-                }
-                Link link = new Link(img.getDestination(), img.getTitle());
-                String alt = textOf(img);
-                link.appendChild(new Text("[이미지] " + (alt.isBlank() ? img.getDestination() : alt)));
-                img.insertAfter(link);
-                img.unlink();
-            }
+            public void visit(Image img) { rewriteImage(img, owned); }
         });
+    }
+
+    /** 내 사진은 지금 공개 주소로(GIF는 첫 장면 + 원본 링크), 릴리스 노트 사진은 그대로, 그 밖의 외부 사진은 링크로 바꾼다. */
+    private void rewriteImage(Image img, Map<String, ImageOwnership.OwnedImage> owned) {
+        String key = imageUrls.keyOf(img.getDestination());
+        if (key != null && owned.containsKey(key)) {
+            String original = imageUrls.urlOf(key); // 옛 주소로 쓴 사진도 지금 공개 주소로
+            String thumb = owned.get(key).thumbKey();
+            if (key.endsWith(".gif") && thumb != null && !(img.getParent() instanceof Link)) replaceGifWithStill(img, original, thumb);
+            else img.setDestination(original);
+            return;
+        }
+        if (releaseAsset.matcher(img.getDestination()).matches()) return; // 릴리스 노트 사진은 그대로 그린다
+        Link link = new Link(img.getDestination(), img.getTitle());
+        String alt = textOf(img);
+        link.appendChild(new Text("[이미지] " + (alt.isBlank() ? img.getDestination() : alt)));
+        img.insertAfter(link);
+        img.unlink();
+    }
+
+    /** GIF: 처음엔 첫 장면 + 원본 링크. 화면 스크립트가 누르면 재생으로 바꾸고, 스크립트가 없으면 새 탭에서 원본 (FR-030) */
+    private void replaceGifWithStill(Image img, String original, String thumb) {
+        String alt = textOf(img);
+        String label = alt.isBlank() ? GIF_LABEL : alt;
+        Link link = new Link(original, label);
+        Image still = new Image(imageUrls.urlOf(thumb), null);
+        still.appendChild(new Text(label));
+        link.appendChild(still);
+        img.insertAfter(link);
+        img.unlink();
     }
 
     /** 요약: 코드 블록·이미지·표를 빼고 글자만, 공백 정리 후 앞 200자(단어 중간이면 그 앞에서). */

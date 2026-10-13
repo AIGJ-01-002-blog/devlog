@@ -25,7 +25,7 @@ class HandleAndNicknameRulesTest extends IntegrationTest {
     @CsvSource({
             "kim755030, OK", "go-kim755030, OK", "gi-kim_min, OK", "gokim, OK",
             "GOkim, INVALID_FORMAT", "Kim755030, INVALID_FORMAT", "kim-min, INVALID_FORMAT", "xx-kim, INVALID_FORMAT",
-            "go-ki, INVALID_FORMAT", "ab, INVALID_FORMAT", "go_kim, PREFIX_LOOKALIKE", "gi_kim, PREFIX_LOOKALIKE", "ka_kim, PREFIX_LOOKALIKE", "ka-kim755030, OK", "fb_kim, PREFIX_LOOKALIKE", "fb-kim, OK",
+            "go-ki, INVALID_FORMAT", "ab, INVALID_FORMAT", "go_kim, PREFIX_LOOKALIKE", "gi_kim, PREFIX_LOOKALIKE", "ka_kim, PREFIX_LOOKALIKE", "ka-kim755030, OK", "fb_kim, PREFIX_LOOKALIKE", "fb-kim, OK", "nv_kim, PREFIX_LOOKALIKE", "nv-kim, OK",
             "_kim, INVALID_FORMAT", "kim_, INVALID_FORMAT", "go-_kim, INVALID_FORMAT",
             "gi-abcdefghijklmnopqrstu, INVALID_FORMAT", "gi-abcdefghijklmnopqrst, OK",
             "admin, RESERVED", "go-admin, RESERVED", "gi-devlog, RESERVED", "teamblog, RESERVED"
@@ -45,6 +45,8 @@ class HandleAndNicknameRulesTest extends IntegrationTest {
             "LOCAL, go.kim, gokim",
             "LOCAL, fb.kim, fbkim",
             "FACEBOOK, fb.kim, fb_kim",
+            "LOCAL, nv.kim, nvkim",
+            "NAVER, nv.kim, nv_kim",
             "GITHUB, a-very-long-github-login-name, a_very_long_gith"
     })
     void 미리_채우는_주소_본문_08_3(AuthProvider provider, String material, String expected) {

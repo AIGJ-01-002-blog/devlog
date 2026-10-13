@@ -30,6 +30,7 @@ import com.team.blog.shared.time.Times;
 @Service
 public class PostTrashService {
     public static final Duration RETENTION = Duration.ofDays(30);
+    private static final String DRAFT = "DRAFT";
 
     private final JdbcTemplate jdbc;
     private final AutosaveFlushJob autosaveFlush;
@@ -67,7 +68,7 @@ public class PostTrashService {
             Instant now = Times.now(clock);
             // 서버에 잠시 보관 중인 자동 저장분을 먼저 반영해, 복구했을 때 마지막 내용이 남게 한다 (FR-005)
             autosaveFlush.flushPost(postId);
-            if ("DRAFT".equals(p.status()) && isBlankDraft(postId)) {
+            if (DRAFT.equals(p.status()) && isBlankDraft(postId)) {
                 purgeLocked(postId, p.authorId(), Reason.EMPTY, now);
                 return new TrashResult(Outcome.DELETED_EMPTY, null, null);
             }
@@ -84,7 +85,7 @@ public class PostTrashService {
     public boolean discardIfBlank(long memberId, long postId) {
         Boolean done = tx.execute(s -> {
             Locked p = lockOwn(postId, memberId);
-            if (p.deletedAt() != null || !"DRAFT".equals(p.status())) return false;
+            if (p.deletedAt() != null || !DRAFT.equals(p.status())) return false;
             boolean hasAutosave;
             try {
                 hasAutosave = autosave.read(postId).isPresent();
@@ -107,7 +108,7 @@ public class PostTrashService {
             Instant now = Times.now(clock);
             jdbc.update("UPDATE post SET deleted_at = NULL WHERE id = ?", postId);
             events.publishEvent(new PostRestored(postId, p.authorId(), now));
-            return new RestoreResult(p.status(), "DRAFT".equals(p.status()) ? null : p.visibility());
+            return new RestoreResult(p.status(), DRAFT.equals(p.status()) ? null : p.visibility());
         });
     }
 

@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * 본문 정화의 2차 방어 (docs/12 §8, 헌법 III). 저장소 공개 주소는 정화 허용 목록과 같은 설정값을 쓴다.
- * 소셜 가입 마무리 화면에만 Google·GitHub·카카오·Facebook 사진 호스트를 img-src에 더한다 (화면별 CSP, 2026-10-07 H3).
+ * 소셜 가입 마무리 화면에만 Google·GitHub·카카오·Facebook·네이버 사진 호스트를 img-src에 더한다 (화면별 CSP, 2026-10-07 H3).
  * 광고를 싣는 공개 화면(SpaShell이 요청에 nonce를 남긴 화면)은 애드센스가 지원하는 엄격한 CSP로 바꾼다 (spec 076).
  * 애드센스는 쓰는 도메인이 수시로 바뀌어 허용 목록 방식을 지원하지 않고, nonce + 'strict-dynamic'만 지원한다.
  */
@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 public class ContentSecurityPolicy implements HeaderWriter {
     /** SpaShell이 광고 코드를 넣은 화면에 남기는 요청 속성. 이 값이 있으면 광고용 정책을 쓴다 */
     public static final String AD_NONCE_ATTRIBUTE = ContentSecurityPolicy.class.getName() + ".adNonce";
-    static final String SOCIAL_AVATAR_HOSTS = "https://avatars.githubusercontent.com https://lh3.googleusercontent.com https://k.kakaocdn.net https://platform-lookaside.fbsbx.com";
+    static final String SOCIAL_AVATAR_HOSTS = "https://avatars.githubusercontent.com https://lh3.googleusercontent.com https://k.kakaocdn.net https://platform-lookaside.fbsbx.com https://phinf.pstatic.net";
     private final String storageOrigin;
 
     public ContentSecurityPolicy(@Value("${blog.image.public-base-url:}") String publicBaseUrl) {
