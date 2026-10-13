@@ -1378,4 +1378,6 @@ export const en: Record<string, string> = {
   "'{0}'에 맞는 태그가 없어요.": "No tags match '{0}'.",
   "태그를 더 불러오지 못했어요": "Couldn't load more tags",
   "devlog 소스 코드를 GitHub에서 보기 (새 탭)": "View devlog's source code on GitHub (new tab)",
+  "내 AI 도구에 devlog를 연결하는 방법을 봐요": "See how to connect devlog to your AI tool",
+  "로그인하고 직접 글을 써요": "Sign in and write a post yourself",
 }

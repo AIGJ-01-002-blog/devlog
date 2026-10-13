@@ -1,6 +1,6 @@
 import css from '../styles.css?raw'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { armMotion, fadeInPage, MOTION_READY } from './motion'
+import { armMotion, fadeInPage, MOTION_READY, takeHeroIntro } from './motion'
 
 describe('화면 움직임 (095)', () => {
   afterEach(() => document.documentElement.classList.remove(MOTION_READY))
@@ -35,5 +35,23 @@ describe('화면 움직임 (095)', () => {
   it('움직임 줄이기에서는 엇갈림 지연도 없앤다', () => {
     const block = css.split('@media (prefers-reduced-motion: reduce)')[1]
     expect(block).toMatch(/animation-delay: 0s !important/)
+  })
+
+  it('첫 화면 소개 장면은 이번 방문에 한 번만 틀고, 동작 줄이기면 틀지 않는다 (097)', () => {
+    sessionStorage.clear()
+    vi.stubGlobal('matchMedia', () => ({ matches: false }))
+    expect(takeHeroIntro()).toBe(true)
+    expect(takeHeroIntro()).toBe(false)
+    sessionStorage.clear()
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('reduce') }))
+    expect(takeHeroIntro()).toBe(false)
+    vi.unstubAllGlobals()
+    sessionStorage.clear()
+  })
+
+  it('첫 화면 소개의 등장은 .home-hero-intro 아래에서만 움직이고 제목은 곧바로 올라온다 (097)', () => {
+    expect(css).toMatch(/\.home-hero-intro :is\([^)]*\.home-hero-title[^)]*\) \{\s*animation: motion-rise/)
+    expect(css).toMatch(/\.home-hero-intro \.home-hero-title \{ animation-delay: 60ms; \}/)
+    expect(css).not.toMatch(/(^|\n)\.home-hero-title \{[^}]*animation/)
   })
 })

@@ -28,3 +28,19 @@ export function fadeInPage(el: HTMLElement | null): void {
   if (!el || typeof el.animate !== 'function' || prefersReducedMotion()) return
   el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: 'cubic-bezier(0.2, 0.7, 0.2, 1)' })
 }
+
+const HERO_SEEN = 'motion:hero-intro'
+
+/**
+ * 첫 화면 소개(HomeHero)의 등장 장면을 이번 방문(탭)에서 처음 볼 때만 튼다 (097).
+ * 다른 화면에 갔다가 홈으로 돌아올 때마다 2초 남짓한 장면을 다시 보면 기다리게 되므로 한 번만.
+ * 저장소를 쓸 수 없는 창(사생활 보호 등)에서는 매번 튼다. 동작 줄이기를 켰으면 틀지 않는다.
+ */
+export function takeHeroIntro(): boolean {
+  if (prefersReducedMotion()) return false
+  try {
+    if (sessionStorage.getItem(HERO_SEEN)) return false
+    sessionStorage.setItem(HERO_SEEN, '1')
+  } catch { /* 저장소 없음: 그냥 튼다 */ }
+  return true
+}
