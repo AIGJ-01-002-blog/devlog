@@ -91,6 +91,7 @@ public class CommentService {
     private long insert(CommentQuery.PostGate gate, long memberId, String content, Long replyToCommentId) {
         Long parentId = null;
         Long replyToMember = null;
+        Long replyToComment = null;
         Long rootAuthor = null;
         if (replyToCommentId != null) {
             Target t = lockTarget(replyToCommentId, gate.postId());
@@ -98,19 +99,21 @@ public class CommentService {
                 parentId = t.id;
                 rootAuthor = t.authorId;
             } else {
-                // 답글에 답하면 같은 최상위 아래에, 그 답글 작성자를 대상으로 (내 답글에 답하면 대상 없음)
+                // 답글에 답하면 같은 최상위 아래에, 그 답글 작성자를 대상으로. 내 답글에 답해도 대상을 남긴다:
+                // 비워 두면 화면에 "@누구에게"가 없어 최상위에 바로 단 답글과 구별되지 않았다 (자기 알림은 알림 쪽에서 거른다)
                 List<Long> root = Columns.longs(jdbc, "SELECT author_id FROM comment WHERE id = ? FOR SHARE", t.parentId);
                 if (root.isEmpty()) throw unavailable();
                 parentId = t.parentId;
                 rootAuthor = root.get(0);
-                replyToMember = t.authorId == memberId ? null : t.authorId;
+                replyToMember = t.authorId;
+                replyToComment = t.id;
             }
         }
         Instant now = Times.now(clock);
         long id = Objects.requireNonNull(jdbc.queryForObject("""
-                INSERT INTO comment (post_id, author_id, parent_id, reply_to_member_id, content, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id
-                """, Long.class, gate.postId(), memberId, parentId, replyToMember, content, Timestamp.from(now), Timestamp.from(now)));
+                INSERT INTO comment (post_id, author_id, parent_id, reply_to_member_id, reply_to_comment_id, content, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
+                """, Long.class, gate.postId(), memberId, parentId, replyToMember, replyToComment, content, Timestamp.from(now), Timestamp.from(now)));
         events.publishEvent(new CommentEvents.CommentCreated(id, gate.postId(), gate.authorId(), memberId, parentId, rootAuthor,
                 replyToMember, now));
         return id;
