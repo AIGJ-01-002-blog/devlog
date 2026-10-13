@@ -5,8 +5,11 @@ cd "$(dirname "$0")"
 . ./lib.sh
 P=light
 log "## 가벼운 구성: Docker Compose (앱 1 + PostgreSQL + Redis + MinIO)"
+set -a; . ../k8s/overlays/local/secret.local.env; set +a
 t0=$(date +%s)
-docker compose -p $P -f compose.light.yaml up -d >/dev/null 2>&1
+if ! timeout 400 docker compose -p $P -f compose.light.yaml up -d; then
+  docker compose -p $P -f compose.light.yaml ps -a; docker compose -p $P -f compose.light.yaml logs --tail=40; exit 1
+fi
 until curl -sf http://127.0.0.1:8080/actuator/health/readiness >/dev/null 2>&1 || curl -sf http://127.0.0.1:8080/api/auth/me >/dev/null 2>&1; do
   sleep 2; [ $(( $(date +%s) - t0 )) -lt 600 ] || { docker compose -p $P -f compose.light.yaml logs app | tail -50; exit 1; }
 done
