@@ -98,12 +98,13 @@ public class CommentService {
                 parentId = t.id;
                 rootAuthor = t.authorId;
             } else {
-                // 답글에 답하면 같은 최상위 아래에, 그 답글 작성자를 대상으로 (내 답글에 답하면 대상 없음)
+                // 답글에 답하면 같은 최상위 아래에, 그 답글 작성자를 대상으로. 내 답글에 답해도 대상을 남긴다:
+                // 비워 두면 화면에 "@누구에게"가 없어 최상위에 바로 단 답글과 구별되지 않았다 (자기 알림은 알림 쪽에서 거른다)
                 List<Long> root = Columns.longs(jdbc, "SELECT author_id FROM comment WHERE id = ? FOR SHARE", t.parentId);
                 if (root.isEmpty()) throw unavailable();
                 parentId = t.parentId;
                 rootAuthor = root.get(0);
-                replyToMember = t.authorId == memberId ? null : t.authorId;
+                replyToMember = t.authorId;
             }
         }
         Instant now = Times.now(clock);
