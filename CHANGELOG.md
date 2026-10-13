@@ -10,6 +10,24 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
+## [1.67.0] - 2026-10-13
+
+**목표: v1.67.0 배포 신뢰도와 릴리스 기록** ([목표 이슈 #169](https://github.com/AIGJ-01-002-blog/devlog/issues/169))
+
+목표 단위 Git Flow로 낸 첫 릴리스다. feature 브랜치에서 develop으로 모은 작업을 한 번에 내보내고, 이번부터 릴리스 노트에 화면 사진과 포함된 이슈·브랜치·PR, 이전 버전과의 비교 링크가 남는다. 지금 구성과 가벼운 구성의 실측 비교표도 생겼다. develop을 시험 환경에 자동 배포하는 일(#170)은 민서님 결정(2026-10-13 "지금 릴리스")으로 다음 목표로 옮겼다. 그동안 develop의 작업은 PR마다 도는 테스트로 확인한다.
+
+### 화면
+| 전 | 후 |
+|---|---|
+| ![첫 화면 GitHub 버튼 전](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.67.0/home-github-before.webp) | ![첫 화면 GitHub 버튼 후](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.67.0/home-github-after.webp) |
+| ![로그인 화면 네이버 전](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.67.0/login-naver-before.webp) | ![로그인 화면 네이버 후](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.67.0/login-naver-after.webp) |
+
+| PC | 휴대폰(다크 모드) |
+|---|---|
+| ![대댓글 가지 선 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.67.0/comment-branch-pc.webp) | ![대댓글 가지 선 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.67.0/comment-branch-m-dark.webp) |
+| ![내 답글에 답한 대상 표시 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.67.0/comment-reply-pc.webp) | ![내 답글에 답한 대상 표시 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.67.0/comment-reply-m-dark.webp) |
+| ![첫 화면 소개 움직임 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.67.0/home-hero-motion-pc.webp) | ![첫 화면 소개 움직임 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.67.0/home-hero-motion-m-dark.webp) |
+
 ### 추가
 - 첫 화면 소개에 움직임을 넣었다. 이번 방문에서 처음 볼 때 이름표·제목·설명·버튼이 차례로 올라오고, 오른쪽 AI 장면이 대화처럼 한 줄씩 이어진 뒤 [AI에 devlog 연결하기]에 빛이 한 번 지나간다(약 2.4초). 강조 글귀 "기록은 devlog가." 밑에 형광펜 줄을 긋고, 이름표 점에서 신호가 천천히 퍼진다. 홈에 다시 와도 장면은 다시 틀지 않고, 동작 줄이기를 켜면 움직이지 않는다. [AI에 devlog 연결하기]·[직접 글쓰기]에 툴팁을 달았다 (spec 095 FR-007, 민서님 요청 "devlog의 첫인상을 좋게")
 - 구성 비교 측정: GitHub Actions "구성 비교 측정"이 같은 러너에서 지금 구성(k3d 쿠버네티스)과 가벼운 구성(Docker Compose)을 차례로 띄워 메모리·기동 시간·응답 시간·처리량을 재고, "운영 구성 측정"이 학교 서버를 읽기만 하며 단계별 응답 시간과 자원을 잰다. 결과는 docs 저장소 design/66. 쿠버네티스 층은 요청당 1~2ms, 느린 곳은 한국 → 해외 Cloudflare 경로였다 (#172, 강사님 피드백)
@@ -27,6 +45,23 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 - 탈퇴를 신청하면 친구 관계(요청 중·수락 모두)를 그 자리에서 지운다. 개인정보 처리방침은 "바로 지운다"고 적었는데 30일 뒤 정리 때 지우고 있었다. 30일 안에 복구해도 친구 관계는 되살리지 않는다(다시 친구 신청). 이미 탈퇴 신청한 회원의 남은 관계는 V33 마이그레이션이 한 번 지운다 (spec 020, 민서님 결정 2026-10-12)
 - 내 답글에 다시 답하면 "@닉네임에게" 대상 표시가 빠져 최상위에 바로 단 답글과 똑같이 보이던 것을 고쳤다. 대댓글을 달아도 달린 것처럼 보이지 않았다. 이제 내 답글에 답해도 대상을 남기고, 나에게 가는 알림은 그대로 없다. 이미 달린 답글은 바뀌지 않는다 (spec 011 FR-011, 민서님 신고 "댓글에서 대댓글이 작성 안 됨")
 - CHANGELOG의 1.66.0 제목 줄이 깨져(`## [1.66.0]`이 빠짐) 릴리스 노트 화면에서 1.66.0이 1.66.1에 붙어 보이던 것을 고쳤다. `specs/README.md`에 빠진 spec 089·091·095를 더했다 (매일 저장소·다국어 점검)
+
+### 포함된 작업
+| 이슈 | 브랜치 | PR |
+|---|---|---|
+| #171 릴리스 노트에 화면 사진·브랜치·PR·비교 링크 넣기 | `feature/093-release-notes` | #183 |
+| #172 지금 구성과 가벼운 구성 실측 비교 | `feature/my-page-image-delay-ubedyo` | #193 |
+| #176 화면 움직임 더하기 (spec 095) | `feature/ui-motion-2wgkcb` | #178 |
+| #179 탈퇴 신청 즉시 친구 관계 지우기 (spec 020) | `claude/project-thread-gew61l` | #180 |
+| #194 첫 화면 소개에 첫인상 움직임 넣기 | `feature/home-hero-motion-51xqld` | #195 |
+| 네이버 로그인 (spec 096) | `claude/project-thread-j6u267` | #185 |
+| 첫 화면·맨 아래 GitHub 바로가기 | `feature/github-button-ng5rvz` | #186 |
+| 대댓글 대상 표시 고침, 가지 선 (spec 011) | `feature/comment-reply-enter-bq7ist` | #190, #192 |
+| 매일 점검: CHANGELOG·spec 목록 | `feature/daily-sync-check-1013` | #182 |
+| 목표 단위 Git Flow 전환, CodeRabbit develop 리뷰 | `main`, `claude/main-backup-develop-branch-ffoe2m` | #173, #174, #177 |
+| 소나큐브 이슈 정리 | `claude/sonar-issues-2nj2gk` | #175, #184 |
+
+**비교:** [v1.66.2...v1.67.0](https://github.com/AIGJ-01-002-blog/devlog/compare/v1.66.2...v1.67.0)
 
 ## [1.66.2] - 2026-10-12
 
