@@ -86,7 +86,11 @@ done
 echo "### 같은 연결을 다시 쓸 때(keep-alive, 10번째 요청)"
 printf '  /api/auth/me x10 한 연결: '; curl -s -o /dev/null -w '%{time_total}\n' $(for i in $(seq 10); do echo https://devlog.life/api/auth/me; done) | sort -n | awk '{a[NR]=$1*1000} END {printf "p50=%.0f min=%.0f max=%.0f\n", a[5], a[1], a[NR]}'
 echo "### 서버가 붙는 Cloudflare 위치"
-curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E '^(colo|loc|warp|http)='
+for h in www.cloudflare.com devlog.life; do
+  printf '  %-20s ip=%-16s ' "$h" "$(getent ahostsv4 $h | awk 'NR==1{print $1}')"; curl -s "https://$h/cdn-cgi/trace" | grep -E '^(colo|loc)=' | paste -sd' '
+done
+echo "### 경로(traceroute 대신 TCP 연결 시간 5번)"
+for h in www.cloudflare.com devlog.life; do printf '  %-20s ' "$h"; for i in 1 2 3 4 5; do curl -s -o /dev/null -w '%{time_connect} ' "https://$h/cdn-cgi/trace"; done; echo; done
 CF=$(kubectl -n blog get pod -l app.kubernetes.io/name=cloudflared -o name | head -1)
 echo "### 터널(cloudflared) 연결 위치와 지연"
 kubectl -n blog logs "$CF" --tail=400 2>/dev/null | grep -oE 'location=[a-z0-9]+' | sort | uniq -c
