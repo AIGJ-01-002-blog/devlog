@@ -71,7 +71,7 @@ jobs:
           KNOWN_HOSTS: ${{ vars.SCHOOL_SSH_KNOWN_HOSTS }}
           SSHPASS: ${{ secrets.SCHOOL_SSH_PASSWORD }}
         run: |
-          # 학교 서버 SSH 키를 저장소 변수 SCHOOL_SSH_KNOWN_HOSTS로 고정한다. 변수가 없을 때만 예전처럼 처음 보는 키를 받는다
+          # 학교 서버 SSH 키를 저장소 변수 SCHOOL_SSH_KNOWN_HOSTS로 고정한다. 변수가 없으면 서버 안 점검을 건너뛴다
           if [ -n "$KNOWN_HOSTS" ]; then mkdir -p ~/.ssh && printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 600 ~/.ssh/known_hosts; HKC=yes
           else echo "::warning::변수 SCHOOL_SSH_KNOWN_HOSTS가 없어 서버 안 점검은 건너뜁니다(점검용이라 검증 안 된 서버에 비밀번호를 보내지 않음). 위 키 줄을 변수에 넣은 뒤 다시 실행하세요"; exit 0; fi
           [ -n "$SSHPASS" ] || { echo "::error::Secret SCHOOL_SSH_PASSWORD가 없습니다"; exit 1; }
