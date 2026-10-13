@@ -1,6 +1,5 @@
 // 영어 화면 문장 (spec 081). 키는 화면 코드의 한국어 문장 그대로다. i18n.test.ts가 빠진 문장을 잡는다.
 export const en: Record<string, string> = {
-  "Enter로 {0} · Shift+Enter로 줄바꿈": "Enter to {0} · Shift+Enter for a new line",
   " \"{0}\"는 어때요?": " How about \"{0}\"?",
   " ({0} 시행)": " (effective {0})",
   " · {0} 해제": " · lifted {0}",

@@ -1,6 +1,5 @@
 // 일본어 화면 문장 (spec 081). 키는 화면 코드의 한국어 문장 그대로다. i18n.test.ts가 빠진 문장을 잡는다.
 export const ja: Record<string, string> = {
-  "Enter로 {0} · Shift+Enter로 줄바꿈": "Enterで{0} · Shift+Enterで改行",
   " \"{0}\"는 어때요?": " 「{0}」はいかがですか？",
   " ({0} 시행)": " （{0} 施行）",
   " · {0} 해제": " · {0} 解除",
