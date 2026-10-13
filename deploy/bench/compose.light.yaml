@@ -1,0 +1,38 @@
+# 가벼운 구성(issue #172): 쿠버네티스 없이 앱 1개 + PostgreSQL + Redis + MinIO를 Docker Compose로 띄운다.
+# 이미지·버전·계정은 운영(selfhosted overlay)과 같게 맞춘다. 값은 overlays/local의 로컬 전용 예시 값이다.
+# 앱 포트는 127.0.0.1에만 연다. 실제 운영이라면 그 앞에 cloudflared 하나만 둔다.
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg17-bookworm
+    env_file: [../k8s/overlays/local/secret.local.env]
+    environment:
+      POSTGRES_DB: blog
+    entrypoint: ["sh", "-c", "export POSTGRES_USER=$$DB_USERNAME POSTGRES_PASSWORD=$$DB_PASSWORD; exec docker-entrypoint.sh postgres"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$DB_USERNAME -d blog"]
+      interval: 3s
+      retries: 30
+  redis:
+    image: redis:7.4-alpine
+    env_file: [../k8s/overlays/local/secret.local.env]
+    command: ["sh", "-c", "exec redis-server --requirepass \"$$REDIS_PASSWORD\" --appendonly yes --appendfsync everysec --maxmemory-policy noeviction"]
+  minio:
+    image: pgsty/silo:RELEASE.2026-09-16T00-00-00Z
+    env_file: [../k8s/overlays/local/secret.local.env]
+    entrypoint: ["sh", "-c", "export MINIO_ROOT_USER=$$S3_ACCESS_KEY MINIO_ROOT_PASSWORD=$$S3_SECRET_KEY; exec minio server /data"]
+  bucket:
+    image: pgsty/mc:RELEASE.2026-09-16T00-00-00Z
+    env_file: [../k8s/overlays/local/app.env, ../k8s/overlays/local/secret.local.env]
+    entrypoint: ["sh", "-c", "export MC_CONFIG_DIR=/tmp/mc; until mc alias set s3 \"$$S3_ENDPOINT\" \"$$S3_ACCESS_KEY\" \"$$S3_SECRET_KEY\" >/dev/null 2>&1; do sleep 2; done; mc mb --ignore-existing \"s3/$$S3_BUCKET\""]
+    depends_on: [minio]
+  app:
+    image: blog-app:bench
+    env_file: [../k8s/overlays/local/app.env, ../k8s/overlays/local/secret.local.env]
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
+    mem_limit: 1g
+    ports: ["127.0.0.1:8080:8080"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_started}
+      bucket: {condition: service_completed_successfully}

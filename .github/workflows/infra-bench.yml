@@ -1,0 +1,46 @@
+# 지금 구성(k3d 쿠버네티스)과 가벼운 구성(Docker Compose)을 같은 GitHub 러너에서 차례로 띄워 자원·응답 시간을 잰다 (issue #172).
+# 운영 서버에는 접속하지 않는다. 결과는 작업 요약(Summary)과 아티팩트 infra-bench-result에 남는다.
+name: 구성 비교 측정
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/my-page-image-delay-ubedyo, feature/094-light-infra-benchmark]
+    paths: [deploy/bench/**, .github/workflows/infra-bench.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      OUT: ${{ github.workspace }}/result.md
+    steps:
+      - uses: actions/checkout@v4
+      - name: 러너 정보와 도구
+        run: |
+          sudo apt-get install -y -qq apache2-utils >/dev/null
+          curl -fsSL -o /tmp/k3d https://github.com/k3d-io/k3d/releases/download/v5.8.3/k3d-linux-amd64 && sudo install /tmp/k3d /usr/local/bin/k3d
+          command -v kustomize || { curl -fsSL "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash -s 5.4.3 /tmp && sudo install /tmp/kustomize /usr/local/bin/kustomize; }
+          { echo "# 구성 비교 측정 ($(date -u +%F) · $(git rev-parse --short HEAD))"; echo
+            echo "- 러너: $(nproc) CPU, $(free -m | awk '/^Mem:/{print $2}') MiB, $(. /etc/os-release && echo $PRETTY_NAME), Docker $(docker version --format '{{.Server.Version}}')"
+            echo "- 두 구성을 같은 러너에서 차례로 띄운다(동시에 띄우지 않음). 같은 앱 이미지, 같은 DB·Redis·MinIO 이미지"; echo; } > "$OUT"
+      - name: 앱 이미지 만들기
+        run: |
+          t0=$(date +%s)
+          docker build -q -f deploy/docker/Dockerfile -t blog-app:bench . >/dev/null
+          echo "- 앱 이미지: $(docker image inspect blog-app:bench --format '{{.Size}}' | awk '{printf "%.0f MB", $1/1e6}'), 빌드 $(( $(date +%s) - t0 ))초" >> "$OUT"; echo >> "$OUT"
+      - name: 가벼운 구성 (Compose)
+        run: deploy/bench/run-light.sh
+      - name: 지금 구성 (k3d)
+        run: deploy/bench/run-k3d.sh
+      - name: 결과
+        if: always()
+        run: cat "$OUT" >> "$GITHUB_STEP_SUMMARY"; cat "$OUT"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: infra-bench-result
+          path: result.md
