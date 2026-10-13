@@ -23,7 +23,7 @@ if [ -n "$others" ]; then
     | awk -F'\t' '{c+=$1; split($2,a," "); v=a[1]; u=v; gsub(/[0-9.]/,"",u); gsub(/[A-Za-z]/,"",v); m=(u=="GiB")?v*1024:(u=="KiB")?v/1024:v; s+=m} END {printf "others_count=%d cpu_pct_sum=%.1f mem_mb_sum=%.0f\n", NR, c, s}'
 fi
 echo "### 노드 컨테이너 안 프로세스별 메모리(RSS MiB, 개수, 상위 20)"
-docker top "$NODE" -eo rss,comm 2>/dev/null | awk 'NR>1 {m[$2]+=$1; n[$2]++} END {for (k in m) printf "%8.1f %3d %s\n", m[k]/1024, n[k], k}' | sort -rn | head -20
+docker top "$NODE" -eo pid,rss,comm 2>/dev/null | awk 'NR>1 {m[$3]+=$2; n[$3]++} END {for (k in m) printf "%8.1f %3d %s\n", m[k]/1024, n[k], k}' | sort -rn | head -20
 echo "### 이미지 크기"
 docker images --format '{{.Repository}}:{{.Tag}}\t{{.Size}}' | grep -E 'rancher/k3s' || true
 docker exec "$NODE" crictl images 2>/dev/null | head -40

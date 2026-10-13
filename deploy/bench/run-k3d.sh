@@ -43,7 +43,7 @@ kubectl top pods -A --no-headers | awk '{gsub(/Mi/,"",$4); s+=$4} END {printf "-
 log ""
 log "노드 컨테이너 안 프로세스별 메모리(RSS 상위 12)"
 log '```'
-docker top $NODE -eo rss,comm | awk 'NR>1 {m[$2]+=$1; n[$2]++} END {for (k in m) printf "%8.1f MiB  %2d개  %s\n", m[k]/1024, n[k], k}' | sort -rn | head -12 | tee -a "$OUT"
+docker top $NODE -eo pid,rss,comm | awk 'NR>1 {m[$3]+=$2; n[$3]++} END {for (k in m) printf "%8.1f MiB  %2d개  %s\n", m[k]/1024, n[k], k}' | sort -rn | head -12 | tee -a "$OUT" || true
 log '```'
 log ""
 log "### 응답 시간 (ms, ${N}번, 한 번에 하나)"
