@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { api, ApiError } from '../lib/api'
 import { loginPath, useAuth } from '../lib/auth'
 import {
-  appendUnique, commentLength, commentsApi, countsTowardTotal, insertComment, MAX_COMMENT, removeComment, replaceComment,
+  appendUnique, commentLength, commentsApi, countsTowardTotal, insertComment, MAX_COMMENT, removeComment, replaceComment, submitsOnEnter,
   type CommentPage, type CommentView,
 } from '../lib/comments'
 import { fullDate, relativeDate } from '../lib/format'
@@ -163,6 +163,11 @@ function WriteBox({ ctx }: { ctx: Ctx }) {
                  onSubmit={async (text) => ctx.added(await commentsApi.create(ctx.postId, text), null)} />
 }
 
+/** 마우스·키보드로 쓰는 화면인지. 터치 기기에서는 Enter가 줄바꿈이다 (submitsOnEnter). */
+function enterSends(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia?.('(pointer: fine)').matches === true
+}
+
 /** 쓰기·답글·수정이 같이 쓰는 입력칸. 실패하면 입력한 내용을 그대로 두고 이유를 보여 준다. */
 function Editor({ initial = '', placeholder, submitLabel, busyLabel, onSubmit, onCancel, autoFocus }: {
   initial?: string
@@ -177,13 +182,18 @@ function Editor({ initial = '', placeholder, submitLabel, busyLabel, onSubmit, o
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const ref = useRef<HTMLTextAreaElement>(null)
+  const composing = useRef(false)
+  const [sendsOnEnter] = useState(enterSends)
   useEffect(() => { if (autoFocus) ref.current?.focus() }, [autoFocus])
   const length = commentLength(text)
 
+  // 같은 순간 Enter가 두 번 와도(상태가 아직 안 바뀐 사이) 한 번만 보낸다
+  const sending = useRef(false)
   const submit = async () => {
-    if (busy) return
+    if (busy || sending.current) return
     if (length === 0) return setError(t('댓글 내용을 입력해 주세요.'))
     if (length > MAX_COMMENT) return setError(t('댓글은 {0}자까지 쓸 수 있어요.', { 0: MAX_COMMENT }))
+    sending.current = true
     setBusy(true)
     setError(null)
     try {
@@ -192,6 +202,7 @@ function Editor({ initial = '', placeholder, submitLabel, busyLabel, onSubmit, o
     } catch (e) {
       setError(e instanceof ApiError ? e.message : t('잠시 후 다시 시도해 주세요.'))
     } finally {
+      sending.current = false
       setBusy(false)
     }
   }
@@ -200,13 +211,21 @@ function Editor({ initial = '', placeholder, submitLabel, busyLabel, onSubmit, o
     <div className="comment-editor">
       <textarea ref={ref} value={text} placeholder={placeholder} rows={3} aria-label={placeholder}
                 onChange={(e) => setText(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); void submit() } }} />
+                enterKeyHint={sendsOnEnter ? 'send' : 'enter'}
+                onCompositionStart={() => { composing.current = true }}
+                onCompositionEnd={() => { composing.current = false }}
+                onKeyDown={(e) => {
+                  if (!submitsOnEnter(e.nativeEvent, composing.current, sendsOnEnter)) return
+                  e.preventDefault()
+                  void submit()
+                }} />
       <div className="comment-editor-foot">
         <small className={length > MAX_COMMENT ? 'error' : 'muted'}>{length} / {MAX_COMMENT}</small>
         {error && <small className="error" role="alert">{error}</small>}
         <span className="row">
           {onCancel && <button type="button" className="btn btn-text" onClick={onCancel} disabled={busy}>{t('취소')}</button>}
-          <button type="button" className="btn btn-primary" onClick={submit} disabled={busy}>{busy ? busyLabel : submitLabel}</button>
+          <button type="button" className="btn btn-primary" onClick={submit} disabled={busy}
+                  title={sendsOnEnter ? t('Enter로 {0} · Shift+Enter로 줄바꿈', { 0: submitLabel }) : undefined}>{busy ? busyLabel : submitLabel}</button>
         </span>
       </div>
     </div>

@@ -1,5 +1,6 @@
 // 중국어(간체) 화면 문장 (spec 081). 키는 화면 코드의 한국어 문장 그대로다. i18n.test.ts가 빠진 문장을 잡는다.
 export const zh: Record<string, string> = {
+  "Enter로 {0} · Shift+Enter로 줄바꿈": "按 Enter {0} · Shift+Enter 换行",
   " \"{0}\"는 어때요?": " 试试“{0}”？",
   " ({0} 시행)": " （{0} 起施行）",
   " · {0} 해제": " · {0}解除",

@@ -173,7 +173,7 @@ class CommentTest extends IntegrationTest {
 
         assertThat(jdbc.queryForObject("SELECT parent_id FROM comment WHERE id = ?", Long.class, r2)).isEqualTo(root);
         assertThat(jdbc.queryForObject("SELECT reply_to_member_id FROM comment WHERE id = ?", Long.class, r2)).isEqualTo(b.memberId());
-        assertThat(jdbc.queryForObject("SELECT reply_to_member_id FROM comment WHERE id = ?", Long.class, r3)).isNull();
+        assertThat(jdbc.queryForObject("SELECT reply_to_member_id FROM comment WHERE id = ?", Long.class, r3)).isEqualTo(b.memberId());
         assertThat(jdbc.queryForObject("SELECT reply_to_member_id FROM comment WHERE id = ?", Long.class, r1)).isNull();
         assertThat(events.stream(CommentCreated.class).anyMatch(e -> e.commentId() == r2 && e.rootId() == root
                 && e.rootAuthorId() == a.memberId() && e.replyToMemberId() == b.memberId())).isTrue();

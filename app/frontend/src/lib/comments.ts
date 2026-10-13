@@ -49,6 +49,28 @@ export function commentLength(s: string): number {
   return [...s.trim()].length
 }
 
+/** 엔터 키 판단에 쓰는 키 정보 (KeyboardEvent에서 필요한 것만). */
+export interface EnterKey {
+  key: string
+  shiftKey: boolean
+  ctrlKey: boolean
+  metaKey: boolean
+  isComposing: boolean
+  keyCode: number
+}
+
+/**
+ * 댓글 입력칸에서 이 키로 바로 등록할지. Enter는 등록, Shift+Enter는 줄바꿈, Ctrl·Cmd+Enter는 어디서나 등록.
+ * 한글을 조합하는 중에 누른 Enter(isComposing, 또는 Safari처럼 조합을 끝내며 keyCode 229로 오는 Enter)는 글자를
+ * 확정하는 키라서 등록하지 않는다. 그래야 마지막 글자가 빠지거나 두 번 등록되지 않는다.
+ * 휴대폰 화면 키보드에는 Shift+Enter가 없어서 터치 기기(enterSends=false)에서는 Enter를 줄바꿈으로 두고 [등록] 버튼을 쓴다.
+ */
+export function submitsOnEnter(e: EnterKey, composing: boolean, enterSends: boolean): boolean {
+  if (e.key !== 'Enter' || composing || e.isComposing || e.keyCode === 229) return false
+  if (e.ctrlKey || e.metaKey) return true
+  return enterSends && !e.shiftKey
+}
+
 /** 이어 붙일 때 이미 있는 댓글은 건너뛴다. */
 export function appendUnique(list: CommentView[], more: CommentView[]): CommentView[] {
   const seen = new Set(list.map((c) => c.id))
