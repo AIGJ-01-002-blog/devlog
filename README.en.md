@@ -63,7 +63,7 @@ The name comes from **development log**. We have registered [devlog.life](https:
 
 Once the production server is up, the service opens at https://devlog.life. Until then you can run it on your own machine as shown below.
 
-1. Sign up with a GitHub, Google, Kakao or Facebook account, or with email, then choose your blog address (`/@your-id`) and nickname.
+1. Sign up with a GitHub, Google, Kakao, Naver or Facebook account, or with email, then choose your blog address (`/@your-id`) and nickname.
 2. Write in Markdown under **New post**. The preview updates on the right as you type, and your draft is saved automatically.
 3. Choose tags and visibility under **Publish**, and the post shows up on the home page, tag pages, search, and your followers' feed.
 
@@ -139,7 +139,7 @@ If you have agreed to AI use, the AI adds a title and tidies up the text; otherw
 
 ### Accounts and moderation
 
-- **Sign-up and login**: GitHub, Google, Kakao and Facebook OAuth2, or email (verification mail, password reset). Rules and reserved words for blog addresses and nicknames.
+- **Sign-up and login**: GitHub, Google, Kakao, Naver and Facebook OAuth2, or email (verification mail, password reset). Rules and reserved words for blog addresses and nicknames.
 - **Profile and settings**: photo cropping, nickname and bio, a blog About tab, social links, default visibility, follower/following list visibility, notification settings. The interface comes in Korean, English, Japanese and Chinese.
 - **Report, hide, suspend**: report posts and comments (6 reasons), an admin screen for handling reports, suspensions from 1 day to permanent.
 - **Account deletion and recovery**: log in during the 30-day grace period to recover your account. After that, accounts are purged one person per day, each in a single transaction.
@@ -166,7 +166,7 @@ flowchart LR
 
 | Module | What it does | Storage |
 | --- | --- | --- |
-| **account** | Sign-up and login (GitHub, Google, Kakao, Facebook, email), blog address and nickname, profile and settings, About, social links, account deletion and recovery | PostgreSQL, Redis (sessions) |
+| **account** | Sign-up and login (GitHub, Google, Kakao, Naver, Facebook, email), blog address and nickname, profile and settings, About, social links, account deletion and recovery | PostgreSQL, Redis (sessions) |
 | **post** | Writing, autosave, publishing and editing, visibility, trash, post management, Markdown preview | PostgreSQL, Redis (autosave, idempotency keys) |
 | **media** | Uploading and checking images, GIFs and attachments; cleaning up unused files | MinIO/S3 (local folder if not set) |
 | **discovery · page** | Home, blog and post pages, previous/next post, RSS, the page shell with head tags for link previews | PostgreSQL |
@@ -323,7 +323,7 @@ To try it on Kubernetes, run `kubectl apply -k deploy/k8s/overlays/local` on kin
 | --- | --- | --- | --- |
 | Java | 21 | Whole app | LTS release. Records keep request and response shapes short |
 | Spring Boot | 4.1.1 | Whole app | One version for web MVC, validation, security, mail and Actuator health checks (Kubernetes readiness) |
-| Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub, Google, Kakao and Facebook login, sessions, CSRF, per-path authorization |
+| Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub, Google, Kakao, Naver and Facebook login, sessions, CSRF, per-path authorization |
 | Spring Data JPA (Hibernate) | Boot 4.1 | All domains | Storing members, posts, comments and other domain data |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | Sessions, rate limits, views, cache | Lets multiple pods share sessions, and decides concurrent requests with a single Redis script |
 | Flyway | Boot 4.1 | Database | Manages the schema as migrations V1~V35, applied at startup |

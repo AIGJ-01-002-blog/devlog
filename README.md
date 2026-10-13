@@ -61,7 +61,7 @@ Claude·Cursor에 devlog MCP를 연결하면 AI가 개발 일지 초안을 써 �
 
 운영 서버가 정해지면 https://devlog.life 에서 엽니다. 그 전에는 아래처럼 내 컴퓨터에서 바로 띄워 볼 수 있습니다.
 
-1. GitHub·Google·카카오·Facebook 계정이나 이메일로 가입하고 블로그 주소(`/@아이디`)와 닉네임을 정합니다.
+1. GitHub·Google·카카오·네이버·Facebook 계정이나 이메일로 가입하고 블로그 주소(`/@아이디`)와 닉네임을 정합니다.
 2. **새 글 작성**에서 Markdown으로 씁니다. 왼쪽에 쓰면 오른쪽에 바로 미리보기가 나오고, 쓰는 동안 자동으로 저장됩니다.
 3. **발행**에서 태그와 공개 범위를 고르면 홈·태그·검색·팔로워 피드에 글이 올라갑니다.
 
@@ -137,7 +137,7 @@ AI 사용에 동의했다면 AI가 제목을 붙이고 문장을 다듬고, 아�
 
 ### 계정과 운영
 
-- **가입·로그인** — GitHub·Google·카카오·Facebook OAuth2, 이메일(인증 메일, 비밀번호 재설정). 블로그 주소와 닉네임 규칙, 예약어.
+- **가입·로그인** — GitHub·Google·카카오·네이버·Facebook OAuth2, 이메일(인증 메일, 비밀번호 재설정). 블로그 주소와 닉네임 규칙, 예약어.
 - **프로필·설정** — 사진 자르기, 닉네임·소개, 블로그 소개 탭, 소셜 링크, 기본 공개 범위, 팔로워·팔로잉 목록 공개, 알림 설정. 화면은 한국어·English·日本語·中文 중에서 고릅니다.
 - **신고·숨김·정지** — 글·댓글 신고(사유 6가지), 관리자 신고 처리 화면, 1일~영구 정지.
 - **탈퇴와 복구** — 30일 유예 동안 로그인하면 복구, 그 뒤 매일 한 사람씩 한 트랜잭션으로 정리합니다.
@@ -164,7 +164,7 @@ flowchart LR
 
 | 모듈 | 하는 일 | 저장소 |
 | --- | --- | --- |
-| **account** | 가입·로그인(GitHub·Google·카카오·Facebook·이메일), 블로그 주소·닉네임, 프로필·설정, 소개, 소셜 링크, 탈퇴·복구 | PostgreSQL, Redis(세션) |
+| **account** | 가입·로그인(GitHub·Google·카카오·네이버·Facebook·이메일), 블로그 주소·닉네임, 프로필·설정, 소개, 소셜 링크, 탈퇴·복구 | PostgreSQL, Redis(세션) |
 | **post** | 글 쓰기·자동 저장·발행·수정, 공개 범위, 휴지통, 내 글 관리, Markdown 미리보기 | PostgreSQL, Redis(자동 저장·멱등 키) |
 | **media** | 사진·GIF·첨부파일 올리기와 검사, 쓰지 않는 파일 정리 | MinIO/S3(없으면 로컬 폴더) |
 | **discovery · page** | 홈·블로그·글 상세 조회, 이전·다음 글, RSS, 링크 미리보기용 머리 정보를 넣은 화면 셸 | PostgreSQL |
@@ -321,7 +321,7 @@ npm run dev        # http://localhost:5173
 | --- | --- | --- | --- |
 | Java | 21 | 앱 전체 | LTS 버전. 레코드로 요청·응답 모양을 짧게 적습니다 |
 | Spring Boot | 4.1.1 | 앱 전체 | 웹 MVC, 검증, 보안, 메일, Actuator 헬스 체크(쿠버네티스 준비 확인)를 한 버전으로 맞춥니다 |
-| Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub·Google·카카오·Facebook 로그인, 세션, CSRF, 경로별 권한 |
+| Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub·Google·카카오·네이버·Facebook 로그인, 세션, CSRF, 경로별 권한 |
 | Spring Data JPA (Hibernate) | Boot 4.1 | 도메인 전체 | 회원·글·댓글 등 도메인 저장 |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | 세션, 요청 제한, 조회수, 캐시 | 파드 여러 개가 같은 세션을 보고, 동시 요청도 Redis 스크립트 하나로 판정합니다 |
 | Flyway | Boot 4.1 | DB | 스키마를 V1~V35 마이그레이션으로 관리하고 앱 시작 때 적용합니다 |
