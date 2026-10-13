@@ -20,8 +20,8 @@ import com.team.blog.shared.config.BlogProperties;
 @Component
 public class HandleSuggester {
     private static final Pattern MULTI_UNDERSCORE = Pattern.compile("_+");
-    /** 이메일 가입 주소가 소셜 접두어처럼 보이면(go_·gi_·ka_·fb_) 밑줄을 뺀다. HandlePolicy.PREFIX_LOOKALIKE와 같다 */
-    private static final Pattern SOCIAL_LOOKALIKE = Pattern.compile("^(go|gi|ka|fb)_");
+    /** 이메일 가입 주소가 소셜 접두어처럼 보이면(go_·gi_·ka_·fb_·nv_) 밑줄을 뺀다. HandlePolicy.PREFIX_LOOKALIKE와 같다 */
+    private static final Pattern SOCIAL_LOOKALIKE = Pattern.compile("^(go|gi|ka|fb|nv)_");
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final MemberRepository members;

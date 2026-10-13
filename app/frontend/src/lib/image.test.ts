@@ -39,6 +39,12 @@ describe('소셜 사진 주소', () => {
     expect(socialAvatarSource('https://scontent.xx.fbcdn.net/v/a.jpg')).toBeNull()
   })
 
+  it('네이버 사진은 회원이 올린 사진만 주소 그대로 쓴다', () => {
+    const nv = 'https://phinf.pstatic.net/contact/20231001_1/abc.png'
+    expect(socialAvatarSource(nv)).toBe(nv)
+    expect(socialAvatarSource('https://ssl.pstatic.net/static/pwe/address/img_profile.png')).toBeNull()
+  })
+
   it('다른 곳이거나 https가 아니면 쓰지 않는다', () => {
     expect(socialAvatarSource('http://avatars.githubusercontent.com/u/1')).toBeNull()
     expect(socialAvatarSource('https://evil.example/a.png')).toBeNull()

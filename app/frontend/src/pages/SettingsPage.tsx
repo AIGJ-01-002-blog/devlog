@@ -43,7 +43,7 @@ interface Settings {
 
 interface Profile { nickname: string; nicknameNextChangeableAt: string | null; bio: string | null; profileImageUrl: string | null }
 
-const PROVIDER_NAMES: Record<string, string> = { GITHUB: 'GitHub', GOOGLE: 'Google', KAKAO: t('카카오'), FACEBOOK: 'Facebook', LOCAL: t('이메일') }
+const PROVIDER_NAMES: Record<string, string> = { GITHUB: 'GitHub', GOOGLE: 'Google', KAKAO: t('카카오'), FACEBOOK: 'Facebook', NAVER: t('네이버'), LOCAL: t('이메일') }
 const BIO_MAX = 200
 const BIO_LINES = 4
 

@@ -112,6 +112,7 @@ public class AccountMails {
             case GITHUB -> "GitHub";
             case KAKAO -> "카카오";
             case FACEBOOK -> "Facebook";
+            case NAVER -> "네이버";
             case LOCAL -> "이메일";
         }).collect(Collectors.joining("·"));
     }

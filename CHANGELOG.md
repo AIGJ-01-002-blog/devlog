@@ -10,6 +10,9 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
+### 추가
+- 네이버 로그인. `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`을 넣으면 로그인 화면 카카오 아래에 초록 [네이버로 계속하기] 버튼이 생기고, `nv-` 블로그 주소로 가입한다. 네이버가 준 이메일은 다시 묻지 않고, 회원이 올린 프로필 사진을 쓸 수 있다. 키가 없으면 버튼이 없다. V34 마이그레이션이 로그인 수단 NAVER와 `nv-` 주소를 받는다 (spec 096, 민서님 요청 "네이버 소셜 로그인도 추가해줘")
+
 ### 바꿈
 - 릴리스 노트에 화면 전/후 사진과 포함된 작업이 보인다. GitHub Release 끝에는 이전 버전 뒤로 머지된 PR(번호·제목·브랜치) 표와 비교 링크가 자동으로 붙고, 사이트 릴리스 노트 화면(/releases)도 `assets/releases/`의 사진을 휴대폰에서 칸에 맞춰 보여 준다 (spec 093, #171)
 - 목표 단위 Git Flow로 전환: feature → develop → 릴리스 PR → main. 브랜치 전략·릴리스 절차(CONTRIBUTING.md)와 릴리스 노트 틀(.github/RELEASE_TEMPLATE.md)을 더했다

@@ -18,8 +18,8 @@ import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.util.StringUtils;
 
 /**
- * 소셜 로그인 앱 등록. GitHub은 application.yml, Google은 GOOGLE_CLIENT_ID, 카카오는 KAKAO_CLIENT_ID, Facebook은 FACEBOOK_CLIENT_ID에 값이 있을 때만 켠다
- * (004, 080, 083).
+ * 소셜 로그인 앱 등록. GitHub은 application.yml, Google은 GOOGLE_CLIENT_ID, 카카오는 KAKAO_CLIENT_ID, Facebook은 FACEBOOK_CLIENT_ID,
+ * 네이버는 NAVER_CLIENT_ID에 값이 있을 때만 켠다 (004, 080, 083, 096).
  * 비밀 파일에 값이 빈 채로 있어도 앱이 뜨고, 화면은 /api/auth/providers를 보고 그 버튼을 숨긴다.
  */
 @Configuration
@@ -46,6 +46,10 @@ public class OAuthClientsConfig {
         String facebookId = env.getProperty("FACEBOOK_CLIENT_ID");
         if (StringUtils.hasText(facebookId) && all.stream().noneMatch(r -> r.getRegistrationId().equals("facebook"))) {
             all.add(facebook(facebookId, env));
+        }
+        String naverId = env.getProperty("NAVER_CLIENT_ID");
+        if (StringUtils.hasText(naverId) && all.stream().noneMatch(r -> r.getRegistrationId().equals("naver"))) {
+            all.add(naver(naverId, env));
         }
         return new InMemoryClientRegistrationRepository(all);
     }
@@ -92,6 +96,26 @@ public class OAuthClientsConfig {
                 .userInfoUri(FACEBOOK_GRAPH + "/me?fields=id,name,email,picture.width(512).height(512)")
                 .userNameAttributeName("id")
                 .clientName("Facebook")
+                .build();
+    }
+
+    /**
+     * 네이버 로그인 (spec 096). Spring에 기본 등록이 없어 주소를 직접 적는다. 네이버는 Client Secret을 요청 본문으로 받는다.
+     * 네이버는 scope를 받지 않고 개발자센터의 "제공 정보 선택"(이름·이메일·별명·프로필 사진)으로 정한다.
+     * 사용자 정보는 "response" 안에 오므로 그 이름을 사용자 이름 속성으로 둔다.
+     */
+    static ClientRegistration naver(String clientId, Environment env) {
+        return ClientRegistration.withRegistrationId("naver")
+                .clientId(clientId)
+                .clientSecret(env.getProperty("NAVER_CLIENT_SECRET", ""))
+                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
+                .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+                .redirectUri(siteBaseUrl(env) + REDIRECT_PATH)
+                .authorizationUri("https://nid.naver.com/oauth2.0/authorize")
+                .tokenUri("https://nid.naver.com/oauth2.0/token")
+                .userInfoUri("https://openapi.naver.com/v1/nid/me")
+                .userNameAttributeName("response")
+                .clientName("Naver")
                 .build();
     }
 

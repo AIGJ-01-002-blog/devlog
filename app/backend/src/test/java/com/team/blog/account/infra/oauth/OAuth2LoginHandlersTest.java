@@ -113,6 +113,24 @@ class OAuth2LoginHandlersTest {
     }
 
     @Test
+    void naverReadsResponseWrapperAndUsesEmailAndUploadedPhoto() throws Exception {
+        Map<String, Object> attrs = Map.of("resultcode", "00", "message", "success", "response", Map.of(
+                "id", "32742776", "nickname", "민서", "name", "김민서", "email", "MinSeo@naver.com",
+                "profile_image", "https://phinf.pstatic.net/contact/20231001_1/abc.png"));
+        assertThat(succeed("naver", "response", attrs)).isEqualTo(new SocialProfile(AuthProvider.NAVER, "32742776", null,
+                "민서", "minseo@naver.com", "https://phinf.pstatic.net/contact/20231001_1/abc.png"));
+    }
+
+    @Test
+    void naverWithoutNicknameOrEmailUsesNameAndStillLogsIn() throws Exception {
+        // 동의 화면에서 별명·이메일 제공을 끄면 오지 않는다. 이름을 닉네임 자리에 쓰고 이메일은 가입 때 받는다
+        SocialProfile p = succeed("naver", "response", Map.of("response", Map.of("id", "n-1", "name", "김민서")));
+        assertThat(p.providerUserId()).isEqualTo("n-1");
+        assertThat(p.name()).isEqualTo("김민서");
+        assertThat(p.verifiedEmail()).isNull();
+    }
+
+    @Test
     void failureGoesBackToLoginWithCode() throws Exception {
         MockHttpServletResponse res = new MockHttpServletResponse();
         handlers.onAuthenticationFailure(new MockHttpServletRequest(), res, new BadCredentialsException("x"));

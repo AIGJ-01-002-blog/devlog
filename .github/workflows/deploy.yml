@@ -194,6 +194,9 @@ jobs:
           # Facebook 로그인(083): 구글과 같다
           FACEBOOK_CLIENT_ID: ${{ secrets.FACEBOOK_CLIENT_ID }}
           FACEBOOK_CLIENT_SECRET: ${{ secrets.FACEBOOK_CLIENT_SECRET }}
+          # 네이버 로그인(096): 구글과 같다
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
         run: |
           umask 077
           # oracle은 KUBECONFIG Secret을 쓴다. school은 앞 단계가 SSH로 받아 둔 파일을 쓴다
@@ -203,7 +206,7 @@ jobs:
           fi
           f="deploy/k8s/overlays/$OVERLAY/secret.env"
           printf '%s\n' "$BLOG_SECRET_ENV" > "$f"
-          for key in SMTP_PASSWORD SMTP_HOST TELEGRAM_BOT_TOKEN GEMINI_API_KEY OLLAMA_BASE_URL OLLAMA_ACCESS_CLIENT_ID OLLAMA_ACCESS_CLIENT_SECRET OLLAMA_AUTH_TOKEN GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET KAKAO_CLIENT_ID KAKAO_CLIENT_SECRET KAKAO_SCOPES FACEBOOK_CLIENT_ID FACEBOOK_CLIENT_SECRET; do
+          for key in SMTP_PASSWORD SMTP_HOST TELEGRAM_BOT_TOKEN GEMINI_API_KEY OLLAMA_BASE_URL OLLAMA_ACCESS_CLIENT_ID OLLAMA_ACCESS_CLIENT_SECRET OLLAMA_AUTH_TOKEN GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET KAKAO_CLIENT_ID KAKAO_CLIENT_SECRET KAKAO_SCOPES FACEBOOK_CLIENT_ID FACEBOOK_CLIENT_SECRET NAVER_CLIENT_ID NAVER_CLIENT_SECRET; do
             val="${!key}"
             [ -n "$val" ] || continue
             grep -v "^${key}=" "$f" > "$f.tmp" || true

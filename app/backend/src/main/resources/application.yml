@@ -50,7 +50,7 @@ spring:
             scope: read:user,user:email
             # 콜백 주소는 요청이 아니라 사이트 주소로 만든다. 프록시 뒤에서 안쪽 http 요청을 보고 http://로 보내면 GitHub이 거절한다
             redirect-uri: "${blog.site.base-url}/login/oauth2/code/{registrationId}"
-          # Google은 GOOGLE_CLIENT_ID(·SECRET), 카카오는 KAKAO_CLIENT_ID(·SECRET·SCOPES), Facebook은 FACEBOOK_CLIENT_ID(·SECRET)가 있을 때 OAuthClientsConfig가 더한다
+          # Google은 GOOGLE_CLIENT_ID(·SECRET), 카카오는 KAKAO_CLIENT_ID(·SECRET·SCOPES), Facebook은 FACEBOOK_CLIENT_ID(·SECRET), 네이버는 NAVER_CLIENT_ID(·SECRET)가 있을 때 OAuthClientsConfig가 더한다
   # 메일 (004): SMTP_HOST가 있으면 SMTP로 보내고, 비어 있으면 보내지 않고 보관한다 (개발은 /api/dev/mails)
   mail:
     host: ${SMTP_HOST:}
