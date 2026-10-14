@@ -20,7 +20,8 @@ export function ManagePage() {
   const { search } = useLocation()
   const { me } = useAuth()
   const raw = search.get('tab')
-  const tab: Tab = raw === 'published' || raw === 'trash' ? raw : 'drafts'
+  // 들어오자마자 내가 발행한 글부터 보이게 기본 탭은 [발행 글]이다 (임시글은 ?tab=drafts)
+  const tab: Tab = raw === 'drafts' || raw === 'trash' ? raw : 'published'
   const filter = search.get('visibility')
   const [items, setItems] = useState<ManageItem[]>([])
   const [cursor, setCursor] = useState<string | null>(null)
@@ -135,8 +136,8 @@ export function ManagePage() {
   }
 
   const tabs: { id: Tab; label: string; hint: string; icon: IconName }[] = [
-    { id: 'drafts', label: t('임시글'), hint: t('아직 발행하지 않은 글'), icon: 'pen' },
     { id: 'published', label: t('발행 글'), hint: t('발행한 글과 공개 범위'), icon: 'posts' },
+    { id: 'drafts', label: t('임시글'), hint: t('아직 발행하지 않은 글'), icon: 'pen' },
     { id: 'trash', label: t('휴지통'), hint: t('지운 글은 30일 뒤 완전히 지워져요'), icon: 'trash' },
   ]
   return (
