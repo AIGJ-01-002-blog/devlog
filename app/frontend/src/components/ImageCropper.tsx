@@ -65,14 +65,18 @@ export function ImageCropper({ image, onApply, onCancel, busy }: {
 
   return (
     <div className="cropper" role="group" aria-label={t('사진 자르기')}>
-      <canvas ref={canvas} width={PROFILE_SIZE} height={PROFILE_SIZE} className="cropper-canvas"
-              tabIndex={0} role="img" aria-label={t('사진 위치 (화살표 키로 옮기기)')} onKeyDown={onKey}
-              onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} />
+      {/* 캔버스는 정사각형 그대로 그리고, 위에 원 바깥을 어둡게 덮고 둘레 선을 그어 실제로 보일 원을 드러낸다 */}
+      <div className="cropper-stage" title={t('원 안이 프로필 사진으로 보여요')}>
+        <canvas ref={canvas} width={PROFILE_SIZE} height={PROFILE_SIZE} className="cropper-canvas"
+                tabIndex={0} role="img" aria-label={t('사진 위치 (화살표 키로 옮기기)')} onKeyDown={onKey}
+                onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} />
+        <span className="cropper-mask" aria-hidden="true" />
+      </div>
       <label className="cropper-zoom">
         <span className="small muted">{t('확대')}</span>
         <input type="range" min={1} max={8} step={0.01} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} aria-label={t('확대')} />
       </label>
-      <p className="small muted">{t('끌거나 화살표 키로 위치를 맞추세요. 256×256 크기로 바뀌고 촬영 위치 같은 사진 정보는 지워져요.')}</p>
+      <p className="small muted">{t('원 안이 프로필 사진으로 보여요.')} {t('끌거나 화살표 키로 위치를 맞추세요. 256×256 크기로 바뀌고 촬영 위치 같은 사진 정보는 지워져요.')}</p>
       <div className="row">
         <button type="button" className="btn btn-primary" disabled={busy} onClick={() => onApply(crop)}>{busy ? t('올리는 중…') : t('이 사진 쓰기')}</button>
         <button type="button" className="btn btn-text" disabled={busy} onClick={onCancel}>{t('취소')}</button>

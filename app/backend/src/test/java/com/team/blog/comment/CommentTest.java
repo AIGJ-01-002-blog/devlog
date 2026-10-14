@@ -256,6 +256,22 @@ class CommentTest extends IntegrationTest {
         assertThat(ids(list(null, p, "around=999999999").path("items"))).isEqualTo(roots.subList(0, 20));
     }
 
+    @Test
+    void 답글이_5개_이하면_접지_않고_모두_보인다() throws Exception {
+        Session a = signup(uniqueLogin("cmr"));
+        long p = postOf(a, "PUBLIC");
+        long root = comment(a, p, "자리");
+        List<Long> few = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            few.add(jdbc.queryForObject("INSERT INTO comment (post_id, author_id, parent_id, content, created_at, updated_at)"
+                    + " VALUES (?, ?, ?, ?, now(), now()) RETURNING id", Long.class, p, a.memberId(), root, "f" + i)); // 쓰기 한도를 피해 바로 넣는다
+        }
+        JsonNode r = list(null, p, null).path("items").get(0);
+        assertThat(ids(r.path("replies"))).isEqualTo(few);
+        assertThat(r.path("replyCount").asInt()).isEqualTo(5);
+        assertThat(r.path("repliesNextCursor").isNull()).isTrue();
+    }
+
     // ---------------------------------------------------------------- US4
 
     @Test

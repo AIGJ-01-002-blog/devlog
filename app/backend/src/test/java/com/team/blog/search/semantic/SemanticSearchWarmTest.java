@@ -9,7 +9,6 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -63,7 +62,7 @@ class SemanticSearchWarmTest {
     }
 
     @Test
-    void 예열이_끝나면_진행_표시를_지운다() throws Exception {
+    void 예열이_끝나면_진행_표시를_지운다() {
         when(values.setIfAbsent(SemanticSearch.WARM_GATE, "1", Duration.ofSeconds(60))).thenReturn(true);
         semantic.warmUp();
         verify(values).set(SemanticSearch.WARMING, "1", Duration.ofSeconds(30));

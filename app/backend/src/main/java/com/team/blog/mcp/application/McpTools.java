@@ -704,7 +704,7 @@ public class McpTools {
     private Result proposePost(AccessTokens.Caller caller, JsonNode a) {
         List<String> suggested = tags(a);
         long id = journal.propose(caller.memberId(), text(a, TITLE), text(a, "scope"), suggested);
-        return Result.ok("글 제안을 남겼어요 (제안 번호 " + id + "). 사용자가 devlog 내 글 관리에서도 볼 수 있어요: " + baseUrl + "/manage/posts\n"
+        return Result.ok("글 제안을 남겼어요 (제안 번호 " + id + "). 사용자가 devlog 내 글 관리에서도 볼 수 있어요: " + baseUrl + "/manage/posts?tab=drafts\n"
                 + "사용자가 지금 쓰라고 하면 create_draft에 proposal_id " + id + "를 함께 주세요.");
     }
 

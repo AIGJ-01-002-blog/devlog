@@ -27,13 +27,16 @@ import com.team.blog.shared.time.Times;
 
 /**
  * 댓글 읽기 (docs/21 §3·§6, 011 FR-018~FR-030). 한 페이지는 쿼리 두 번이다: 최상위 21개(ix_comment_root)와 그 최상위들의
- * 처음 답글 3개 + 답글 수(ix_comment_reply, 창 함수). 상태는 탈퇴 → 삭제된 자리 → 숨김 → 정상 순서로 하나만 정하고,
+ * 처음 답글 3개 + 답글 수(ix_comment_reply, 창 함수). 답글이 5개 이하면 [1개 더 보기]처럼 거의 다 보이는데 한 번 더 누르는 일이
+ * 없도록 모두 함께 보낸다. 상태는 탈퇴 → 삭제된 자리 → 숨김 → 정상 순서로 하나만 정하고,
  * 내용·작성자를 내려보내지 않는 상태에서는 아예 빼고 보낸다.
  */
 @Service
 public class CommentQuery {
     public static final int PAGE_SIZE = 20;
     public static final int FIRST_REPLIES = 3;
+    /** 답글이 이 수 이하면 접지 않고 모두 보인다. */
+    public static final int ALL_REPLIES_UP_TO = 5;
 
     private static final String COLUMNS = """
             c.id, c.post_id, c.parent_id, c.author_id, c.content, c.created_at, c.updated_at,
@@ -244,13 +247,13 @@ public class CommentQuery {
                          count(*) OVER (PARTITION BY c.parent_id) AS reply_count
                 """ + FROM + """
                  WHERE c.parent_id = ANY (?)) t
-                WHERE t.rn <= CASE WHEN t.parent_id = ? THEN ? ELSE ? END
+                WHERE t.rn <= CASE WHEN t.reply_count <= ? THEN t.reply_count WHEN t.parent_id = ? THEN ? ELSE ? END
                 ORDER BY t.parent_id, t.created_at, t.id
                 """, rs -> {
             Row r = row(rs, 0);
             replies.computeIfAbsent(r.parentId, k -> new ArrayList<>()).add(r);
             replyCounts.put(r.parentId, rs.getInt("reply_count"));
-        }, ids, expandRoot == null ? -1L : expandRoot, expandTo, FIRST_REPLIES);
+        }, ids, ALL_REPLIES_UP_TO, expandRoot == null ? -1L : expandRoot, expandTo, FIRST_REPLIES);
 
         List<CommentView> out = new ArrayList<>(roots.size());
         for (Row root : roots) {

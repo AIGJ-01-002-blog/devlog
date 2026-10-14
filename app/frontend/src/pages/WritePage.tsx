@@ -260,7 +260,7 @@ function Editor({ view, local, memberId }: { view: EditorView; local: LocalDraft
       await discardIfEmpty(view.id, memberId)
     }
     if (history.length > 1) history.back()
-    else navigate('/manage/posts')
+    else navigate(view.status === 'DRAFT' ? '/manage/posts?tab=drafts' : '/manage/posts')
   }
 
   const saveNow = useCallback(async (base?: number) => {

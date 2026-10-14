@@ -28,7 +28,7 @@ import com.team.blog.support.IntegrationTest;
  * spec 054 하이브리드 검색. 임베딩은 가짜 Ollama(/api/embed)가 주제 단어로 만든 벡터라, "롤백"으로 검색하면 글자는 없어도
  * 트랜잭션 글이 가깝게 나온다. 다른 시험의 글과 섞이지 않게 블로그 안 검색으로 본다.
  */
-@TestPropertySource(properties = {"blog.search.semantic.enabled=true", "blog.search.semantic.index-batch=2",
+@TestPropertySource(properties = {"blog.search.semantic.enabled=true", "blog.search.semantic.index-batch=2", "blog.search.semantic.index-chunk=2",
         "blog.search.semantic.candidates=3", "blog.search.semantic.keyword-candidates=5"})
 class HybridSearchTest extends IntegrationTest {
     private static final FakeAi AI = FakeAi.INSTANCE;
@@ -156,7 +156,7 @@ class HybridSearchTest extends IntegrationTest {
         long priv = publish(a, "비공개 롤백", "롤백 커밋", "PRIVATE", List.of());
         index();
 
-        assertThat(AI.embedRequests).as("한 요청에 여러 글(묶음 2)").contains(2);
+        assertThat(AI.embedRequests).as("한 요청에 여러 글(index-chunk 2)").contains(2);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM post_embedding WHERE post_id IN (?, ?, ?)", Integer.class, p1, p2, p3)).isEqualTo(3);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM post_embedding WHERE post_id = ?", Integer.class, priv)).isZero();
 
