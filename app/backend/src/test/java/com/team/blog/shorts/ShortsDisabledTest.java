@@ -32,8 +32,11 @@ class ShortsDisabledTest extends IntegrationTest {
         body.put("jsonrpc", "2.0");
         body.put("id", 1);
         body.put("method", "tools/list");
-        var tools = read(mvc.perform(post("/api/mcp").contentType(MediaType.APPLICATION_JSON).header("Authorization", "Bearer " + token)
-                .content(json.writeValueAsString(body))).andReturn()).path("result").path("tools").findValuesAsString("name");
+        var list = read(mvc.perform(post("/api/mcp").contentType(MediaType.APPLICATION_JSON).header("Authorization", "Bearer " + token)
+                .content(json.writeValueAsString(body))).andReturn()).path("result").path("tools");
+        var tools = list.findValuesAsString("name");
         assertThat(tools).contains("write_devlog").doesNotContain("create_shorts_script", "list_shorts", "list_shorts_candidates");
+        // 쇼츠가 꺼진 서버에서는 일반 도구 설명에도 쇼츠 안내가 없다 (#240)
+        assertThat(list.findValuesAsString("description")).noneMatch(d -> d.contains("쇼츠"));
     }
 }

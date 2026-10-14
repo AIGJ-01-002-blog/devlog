@@ -112,6 +112,10 @@ public class McpTools {
               "links":{"type":"array","maxItems":5,"items":{"type":"string"},"description":"근거 링크: 이 작업의 커밋·PR·이슈 https 주소 (5개까지). 본문 끝 '## 근거'에 이름을 붙여 넣는다"}},
              "required":["title","content_md"]}""";
 
+    /** 쇼츠를 켠 서버에서만 도구 설명에 남기는 문장 (#240) */
+    static final String SHORTS_NOTE_DRAFT = "결과에 '쇼츠 후보'가 보이면 그 안내를 따른다.";
+    static final String SHORTS_NOTE_PUBLISH = "결과에 '쇼츠 후보'가 보이면 사용자에게 쇼츠 대본을 만들지 한 번 물어본다. ";
+
     static final List<Tool> TOOLS = List.of(
             new Tool("write_devlog", "개발 일지 쓰기",
                     "오늘 사용자와 함께 한 작업(대화, 고친 코드, 커밋)을 개발 일지로 정리해 사용자의 devlog에 임시글로 올린다. "
@@ -121,7 +125,7 @@ public class McpTools {
                             + "구조도·흐름도는 ```mermaid 코드 블록으로 넣으면 devlog 글 화면에서 그림으로 그려진다. "
                             + "작업의 근거가 되는 커밋·PR·이슈 주소가 있으면 links로 함께 준다(공개 저장소 주소만, 사내 주소는 빼고). "
                             + "비밀번호·토큰·개인 정보·회사 내부 주소는 넣지 않는다. 공개되지 않으며, 사용자가 devlog에서 읽고 직접 발행한다. "
-                            + "결과에 '쇼츠 후보'가 보이면 그 안내를 따른다.",
+                            + SHORTS_NOTE_DRAFT,
                     true, DRAFT_SCHEMA),
             new Tool("create_draft", "임시글 만들기",
                     "사용자의 devlog에 새 임시글을 만든다. 공개되지 않으며 사용자가 화면에서 직접 발행한다.", true, DRAFT_SCHEMA),
@@ -142,7 +146,7 @@ public class McpTools {
                             + "사용자가 발행하라고 분명히 말했을 때만 부른다. "
                             + "공개 범위(visibility)를 주지 않으면 그 글에 정해진 공개 범위(보통 회원 기본값)로 발행한다. "
                             + "tags를 주지 않으면 글에 있던 태그나 AI가 제안한 태그를 쓴다. 발행한 글에 고친 내용이 없으면 다시 발행하지 않는다. "
-                            + "결과에 '쇼츠 후보'가 보이면 사용자에게 쇼츠 대본을 만들지 한 번 물어본다. "
+                            + SHORTS_NOTE_PUBLISH
                             + "사용자가 설정 › AI 연결에서 'AI가 발행·삭제하도록 허용'을 켰을 때만 쓸 수 있다.", true, """
                     {"type":"object","properties":{
                       "post_id":{"type":"integer"},
@@ -362,7 +366,9 @@ public class McpTools {
         List<Map<String, Object>> out = new ArrayList<>();
         for (Tool t : TOOLS) {
             if (!t.visibleTo(caller) || t.gate() == Gate.SHORTS && !shorts.enabled()) continue;
-            out.add(Map.of("name", t.name(), TITLE, t.title(), "description", t.description(),
+            String description = shorts.enabled() ? t.description()
+                    : t.description().replace(" " + SHORTS_NOTE_DRAFT, "").replace(SHORTS_NOTE_PUBLISH, "");
+            out.add(Map.of("name", t.name(), TITLE, t.title(), "description", description,
                     "inputSchema", json.readTree(t.inputSchema()),
                     "annotations", Map.of("readOnlyHint", t.readOnly(), "destructiveHint", t.destructive(), "openWorldHint", false)));
         }

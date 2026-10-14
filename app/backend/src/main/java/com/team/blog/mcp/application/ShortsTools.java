@@ -5,6 +5,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import tools.jackson.databind.JsonNode;
@@ -21,6 +23,7 @@ import com.team.blog.shorts.application.ShortsService;
  */
 @Component
 class ShortsTools {
+    private static final Logger log = LoggerFactory.getLogger(ShortsTools.class);
     static final String SCENES_SCHEMA = """
             "scenes":{"type":"array","maxItems":10,"description":"장면 3~10개. 합쳐서 60초 안(내레이션 약 330자 안)","items":{"type":"object","properties":{
                 "caption":{"type":"string","description":"화면 큰 자막 (40자까지, 한 줄 요점)"},
@@ -122,7 +125,14 @@ class ShortsTools {
 
     /** 공개로 발행한 뒤 덧붙일 안내. 이미 이 글로 만든 쇼츠가 있으면 묻지 않는다 */
     String afterPublish(long postId, String content, boolean isPublic) {
-        if (!enabled() || !isPublic || candidates.hasShorts(postId)) return "";
+        if (!enabled() || !isPublic) return "";
+        try {
+            if (candidates.hasShorts(postId)) return "";
+        } catch (RuntimeException e) {
+            // 발행은 이미 끝났으니 안내를 빼고 발행 결과만 돌려준다
+            log.warn("글 {}의 쇼츠 후보 안내를 만들지 못했습니다: {}", postId, e.getMessage());
+            return "";
+        }
         ShortsCandidates.Fit f = ShortsCandidates.fit(content);
         if (!f.fit()) return "";
         return "\n쇼츠 후보: 이 글에는 " + String.join(", ", f.reasons()) + "이(가) 있어 60초 쇼츠로 만들 만해요. "
