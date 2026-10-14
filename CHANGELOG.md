@@ -10,6 +10,17 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
+**목표: v1.70.0 첫 가입 회원을 AI 연결로 이끌기** ([목표 이슈 #214](https://github.com/AIGJ-01-002-blog/devlog/issues/214) · spec 098)
+
+### 화면
+| PC | 휴대폰 |
+|---|---|
+| ![AI 연결 안내 1단계 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/ai-onboarding-step1-pc.webp) | ![AI 연결 안내 2단계 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/ai-onboarding-step2-m.webp) |
+| ![마지막 단계 툴팁 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/ai-onboarding-tip-pc.webp) | ![AI 연결 안내 3단계 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/ai-onboarding-step3-m-dark.webp) |
+
+### 추가
+- 가입하고 처음 로그인하면 AI 연결 안내 팝업이 뜬다. "AI에게 말하면 일지가 써져요 → 주소 하나로 연결 → 공개는 내가" 세 단계를 짧은 움직임과 한 줄 설명으로 보여 주고, 마지막 [AI 연결하러 가기]가 설정 › AI 연결로 바로 보낸다. [나중에 하기]로 닫으면 다시 뜨지 않고, 이미 연결한 회원에게는 뜨지 않는다 (spec 098, #215)
+
 ## [1.69.0] - 2026-10-14
 
 **목표: v1.69.0 글 읽기 경험 다듬기** ([목표 이슈 #206](https://github.com/AIGJ-01-002-blog/devlog/issues/206) · spec 097)

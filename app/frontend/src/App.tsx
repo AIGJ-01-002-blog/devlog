@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Flash } from './components/Flash'
 import { Header } from './components/Header'
 import { SkipLink } from './components/SkipLink'
@@ -32,6 +32,7 @@ import { PageErrorBoundary } from './components/PageErrorBoundary'
 import { sendPage } from './lib/views'
 import { t } from './lib/i18n'
 import { armMotion, fadeInPage } from './lib/motion'
+import { isFirstLogin, isQuietPath, onboardingDone } from './lib/aiOnboarding'
 
 // 글 읽기(홈·글·블로그·태그·검색·피드)는 첫 묶음에 두고, 쓰기·설정·가입·관리자 화면은 처음 열 때 받는다.
 // 독자가 받는 첫 JS를 줄이려는 것이다 (spec 028).
@@ -63,6 +64,8 @@ const AdminInquiriesPage = lazyPage(() => import('./pages/AdminInquiriesPage'), 
 const RssGuidePage = lazyPage(() => import('./pages/RssGuidePage'), 'RssGuidePage')
 const AdminInquiryPage = lazyPage(() => import('./pages/AdminInquiryPage'), 'AdminInquiryPage')
 const AboutPage = lazyPage(() => import('./pages/AboutPage'), 'AboutPage')
+// 첫 로그인 회원만 보는 팝업이라 첫 묶음에 넣지 않는다 (spec 098)
+const AiOnboarding = lazy(() => import('./components/AiOnboarding').then((m) => ({ default: m.AiOnboarding })))
 
 export function App() {
   const { path } = useLocation()
@@ -81,9 +84,18 @@ export function App() {
       {!path.startsWith('/write') && path !== '/account/restore' && !path.startsWith('/oauth/') && !path.startsWith('/admin') && !path.startsWith('/manage/') && <SiteFooter />}
       {!path.startsWith('/write') && path !== '/account/restore' && !path.startsWith('/oauth/') && <MobileNav path={path} />}
       {!path.startsWith('/write') && !path.startsWith('/admin') && <ScrollTopButton />}
+      <AiOnboardingGate path={path} />
       <TooltipLayer />
     </>
   )
+}
+
+/** 가입 뒤 첫 로그인이면 AI 연결 안내를 한 번 띄운다 (spec 098). 쓰기·동의·설정 같은 화면에서는 기다렸다가 다른 화면에서 띄운다. */
+function AiOnboardingGate({ path }: { path: string }) {
+  const { me } = useAuth()
+  const [closed, setClosed] = useState(false)
+  if (closed || !isFirstLogin(me) || isQuietPath(path) || onboardingDone(me.member.id)) return null
+  return <Suspense fallback={null}><AiOnboarding memberId={me.member.id} onClose={() => setClosed(true)} /></Suspense>
 }
 
 /**
