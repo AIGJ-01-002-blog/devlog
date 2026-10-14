@@ -164,3 +164,71 @@ class QuietHandler(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+try:
+    from devlog_render import stage
+except ImportError:  # Pillow 없음
+    stage = None
+
+
+@unittest.skipIf(stage is None, "Pillow 없음")
+class StageTest(unittest.TestCase):
+    def scene(self, caption, narration, code=None, visual=None):
+        return render.Scene(caption, narration, code, None, visual)
+
+    def test_infers_action_from_context(self):
+        cases = [
+            (self.scene("글이 전부 사라졌어요", "블로그 글이 전부 사라졌어요."), "shock"),
+            (self.scene("API가 1초에 100번?", "같은 요청이 1초에 100번 찍혔어요."), "panic"),
+            (self.scene("목록이 4초 걸렸어요", "목록이 뜨는 데 4초나 걸렸어요."), "wait"),
+            (self.scene("원인", "의존성 배열 때문이었어요.", "useEffect(() => {\n}, [posts]); // 문제"), "typing"),
+            (self.scene("백업에서 되살렸어요", "복원 한 줄로 되돌렸어요.", "pg_restore -d blog x.dump"), "restore"),
+            (self.scene("린트를 켜 두세요", "규칙을 켜 두면 알려 줘요."), "idea"),
+            (self.scene("이렇게 막았어요", "이제는 백업을 남겨요."), "protect"),
+            (self.scene("안녕하세요", "오늘 이야기를 시작할게요."), "explain"),
+        ]
+        for scene, action in cases:
+            self.assertEqual(stage.infer(scene).action, action, scene.caption)
+
+    def test_speed_takes_before_value_from_other_scene(self):
+        v = stage.infer(self.scene("정렬 열에 인덱스", "100밀리초 안으로 떨어졌어요."), "목록이 4초 걸렸어요. 100밀리초 안으로 떨어졌어요.")
+        self.assertEqual((v.action, v.before, v.after), ("fast", "4초", "100ms"))
+
+    def test_explicit_visual_wins_and_unknown_is_ignored(self):
+        self.assertEqual(stage.infer(self.scene("글이 사라졌어요", "사라졌어요.", visual="celebrate")).action, "celebrate")
+        self.assertEqual(stage.infer(self.scene("글이 사라졌어요", "사라졌어요.", visual={"action": "idea"})).action, "idea")
+        self.assertEqual(stage.infer(self.scene("글이 사라졌어요", "사라졌어요.", visual="dance")).action, "shock")
+
+    def test_every_action_draws_a_frame_and_effects_fit_scene(self):
+        fonts = stage.Fonts(find_font(), find_font(mono=True))
+        for action in stage.ACTIONS:
+            v = stage.Visual(action, code=["a = 1  # 한글"], focus=0, count=10, before="4초", after="1초", label="빨라짐")
+            st = stage.Stage(v, fonts, 3.0, 0.2, 2.5, [0.5] * 90, 30, first=True)
+            for t in (0.0, 1.0, 2.9):
+                self.assertEqual(len(st.frame(t)), layout.WIDTH * stage.STAGE_H * 4, action)
+            for name, at, volume in st.effects():
+                self.assertIn(name, render.sfx.SOUNDS)
+                self.assertLess(at, 3.0)
+
+    def test_mouth_follows_loudness(self):
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "a.wav"
+            with wave.open(str(path), "wb") as w:
+                w.setnchannels(1)
+                w.setsampwidth(2)
+                w.setframerate(8000)
+                import math
+                import struct
+                loud = [int(12000 * math.sin(k / 3)) for k in range(4000)]
+                w.writeframes(struct.pack(f"<{8000}h", *([0] * 4000 + loud)))
+            env = stage.mouth_envelope(path, 10)
+        self.assertLess(max(env[:4]), 0.05)  # 조용한 앞 0.5초는 입을 다문다
+        self.assertGreater(max(env[6:]), 0.5)
+
+
+class EffectJobTest(unittest.TestCase):
+    def test_job_effects_only_accept_built_in_sounds(self):
+        script = Script.from_job({"scenes": [{}], "effects": [{"scene": 0, "at": 0.5, "sound": "ding"},
+                                                              {"scene": 0, "at": 1, "sound": "/etc/passwd"}]})
+        self.assertEqual(script.effects, [render.sfx.Effect(0, 0.5, "ding", 0.6)])

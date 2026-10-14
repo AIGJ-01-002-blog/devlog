@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import platform
 import shutil
@@ -25,7 +26,12 @@ import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import bgm, captions, draw, layout, tts
+from . import bgm, captions, draw, layout, sfx, tts
+
+try:  # 캐릭터 무대는 Pillow가 있을 때만. 없으면 글자 화면으로 만든다
+    from . import stage
+except ImportError:  # pragma: no cover - Pillow 없는 환경
+    stage = None
 
 log = logging.getLogger("devlog_render")
 
@@ -62,6 +68,8 @@ CODE_COMMENT = "0x7dd3fc"
 CAPTION_BAR = "0x38bdf8"
 #: 가운데(코드 카드·글 이미지)가 시작하는 높이와 이미지 카드 크기, 구절 자막 높이. 쇼츠 화면 아래쪽 버튼·설명에 가리지 않게 1500 위에 둔다
 MIDDLE_TOP = 680
+#: 캐릭터 무대(1080×640)를 놓는 높이
+STAGE_Y = 630
 IMAGE_BOX = (920, 540)
 SUBTITLE_Y = 1330
 #: 배경을 움직이려고 화면보다 조금 크게 만들어 두고 잘라 낸다
@@ -85,8 +93,10 @@ class Scene:
     caption: str
     narration: str
     code: str | None = None
-    #: 바탕 글의 이미지 주소(있으면 장면 배경과 가운데 카드로 쓴다)
+    #: 바탕 글의 이미지 주소(있으면 장면 배경으로 쓴다. 캐릭터가 없으면 가운데 카드로도)
     image: str | None = None
+    #: 캐릭터 연기 지시. 문자열(연기 이름)이나 {"action": …}. 없으면 장면 글에서 상황을 읽어 고른다
+    visual: str | dict | None = None
 
 
 @dataclass
@@ -94,6 +104,8 @@ class Script:
     title: str
     scenes: list[Scene]
     footer: str = "devlog.life"
+    #: 장면별 효과음(다른 연출이 얹는 소리). 캐릭터 연기 효과음은 렌더할 때 따로 더한다
+    effects: list = field(default_factory=list)
 
     @staticmethod
     def from_job(job: dict, site: str = "devlog.life") -> "Script":
@@ -104,14 +116,16 @@ class Script:
             image = s.get("image") or (cover if k == 0 else None)
             if image and image.startswith("/"):
                 image = origin + image
-            scenes.append(Scene(s.get("caption") or "", s.get("narration") or "", s.get("code"), image))
+            scenes.append(Scene(s.get("caption") or "", s.get("narration") or "", s.get("code"), image, s.get("visual")))
         post_url = job.get("postUrl")
         handle = job.get("handle")
         if post_url:  # 바탕 글이 있으면 그 글 주소(서버는 사이트 안 경로를 준다)
             footer = post_url.split("://", 1)[-1] if "://" in post_url else site + post_url
         else:
             footer = f"{site}/@{handle}" if handle else site
-        return Script(job.get("title") or "", scenes, footer)
+        effects = [sfx.Effect(int(e["scene"]), float(e.get("at") or 0), str(e["sound"]), float(e.get("volume") or 0.6))
+                   for e in job.get("effects") or [] if isinstance(e, dict) and e.get("sound") in sfx.SOUNDS]
+        return Script(job.get("title") or "", scenes, footer, effects)
 
 
 @dataclass
@@ -165,7 +179,7 @@ def find_font(explicit: str | None = None, mono: bool = False) -> str:
 
 class Renderer:
     def __init__(self, font: str, mono_font: str, engine: str = "auto", ffmpeg: str = "ffmpeg", voice: str | None = None,
-                 music: str | None = None):
+                 music: str | None = None, character: bool = True):
         self.font = font
         self.mono_font = mono_font
         self.engine = tts.pick(engine)
@@ -173,6 +187,8 @@ class Renderer:
         self.voice = voice
         #: None이면 직접 합성한 배경음, "none"이면 배경음 없음, 아니면 음악 파일 경로
         self.music = music
+        #: 2D 캐릭터가 상황을 연기하는 무대를 쓸지(Pillow 필요)
+        self.character = character
 
     def render(self, script: Script, out: Path) -> int:
         """MP4를 만들고 길이(ms)를 돌려준다."""
@@ -187,10 +203,16 @@ class Renderer:
             timings = plan(speech, words, [s.narration for s in script.scenes])
             total = timings[-1].start + timings[-1].length
             images = [self._image(work, i, s.image) for i, s in enumerate(script.scenes)]
-            segments = [self._encode(work, i, timings[i], images[i], self._filters(work, script, i, scene, timings[i], total, images[i] is not None))
+            stages = self._stages(script, audios, timings)
+            segments = [self._encode(work, i, timings[i], images[i], stages[i],
+                                     self._filters(work, script, i, scene, timings[i], total, images[i] is not None, stages[i] is not None))
                         for i, scene in enumerate(script.scenes)]
+            effects = list(script.effects)
+            for i, act in enumerate(stages):
+                if act is not None:
+                    effects += [sfx.Effect(i, at, name, volume) for name, at, volume in act.effects()]
             joined = work / "out.mp4"
-            self._join(work, segments, audios, timings, total, joined)
+            self._join(work, segments, audios, timings, total, joined, effects)
             out.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(joined), str(out))
         return probe_ms(out, self.ffmpeg)
@@ -251,7 +273,21 @@ class Renderer:
                                 "-vf", f"format=rgb24,{draw.background_expr(palette, bw, bh)}", bg.name])
         return ["-loop", "1", "-framerate", str(FPS), "-i", bg.name]
 
-    def _encode(self, work: Path, i: int, timing: Timing, image: Path | None, filters: str) -> Path:
+    def _stages(self, script: Script, audios: list[Path], timings: list[Timing]) -> list:
+        """장면마다 캐릭터 무대. Pillow가 없거나 --no-character면 모두 None(글자 화면)."""
+        if stage is None or not self.character:
+            return [None] * len(script.scenes)
+        fonts = stage.Fonts(self.font, self.mono_font)
+        everything = " ".join(f"{s.caption} {s.narration}" for s in script.scenes)
+        out = []
+        for i, scene in enumerate(script.scenes):
+            visual = stage.infer(scene, everything)
+            t = timings[i]
+            out.append(stage.Stage(visual, fonts, t.length, t.lead, t.speech, stage.mouth_envelope(audios[i], FPS), FPS, first=i == 0))
+            log.info("장면 %d 연기: %s", i + 1, visual.action)
+        return out
+
+    def _encode(self, work: Path, i: int, timing: Timing, image: Path | None, act, filters: str) -> Path:
         """장면 영상(소리 없음). 마지막에 다시 인코딩하므로 여기서는 화질을 거의 잃지 않게 만든다."""
         seg = work / f"s{i}.mp4"
         bw, bh = round(layout.WIDTH * BG_SCALE / 2) * 2, round(layout.HEIGHT * BG_SCALE / 2) * 2
@@ -262,17 +298,51 @@ class Renderer:
                  f":y='{dy:.1f}-{dy * 0.8:.1f}*(t/{timing.length:.3f}-0.5)'")
         inputs = self._background(work, i, image)
         graph = f"[0:v]{drift},setsar=1,format=yuv420p[bg]"
-        if image is not None:
+        if act is not None:
+            # 캐릭터 무대: 파이썬이 그린 RGBA 프레임을 표준 입력으로 받아 배경 위에 겹친다
+            inputs += ["-f", "rawvideo", "-pix_fmt", "rgba", "-s", f"{layout.WIDTH}x{stage.STAGE_H}", "-r", str(FPS), "-i", "pipe:0"]
+            graph += f";[1:v]format=rgba[stage];[bg][stage]overlay=x=0:y={STAGE_Y}:eof_action=repeat[bg]"
+        elif image is not None:
             inputs += ["-loop", "1", "-framerate", str(FPS), "-i", image.name]
             graph += (f";[1:v]scale={IMAGE_BOX[0]}:{IMAGE_BOX[1]}:force_original_aspect_ratio=decrease,format=yuva420p,"
                       f"fade=in:st={timing.lead:.3f}:d=0.35:alpha=1[img];"
                       f"[bg][img]overlay=x=(W-w)/2:y={MIDDLE_TOP}+({IMAGE_BOX[1]}-h)/2[bg]")
         graph += f";[bg]{filters},format=yuv420p[v]"
-        self._ffmpeg(work, [*inputs, "-filter_complex", graph, "-map", "[v]", "-t", f"{timing.length:.3f}", "-r", str(FPS),
-                            "-c:v", "libx264", "-preset", "veryfast", "-crf", "12", "-pix_fmt", "yuv420p", "-an", seg.name])
+        args = [*inputs, "-filter_complex", graph, "-map", "[v]", "-t", f"{timing.length:.3f}", "-r", str(FPS),
+                "-c:v", "libx264", "-preset", "veryfast", "-crf", "12", "-pix_fmt", "yuv420p", "-an", seg.name]
+        if act is None:
+            self._ffmpeg(work, args)
+        else:
+            frames = (act.frame(n / FPS) for n in range(int(math.ceil(timing.length * FPS)) + 1))
+            self._ffmpeg_pipe(work, args, frames)
         return seg
 
-    def _filters(self, work: Path, script: Script, i: int, scene: Scene, timing: Timing, total: float, has_image: bool) -> str:
+    def _ffmpeg_pipe(self, work: Path, args: list[str], frames) -> None:
+        """프레임을 표준 입력으로 흘려 넣는 ffmpeg. 오류 메시지는 임시 파일로 받아 파이프가 막히지 않게 한다."""
+        with tempfile.TemporaryFile() as err:
+            proc = subprocess.Popen([self.ffmpeg, "-y", "-loglevel", "error", *args], cwd=work, stdin=subprocess.PIPE,
+                                    stdout=subprocess.DEVNULL, stderr=err)
+            try:
+                for data in frames:
+                    proc.stdin.write(data)
+            except BrokenPipeError:
+                pass  # ffmpeg가 먼저 끝났다(-t 도달 또는 오류). 아래에서 종료 코드로 가린다
+            finally:
+                try:
+                    proc.stdin.close()
+                except BrokenPipeError:
+                    pass
+            try:
+                code = proc.wait(timeout=FFMPEG_TIMEOUT)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                raise RuntimeError(f"ffmpeg가 {FFMPEG_TIMEOUT}초 안에 끝나지 않았어요.") from None
+            if code != 0:
+                err.seek(0)
+                raise RuntimeError(f"ffmpeg 실패 (코드 {code}): {err.read().decode('utf-8', 'replace').strip()[-400:]}")
+
+    def _filters(self, work: Path, script: Script, i: int, scene: Scene, timing: Timing, total: float, has_image: bool,
+                 has_stage: bool = False) -> str:
         font = "font" + Path(self.font).suffix
         mono = "mono" + Path(self.mono_font).suffix
         c = draw.Canvas(work, f"t{i}", font, mono)
@@ -284,7 +354,7 @@ class Renderer:
             c.text(title[0], 38, MUTED, 150, alpha="0.9")
 
         # 요점 자막: 가운데에 그릴 것(코드·이미지)이 있으면 위쪽에, 없으면 화면 가운데에 크게
-        middle = bool(scene.code) or has_image
+        middle = bool(scene.code) or has_image or has_stage
         size = 88 if middle else 104
         lines = layout.wrap(scene.caption, 10.5 if middle else 9, 3)
         gap = round(size * 1.24)
@@ -296,7 +366,7 @@ class Renderer:
             grow = "max(2,120*clip((t-0.15)/0.3,0,1))"
             c.box(f"'({layout.WIDTH}-{grow})/2'", top + len(lines) * gap + 10, f"'{grow}'", 8, CAPTION_BAR, enable=draw.after(0.15))
 
-        if scene.code:
+        if scene.code and not has_stage:  # 캐릭터 무대에서는 모니터 소품이 코드를 보여 준다
             self._code(c, scene.code, lead, timing.speech)
 
         # 구절 자막: 화면 아래 1/3, 음성에 맞춰 한 구절씩
@@ -330,8 +400,12 @@ class Renderer:
                 x = 112 + round(len(code_part) * 38 * MONO_ADVANCE)
                 c.text(comment, 38, CODE_COMMENT, y, x=str(x), mono=True, alpha=draw.fade_in(at, 0.12), enable=draw.after(at))
 
-    def _join(self, work: Path, segments: list[Path], audios: list[Path], timings: list[Timing], total: float, out: Path) -> None:
-        """장면을 xfade로 잇고, 내레이션을 제자리에 놓고, 배경음을 깔아 한 번에 최종 인코딩한다."""
+    def _join(self, work: Path, segments: list[Path], audios: list[Path], timings: list[Timing], total: float, out: Path,
+              effects: list | None = None) -> None:
+        """장면을 xfade로 잇고, 내레이션을 제자리에 놓고, 배경음을 깔고, 효과음을 얹어 한 번에 최종 인코딩한다.
+
+        효과음(sfx.Effect)은 장면이 화면에 나오기 시작한 시각(timings[scene].start) + at에 놓는다. 같은 소리 파일은 입력 하나를
+        asplit으로 나눠 쓴다. 효과음은 배경음 줄이기(ducking)의 기준에 넣지 않는다(내레이션만 기준)."""
         n = len(segments)
         args: list[str] = []
         for seg in segments:
@@ -341,6 +415,15 @@ class Renderer:
         music = self._music()
         if music:
             args += ["-stream_loop", "-1", "-i", str(music)]
+        placed: dict[str, list[tuple[float, float]]] = {}
+        for e in effects or []:
+            if 0 <= e.scene < n:
+                at = timings[e.scene].start + max(0.0, e.at)
+                if at < total:
+                    placed.setdefault(str(sfx.path(e.path).resolve()), []).append((at, e.volume))
+        sfx_base = 2 * n + (1 if music else 0)
+        for path in placed:
+            args += ["-i", path]
 
         graph = []
         if n == 1:
@@ -364,7 +447,19 @@ class Renderer:
             graph.append("[nar1][duck]amix=inputs=2:normalize=0:duration=first[mix]")
         else:
             graph.append("[nar]anull[mix]")
-        graph.append("[mix]loudnorm=I=-14:TP=-1.5:LRA=11,aresample=44100[a]")
+        if placed:
+            labels = []
+            for k, (path, uses) in enumerate(placed.items()):
+                split = "".join(f"[e{k}_{j}]" for j in range(len(uses)))
+                graph.append(f"[{sfx_base + k}:a]aresample=44100,aformat=channel_layouts=stereo,asplit={len(uses)}{split}")
+                for j, (at, volume) in enumerate(uses):
+                    graph.append(f"[e{k}_{j}]volume={volume:.2f},adelay={round(at * 1000)}:all=1[f{k}_{j}]")
+                    labels.append(f"[f{k}_{j}]")
+            graph.append(f"{''.join(labels)}amix=inputs={len(labels)}:normalize=0:duration=longest[fx]")
+            graph.append("[mix][fx]amix=inputs=2:normalize=0:duration=first[mixfx]")
+            graph.append("[mixfx]loudnorm=I=-14:TP=-1.5:LRA=11,aresample=44100[a]")
+        else:
+            graph.append("[mix]loudnorm=I=-14:TP=-1.5:LRA=11,aresample=44100[a]")
 
         rate = min(VIDEO_MAXRATE, int(MAX_BYTES * 8 / max(total, 1) - AUDIO_BITRATE))
         self._ffmpeg(work, [

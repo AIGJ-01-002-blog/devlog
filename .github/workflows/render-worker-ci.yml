@@ -39,6 +39,8 @@ jobs:
       - name: ffmpeg·한국어 글꼴 (리눅스)
         if: runner.os == 'Linux'
         run: sudo apt-get update -q && sudo apt-get install -yq ffmpeg fonts-noto-cjk
+      - name: 파이썬 패키지 (신경망 음성·캐릭터)
+        run: python -m pip install -q -r requirements.txt
       - name: 테스트
         env:
           PYTHONUTF8: "1"

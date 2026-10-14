@@ -6,11 +6,27 @@ devlog 쇼츠 스튜디오(spec 099)에서 [영상 만들기]를 누른 대본�
 - 음성: 무료 신경망 한국어 음성(edge-tts `ko-KR-SunHiNeural`)이 기본이에요. `--voice ko-KR-InJoonNeural`처럼 바꿀 수 있어요.
   인터넷이 막혔거나 실패하면 영상 전체를 기기 음성으로 다시 만들어요: 맥 `say`(Yuna), Windows 기본 한국어 음성(Heami), 리눅스 `espeak-ng`, 없으면 무음
 - 자막: 내레이션을 1~2줄 구절로 나눠 음성에 맞춰 한 구절씩 띄워요(신경망 음성은 단어마다 소리 나는 시각을 받아 맞춰요). 요점 자막은 0.25초 안에 떠올라요
-- 화면: 장면마다 천천히 흐르는 그라데이션 배경, 코드는 한 줄씩 써지고, 글 이미지(`image`·`coverImage`)가 있으면 흐린 배경과 가운데 카드로 써요
+- 캐릭터: 크림색 2D 고양이가 장면마다 상황을 연기해요(Pillow 필요, 없으면 글자 화면). 말할 때 소리 크기에 맞춰 입을 움직이고 눈을 깜빡여요.
+  연기는 대본 장면의 `visual`(아래 표)을 따르고, 없으면 장면 글에서 상황을 읽어 골라요. 연기마다 효과음(뿅·띵·휙)이 붙어요
+
+  | visual | 연기 | 글에서 고르는 단서 |
+  |---|---|---|
+  | `explain` | 손 흔들며 설명 | (기본) |
+  | `shock` | 자료가 휴지통으로 빨려 들어가고 깜짝 놀라 울먹임 | 사라졌·지웠·삭제·날렸 |
+  | `typing` | 모니터에 코드가 써지고 문제 줄은 빨강, 고친 줄은 초록 | 장면에 코드가 있으면 |
+  | `panic` | 요청이 서버로 쏟아지고 숫자가 올라가며 머리를 감쌈 | 요청·트래픽·폭주·무한 |
+  | `restore` | 백업 상자에서 DB가 차오르고 만세 | 복원·되살·백업 |
+  | `wait` | 로딩 화면 앞에서 시간이 올라가며 졸음 | 걸렸·느려·로딩 |
+  | `fast` | 전·후 막대와 "N배 빨라짐" 환호 | 빨라·떨어졌 + 시간 두 개 |
+  | `idea` | 머리 위에 전구 | ~하세요·~보세요·팁·켜 두 |
+  | `protect` | 방패를 들고 당당하게 | 막았·지켜·보안 |
+  | `think` | 턱을 괴고 물음표 | 원인·왜·범인·이유 |
+  | `celebrate` | 별 속에서 폴짝 | 성공·해결·완성 |
+- 화면: 장면마다 천천히 흐르는 그라데이션 배경, 글 이미지(`image`·`coverImage`)가 있으면 흐린 배경으로 써요(캐릭터가 없을 때는 가운데 카드로도)
 - 배경음: 워커가 직접 합성한 잔잔한 반복 음악(저작권 걱정 없음)을 깔고 말할 때 소리를 낮춰요. 다른 음악은 `--bgm 파일`, 끄려면 `--bgm none`
 - 전환: 장면 사이 0.3초 페이드, 장면 끝 쉼 0.15초. 소리는 쇼츠 기준 -14 LUFS로 맞춰요
 - 글꼴: 맥 Apple SD Gothic Neo, Windows 맑은 고딕, 리눅스 Noto Sans CJK (바꾸려면 `--font`)
-- 필요한 것: Python 3.10 이상, ffmpeg. 신경망 음성은 `pip install -r requirements.txt`(edge-tts)
+- 필요한 것: Python 3.10 이상, ffmpeg. 신경망 음성·캐릭터는 `pip install -r requirements.txt`(edge-tts, Pillow)
 
 ## 설치
 
@@ -62,10 +78,11 @@ python3 -m devlog_render render script.json out.mp4
 
 ```json
 {"title": "도커 볼륨 날린 날", "handle": "minseo", "coverImage": "/uploads/cover.png",
- "scenes": [{"caption": "볼륨이 사라졌어요", "narration": "어제 도커 볼륨을 지웠더니 글이 전부 사라졌어요.", "code": null, "image": null}]}
+ "scenes": [{"caption": "볼륨이 사라졌어요", "narration": "어제 도커 볼륨을 지웠더니 글이 전부 사라졌어요.", "code": null, "image": null, "visual": "shock"}],
+ "effects": [{"scene": 0, "at": 1.2, "sound": "ding", "volume": 0.5}]}
 ```
 
-`samples/`의 견본 대본 3개로 품질을 비교해요. PR을 올리면 CI(`render-worker-ci`의 samples)가 신경망 음성으로 만든 견본 영상을 `shorts-samples`로 올려요.
+`effects`는 장면이 화면에 나온 뒤 `at`초에 내장 효과음(pop·ding·whoosh·boing·tick·typing)을 얹어요. `samples/`의 견본 대본 3개로 품질을 비교해요. PR을 올리면 CI(`render-worker-ci`의 samples)가 신경망 음성으로 만든 견본 영상을 `shorts-samples`로 올려요.
 
 ## 테스트
 
