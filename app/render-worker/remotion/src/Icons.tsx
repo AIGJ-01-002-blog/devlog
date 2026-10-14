@@ -34,7 +34,7 @@ const GUESS: [RegExp, string][] = [
   [/라우터|router|게이트웨이|gateway|로드 ?밸런서/i, 'router'],
   [/클라우드|cloud|S3/i, 'cloud'],
   [/보안|암호|인증|로그인|권한|auth/i, 'lock'],
-  [/토큰|token|API ?키|비밀 ?키|key/i, 'key'],
+  [/세션|session|쿠키|cookie|토큰|token|API ?키|비밀 ?키|key/i, 'key'],
   [/해시|hash/i, 'hash'],
   [/깃|git|브랜치|branch|커밋|commit/i, 'git-branch'],
   [/버그|bug|에러|오류|예외/i, 'bug'],
