@@ -144,6 +144,7 @@ export function Header() {
                     <Link to="/settings" role="menuitem"><NavIcon name="settings" />{t('내 설정')}</Link>
                     <Link to={`/@${member.handle}`} role="menuitem"><NavIcon name="blog" />{t('내 블로그')}</Link>
                     <Link to="/manage/posts" role="menuitem"><NavIcon name="posts" />{t('내 글 관리')}</Link>
+                    {me?.features?.shorts && <Link to="/studio" role="menuitem" title={t('글로 쇼츠 대본을 쓰고 영상 만들기')}><NavIcon name="video" />{t('쇼츠 스튜디오')}</Link>}
                     {mobileExtra.length > 0 && (
                       <div className="menu-mobile-only" role="none">
                         <div className="menu-sep" role="separator" />

@@ -26,6 +26,7 @@ import com.team.blog.account.application.SignupService;
 import com.team.blog.account.infra.oauth.SocialAvatarRelay;
 import com.team.blog.media.ProfileImages;
 import com.team.blog.shared.config.BlogProperties;
+import com.team.blog.shorts.application.ShortsProperties;
 import com.team.blog.shared.error.ApiException;
 import com.team.blog.shared.security.CurrentMember;
 import com.team.blog.shared.security.LoginSessions;
@@ -44,11 +45,12 @@ public class AuthController {
     private final LoginSessions sessions;
     private final SocialAvatarRelay avatarRelay;
     private final BlogProperties props;
+    private final ShortsProperties shortsProps;
     private final Clock clock;
 
     public AuthController(SignupService signupService, AgreementService agreementService, MemberQueryService memberQuery,
                           EmailVerification verification, ProfileImages profileImages, LoginSessions sessions,
-                          SocialAvatarRelay avatarRelay, BlogProperties props, Clock clock) {
+                          SocialAvatarRelay avatarRelay, BlogProperties props, ShortsProperties shortsProps, Clock clock) {
         this.signupService = signupService;
         this.agreementService = agreementService;
         this.memberQuery = memberQuery;
@@ -57,12 +59,16 @@ public class AuthController {
         this.sessions = sessions;
         this.avatarRelay = avatarRelay;
         this.props = props;
+        this.shortsProps = shortsProps;
         this.clock = clock;
     }
 
     /** @param emailVerified 메일 인증 전이면 쓰기 행동이 막힌다 (004 FR-008) */
     public record MeResponse(boolean authenticated, MemberView member, boolean agreementRequired,
-                             PreviousLogin previousLogin, boolean pendingSignup, boolean emailVerified) {}
+                             PreviousLogin previousLogin, boolean pendingSignup, boolean emailVerified, Features features) {}
+
+    /** 서버 설정으로 켜고 끄는 기능. 화면이 메뉴를 보일지 정한다 (099 FR-008) */
+    public record Features(boolean shorts) {}
 
     public record MemberView(long id, String handle, String nickname, String role, String defaultVisibility, String status,
                              String profileImageUrl) {}
@@ -75,7 +81,7 @@ public class AuthController {
         if (principal == null) {
             HttpSession session = request.getSession(false);
             boolean pending = session != null && validPending(session) != null;
-            return new MeResponse(false, null, false, null, pending, false);
+            return new MeResponse(false, null, false, null, pending, false, features());
         }
         MemberView view = memberQuery.findById(principal.id())
                 .map(m -> new MemberView(m.id(), m.handle(), m.nickname(), principal.role(), m.defaultVisibility().name(), m.status().name(),
@@ -83,7 +89,11 @@ public class AuthController {
                 .orElse(null);
         return new MeResponse(view != null, view, principal.agreementRequired(),
                 new PreviousLogin(principal.previousLoginAt(), principal.provider()), false,
-                view != null && verification.isVerified(principal.id()));
+                view != null && verification.isVerified(principal.id()), features());
+    }
+
+    private Features features() {
+        return new Features(shortsProps.enabled());
     }
 
     public record SignupDraftResponse(String provider, String prefix, String handleBody, String nickname, String email,

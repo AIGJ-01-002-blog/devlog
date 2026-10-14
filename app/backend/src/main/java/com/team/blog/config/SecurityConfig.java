@@ -39,6 +39,7 @@ import com.team.blog.mcp.web.McpUploadController;
 import com.team.blog.shared.config.BlogProperties;
 import com.team.blog.shared.web.ClientIpResolver;
 import com.team.blog.shared.web.RateLimiter;
+import com.team.blog.shorts.web.RenderWorkerController;
 
 /**
  * 세션 쿠키 + CSRF 토큰 (docs/02 §5, 2026-10-07 Q2·H7). 권한의 최종 판정은 Service 계층이 하고(헌법 II),
@@ -83,14 +84,14 @@ public class SecurityConfig {
 
     /**
      * MCP 서버와 OAuth 토큰·등록 (052): 세션 쿠키도 CSRF도 쓰지 않는다. MCP는 접근 토큰(Bearer)만 보고, 토큰 확인은 컨트롤러가 한다.
-     * AI용 사진 올리기 주소(060)는 한 번 쓰는 표가 곧 권한이다.
+     * AI용 사진 올리기 주소(060)는 한 번 쓰는 표가 곧 권한이다. 쇼츠 렌더 워커 API(099)는 X-Render-Token만 본다.
      * 쿠키를 보지 않으니 다른 사이트가 로그인한 브라우저로 보내는 요청(CSRF)은 통하지 않는다.
      */
     @Bean
     @Order(0)
     SecurityFilterChain mcpFilterChain(HttpSecurity http, ContentSecurityPolicy csp) {
         http
-                .securityMatcher(McpController.PATH, McpUploadController.PATH, "/api/oauth/token", "/api/oauth/register")
+                .securityMatcher(McpController.PATH, McpUploadController.PATH, RenderWorkerController.PATH, "/api/oauth/token", "/api/oauth/register")
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .securityContext(c -> c.securityContextRepository(new RequestAttributeSecurityContextRepository()))
