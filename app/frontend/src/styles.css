@@ -2642,8 +2642,8 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
   box-shadow: inset 0 1.5px 0 color-mix(in srgb, var(--tier-spark) 70%, transparent), inset 0 -1.5px 0 color-mix(in srgb, var(--tb) 80%, black), 0 0 12px 1px var(--ta);
 }
 .deco-frame:is([data-frame="master"], [data-frame="grandmaster"], [data-frame="challenger"]) {
+  /* 숨 쉬는 빛은 box-shadow를 움직이지 않고(웹 인터페이스 지침: transform·opacity만 움직인다) ::before 번쩍임이 맡는다 */
   --tg: color-mix(in srgb, var(--ta) 45%, var(--tb)); --tg2: var(--ta); --spin: 2.2s; --flash: 2.6s;
-  animation: tier-breathe var(--flash) ease-in-out infinite;
 }
 .deco-frame[data-frame="grandmaster"] { --spin: 1.7s; --flash: 2.2s; }
 .deco-frame[data-frame="challenger"] {
@@ -2673,7 +2673,6 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
   animation: tier-spin 2.4s linear infinite;
 }
 @keyframes tier-spin { to { transform: rotate(360deg); } }
-@keyframes tier-breathe { 50% { box-shadow: 0 0 22px 4px var(--tg, var(--ta)); } }
 @keyframes tier-flash { 0%, 62% { opacity: 0; transform: scale(0.96); } 70% { opacity: 1; transform: scale(1.04); } 100% { opacity: 0; transform: scale(1.16); } }
 @keyframes tier-twinkle { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
 @keyframes tier-sweep { from { background-position: 160% 0; } to { background-position: -60% 0; } }
