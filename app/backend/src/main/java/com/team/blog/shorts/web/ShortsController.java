@@ -24,6 +24,7 @@ import com.team.blog.shorts.application.ShortsService;
  *   <li>PUT /api/me/shorts/{id}: 대본 고치기 (완성 영상은 지워지고 대본 상태로)</li>
  *   <li>POST /api/me/shorts/{id}/check: 양산형 방지 검사만</li>
  *   <li>POST /api/me/shorts/{id}/render: 검사를 통과하면 대기열에 넣기</li>
+ *   <li>PUT·DELETE /api/me/shorts/{id}/uploads/{platform}: 직접 올린 영상 주소 남기기·지우기 (youtube·instagram·tiktok)</li>
  * </ul>
  */
 @RestController
@@ -62,6 +63,17 @@ public class ShortsController {
     @PostMapping("/api/me/shorts/{id}/render")
     public ShortsService.Item render(@CurrentMember MemberPrincipal me, @PathVariable long id) {
         return shorts.render(me.id(), id);
+    }
+
+    @PutMapping("/api/me/shorts/{id}/uploads/{platform}")
+    public ShortsService.Item recordUpload(@CurrentMember MemberPrincipal me, @PathVariable long id, @PathVariable String platform,
+                                           @RequestBody ShortsService.UploadBody body) {
+        return shorts.recordUpload(me.id(), id, platform, body);
+    }
+
+    @DeleteMapping("/api/me/shorts/{id}/uploads/{platform}")
+    public ShortsService.Item deleteUpload(@CurrentMember MemberPrincipal me, @PathVariable long id, @PathVariable String platform) {
+        return shorts.deleteUpload(me.id(), id, platform);
     }
 
     @DeleteMapping("/api/me/shorts/{id}")

@@ -2354,6 +2354,20 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 .badge-danger { background: color-mix(in srgb, var(--color-danger) 14%, transparent); color: var(--color-danger); }
 .studio-new { display: flex; flex-direction: column; gap: 14px; max-width: 520px; }
 .studio-new select { width: 100%; }
+/* 직접 올리기 안내 (이슈 238). 붙여 넣을 문구는 줄바꿈을 그대로 보여 주고 휴대폰에서 가로로 넘치지 않게 감싼다 */
+.studio-guide { margin: 8px 0 24px; padding: 16px 0 24px; border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); display: flex; flex-direction: column; gap: 12px; }
+.studio-guide h2 { margin: 0; font-size: 1.125rem; }
+.studio-guide [role="tabpanel"] { display: flex; flex-direction: column; gap: 12px; }
+.studio-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.studio-guide .field .label { font-weight: 600; font-size: 0.9375rem; }
+.studio-guide .copy-code pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.875rem; }
+.studio-guide .copy-code pre, .studio-guide .copy-code code { font-family: inherit; }
+.studio-checks { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.875rem; }
+.studio-checks .ok { color: var(--color-ok-text); }
+.studio-checks .over { color: var(--color-danger); font-weight: 600; }
+.studio-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.studio-upload-row { display: flex; gap: 8px; align-items: center; }
+.studio-upload-row input { flex: 1; min-width: 0; }
 @media (max-width: 760px) {
   .studio-layout { grid-template-columns: 1fr; }
   .studio-video video { max-width: 100%; max-height: 70vh; }

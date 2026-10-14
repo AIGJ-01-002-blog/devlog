@@ -48,6 +48,18 @@ export interface ShortsItem {
   createdAt: string
   updatedAt: string
   version: number
+  /** 바탕 글의 태그 (올리기 안내의 해시태그) */
+  postTags: string[]
+  /** 직접 올린 뒤 남긴 영상 주소 */
+  uploads: ShortsUpload[]
+}
+
+export type Platform = 'YOUTUBE' | 'INSTAGRAM' | 'TIKTOK'
+
+export interface ShortsUpload {
+  platform: Platform
+  url: string
+  uploadedAt: string
 }
 
 export interface ShortsOverview {
@@ -128,3 +140,137 @@ export const saveShorts = (id: number, body: { title: string; scenes: Scene[]; v
 export const checkShorts = (id: number) => api<OriginalityReport>(`/api/me/shorts/${id}/check`, { method: 'POST' })
 export const renderShorts = (id: number) => api<ShortsItem>(`/api/me/shorts/${id}/render`, { method: 'POST' })
 export const deleteShorts = (id: number) => api<void>(`/api/me/shorts/${id}`, { method: 'DELETE' })
+
+export const recordUpload = (id: number, platform: Platform, url: string) =>
+  api<ShortsItem>(`/api/me/shorts/${id}/uploads/${platform.toLowerCase()}`, { method: 'PUT', body: { url } })
+export const deleteUpload = (id: number, platform: Platform) =>
+  api<ShortsItem>(`/api/me/shorts/${id}/uploads/${platform.toLowerCase()}`, { method: 'DELETE' })
+
+/**
+ * 플랫폼별 직접 올리기 안내 (#238). devlog는 아무 데도 올리지 않고, 올릴 때 붙여 넣을 문구와 순서만 준다.
+ * 제한 값은 2026년 10월에 확인한 각 플랫폼 안내 기준이다. 우리 영상은 60초 이하 9:16이라 길이·비율은 늘 맞고,
+ * 글자 수와 해시태그 수만 문구에 따라 넘칠 수 있다. 넘치면 화면이 알려 주고 문구는 잘라 두지 않는다(내가 고쳐 쓰게).
+ */
+export interface PlatformSpec {
+  id: Platform
+  name: string
+  /** 제목 칸이 따로 있으면 그 글자 수 한도 */
+  titleMax: number | null
+  captionMax: number
+  hashtagMax: number
+  secondsMax: number
+  /** 설명·캡션의 링크를 누를 수 있는가. 못 누르면 고정 댓글·프로필 링크로 안내한다 */
+  linksClickable: boolean
+  uploadUrl: string
+}
+
+export const PLATFORMS: PlatformSpec[] = [
+  { id: 'YOUTUBE', name: 'YouTube Shorts', titleMax: 100, captionMax: 5000, hashtagMax: 3, secondsMax: 180, linksClickable: true, uploadUrl: 'https://studio.youtube.com' },
+  { id: 'INSTAGRAM', name: 'Instagram Reels', titleMax: null, captionMax: 2200, hashtagMax: 5, secondsMax: 180, linksClickable: false, uploadUrl: 'https://www.instagram.com' },
+  { id: 'TIKTOK', name: 'TikTok', titleMax: null, captionMax: 2200, hashtagMax: 5, secondsMax: 600, linksClickable: false, uploadUrl: 'https://www.tiktok.com/upload' },
+]
+
+export const platformSpec = (id: Platform) => PLATFORMS.find((p) => p.id === id)!
+
+/** 태그를 해시태그로: 해시태그에 못 쓰는 글자(. + # -)를 빼고, 겹치면 하나만 */
+export function hashtags(tags: string[], max: number): string[] {
+  const out: string[] = []
+  for (const tag of tags) {
+    const word = tag.replace(/[^\p{L}\p{N}_]/gu, '')
+    if (word && !out.includes(`#${word}`)) out.push(`#${word}`)
+    if (out.length >= max) break
+  }
+  return out
+}
+
+export interface GuideCheck {
+  ok: boolean
+  label: string
+}
+
+export interface UploadGuide {
+  spec: PlatformSpec
+  title: string | null
+  caption: string
+  pinnedComment: string
+  tags: string[]
+  checks: GuideCheck[]
+  steps: string[]
+}
+
+/** 첫 장면 내레이션을 설명 첫 줄로 쓴다(영상의 첫마디와 같은 이야기로 시작하게) */
+function hook(item: ShortsItem): string {
+  return item.scenes.find((s) => s.narration.trim())?.narration.trim() ?? ''
+}
+
+export function uploadGuide(item: ShortsItem, platform: Platform, origin: string): UploadGuide {
+  const spec = platformSpec(platform)
+  const link = new URL(item.postUrl ?? '/', origin).href
+  const tags = hashtags(item.postTags, spec.hashtagMax)
+  const tagLine = tags.join(' ')
+  const linkLine = spec.linksClickable ? t('전체 글: {0}', { 0: link }) : t('전체 글은 고정 댓글의 주소에서 볼 수 있어요.')
+  const parts = spec.titleMax === null ? [item.title, hook(item), linkLine, tagLine] : [hook(item), linkLine, tagLine]
+  const caption = parts.filter(Boolean).join('\n\n')
+  const title = spec.titleMax === null ? null : item.title
+  const seconds = (item.durationMs ?? item.estimatedSeconds * 1000) / 1000
+  const checks: GuideCheck[] = [
+    { ok: seconds <= spec.secondsMax, label: t('길이 {0}초 (최대 {1}초)', { 0: Math.round(seconds), 1: spec.secondsMax }) },
+    { ok: true, label: t('세로 9:16 (1080×1920)') },
+    ...(title === null ? [] : [{ ok: [...title].length <= (spec.titleMax ?? 0), label: t('제목 {0}자 (최대 {1}자)', { 0: [...title].length, 1: spec.titleMax ?? 0 }) }]),
+    { ok: [...caption].length <= spec.captionMax, label: t('설명 {0}자 (최대 {1}자)', { 0: [...caption].length, 1: spec.captionMax }) },
+    // 글 태그가 많으면 앞에서부터 한도만큼만 쓰니 늘 맞는다. 붙여 넣은 뒤 내가 더 달면 넘칠 수 있어 한도를 보여 준다
+    { ok: tags.length <= spec.hashtagMax, label: t('해시태그 {0}개 (최대 {1}개)', { 0: tags.length, 1: spec.hashtagMax }) },
+  ]
+  return {
+    spec, title, caption, tags, checks,
+    pinnedComment: t('과정과 코드는 블로그에 정리해 뒀어요: {0}', { 0: link }),
+    steps: uploadSteps(platform),
+  }
+}
+
+function uploadSteps(platform: Platform): string[] {
+  switch (platform) {
+    case 'YOUTUBE': return [
+      t('[영상 받기]로 MP4를 받아요. 휴대폰이면 [앱으로 보내기]를 눌러 YouTube 앱을 골라요.'),
+      t('YouTube 앱에서 + → 동영상 업로드(PC는 YouTube 스튜디오 → 만들기 → 동영상 업로드)로 파일을 골라요.'),
+      t('제목과 설명에 아래 문구를 붙여 넣어요.'),
+      t('아동용 아님을 고르고, 목소리를 AI로 만든 사람 목소리처럼 들리면 변경된 콘텐츠를 예로 표시해요.'),
+      t('공개로 올린 뒤 고정 댓글을 달고, 영상 주소를 아래에 남겨요.'),
+    ]
+    case 'INSTAGRAM': return [
+      t('[영상 받기]로 MP4를 받아요. 휴대폰이면 [앱으로 보내기]를 눌러 Instagram을 골라요.'),
+      t('Instagram 앱에서 + → 릴스로 영상을 골라요. 이미 자막과 음성이 있으니 음악은 넣지 않아도 돼요.'),
+      t('캡션에 아래 문구를 붙여 넣어요. 캡션 링크는 누를 수 없으니 프로필 링크에 블로그 주소를 걸어 두면 좋아요.'),
+      t('AI 음성을 썼다면 고급 설정에서 AI 정보 표시를 켜요.'),
+      t('공유한 뒤 고정 댓글을 달고, 릴스 주소(공유 → 링크 복사)를 아래에 남겨요.'),
+    ]
+    case 'TIKTOK': return [
+      t('[영상 받기]로 MP4를 받아요. 휴대폰이면 [앱으로 보내기]를 눌러 TikTok을 골라요.'),
+      t('TikTok 앱에서 + → 업로드로 영상을 골라요(PC는 tiktok.com/upload).'),
+      t('설명에 아래 문구를 붙여 넣어요. 설명 링크는 누를 수 없으니 고정 댓글로 안내해요.'),
+      t('AI 음성을 썼다면 더 보기 옵션에서 AI 생성 콘텐츠 표시를 켜요.'),
+      t('게시한 뒤 고정 댓글을 달고, 영상 주소(공유 → 링크 복사)를 아래에 남겨요.'),
+    ]
+  }
+}
+
+/**
+ * 휴대폰에서 영상을 바로 SNS 앱으로 넘긴다(Web Share API, 파일 공유). 못 쓰는 브라우저면 false를 돌려주고 화면은 [영상 받기]로 안내한다.
+ */
+export async function shareVideo(url: string, fileName: string, title: string): Promise<'shared' | 'cancelled' | 'unsupported'> {
+  const nav = typeof navigator === 'undefined' ? undefined : navigator
+  if (!nav?.share || !nav.canShare) return 'unsupported'
+  const res = await fetch(url, { credentials: 'same-origin' })
+  if (!res.ok) return 'unsupported'
+  const file = new File([await res.blob()], fileName, { type: 'video/mp4' })
+  if (!nav.canShare({ files: [file] })) return 'unsupported'
+  try {
+    await nav.share({ files: [file], title })
+    return 'shared'
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') return 'cancelled'
+    return 'unsupported'
+  }
+}
+
+export const canShareFiles = () => typeof navigator !== 'undefined' && !!navigator.share && !!navigator.canShare
