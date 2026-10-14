@@ -21,6 +21,7 @@ import com.team.blog.shared.error.ApiException;
 import com.team.blog.shared.error.FieldErrorItem;
 import com.team.blog.shared.error.NotFoundException;
 import com.team.blog.shared.time.Times;
+import com.team.blog.trade.application.PaperProfits;
 
 /**
  * 블로그 포인트 원장 (#266, 목표 #253).
@@ -82,10 +83,12 @@ public class PointLedger {
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
     private final PointProperties props;
+    private final PaperProfits paperProfits;
     private final Clock clock;
 
-    public PointLedger(JdbcTemplate jdbc, PlatformTransactionManager txm, PointProperties props, Clock clock) {
+    public PointLedger(JdbcTemplate jdbc, PlatformTransactionManager txm, PointProperties props, PaperProfits paperProfits, Clock clock) {
         this.jdbc = jdbc;
+        this.paperProfits = paperProfits;
         this.tx = new TransactionTemplate(txm);
         this.props = props;
         this.clock = clock;
@@ -342,38 +345,44 @@ public class PointLedger {
         return Boolean.TRUE.equals(done) ? profit : 0;
     }
 
-    /** 봇 모의투자 수익을 정산할 때 돌아보는 기간. 그보다 오래된 체결은 치지 않는다 */
+    /** 봇 모의투자 수익을 정산할 때 돌아보는 기간. 그보다 오래 정산하지 못한 체결은 치지 않는다 */
     static final int BOT_PROFIT_DAYS = 7;
 
     /**
      * 매매 봇이 매매 일지에 남긴 원화 모의투자 매도 수익을 크레딧으로 넣는다 (블로그 주인 결정 "봇이 체결했어도 사용 가능").
-     * 봇이 스스로 알린 손익이라 하루 상한(기본 1,000만)을 두고, 넘는 체결은 다음 날 정산한다. 최근 7일 체결만, 같은 체결은 한 번만.
-     * 내 포인트·상점 화면을 열 때 부른다. 포인트 모의투자 체결은 매도 때 이미 넣어서(같은 키) 다시 들어가지 않는다.
+     * 봇이 스스로 알린 손익이라 하루 상한(기본 1,000만)을 둔다. 상한에 걸린 체결은 들어간 만큼만 넣고 남은 몫을 다음 날 이어서 넣는다.
+     * 다 넣은 체결은 원장 키 {@code trade:체결 번호}로 끝을 표시하고, 나눠 넣는 동안은 {@code trade:체결 번호:날짜}로 남긴다.
+     * 최근 7일 체결만 보고, 내 포인트·상점 화면을 열 때 부른다. 포인트 모의투자 체결은 매도 때 같은 끝 키로 이미 넣어서 다시 들어가지 않는다.
      *
      * @return 이번에 넣은 크레딧
      */
     public long settleBotProfits(long memberId) {
         if (!props.enabled()) return 0;
+        Instant now = Times.now(clock);
+        List<PaperProfits.Profit> trades = paperProfits.krwSellProfits(memberId, now.minus(Duration.ofDays(BOT_PROFIT_DAYS)));
+        if (trades.isEmpty()) return 0;
         Long done = tx.execute(st -> {
             lock(memberId);
-            Instant dayStart = startOf(today());
-            Long today = jdbc.queryForObject("SELECT COALESCE(SUM(amount), 0) FROM point_ledger WHERE member_id = ? AND reason = 'BOT_PROFIT' AND created_at >= ?",
-                    Long.class, memberId, Timestamp.from(dayStart));
-            long room = rule(PointRule.BOT_PROFIT_DAILY_MAX) - (today == null ? 0 : today);
-            if (room <= 0) return 0L;
-            List<long[]> trades = jdbc.query("""
-                    SELECT t.id, FLOOR(t.realized_pnl)::bigint AS pnl FROM trade t
-                    WHERE t.member_id = ? AND t.mode = 'PAPER' AND t.side = 'SELL' AND t.currency = 'KRW' AND t.realized_pnl >= 1 AND t.created_at >= ?
-                      AND NOT EXISTS (SELECT 1 FROM point_ledger l WHERE l.member_id = t.member_id AND l.request_key = 'trade:' || t.id)
-                    ORDER BY t.id
-                    """, (rs, i) -> new long[] {rs.getLong("id"), rs.getLong("pnl")}, memberId,
-                    Timestamp.from(dayStart.minus(Duration.ofDays(BOT_PROFIT_DAYS))));
+            LocalDate today = today();
+            Long sumToday = jdbc.queryForObject("SELECT COALESCE(SUM(amount), 0) FROM point_ledger WHERE member_id = ? AND reason = 'BOT_PROFIT' AND created_at >= ?",
+                    Long.class, memberId, Timestamp.from(startOf(today)));
+            long room = rule(PointRule.BOT_PROFIT_DAILY_MAX) - (sumToday == null ? 0 : sumToday);
             long total = 0;
-            for (long[] t : trades) {
-                long amount = Math.min(t[1], room - total);
-                if (amount <= 0) break;
-                // 상한에 걸려 일부만 넣은 체결은 남은 몫을 버린다 (같은 체결을 두 번 정산하지 않게)
-                if (insert(memberId, Wallet.SHOP, amount, PointReason.BOT_PROFIT, "trade:" + t[0], t[0], "봇 모의투자 수익")) total += amount;
+            for (PaperProfits.Profit t : trades) {
+                if (room - total <= 0) break;
+                String doneKey = "trade:" + t.tradeId();
+                // 이미 다 넣었거나(봇·포인트 모의투자 모두 같은 끝 키) 오늘 이미 나눠 넣은 체결은 건너뛴다
+                Map<String, Object> paid = jdbc.queryForMap("""
+                        SELECT COALESCE(BOOL_OR(request_key = ?), false) AS finished, COALESCE(BOOL_OR(request_key = ?), false) AS today,
+                               COALESCE(SUM(amount) FILTER (WHERE reason = 'BOT_PROFIT'), 0) AS paid
+                        FROM point_ledger WHERE member_id = ? AND (request_key = ? OR request_key LIKE ?)
+                        """, doneKey, doneKey + ":" + today, memberId, doneKey, doneKey + ":%");
+                if (Boolean.TRUE.equals(paid.get("finished")) || Boolean.TRUE.equals(paid.get("today"))) continue;
+                long left = t.profit() - ((Number) paid.get("paid")).longValue();
+                if (left <= 0) continue;
+                long amount = Math.min(left, room - total);
+                String key = amount == left ? doneKey : doneKey + ":" + today;
+                if (insert(memberId, Wallet.SHOP, amount, PointReason.BOT_PROFIT, key, t.tradeId(), "봇 모의투자 수익")) total += amount;
             }
             return total;
         });

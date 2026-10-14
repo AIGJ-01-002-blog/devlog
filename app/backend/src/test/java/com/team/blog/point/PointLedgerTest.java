@@ -217,6 +217,14 @@ class PointLedgerTest extends IntegrationTest {
                 .isZero();
         // 다시 열어도 같은 체결은 한 번만
         assertThat(points.settleBotProfits(me.memberId())).isZero();
+
+        // 다음 날: 어제 들어간 줄을 하루 전으로 돌리면, 남은 3만과 다음 체결 5천이 들어간다
+        jdbc.update("UPDATE point_ledger SET created_at = created_at - interval '1 day', request_key = request_key || ':y' WHERE member_id = ? AND reason = 'BOT_PROFIT' AND ref_id = ?",
+                me.memberId(), capped);
+        assertThat(points.settleBotProfits(me.memberId())).isEqualTo(35_000);
+        assertThat(jdbc.queryForObject("SELECT SUM(amount) FROM point_ledger WHERE member_id = ? AND ref_id = ?", Long.class, me.memberId(), capped))
+                .isEqualTo(70_000);
+        assertThat(points.settleBotProfits(me.memberId())).isZero();
     }
 
     long botTrade(Session s, String id, String mode, String side, String currency, String pnl, java.time.Instant at) {
