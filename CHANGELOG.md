@@ -16,6 +16,11 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 ### 바꿈
 - 매매 일지 손익 색을 거래소 차트처럼 바꿨다: 이익·매수 초록, 손실·매도 빨강. (#254)
 
+### 화면
+| 매매 일지 코인 (PC) | 휴대폰 | 휴대폰 · 다크 |
+|---|---|---|
+| ![매매 일지 코인 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/trades-coin-pc.webp) | ![매매 일지 코인 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/trades-coin-m.webp) | ![매매 일지 코인 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/trades-coin-m-dark.webp) |
+
 ## [2.0.0] - 2026-10-14
 
 **목표: v2.0.0 숏폼 스튜디오** ([목표 이슈 #236](https://github.com/AIGJ-01-002-blog/devlog/issues/236))

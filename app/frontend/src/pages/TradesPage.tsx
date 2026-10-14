@@ -6,7 +6,7 @@ import { t } from '../lib/i18n'
 import { Link, navigate, useLocation } from '../lib/router'
 import {
   coinUnit, createTradeDraft, createTradeShorts, deleteTradeFill, exchangeName, fillTime, isDate, loadTradeDay, loadTrades, mainCurrency,
-  MEMO_MAX, money, moneyClass, moneys, pnlClass, qty, saveTradeMemo, TRADE_PERIODS, tradePeriodOf, winRate, type TradeDay,
+  MEMO_MAX, money, moneys, pnlClass, qty, saveTradeMemo, TRADE_PERIODS, tradePeriodOf, winRate, type Money, type TradeDay,
   type TradeFill, type TradeOverview, type TradePeriod,
 } from '../lib/trades'
 
@@ -65,11 +65,11 @@ export function TradesPage() {
           <div className="kpi-grid dashboard-kpis" style={{ '--kpi-cols': 4 } as CSSProperties}>
             <div className="kpi" data-tip={t('기간 안에 매도로 확정된 손익이에요. 수수료·세금을 뺀 값이에요')}>
               <span className="kpi-label">{t('기간 실현 손익')}</span>
-              <span className={`kpi-value pnl ${moneyClass(data.total.realizedPnl)}`}>{moneys(data.total.realizedPnl, main, true)}</span>
+              <span className="kpi-value"><Amounts m={data.total.realizedPnl} main={main} pnl stack /></span>
             </div>
             <div className="kpi" data-tip={t('봇이 처음 기록을 보낸 날부터 지금까지 확정된 손익이에요')}>
               <span className="kpi-label">{t('누적 실현 손익')}</span>
-              <span className={`kpi-value pnl ${moneyClass(data.cumulativePnl)}`}>{moneys(data.cumulativePnl, main, true)}</span>
+              <span className="kpi-value"><Amounts m={data.cumulativePnl} main={main} pnl stack /></span>
             </div>
             <div className="kpi" data-tip={t('기간 안의 체결 수예요')}>
               <span className="kpi-label">{t('체결')}</span>
@@ -123,7 +123,7 @@ function DayBars({ data, selected, href }: { data: TradeOverview; selected: stri
                 {d.postId && <span title={t('요약 글 있음')}> · {t('글')}</span>}
                 {d.shortsId && <span title={t('쇼츠 대본 있음')}> · {t('쇼츠')}</span>}
               </span>
-              <span className={`trades-day-pnl pnl ${moneyClass(pnl)}`}>{d.summary.sells > 0 ? moneys(pnl, main, true) : t('확정 손익 없음')}</span>
+              <span className="trades-day-pnl">{d.summary.sells > 0 ? <Amounts m={pnl} main={main} pnl /> : t('확정 손익 없음')}</span>
               {Object.keys(pnl).length === 0
                 ? <span className="trades-bar" aria-hidden="true" />
                 : Object.entries(pnl).map(([c, v]) => (
@@ -185,10 +185,10 @@ function DayCard({ date, onChanged }: { date: string; onChanged: () => void }) {
     <section className="admin-card trades-detail" aria-label={dayLabels(date).fullLabel}>
       <h2>{dayLabels(date).fullLabel}</h2>
       <dl className="totals trades-totals">
-        <div><dt>{t('실현 손익')}</dt><dd className={`pnl ${moneyClass(s.realizedPnl)}`}>{moneys(s.realizedPnl, main, true)}</dd></div>
-        <div><dt>{t('누적')}</dt><dd className={`pnl ${moneyClass(day.cumulativePnl)}`}>{moneys(day.cumulativePnl, main, true)}</dd></div>
+        <div><dt>{t('실현 손익')}</dt><dd><Amounts m={s.realizedPnl} main={main} pnl stack /></dd></div>
+        <div><dt>{t('누적')}</dt><dd><Amounts m={day.cumulativePnl} main={main} pnl stack /></dd></div>
         <div><dt>{t('체결')}</dt><dd>{t('매수 {0} · 매도 {1}', { 0: num(s.buys), 1: num(s.sells) })}</dd></div>
-        <div><dt data-tip={t('봇이 보낸 수수료와 세금을 더한 값이에요')}>{t('수수료·세금')}</dt><dd>{moneys(s.fees, main)}</dd></div>
+        <div><dt data-tip={t('봇이 보낸 수수료와 세금을 더한 값이에요')}>{t('수수료·세금')}</dt><dd><Amounts m={s.fees} main={main} stack /></dd></div>
       </dl>
 
       {day.fills.length === 0 ? <p className="muted small">{t('이날은 체결 기록이 없어요.')}</p> : (
@@ -235,6 +235,22 @@ function DayCard({ date, onChanged }: { date: string; onChanged: () => void }) {
       </div>
       {message && <p className={message.ok ? 'ok small' : 'error small'} role={message.ok ? 'status' : 'alert'}>{message.text}</p>}
     </section>
+  )
+}
+
+/**
+ * 통화별 금액. 통화마다 따로 색을 칠하고(원화 손실·USDT 이익이 섞여도 각자 빨강·초록), 금액 하나는 줄바꿈하지 않는다.
+ * pnl이면 손익이라 +를 붙이고 색을 칠한다. stack이면 통화마다 한 줄씩 쌓는다(좁은 카드에서 줄 머리에 · 가 오지 않게)
+ */
+function Amounts({ m, main, pnl = false, stack = false }: { m: Money; main: string; pnl?: boolean; stack?: boolean }) {
+  const entries = Object.entries(m)
+  const list = entries.length > 0 ? entries : [[main, 0] as [string, number]]
+  return (
+    <span className={`trades-amounts${stack ? ' stack' : ''}`}>
+      {list.map(([c, v]) => (
+        <span key={c} className={pnl ? `pnl ${pnlClass(v, c)}` : undefined}>{money(v, c, pnl)}</span>
+      ))}
+    </span>
   )
 }
 
