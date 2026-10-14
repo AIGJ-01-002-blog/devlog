@@ -4,6 +4,7 @@ import { AiConnectSection } from '../components/AiConnectSection'
 import { Avatar } from '../components/Avatar'
 import { ImageCropper } from '../components/ImageCropper'
 import { PasswordRules } from '../components/PasswordRules'
+import { NicknameStatus } from '../components/NicknameStatus'
 import { SocialLinksForm } from '../components/SocialLinksForm'
 import { api, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
@@ -11,6 +12,7 @@ import { fieldErrors } from '../lib/fieldErrors'
 import { friendsApi, lastActiveLabel } from '../lib/friends'
 import { clock, fullDate, monthDay } from '../lib/format'
 import { checkSourceFile, decodeFile, renderSquare, uploadProfileImage, type Crop } from '../lib/image'
+import { useNicknameCheck } from '../lib/nickname'
 import { passwordOk } from '../lib/password'
 import { MUTABLE_TYPES, notificationsApi, type MutableType } from '../lib/notifications'
 import { formatBytes, storageUsage, type StorageUsage } from '../lib/postImages'
@@ -162,6 +164,10 @@ function ProfileSection({ settings, onSaved }: { settings: Settings; onSaved: (p
   const fileInput = useRef<HTMLInputElement>(null)
 
   const nicknameLocked = settings.nicknameNextChangeableAt != null
+  const nicknameChanged = nickname !== settings.nickname
+  // 지금 닉네임 그대로면 묻지 않는다. 대소문자만 바꾸는 것은 서버가 자기 자신을 빼고 판정한다
+  const nickCheck = useNicknameCheck(nickname, !nicknameChanged || nicknameLocked)
+  const nicknameBlocked = nicknameChanged && nickCheck.state !== 'available'
   const cleanBio = normalizeBio(bio)
   const bioCount = bioLength(cleanBio)
   const bioLineCount = cleanBio ? cleanBio.split('\n').length : 0
@@ -206,7 +212,7 @@ function ProfileSection({ settings, onSaved }: { settings: Settings; onSaved: (p
     setErrors({})
     setSaved(false)
     const body: Record<string, unknown> = {}
-    if (nickname !== settings.nickname) body.nickname = nickname
+    if (nicknameChanged) body.nickname = nickname
     if (bio !== (settings.bio ?? '')) body.bio = bio
     if (image.kind === 'new') body.profileImageId = image.id
     if (image.kind === 'default') body.profileImageId = null
@@ -248,13 +254,15 @@ function ProfileSection({ settings, onSaved }: { settings: Settings; onSaved: (p
 
         <label className="field">
           <span>{t('닉네임')}</span>
-          <input value={nickname} onChange={(e) => setNickname(e.target.value)} maxLength={10} disabled={nicknameLocked}
-                 autoComplete="nickname" aria-describedby="nickname-help" aria-invalid={!!errors.nickname} />
-          <small id="nickname-help" className={errors.nickname ? 'error' : 'muted'}>
-            {errors.nickname ?? (nicknameLocked
-              ? t('다음 변경 가능일: {0}', { 0: monthDay(settings.nicknameNextChangeableAt!) })
-              : t('한 번 바꾸면 30일 동안 다시 바꿀 수 없어요.'))}
-          </small>
+          <input value={nickname} onChange={(e) => { setNickname(e.target.value); setErrors(({ nickname: _, ...rest }) => rest) }}
+                 maxLength={10} disabled={nicknameLocked} autoComplete="nickname" aria-describedby="nickname-help"
+                 aria-invalid={!!errors.nickname || nickCheck.state === 'taken' || nickCheck.state === 'rules'} />
+          {nicknameLocked
+            ? <small id="nickname-help" className={errors.nickname ? 'error' : 'muted'}>
+                {errors.nickname ?? t('다음 변경 가능일: {0}', { 0: monthDay(settings.nicknameNextChangeableAt!) })}
+              </small>
+            : <NicknameStatus id="nickname-help" value={nickname} check={nickCheck} error={errors.nickname}
+                              hint={t('한 번 바꾸면 30일 동안 다시 바꿀 수 없어요.')} />}
         </label>
 
         <label className="field">
@@ -273,7 +281,7 @@ function ProfileSection({ settings, onSaved }: { settings: Settings; onSaved: (p
         {errors.form && <p className="error" role="alert">{errors.form}</p>}
         {saved && <p className="ok" role="status">{t('저장했어요.')}</p>}
         <div>
-          <button className="btn btn-primary" disabled={saving || uploading || !dirty || bioCount > BIO_MAX || bioLineCount > BIO_LINES}>
+          <button className="btn btn-primary" disabled={saving || uploading || !dirty || nicknameBlocked || bioCount > BIO_MAX || bioLineCount > BIO_LINES}>
             {saving ? t('저장하는 중…') : t('저장')}
           </button>
         </div>
