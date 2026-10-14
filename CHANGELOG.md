@@ -10,7 +10,7 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
-**목표: v1.70.0 첫 가입 회원을 AI 연결로 이끌기** ([목표 이슈 #214](https://github.com/AIGJ-01-002-blog/devlog/issues/214) · spec 098)
+**목표: v1.71.0 첫 가입 회원을 AI 연결로 이끌기** ([목표 이슈 #214](https://github.com/AIGJ-01-002-blog/devlog/issues/214) · spec 098)
 
 ### 화면
 | PC | 휴대폰 |
