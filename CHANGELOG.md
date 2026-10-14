@@ -10,41 +10,51 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
-**목표: v1.69.0 글 읽기 경험 다듬기** (spec 097)
+## [1.69.0] - 2026-10-14
+
+**목표: v1.69.0 글 읽기 경험 다듬기** ([목표 이슈 #206](https://github.com/AIGJ-01-002-blog/devlog/issues/206) · spec 097)
+
+운영 v1.68.0을 점검해 나온 버그를 고치고, velog에 있던 읽기 기능을 더했다. 없는 주소로 들어와도 앱 화면이 나오고, 한글 조사가 붙은 굵은 글이 제대로 보이며, 코드 복사·휴대폰 목차·사진 크게 보기·최근 읽은 글로 글을 읽고 다시 찾기가 쉬워졌다. DB 변경은 없고, 렌더링 규칙 버전이 올라 이미 쓴 글도 처음 열 때 다시 그린다.
 
 ### 화면
 | 전 | 후 |
 |---|---|
-| ![없는 주소 전: JSON 글자](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/notfound-before.webp) | ![없는 주소 후: 앱 404 화면](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/notfound-after.webp) |
+| ![없는 주소 전: JSON 글자](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.69.0/notfound-before.webp) | ![없는 주소 후: 앱 404 화면](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.69.0/notfound-after.webp) |
 
 | PC | 휴대폰 |
 |---|---|
-| ![코드 블록 복사·줄바꿈 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/code-pc.webp) | ![코드 블록 줄바꿈 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/code-m-dark.webp) |
-| ![사진 크게 보기 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/zoom-pc.webp) | ![휴대폰 접는 목차](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/toc-m.webp) |
-| ![테마 버튼 툴팁 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/header-tip-pc.webp) | ![검색 시작 화면 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/search-start-m.webp) |
-| | ![최근 읽은 글 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/recent-m.webp) |
+| ![코드 블록 복사·줄바꿈 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.69.0/code-pc.webp) | ![코드 블록 줄바꿈 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.69.0/code-m-dark.webp) |
+| ![사진 크게 보기 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.69.0/zoom-pc.webp) | ![휴대폰 접는 목차](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.69.0/toc-m.webp) |
+| ![테마 버튼 툴팁 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.69.0/header-tip-pc.webp) | ![검색 시작 화면 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.69.0/search-start-m.webp) |
+| | ![최근 읽은 글 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.69.0/recent-m.webp) |
 
 ### 추가
-- 글 본문 코드 블록 오른쪽 위에 언어 이름과 [줄바꿈]·[복사] 버튼을 단다. 복사하면 "복사했어요"가 잠깐 보이고, 클립보드를 못 쓰면 코드를 골라 두고 Ctrl+C를 안내한다. [줄바꿈]은 긴 줄을 화면 폭에 맞춰 접는다 (spec 097 FR-004)
-- 휴대폰·태블릿(1280px 미만)에서 본문 위에 접는 [목차]를 둔다. 접혀 있을 때도 지금 읽는 제목이 보인다 (FR-005)
-- 본문 사진을 누르면 화면 가득 크게 보고 Esc·[닫기]로 돌아온다. 키보드로는 Enter (FR-007)
-- 읽기 목록에 [최근 읽은 글](/lists/read): 이 기기에서 연 남의 글을 50편까지 최근 순으로 보여 주고, 하나씩 또는 모두 지운다. 로그인하지 않아도 쓰고 맨 아래 링크에서 연다 (FR-008)
-- 검색어를 넣기 전 검색 화면에 최근 검색어(이 기기, 8개)와 많이 쓰인 태그를 보인다 (FR-009)
-- 화면 한 장 반 넘게 내려가면 오른쪽 아래에 [맨 위로]가 보인다 (FR-010)
-- 공개 글 화면에 X·슬랙 큰 미리보기(`twitter:card`)와 검색 엔진 구조화 데이터(JSON-LD BlogPosting)를 넣는다 (FR-003)
+- 글 본문 코드 블록 오른쪽 위에 언어 이름과 [줄바꿈]·[복사] 버튼을 단다. 복사하면 "복사했어요"가 잠깐 보이고, 클립보드를 못 쓰면 코드를 골라 두고 Ctrl+C를 안내한다. [줄바꿈]은 긴 줄을 화면 폭에 맞춰 접는다 (spec 097 FR-004, #208)
+- 휴대폰·태블릿(1280px 미만)에서 본문 위에 접는 [목차]를 둔다. 접혀 있을 때도 지금 읽는 제목이 보인다 (FR-005, #208)
+- 본문 사진을 누르면 화면 가득 크게 보고 Esc·[닫기]로 돌아온다. 키보드로는 Enter (FR-007, #208)
+- 읽기 목록에 [최근 읽은 글](/lists/read): 이 기기에서 연 남의 글을 50편까지 최근 순으로 보여 주고, 하나씩 또는 모두 지운다. 로그인하지 않아도 쓰고 맨 아래 링크에서 연다 (FR-008, #208)
+- 검색어를 넣기 전 검색 화면에 최근 검색어(이 기기, 8개)와 많이 쓰인 태그를 보인다 (FR-009, #208)
+- 화면 한 장 반 넘게 내려가면 오른쪽 아래에 [맨 위로]가 보인다 (FR-010, #208)
+- 공개 글 화면에 X·슬랙 큰 미리보기(`twitter:card`)와 검색 엔진 구조화 데이터(JSON-LD BlogPosting)를 넣는다 (FR-003, #208)
 
 ### 바꿈
-- 머리말 테마·언어 버튼을 이모지에서 다른 머리말과 같은 선 아이콘으로 바꾸고, 테마 버튼에 툴팁을 달았다 (FR-012)
-- 휴대폰에서 카드 태그·글쓴이 링크·시리즈 배지·로그인 화면 보조 링크의 누르는 자리를 32px 이상으로 넓혔다 (FR-011)
-- 할 일 목록 체크 상자에 "완료: …"·"할 일: …" 이름을 붙여 화면 읽기 프로그램이 완료 여부를 읽는다 (FR-006)
+- 머리말 테마·언어 버튼을 이모지에서 다른 머리말과 같은 선 아이콘으로 바꾸고, 테마 버튼에 툴팁을 달았다 (FR-012, #208)
+- 휴대폰에서 카드 태그·글쓴이 링크·시리즈 배지·로그인 화면 보조 링크의 누르는 자리를 32px 이상으로 넓혔다 (FR-011, #208)
+- 할 일 목록 체크 상자에 "완료: …"·"할 일: …" 이름을 붙여 화면 읽기 프로그램이 완료 여부를 읽는다 (FR-006, #208)
 
 ### 고침
-- 없는 주소로 들어오면 `{"code":"NOT_FOUND",...}` 글자만 보이고 휴대폰에서 가로로 넘치던 것을, 머리말과 [홈으로]가 있는 "볼 수 없는 페이지예요" 화면으로 고쳤다. API·파일 요청은 전처럼 JSON 404다 (FR-001)
-- `**"이 일을 해도 되나?"**를`처럼 따옴표·괄호로 끝나는 굵은 글에 조사가 붙으면 별표가 그대로 보이던 것을 고쳤다. 렌더링 규칙 버전을 4로 올려 이미 쓴 글도 다시 그린다 (FR-002)
-- 영어 화면에서 시리즈 날짜 옆 "수정됨"이 "Edit"으로 나와 버튼처럼 보이던 것을 "updated …"로, 404 화면의 탭 제목이 한국어로 남던 것을 고른 언어로 고쳤다
+- 없는 주소로 들어오면 `{"code":"NOT_FOUND",...}` 글자만 보이고 휴대폰에서 가로로 넘치던 것을, 머리말과 [홈으로]가 있는 "볼 수 없는 페이지예요" 화면으로 고쳤다. API·파일 요청은 전처럼 JSON 404다 (FR-001, #208)
+- `**"이 일을 해도 되나?"**를`처럼 따옴표·괄호로 끝나는 굵은 글에 조사가 붙으면 별표가 그대로 보이던 것을 고쳤다. 렌더링 규칙 버전을 4로 올려 이미 쓴 글도 다시 그린다 (FR-002, #208)
+- 영어 화면에서 시리즈 날짜 옆 "수정됨"이 "Edit"으로 나와 버튼처럼 보이던 것을 "updated …"로, 404 화면의 탭 제목이 한국어로 남던 것을 고른 언어로 고쳤다 (#208)
+- 검색 예열: 진행 표시를 남기지 못하면 간격 표시도 풀어 다음 예열을 60초 동안 막지 않는다. `/api/search/warm` 동시 요청 시험을 더하고, v1.68.0 기록의 시험 환경 설명을 "Access를 먼저 만든 뒤에만 연다"로 바로잡았다 (#204 리뷰, #205)
 
-### 고침
-- 검색 예열: 진행 표시를 남기지 못하면 간격 표시도 풀어 다음 예열을 60초 동안 막지 않는다. `/api/search/warm` 동시 요청 시험을 더하고, v1.68.0 기록의 시험 환경 설명을 "Access를 먼저 만든 뒤에만 연다"로 바로잡았다 (#204 리뷰)
+### 포함된 작업
+| 이슈 | 브랜치 | PR |
+|---|---|---|
+| #207 글 읽기 경험 다듬기 (spec 097) | `claude/project-thread-dkkmfw` | #208 |
+| - (#204 리뷰 반영) | `fix/warm-gate-release` | #205 |
+
+**비교:** [v1.68.0...v1.69.0](https://github.com/AIGJ-01-002-blog/devlog/compare/v1.68.0...v1.69.0)
 
 ## [1.68.0] - 2026-10-14
 
