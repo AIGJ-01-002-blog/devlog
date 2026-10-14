@@ -68,6 +68,9 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 |---|---|---|
 | ![쇼츠 주제 묶음 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/studio-batch-pc.webp) | ![쇼츠 주제 묶음 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/studio-batch-m-dark.webp) | ![쇼츠 주제 묶음 360px](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/studio-batch-360.webp) |
 
+### 고침
+- spec 목록(`specs/README.md`)에 빠져 있던 099 쇼츠 스튜디오와 100 블로그 포인트를 더한다. ([#289](https://github.com/AIGJ-01-002-blog/devlog/issues/289))
+
 ## [2.0.0] - 2026-10-14
 
 **목표: v2.0.0 숏폼 스튜디오** ([목표 이슈 #236](https://github.com/AIGJ-01-002-blog/devlog/issues/236))
