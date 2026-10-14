@@ -2413,6 +2413,10 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 .trades-amounts > span + span::before { content: " · "; color: var(--color-text-muted); font-weight: 400; }
 .trades-amounts.stack > span { display: block; }
 .trades-amounts.stack > span + span::before { content: none; }
+.trades-modes > .trades-mode + .trades-mode::before { content: " · "; color: var(--color-text-muted); font-weight: 400; }
+.trades-modes.stack > .trades-mode { display: block; }
+.trades-modes.stack > .trades-mode + .trades-mode::before { content: none; }
+.trades-mode .badge { font-size: 0.7em; vertical-align: middle; white-space: nowrap; }
 .trades-bar-fill { display: block; height: 100%; border-radius: 2px; }
 .trades-bar-fill.pos { background: var(--color-up); }
 .trades-bar-fill.neg { background: var(--color-down); }
