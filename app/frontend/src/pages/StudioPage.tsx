@@ -400,6 +400,7 @@ function Editor({ item, onChange, onReload, onDeleted }: {
                   {SCENE_VISUALS.map((v) => <option key={v} value={v}>{t(VISUAL_LABELS[v])}</option>)}
                 </select>
                 {s.effects && s.effects.length > 0 && <span className="muted">{t('효과음 {0}개', { 0: s.effects.length })}</span>}
+                {s.diagram && <span className="muted" data-tip={t('연결한 AI가 넣은 설명 그림이에요. 영상에서 이 장면을 도식으로 그려요.')}>{t('설명 그림 있음')}</span>}
                 {errors[`scenes[${i}].visual`] && <span className="error">{errors[`scenes[${i}].visual`]}</span>}
                 {errors[`scenes[${i}].effects`] && <span className="error">{errors[`scenes[${i}].effects`]}</span>}
               </div>

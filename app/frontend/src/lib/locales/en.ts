@@ -1513,6 +1513,8 @@ export const en: Record<string, string> = {
   "자동": "Auto",
   "장면 내용에 맞는 움직임을 골라요. 자동이면 자막과 내레이션을 보고 정해요.": "Pick the motion that fits this scene. Auto picks it from the caption and narration.",
   "효과음 {0}개": "{0} sound effects",
+  "설명 그림 있음": "Has a diagram",
+  "연결한 AI가 넣은 설명 그림이에요. 영상에서 이 장면을 도식으로 그려요.": "A diagram added by your connected AI. The video draws this scene as a diagram.",
   "글에 올린 그림 주소를 넣으면 이 장면 배경으로 깔려요. 비우면 첫 장면에 글 대표 사진이 들어가요.": "Paste an image URL from your post to use it as this scene's background. Leave it empty and the post's cover goes on the first scene.",
   "화면 자막": "On-screen caption",
   "AI 음성을 썼다면 고급 설정에서 AI 정보 표시를 켜요.": "If you used an AI voice, turn on the AI info label in Advanced settings.",

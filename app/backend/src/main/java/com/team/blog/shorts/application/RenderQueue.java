@@ -50,14 +50,14 @@ public class RenderQueue {
     public record Job(long id, String claim, int attempt, String title, List<JobScene> scenes, String handle, String postUrl, String coverImage,
                       List<JobEffect> effects) {}
 
-    /** 워커가 읽는 장면. visual은 장면 연출 이름(#277), 비면 워커가 자막·내레이션·코드에서 고른다 */
-    public record JobScene(String caption, String narration, String code, String image, String visual) {}
+    /** 워커가 읽는 장면. visual은 장면 연출 이름(#277), 비면 워커가 자막·내레이션·코드에서 고른다. diagram은 설명 도식(대본 그대로) */
+    public record JobScene(String caption, String narration, String code, String image, String visual, java.util.Map<String, Object> diagram) {}
 
     /** 작업 단위 효과음(#277). scene은 0부터 센 장면 번호, at은 그 장면이 시작하고 몇 초 뒤 */
     public record JobEffect(int scene, double at, String sound, Double volume) {}
 
     static List<JobScene> jobScenes(List<Scene> scenes) {
-        return scenes.stream().map(s -> new JobScene(s.caption(), s.narration(), s.code(), s.image(), s.visual())).toList();
+        return scenes.stream().map(s -> new JobScene(s.caption(), s.narration(), s.code(), s.image(), s.visual(), s.diagram())).toList();
     }
 
     static List<JobEffect> jobEffects(List<Scene> scenes) {
