@@ -21,7 +21,7 @@ class LayoutTest(unittest.TestCase):
 
     def test_tts_pick_respects_explicit_engine(self):
         self.assertEqual(tts.pick("silent"), "silent")
-        self.assertIn(tts.pick("auto"), ("say", "windows", "espeak", "silent"))
+        self.assertIn(tts.pick("auto"), ("edge", "say", "windows", "espeak", "silent"))
 
     def test_estimate_has_floor(self):
         self.assertEqual(tts.estimate_seconds(""), 1.5)

@@ -3,9 +3,14 @@
 devlog 쇼츠 스튜디오(spec 099)에서 [영상 만들기]를 누른 대본을 받아 **9:16 MP4(1080×1920)** 로 만들어 다시 올리는 작은 프로그램이에요.
 맥·Windows·리눅스 어디서든 돌고, 서버로 **나가는 요청만** 하니 집 공유기 뒤에서도 동작해요. 영상을 SNS에 자동으로 올리지는 않아요.
 
-- 음성: 비용 없는 기기 안 음성만 써요. 맥은 `say`(Yuna), Windows는 기본 한국어 음성(Heami), 리눅스는 `espeak-ng`, 없으면 무음
+- 음성: 무료 신경망 한국어 음성(edge-tts `ko-KR-SunHiNeural`)이 기본이에요. `--voice ko-KR-InJoonNeural`처럼 바꿀 수 있어요.
+  인터넷이 막혔거나 실패하면 영상 전체를 기기 음성으로 다시 만들어요: 맥 `say`(Yuna), Windows 기본 한국어 음성(Heami), 리눅스 `espeak-ng`, 없으면 무음
+- 자막: 내레이션을 1~2줄 구절로 나눠 음성에 맞춰 한 구절씩 띄워요(신경망 음성은 단어마다 소리 나는 시각을 받아 맞춰요). 요점 자막은 0.25초 안에 떠올라요
+- 화면: 장면마다 천천히 흐르는 그라데이션 배경, 코드는 한 줄씩 써지고, 글 이미지(`image`·`coverImage`)가 있으면 흐린 배경과 가운데 카드로 써요
+- 배경음: 워커가 직접 합성한 잔잔한 반복 음악(저작권 걱정 없음)을 깔고 말할 때 소리를 낮춰요. 다른 음악은 `--bgm 파일`, 끄려면 `--bgm none`
+- 전환: 장면 사이 0.3초 페이드, 장면 끝 쉼 0.15초. 소리는 쇼츠 기준 -14 LUFS로 맞춰요
 - 글꼴: 맥 Apple SD Gothic Neo, Windows 맑은 고딕, 리눅스 Noto Sans CJK (바꾸려면 `--font`)
-- 필요한 것: Python 3.10 이상, ffmpeg (추가 패키지 없음)
+- 필요한 것: Python 3.10 이상, ffmpeg. 신경망 음성은 `pip install -r requirements.txt`(edge-tts)
 
 ## 설치
 
@@ -17,6 +22,7 @@ devlog 쇼츠 스튜디오(spec 099)에서 [영상 만들기]를 누른 대본�
 
 ```bash
 cd app/render-worker
+python3 -m pip install -r requirements.txt   # 신경망 음성 (선택)
 python3 -m devlog_render check      # ffmpeg·글꼴·음성 확인 (Windows는 python)
 ```
 
@@ -52,12 +58,14 @@ python -m devlog_render work --server https://devlog.life
 python3 -m devlog_render render script.json out.mp4
 ```
 
-`script.json` 모양:
+`script.json` 모양 (`image`·`coverImage`는 없어도 돼요. `/`로 시작하면 `--site` 주소에서 받아요):
 
 ```json
-{"title": "도커 볼륨 날린 날", "handle": "minseo",
- "scenes": [{"caption": "볼륨이 사라졌어요", "narration": "어제 도커 볼륨을 지웠더니 글이 전부 사라졌어요.", "code": null}]}
+{"title": "도커 볼륨 날린 날", "handle": "minseo", "coverImage": "/uploads/cover.png",
+ "scenes": [{"caption": "볼륨이 사라졌어요", "narration": "어제 도커 볼륨을 지웠더니 글이 전부 사라졌어요.", "code": null, "image": null}]}
 ```
+
+`samples/`의 견본 대본 3개로 품질을 비교해요. PR을 올리면 CI(`render-worker-ci`의 samples)가 신경망 음성으로 만든 견본 영상을 `shorts-samples`로 올려요.
 
 ## 테스트
 
