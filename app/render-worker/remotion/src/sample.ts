@@ -1,11 +1,12 @@
 // 스튜디오(npm run studio)에서 볼 기본 장면. 실제 렌더는 워커가 --props로 넘긴다.
 import type {SceneData, ShortsProps} from './types';
 
+const w = (text: string, startMs: number, endMs: number) => ({text, startMs, endMs, timestampMs: (startMs + endMs) / 2, confidence: null});
+
 const scene = (caption: string, action: SceneData['action'], code: string[] = [], extra: Partial<SceneData['params']> = {}): SceneData => ({
   caption, code, action, durationInFrames: 120, leadFrames: 6, speechFrames: 96, image: null, custom: null,
   params: {focus: null, good: false, count: null, before: null, after: null, label: '데이터', shell: false, ...extra},
-  pages: [{startMs: 0, endMs: 3300, words: [{text: '자막이', startMs: 0, endMs: 600}, {text: '여기에', startMs: 600, endMs: 1300},
-    {text: '나와요', startMs: 1300, endMs: 2200}]}],
+  pages: [{startMs: 0, endMs: 3300, words: [w('자막이', 0, 600), w('여기에', 600, 1300), w('나와요', 1300, 2200)]}],
   mouth: Array.from({length: 96}, (_, k) => Math.abs(Math.sin(k / 2.3))),
 });
 

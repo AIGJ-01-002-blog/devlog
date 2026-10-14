@@ -240,6 +240,8 @@ class Renderer:
                     sfx.Effect(i, at, name, volume)
                     for i, v in enumerate(visuals) if script.scenes[i].custom is None
                     for name, at, volume in acting.effects(v, timings[i].lead, timings[i].speech, timings[i].length)]
+                # 장면이 넘어갈 때마다 휙 소리(전환과 같은 때)
+                effects += [sfx.Effect(i, 0.0, "whip", 0.3) for i in range(1, len(script.scenes))]
                 self._join(work, [video], audios, timings, total, joined, effects, joined_video=True, upbeat=chart is not None)
             else:
                 stages = self._stages(script, audios, timings)
@@ -291,6 +293,8 @@ class Renderer:
             script.scenes[i].custom = {"kind": "replay", "data": {**data, "startFrame": round(t.start * FPS)}}
         for scene, at, kind, volume in trade_sfx.per_scene(replay.cues(chart, starts, end), starts):
             script.effects.append(sfx.Effect(scene, at, str(trade_sfx.sound_file(kind, trade_sfx.cache_dir())), volume))
+            if kind in ("buy", "sell"):  # 체결 순간 녹음 종소리(@remotion/sfx, 못 받으면 합성)를 겹쳐 또렷하게
+                script.effects.append(sfx.Effect(scene, at, "ding", 0.35))
 
     def _visuals(self, script: Script) -> list:
         everything = " ".join(f"{s.caption} {s.narration}" for s in script.scenes)
@@ -322,15 +326,21 @@ class Renderer:
                 "totalFrames": round(total * FPS), "scenes": scenes}
 
     def _voices(self, work: Path, script: Script) -> tuple[list[Path], list[list[captions.Word] | None]]:
-        """장면마다 음성. 신경망 음성이 한 장면이라도 실패하면 기기 음성으로 처음부터 다시 만든다."""
-        try:
-            return self._synthesize(work, script, self.engine, self.voice)
-        except Exception as e:
-            if self.engine != "edge":
-                raise
-            fallback = tts.device()
-            log.warning("신경망 음성 실패, 기기 음성(%s)으로 만들어요: %s", fallback, e)
-            return self._synthesize(work, script, fallback, None)
+        """장면마다 음성. 한 장면이라도 실패하면 다음 엔진으로 처음부터 다시 만든다(목소리가 섞이지 않게).
+        edge(인터넷 신경망) → supertonic(컴퓨터 안 신경망) → 기기 음성 순서다."""
+        chain = [self.engine]
+        if self.engine == "edge":
+            chain.append(tts.offline())
+        if chain[-1] == "supertonic":
+            chain.append(tts.device())
+        for k, engine in enumerate(chain):
+            try:
+                return self._synthesize(work, script, engine, self.voice if k == 0 else None)
+            except Exception as e:
+                if k == len(chain) - 1:
+                    raise
+                log.warning("음성(%s) 실패, %s로 다시 만들어요: %s", engine, chain[k + 1], e)
+        raise AssertionError("unreachable")
 
     def _synthesize(self, work: Path, script: Script, engine: str, voice: str | None):
         audios, words = [], []

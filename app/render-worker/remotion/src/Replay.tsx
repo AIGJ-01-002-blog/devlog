@@ -6,6 +6,7 @@
 import React from 'react';
 import {AbsoluteFill, Easing, interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
 import {STAGE_H, STAGE_W} from './actions';
+import {Emoji, type EmojiName} from './Emoji';
 import type {CustomSceneProps} from './custom';
 import {FONT} from './fonts';
 
@@ -43,6 +44,8 @@ const FLASH = 6;
 const RING = 18;
 const BANNER = 54;
 const SHAKE = 11;
+/** 체결·결과 순간 떠오르는 움직이는 이모지가 보이는 길이 */
+const POP = 42;
 
 const headAt = (d: ReplayData, g: number) => d.head[Math.max(0, Math.min(d.head.length - 1, g))] ?? 0;
 
@@ -244,6 +247,16 @@ export const ReplayScene: React.FC<CustomSceneProps> = ({data}) => {
           </div>
         );
       })()}
+      {/* 체결 순간: 매수는 로켓, 이익 매도는 100점, 손실 매도는 경광등이 표시 위로 떠올랐다 사라진다 */}
+      {recent && since < POP && (() => {
+        const name: EmojiName = recent.side === 'BUY' ? 'rocket' : recent.good ? 'hundred' : 'siren';
+        const s = spring({frame: since, fps, config: {damping: 11, stiffness: 200}});
+        const fade = interpolate(since, [POP - 10, POP], [1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+        // 가격 띠(위쪽 가운데)를 가리지 않게 표시 왼쪽 옆에서 천천히 떠오른다
+        const x = Math.max(PLOT.x0 + 60, cx(recent.index) - 110);
+        const top = Math.min(PLOT.y1 - 40, Math.max(PLOT.y0 + 90, y(recent.price)));
+        return <Emoji name={name} x={x} y={top - since * 1.2} size={120} scale={s} opacity={fade} />;
+      })()}
       {/* 결과 장면: 손익 합계가 차트 가운데에 크게 튀어나온다 */}
       {resultOn && d.result && (() => {
         const s = spring({frame: g - d.result.at, fps, config: {damping: 9, stiffness: 180}});
@@ -251,6 +264,7 @@ export const ReplayScene: React.FC<CustomSceneProps> = ({data}) => {
           <>
             <div style={{position: 'absolute', left: BOX.x, top: BOX.y, width: BOX.w, height: BOX.h, borderRadius: 28,
               background: 'rgba(0,0,0,0.5)', opacity: Math.min(1, s)}} />
+            <Emoji name={d.result.good ? 'party' : 'siren'} x={STAGE_W / 2} y={STAGE_H / 2 - 150} size={170} scale={s} />
             <div style={{position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
               <div style={{font: `900 132px ${FONT}`, color: d.result.good ? UP : DOWN, scale: String(0.3 + 0.7 * s),
                 WebkitTextStroke: '8px #0b1024', paintOrder: 'stroke', textShadow: '0 12px 0 rgba(0,0,0,0.35)'}}>{d.result.label}</div>

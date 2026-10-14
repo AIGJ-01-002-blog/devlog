@@ -212,7 +212,13 @@ def pages(text: str, duration: float, words: list[Word] | None = None, tail: flo
         pos += len(_compact(part))
         for k in range(1, len(starts)):
             starts[k] = max(starts[k], starts[k - 1])
-        items = [{"text": tok, "startMs": round(starts[k] * 1000), "endMs": round((starts[k + 1] if k + 1 < len(starts) else cue.end) * 1000)}
-                 for k, tok in enumerate(tokens) if tok]
+        # 낱말 하나는 @remotion/captions의 Caption 모양(text·startMs·endMs·timestampMs·confidence)으로 넘긴다
+        items = []
+        for k, tok in enumerate(tokens):
+            if not tok:
+                continue
+            start_ms = round(starts[k] * 1000)
+            end_ms = round((starts[k + 1] if k + 1 < len(starts) else cue.end) * 1000)
+            items.append({"text": tok, "startMs": start_ms, "endMs": end_ms, "timestampMs": (start_ms + end_ms) // 2, "confidence": None})
         out.append({"startMs": round(cue.start * 1000), "endMs": round(cue.end * 1000), "words": items})
     return out

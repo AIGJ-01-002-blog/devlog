@@ -1,5 +1,6 @@
 // 장면 하나: 배경 · 시리즈 제목 · 요점 자막(형광펜) · 무대(고양이 연기 또는 등록된 장면) · 구절 자막 · 블로그 주소
 import React from 'react';
+import {noise2D} from '@remotion/noise';
 import {AbsoluteFill, Easing, interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
 import {Act, STAGE_H, STAGE_W} from './actions';
 import {Background} from './Background';
@@ -15,6 +16,14 @@ export const Scene: React.FC<{scene: SceneData; index: number; title: string; fo
   const {fps} = useVideoConfig();
   const Custom = scene.custom ? CUSTOM_SCENES[scene.custom.kind] : undefined;
   const words = scene.caption.split(' ');
+  // 카메라: 장면이 시작할 때 살짝 당겨 들어오고(펀치 인), 구절이 바뀔 때마다 톡 튀고, 손으로 든 듯 조금씩 흔들린다(@remotion/noise)
+  const punch = interpolate(spring({frame, fps, config: {damping: 14, stiffness: 120}}), [0, 1], [1.12, 1]);
+  const ms = ((frame - scene.leadFrames) / fps) * 1000;
+  const page = [...scene.pages].reverse().find((p) => ms >= p.startMs);
+  const bump = page ? spring({frame: frame - scene.leadFrames - Math.round((page.startMs / 1000) * fps), fps, config: {damping: 10, stiffness: 260}}) : 1;
+  const beat = 1 + 0.025 * Math.sin(Math.min(1, bump) * Math.PI);
+  const driftX = noise2D('x' + index, frame / 90, 0) * 10;
+  const driftY = noise2D('y' + index, frame / 90, 0) * 8;
   const marker = interpolate(frame, [0.25 * fps, 0.6 * fps], [0, 100], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.out(Easing.cubic)});
   return (
     <AbsoluteFill>
@@ -42,7 +51,8 @@ export const Scene: React.FC<{scene: SceneData; index: number; title: string; fo
           })}
         </div>
       </div>
-      <div style={{position: 'absolute', top: STAGE_TOP, left: 0, width: STAGE_W, height: STAGE_H}}>
+      <div style={{position: 'absolute', top: STAGE_TOP, left: 0, width: STAGE_W, height: STAGE_H, transformOrigin: '50% 60%',
+        scale: String(punch * beat), translate: `${driftX}px ${driftY}px`}}>
         {Custom ? <Custom scene={scene} data={scene.custom?.data} /> : <Act scene={scene} first={index === 0} />}
       </div>
       <Captions pages={scene.pages} leadFrames={scene.leadFrames} top={1330} />

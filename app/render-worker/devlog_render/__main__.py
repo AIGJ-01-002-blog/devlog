@@ -25,8 +25,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="devlog_render", description=f"devlog 쇼츠 렌더 워커 {__version__}")
     parser.add_argument("--font", help="한국어 글꼴 파일 (기본: 운영체제 기본 한국어 글꼴)")
     parser.add_argument("--mono-font", help="코드 글꼴 파일")
-    parser.add_argument("--tts", default=os.environ.get("DEVLOG_TTS", "auto"), choices=["auto", "edge", "say", "windows", "espeak", "silent"],
-                        help="음성 엔진 (기본: edge-tts가 깔려 있으면 신경망 음성, 아니면 맥 say, Windows 기본 음성, 리눅스 espeak-ng)")
+    parser.add_argument("--tts", default=os.environ.get("DEVLOG_TTS", "auto"), choices=["auto", "edge", "supertonic", "say", "windows", "espeak", "silent"],
+                        help="음성 엔진 (기본: edge-tts 신경망 음성, 안 되면 컴퓨터 안 신경망 음성 supertonic, 그것도 없으면 맥 say·Windows 기본 음성·리눅스 espeak-ng)")
     parser.add_argument("--voice", help="목소리 이름 (edge 기본 ko-KR-SunHiNeural, 남자 목소리는 ko-KR-InJoonNeural. 맥 예: Yuna)")
     parser.add_argument("--bgm", default=os.environ.get("DEVLOG_BGM"),
                         help="배경음 파일 (기본: 워커가 직접 합성한 잔잔한 음악, none이면 배경음 없음)")
@@ -71,7 +71,7 @@ def check(args) -> int:
             print(f"✗ {e}")
             ok = False
     engine = tts.pick(args.tts)
-    print(f"✓ 음성: {engine}" + ("" if engine == "edge" else f" (신경망 음성을 쓰려면 pip install edge-tts, 실패하면 {tts.device()}로 내려가요)"))
+    print(f"✓ 음성: {engine}" + ("" if engine == "edge" else f" (신경망 음성을 쓰려면 pip install edge-tts, 실패하면 {tts.offline()}로 내려가요)"))
     print(f"{'✓' if os.environ.get('DEVLOG_RENDER_TOKEN') else '·'} DEVLOG_RENDER_TOKEN {'있음' if os.environ.get('DEVLOG_RENDER_TOKEN') else '없음 (work에만 필요)'}")
     return 0 if ok else 1
 

@@ -1,7 +1,7 @@
 """무료 한국어 음성 후보 비교(#277): 같은 문장을 후보마다 읽혀 out/voices/에 mp3로 남긴다.
 
-CI의 voices 작업이 돌린다. 후보 하나가 설치·다운로드에 실패해도 나머지는 계속 만든다.
-사용: python tools/compare_voices.py edge|melo|supertonic|gtts out/voices
+후보 하나가 설치·다운로드에 실패해도 나머지는 계속 만든다.
+CI에서 한 번 돌려 비교했다(PR #278). 다시 비교하려면: python tools/compare_voices.py edge|melo|supertonic|gtts out/voices
 """
 
 import asyncio
