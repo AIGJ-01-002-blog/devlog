@@ -44,8 +44,9 @@ spec:
             - {name: HOME, value: /data}
             - {name: OLLAMA_MODELS, value: /data/models}
             - {name: OLLAMA_HOST, value: "0.0.0.0:11434"}
-            # 모델을 내리지 않고 올려 둔다 (검색어마다 다시 올리면 느리다)
-            - {name: OLLAMA_KEEP_ALIVE, value: "-1"}
+            # 10분 동안 쓰지 않으면 모델을 내려 메모리 약 3GB·CPU를 돌려준다(민서님 결정 2026-10-13, docs design/66).
+            # 화면이 검색창에 들어갈 때 /api/search/warm으로 미리 올리고, 모델 파일은 서버 디스크 캐시에 남아 다시 올리는 게 빠르다
+            - {name: OLLAMA_KEEP_ALIVE, value: "10m"}
             - {name: OLLAMA_NUM_PARALLEL, value: "2"}
           ports: [{containerPort: 11434}]
           readinessProbe:

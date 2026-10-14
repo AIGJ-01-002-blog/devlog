@@ -94,7 +94,7 @@ class OAuthClientsConfigTest {
 
     @Test
     void naverIsOffWithoutClientSecret() throws Exception {
-        assertThat(repository(Map.of("NAVER_CLIENT_ID", "n-id")).findByRegistrationId("naver")).isNull();
+        assertThat(repository(Map.of("NAVER_CLIENT_ID", "n-id", "NAVER_CLIENT_SECRET", "")).findByRegistrationId("naver")).isNull();
     }
 
     @Test

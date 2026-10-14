@@ -19,6 +19,7 @@ deploy/
 │   ├── app.env                  비밀 아닌 설정 (주소, Redis DB 번호 등)
 │   └── secret.env.example       비밀값 형식. secret.env로 복사해 채운다 (커밋 금지)
 ├── k8s/overlays/local/          로컬 검증용: selfhosted와 같은 부품, 개발 로그인 켬
+├── k8s/overlays/staging/        시험 환경(blog-dev): develop 푸시가 배포. 데이터·비밀값을 운영과 나눔, 앱 1개
 ├── k8s/addons/cloudflare-tunnel/ 도메인 연결용 cloudflared 2개 (토큰이 있을 때만 deploy.yml이 적용)
 ├── k8s/addons/kubernetes-dashboard/ 운영 대시보드(Kubernetes Dashboard v2.7.0) + 읽기 전용 로그인 계정 (학교 서버에 deploy.yml이 적용)
 ├── scripts/gen-secret-env.sh    secret.env를 임의 비밀번호로 만들어 줌
@@ -118,7 +119,7 @@ kubectl -n blog rollout status deploy/blog-app
 | Secret | `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET` | 카카오 디벨로퍼스 → 내 애플리케이션 → 앱 키의 REST API 키와 카카오 로그인 → 보안의 Client Secret(사용함). 카카오 로그인을 켜고 Redirect URI에 `https://devlog.life/login/oauth2/code/kakao`를 넣는다. 동의항목은 닉네임·프로필 사진, 비즈 앱이면 카카오계정(이메일)까지. 있으면 `BLOG_SECRET_ENV`의 같은 값을 덮어씀 | `BLOG_SECRET_ENV`의 값을 씀. 거기에도 `KAKAO_CLIENT_ID`가 없으면 카카오 로그인 버튼 안 보임 |
 | Variable | `KAKAO_SCOPES` | 카카오에 요청할 동의항목(쉼표로 구분). 비즈 앱 전환 전이라 이메일을 못 받으면 `profile_nickname,profile_image`로 둔다. 비워 두면 `BLOG_SECRET_ENV`의 값을 그대로 쓴다 | `BLOG_SECRET_ENV`에도 없으면 `profile_nickname,profile_image,account_email` |
 | Secret | `FACEBOOK_CLIENT_ID`, `FACEBOOK_CLIENT_SECRET` | Meta for Developers → 앱 만들기(사용 사례 "Facebook 로그인으로 사용자 인증 및 정보 요청") → 앱 설정 → 기본 설정의 앱 ID·앱 시크릿 코드. Facebook 로그인 → 설정의 유효한 OAuth 리디렉션 URI에 `https://devlog.life/login/oauth2/code/facebook`. 기본 설정에 개인정보처리방침 URL과 데이터 삭제 안내 URL(`https://devlog.life/privacy`)을 넣고 앱을 라이브로 바꿔야 앱 역할이 없는 사람도 로그인한다. 있으면 `BLOG_SECRET_ENV`의 같은 값을 덮어씀 | `BLOG_SECRET_ENV`의 값을 씀. 거기에도 `FACEBOOK_CLIENT_ID`가 없으면 Facebook 로그인 버튼 안 보임 |
-| Secret | `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET` | 네이버 개발자센터 → Application → 애플리케이션 등록(사용 API "네이버 로그인", 제공 정보는 이메일·별명·프로필 사진, 이름은 선택) → 내 애플리케이션의 Client ID·Client Secret. 로그인 오픈 API 서비스 환경에 PC 웹 서비스 URL `https://devlog.life`, Callback URL `https://devlog.life/login/oauth2/code/naver`. 개발 중 상태에서는 멤버관리에 넣은 아이디만 로그인하므로 검수 요청을 마쳐야 모두가 쓴다. 있으면 `BLOG_SECRET_ENV`의 같은 값을 덮어씀 | `BLOG_SECRET_ENV`의 값을 씀. 거기에도 `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET` 둘 다 있지 않으면 네이버 로그인 버튼 안 보임 |
+| Secret | `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET` | 네이버 개발자센터 → Application → 애플리케이션 등록(사용 API "네이버 로그인", 제공 정보는 이메일·별명·프로필 사진, 이름은 선택) → 내 애플리케이션의 Client ID·Client Secret. 로그인 오픈 API 서비스 환경에 PC 웹 서비스 URL `https://devlog.life`, Callback URL `https://devlog.life/login/oauth2/code/naver`. 개발 중 상태에서는 멤버관리에 넣은 아이디만 로그인하므로 검수 요청을 마쳐야 모두가 쓴다. 있으면 `BLOG_SECRET_ENV`의 같은 값을 덮어씀 | `BLOG_SECRET_ENV`의 값을 씀. 거기에도 `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET` 중 하나라도 없으면 네이버 로그인 버튼 안 보임 |
 | Secret | `OLLAMA_AUTH_TOKEN` | Ollama 앞에 Bearer 프록시를 따로 둘 때만 | 헤더 안 붙임 |
 | Secret | `SONAR_TOKEN` | SonarCloud(sonarcloud.io → My Account → Security) 토큰 | 품질 검사 건너뜀 |
 | Secret | `SONAR_HOST_URL` | 학교 SonarQube를 쓸 때만 그 주소 | SonarCloud 사용 |
@@ -243,6 +244,29 @@ Access를 먼저 만들고 주소를 연결한다(순서를 바꾸면 잠깐이�
 3. 로그인 토큰 만들기(필요할 때마다, 저장소·채팅에 남기지 않는다). 학교 서버에 SSH로 들어가:
    `docker exec k3d-devlog-server-0 kubectl -n kubernetes-dashboard create token devlog-viewer --duration=24h`
 4. https://k8s.devlog.life → Cloudflare 이메일 인증 → 대시보드에서 Token을 고르고 3의 토큰을 붙여 넣는다. 네임스페이스를 `blog`로 바꾸면 블로그 파드가 보인다.
+
+## 시험 환경 (dev.devlog.life, spec 092)
+
+develop에 머지된 코드를 운영과 같은 학교 서버 클러스터의 네임스페이스 `blog-dev`에 먼저 띄워 열어 본다. 운영(`blog`)과 DB·Redis·MinIO를 따로 띄워 데이터가 섞이지 않고, 운영 비밀값(`BLOG_SECRET_ENV`, OAuth·메일·AI 열쇠)은 넣지 않는다. 구성은 `k8s/overlays/staging`이다.
+
+- 앱 1개, PostgreSQL·Redis·MinIO 각 1개(디스크 2Gi). 검색 임베딩 모델과 매일 DB 백업은 띄우지 않는다(검색은 키워드로만). 메모리 요청은 합쳐 약 0.9GB다.
+- 로그인은 개발용 로그인(`/api/dev/login`)과 이메일 가입. 보낸 메일은 `/api/dev/mails`에서 본다. 그래서 **Access로 막기 전에는 주소를 열지 않는다.**
+- DB·MinIO 비밀번호는 첫 배포 때 워크플로가 임의 값으로 만들어 클러스터의 Secret `blog-dev-seed`에 두고 다음 배포부터 다시 쓴다.
+- 운영 배포와 같은 줄(`deploy-cluster`)에 서서 겹치지 않는다. 이미지는 `develop` 태그로 따로 두고 `latest`는 main만 가리킨다.
+
+켜는 순서(운영 대시보드와 같이 Access를 먼저 만든다):
+
+1. Cloudflare 대시보드 → Zero Trust → Access → Applications → Add an application → Self-hosted. 도메인 `dev.devlog.life`, 정책 Allow, Include → Emails에 볼 사람 이메일만 넣는다.
+2. Zero Trust → Networks → Tunnels → `devlog` → Public Hostname 추가: `dev.devlog.life` → Service `HTTP`, `ingress-nginx-controller.ingress-nginx.svc.cluster.local:80`.
+3. GitHub 저장소 → Settings → Secrets and variables → Actions → Variables에 `STAGING_ENABLED` = `true`.
+4. develop에 머지하거나 Actions → 블로그 배포 → Run workflow(branch `develop`, "시험 환경에 배포" 체크). 끝나면 https://dev.devlog.life 에서 그 커밋이 보인다.
+
+Access를 만들기 전에 배포되지 않게 하려면 저장소 Settings → Environments → `staging`에 Required reviewers를 두고, Access가 있는 것을 확인한 뒤에만 승인한다(권장). 이 시험 환경은 개발용 로그인(`/api/dev/login`)이 켜져 있어서 Access 없이 열리면 안 된다.
+
+끄기:
+- `STAGING_ENABLED`를 지우면 **새 배포만** 멈춘다(develop 푸시도, 수동 실행의 "시험 환경에 배포"도). 이미 떠 있는 시험 환경은 그대로 돈다.
+- 잠시 내리려면 학교 서버에서 `kubectl -n blog-dev scale deploy,statefulset --all --replicas=0`.
+- 자원까지 돌려받으려면 네임스페이스 `blog-dev`를 지운다(시험 데이터와 blog-dev-seed도 함께 사라진다).
 
 ## 로컬에서 검증
 

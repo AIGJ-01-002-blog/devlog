@@ -63,7 +63,7 @@
 
 本番サーバーの準備ができると https://devlog.life で公開します。それまでは下の手順で手元のマシンで動かせます。
 
-1. GitHub・Google・カカオ・Facebook アカウントまたはメールで登録し、ブログアドレス（`/@your-id`）とニックネームを決めます。
+1. GitHub・Google・カカオ・NAVER・Facebook アカウントまたはメールで登録し、ブログアドレス（`/@your-id`）とニックネームを決めます。
 2. **新規投稿** で Markdown で書きます。左側に書くと右側にすぐプレビューが出て、書いている間は自動で保存されます。
 3. **公開** でタグと公開範囲を選ぶと、ホーム・タグ・検索・フォロワーのフィードに記事が載ります。
 
@@ -139,7 +139,7 @@ AI の利用に同意していれば AI がタイトルを付けて文章を整�
 
 ### アカウントと運営
 
-- **登録・ログイン**：GitHub・Google・カカオ・Facebook の OAuth2、またはメール（認証メール、パスワード再設定）。ブログアドレスとニックネームのルール、予約語。
+- **登録・ログイン**：GitHub・Google・カカオ・NAVER・Facebook の OAuth2、またはメール（認証メール、パスワード再設定）。ブログアドレスとニックネームのルール、予約語。
 - **プロフィールと設定**：写真のトリミング、ニックネームと自己紹介、ブログの紹介タブ、ソーシャルリンク、既定の公開範囲、フォロワー・フォロー中リストの公開設定、通知設定。画面は韓国語・English・日本語・中文から選べます。
 - **通報・非表示・停止**：記事とコメントの通報（理由 6 種類）、管理者向けの通報処理画面、1 日から無期限までの利用停止。
 - **退会と復旧**：30 日の猶予期間中にログインすればアカウントを復旧できます。その後は毎日 1 人ずつ、1 つのトランザクションで削除します。
@@ -166,7 +166,7 @@ flowchart LR
 
 | モジュール | 役割 | ストレージ |
 | --- | --- | --- |
-| **account** | 登録・ログイン（GitHub・Google・カカオ・Facebook・メール）、ブログアドレス・ニックネーム、プロフィール・設定、紹介、ソーシャルリンク、退会・復旧 | PostgreSQL、Redis（セッション） |
+| **account** | 登録・ログイン（GitHub・Google・カカオ・NAVER・Facebook・メール）、ブログアドレス・ニックネーム、プロフィール・設定、紹介、ソーシャルリンク、退会・復旧 | PostgreSQL、Redis（セッション） |
 | **post** | 執筆・自動保存・公開・編集、公開範囲、ゴミ箱、記事管理、Markdown プレビュー | PostgreSQL、Redis（自動保存・冪等キー） |
 | **media** | 画像・GIF・添付ファイルのアップロードと検査、使われていないファイルの整理 | MinIO/S3（未設定ならローカルフォルダー） |
 | **discovery · page** | ホーム・ブログ・記事ページ、前後の記事、RSS、リンクプレビュー用の head 情報を入れた画面シェル | PostgreSQL |
@@ -323,7 +323,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 | --- | --- | --- | --- |
 | Java | 21 | アプリ全体 | LTS 版。レコードでリクエスト・レスポンスの形を短く書けます |
 | Spring Boot | 4.1.1 | アプリ全体 | Web MVC、バリデーション、セキュリティ、メール、Actuator のヘルスチェック（Kubernetes の準備確認）を 1 つのバージョンにそろえます |
-| Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub・Google・カカオ・Facebook ログイン、セッション、CSRF、パスごとの権限 |
+| Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub・Google・カカオ・NAVER・Facebook ログイン、セッション、CSRF、パスごとの権限 |
 | Spring Data JPA (Hibernate) | Boot 4.1 | ドメイン全体 | 会員・記事・コメントなどドメインデータの保存 |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | セッション、レート制限、閲覧数、キャッシュ | 複数の Pod が同じセッションを共有し、同時リクエストも Redis スクリプト 1 つで判定します |
 | Flyway | Boot 4.1 | DB | スキーマを V1~V35 のマイグレーションで管理し、起動時に適用します |
@@ -372,6 +372,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | バージョン | 日付 | 主な内容 | リリースノート |
 | --- | --- | --- | --- |
+| v1.68.0 | 2026-10-14 | 本番と分けたテスト環境（dev.devlog.life）へ develop をデプロイする仕組み（現在はオフ）、検索用埋め込みモデルを使うときだけ読み込んで学校サーバーのメモリを節約、学校サーバーのSSHキー固定 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.68.0) |
 | v1.67.0 | 2026-10-13 | 初の目標単位リリース（デプロイの信頼性とリリース記録）：NAVERログイン、トップ画面とフッターのGitHubリンク、返信をGitブランチのように線でつなぐ表示、画面の動き、画像付きリリースノート | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.67.0) |
 | v1.66.2 | 2026-10-12 | 何も書かずにエディタを出ると、空の下書きをゴミ箱を通さずすぐ削除 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.66.2) |
 | v1.66.1 | 2026-10-12 | 記事のないタグのURLは404に(検索エンジンのソフト404を防止)、サイトマップにAI接続案内とリリースノートを追加 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.66.1) |

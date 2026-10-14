@@ -1,0 +1,97 @@
+# Cloudflare 터널 대신 학교 서버 포트를 바로 열 수 있는지 읽기 전용으로 확인한다 (issue #172 후속, 민서님 결정 2026-10-13 "포트 직접").
+# 1) 러너(학교 밖)에서 내 포트 근처로 TCP 연결만 시도해 학교 방화벽이 바깥 연결을 받는지 본다(데이터는 보내지 않음).
+# 2) 서버 안에서 그 포트를 누가 쓰고 있는지만 본다. 아무것도 만들거나 바꾸지 않는다.
+# 공용 서버라 다른 사람 서비스의 포트 번호는 적지 않고, 내 API 포트 기준 상대 위치(+0~+9)만 적는다.
+name: 포트 직접 열기 점검
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/my-page-image-delay-ubedyo]
+    paths: [.github/workflows/direct-port-check.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: school-server
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      HOST: ${{ vars.SCHOOL_SSH_HOST }}
+      SSH_PORT: ${{ vars.SCHOOL_SSH_PORT }}
+      SSH_USER: ${{ vars.SCHOOL_SSH_USER }}
+      API_PORT: ${{ vars.SCHOOL_K8S_API_PORT }}
+    steps:
+      - name: 학교 밖에서 포트 두드리기
+        shell: python
+        run: |
+          import os, socket, time
+          host, base = os.environ["HOST"], int(os.environ["API_PORT"])
+          print("API 포트 끝자리:", base % 10, "(범위가 10개 단위라면 +0~+9가 내 포트로 추정)")
+          start = base - base % 10
+          for off in range(10):
+              port = start + off
+              t = time.time()
+              try:
+                  with socket.create_connection((host, port), timeout=5):
+                      r = "OPEN(무언가 듣고 있음)"
+              except ConnectionRefusedError:
+                  r = "REFUSED(연결 거부: 방화벽 거부 또는 듣는 프로그램 없음)"
+              except socket.timeout:
+                  r = "TIMEOUT(방화벽이 막음으로 보임)"
+              except OSError as e:
+                  r = f"ERROR {type(e).__name__}"
+              print(f"  +{off}  {r}  {(time.time()-t)*1000:.0f}ms")
+          for name, port in [("SSH", int(os.environ["SSH_PORT"])), ("80", 80), ("443", 443)]:
+              t = time.time()
+              try:
+                  with socket.create_connection((host, port), timeout=5):
+                      r = "OPEN"
+              except ConnectionRefusedError:
+                  r = "REFUSED"
+              except socket.timeout:
+                  r = "TIMEOUT"
+              except OSError as e:
+                  r = f"ERROR {type(e).__name__}"
+              print(f"  {name:4} {r}  {(time.time()-t)*1000:.0f}ms")
+
+      - name: 학교 서버 SSH 키 (변수 SCHOOL_SSH_KNOWN_HOSTS에 넣을 값)
+        run: |
+          # 공개 키라 비밀이 아니다. 처음 넣을 때는 SSH가 아닌 길(서버 앞에서 직접, 관리자 콘솔)로
+          # ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub 를 보고 아래 지문과 같을 때만 이 줄을 변수에 넣는다
+          ssh-keyscan -p "$SSH_PORT" -t ed25519 "$HOST" 2>/dev/null | tee "$RUNNER_TEMP/scan"
+          echo "러너에서 받은 지문: $(ssh-keygen -lf "$RUNNER_TEMP/scan" | awk '{print $2}')"
+
+      - name: 서버 안에서 포트 사용 여부(읽기 전용)
+        env:
+          KNOWN_HOSTS: ${{ vars.SCHOOL_SSH_KNOWN_HOSTS }}
+          SSHPASS: ${{ secrets.SCHOOL_SSH_PASSWORD }}
+        run: |
+          # 학교 서버 SSH 키를 저장소 변수 SCHOOL_SSH_KNOWN_HOSTS로 고정한다. 변수가 없으면 서버 안 점검을 건너뛴다
+          if [ -n "$KNOWN_HOSTS" ]; then mkdir -p ~/.ssh && printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 600 ~/.ssh/known_hosts; HKC=yes
+          else echo "::warning::변수 SCHOOL_SSH_KNOWN_HOSTS가 없어 서버 안 점검은 건너뜁니다(점검용이라 검증 안 된 서버에 비밀번호를 보내지 않음). 위 키 줄을 변수에 넣은 뒤 다시 실행하세요"; exit 0; fi
+          [ -n "$SSHPASS" ] || { echo "::error::Secret SCHOOL_SSH_PASSWORD가 없습니다"; exit 1; }
+          sudo apt-get install -y -qq sshpass >/dev/null
+          sshpass -e ssh -p "$SSH_PORT" -o StrictHostKeyChecking=$HKC -o ConnectTimeout=15 \
+            "$SSH_USER@$HOST" "BASE=$API_PORT bash -s" <<'EOF'
+          start=$((BASE - BASE % 10))
+          echo "== 내 포트 근처(+0~+9)에서 듣는 주소"
+          for off in $(seq 0 9); do
+            p=$((start + off))
+            l=$(ss -Hltn "sport = :$p" 2>/dev/null | awk '{print $4}' | paste -sd' ')
+            mine=$(docker ps --filter name=k3d-devlog --format '{{.Ports}}' | grep -c ":$p->" || true)
+            echo "  +$off listen=[${l:-없음}] 내컨테이너=$mine"
+          done
+          echo "== 서버 안에서 읽은 SSH 키 지문(러너에서 받은 지문과 같아야 함)"
+          ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub | awk '{print $2}'
+          echo "== 호스트 방화벽 도구"
+          for t in ufw iptables nft; do printf '%s ' "$t"; command -v "$t" >/dev/null && echo 있음 || echo 없음; done
+          echo "== 서버 주소 개수와 서버가 붙는 Cloudflare 위치"
+          hostname -I | tr ' ' '\n' | grep -c . | sed 's/^/주소 개수 /'
+          curl -s -m 8 https://www.cloudflare.com/cdn-cgi/trace | grep -E '^colo='
+          EOF

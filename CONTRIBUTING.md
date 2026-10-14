@@ -31,7 +31,7 @@ gitGraph
 | 브랜치 | 어디서 만드나 | 어디로 합치나 | 버전 | 배포 |
 |---|---|---|---|---|
 | `main` | - | - | 릴리스할 때만 올림 | 운영(devlog.life) 배포 + 태그 |
-| `develop` | `main` | `main`(릴리스 PR) | 올리지 않음 | 없음. PR·푸시마다 테스트만 |
+| `develop` | `main` | `main`(릴리스 PR) | 올리지 않음 | 시험 환경(dev.devlog.life, 변수 `STAGING_ENABLED=true`일 때). PR·푸시마다 테스트 |
 | `feature/<spec번호>-<이름>` | `develop` | `develop` | 올리지 않음 | 없음 |
 | `hotfix/<버전>` | `main` | `main`, 그다음 `develop` | Patch | 운영 배포 |
 
@@ -53,7 +53,7 @@ Claude 스레드가 작업할 때는 실행 환경이 정한 `claude/...` 브랜
 3. PR에서 백엔드 테스트(backend-ci), 화면 CI, README 검사, 매니페스트 검증·이미지 빌드(올리지는 않음)가 돈다.
 4. 모두 초록이면 squash 머지한다. **버전 숫자(pom.xml·package.json)는 올리지 않는다.**
 5. `CHANGELOG.md`의 `## [Unreleased]` 아래 알맞은 구획(추가·바꿈·고침·화면)에 한 줄을 더한다. 화면이 바뀌었으면 전/후 사진을 `assets/releases/unreleased/`에 넣는다.
-6. develop에 푸시되면 테스트가 한 번 더 돈다. 배포는 하지 않는다.
+6. develop에 푸시되면 테스트가 한 번 더 돈다. 운영에는 배포하지 않고, 변수 `STAGING_ENABLED=true`일 때만 시험 환경(dev.devlog.life)에 배포한다.
 
 여러 작업이 동시에 develop에 머지되므로 머지 직전에 develop을 받아 충돌을 풀고 테스트를 다시 확인한다.
 
@@ -91,7 +91,7 @@ Claude 스레드가 작업할 때는 실행 환경이 정한 `claude/...` 브랜
 | backend-ci | 테스트 | 테스트 | 블로그 배포 안에서 테스트 |
 | 화면 CI | 테스트 | 테스트 | 블로그 배포 안에서 테스트 |
 | readme-check | 검사 | 검사 | 검사 |
-| 블로그 배포 | 매니페스트 검증·이미지 빌드 | 돌지 않음 | 테스트 → 이미지 → **테스트가 통과해야** 배포 |
+| 블로그 배포 | 매니페스트 검증·이미지 빌드 | 테스트·이미지. `STAGING_ENABLED=true`면 시험 환경 배포까지 | 테스트 → 이미지 → **테스트가 통과해야** 배포 |
 | release | - | - | CHANGELOG 맨 위 버전으로 태그·릴리스 |
 
 ## 7. 되돌리기
