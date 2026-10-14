@@ -273,6 +273,13 @@ public class McpTools {
                      "required":["shorts_id"]}""", Gate.SHORTS, false),
             new Tool("list_shorts", "내 쇼츠 보기",
                     "사용자의 쇼츠 목록(번호·제목·상태·장면 수·예상 길이·원본 글)과 오늘 영상 만들기 횟수를 돌려준다.", false, NO_ARGS_SCHEMA, Gate.SHORTS, false),
+            new Tool("get_shorts", "쇼츠 대본 보기",
+                    "쇼츠 하나의 제목·장면·상태를 돌려준다. 매매 재현 영상이면 고른 체결(시각·매수/매도·가격·이유), 차트 구간, 그날 사용자 메모와 "
+                            + "대본을 다시 쓰는 규칙을 함께 준다. 사용자가 스튜디오에서 [AI에게 대본 부탁]으로 번호를 알려 주면 이 도구로 읽고 update_shorts_script로 고친다.",
+                    false, """
+                    {"type":"object","properties":{
+                      "shorts_id":{"type":"integer"}},
+                     "required":["shorts_id"]}""", Gate.SHORTS, false),
             new Tool("list_shorts_candidates", "쇼츠 후보 보기",
                     "아직 쇼츠가 없는 사용자의 공개 글 가운데 쇼츠로 만들 만한 글(직접 겪은 문제·숫자로 된 결과·코드 중 둘 이상)을 좋은 점이 많은 순으로 돌려준다. "
                             + "최근 30일 조회수와 좋은 점을 함께 준다. 사용자가 쇼츠 거리를 물을 때 쓰고, 사용자가 고른 글로만 대본을 만든다.", false, """
@@ -434,6 +441,7 @@ public class McpTools {
                 case "create_shorts_script" -> shorts.create(caller, a);
                 case "update_shorts_script" -> shorts.update(caller, a);
                 case "list_shorts" -> shorts.list(caller);
+                case "get_shorts" -> shorts.get(caller, a);
                 case "list_shorts_candidates" -> shorts.candidates(caller, a);
                 case "record_trade" -> trades.record(caller, a);
                 case "get_trade_day" -> trades.day(caller, a);

@@ -2432,3 +2432,30 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
   .dashboard-kpis .kpi { padding: 10px; }
   .dashboard-kpis .kpi-value { font-size: 1.25rem; }
 }
+
+/* 매매 재현 영상 (이슈 265) */
+.studio-replay-btn { margin-top: 8px; }
+.studio-kind { font-size: 0.875em; }
+.replay-picker input[type="date"], .replay-picker select { width: 100%; }
+.replay-fills { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.replay-fill { display: grid; grid-template-columns: auto auto auto minmax(0, 1fr); gap: 8px; align-items: start; padding: 10px 12px;
+  border: 1px solid var(--color-border); border-radius: var(--radius); cursor: pointer; }
+.replay-fill input { margin-top: 3px; width: 18px; height: 18px; }
+.replay-fill.picked { border-color: var(--color-brand); background: var(--color-surface-2); }
+.replay-fill.blocked { opacity: 0.55; cursor: not-allowed; }
+.replay-fill-time { font-variant-numeric: tabular-nums; }
+.replay-fill-main { min-width: 0; overflow-wrap: anywhere; }
+.replay-fill-sub { display: block; }
+.replay-side { justify-self: start; }
+.replay-side.up { color: var(--color-up); }
+.replay-side.down { color: var(--color-down); }
+.replay-info { margin-bottom: 16px; padding: 12px 14px; border: 1px solid var(--color-border); border-radius: var(--radius-lg);
+  display: flex; flex-direction: column; gap: 8px; }
+.replay-info p { margin: 0; }
+.replay-info-fills { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; font-variant-numeric: tabular-nums; }
+.replay-info .copy-code pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.875rem; }
+.replay-info .copy-code pre, .replay-info .copy-code code { font-family: inherit; }
+@media (max-width: 480px) {
+  .replay-fill { grid-template-columns: auto auto minmax(0, 1fr); }
+  .replay-fill-main { grid-column: 2 / -1; }
+}

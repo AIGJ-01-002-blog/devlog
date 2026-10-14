@@ -41,8 +41,11 @@ public class RenderQueue {
     private static final TypeReference<List<Scene>> SCENES = new TypeReference<>() {};
     private static final DateTimeFormatter MONTH = DateTimeFormatter.ofPattern("yyyy/MM").withZone(ZoneOffset.UTC);
 
-    /** 워커에게 주는 일. postUrl은 영상 끝 화면에 적을 원본 글 주소(사이트 안 경로) */
-    public record Job(long id, String claim, int attempt, String title, List<Scene> scenes, String handle, String postUrl) {}
+    /**
+     * 워커에게 주는 일. postUrl은 영상 끝 화면에 적을 원본 글 주소(사이트 안 경로).
+     * replay가 있으면 매매 재현 영상(#265)이다: 워커가 그 구간의 공개 캔들을 받아 캔들과 체결 표시를 그린다.
+     */
+    public record Job(long id, String claim, int attempt, String title, List<Scene> scenes, String handle, String postUrl, TradeReplay replay) {}
 
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
@@ -72,7 +75,7 @@ public class RenderQueue {
                 )
                 UPDATE shorts s SET status = 'RENDERING', claim_token = ?, claimed_at = ?, attempts = s.attempts + 1, updated_at = ?
                 FROM next WHERE s.id = next.id
-                RETURNING s.id, s.attempts, s.title, s.scenes::text, s.post_id,
+                RETURNING s.id, s.attempts, s.title, s.scenes::text, s.post_id, s.replay::text AS replay,
                           (SELECT handle FROM member WHERE id = s.member_id) AS handle,
                           (SELECT m.handle FROM post p JOIN member m ON m.id = p.author_id WHERE p.id = s.post_id AND p.deleted_at IS NULL) AS post_handle
                 """, rs -> {
@@ -80,8 +83,10 @@ public class RenderQueue {
             long postId = rs.getLong("post_id");
             String postHandle = rs.getString("post_handle");
             String postUrl = rs.wasNull() || postHandle == null ? null : "/@" + postHandle + "/posts/" + postId;
+            String replay = rs.getString("replay");
             return new Job(rs.getLong("id"), claim, rs.getInt("attempts"), rs.getString("title"),
-                    json.readValue(rs.getString(4), SCENES), rs.getString("handle"), postUrl);
+                    json.readValue(rs.getString(4), SCENES), rs.getString("handle"), postUrl,
+                    replay == null ? null : json.readValue(replay, TradeReplay.class));
         }, claim, Timestamp.from(now), Timestamp.from(now))));
     }
 

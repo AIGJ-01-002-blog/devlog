@@ -12,6 +12,7 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ### 추가
 - 매매 일지가 코인 거래소 체결을 받는다. `record_trade`에 거래소(`exchange`)와 통화(`currency`)를 적고, 0.00012345 BTC 같은 소수 수량·가격을 그대로 남긴다. 원화와 USDT는 더하지 않고 손익·수수료를 통화별로 따로 보여 준다. DB `trade`에 `exchange`·`currency` 열이 생기고 금액 자릿수가 넓어진다(V40). (#254)
+- 매매 재현 숏폼: 스튜디오의 [매매 재현 영상]에서 매매 일지의 체결(같은 거래소·종목, 1~6개, 메모를 남긴 날)을 고르면 대본이 생긴다. 렌더 워커가 바이낸스·업비트 공개 캔들(API 키 없음)을 받아 캔들이 흘러가며 체결 시각에 매수·매도가 찍히는 9:16 영상을 만든다. 봉은 자동 또는 1분~1일. 대본은 내 AI가 MCP `get_shorts`로 체결·메모를 읽고 `update_shorts_script`로 "지금 사는 이유" 식으로 다시 쓴다. 양산형 검사·하루 한도·직접 올리기 안내는 다른 쇼츠와 같다. DB `shorts`에 `replay` 열이 생긴다(V45). (#265)
 
 ### 바꿈
 - 매매 일지 손익 색을 거래소 차트처럼 바꿨다: 이익·매수 초록, 손실·매도 빨강. (#254)
@@ -20,6 +21,16 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 | 매매 일지 코인 (PC) | 휴대폰 | 휴대폰 · 다크 |
 |---|---|---|
 | ![매매 일지 코인 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/trades-coin-pc.webp) | ![매매 일지 코인 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/trades-coin-m.webp) | ![매매 일지 코인 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/trades-coin-m-dark.webp) |
+
+| 재현 영상 체결 고르기 (PC) | 휴대폰 | 휴대폰 · 다크 |
+|---|---|---|
+| ![재현 체결 고르기 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/replay-picker-pc.webp) | ![재현 체결 고르기 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/replay-picker-m.webp) | ![재현 체결 고르기 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/replay-picker-m-dark.webp) |
+
+| 재현 대본 편집 (PC) | 휴대폰 · 다크 |
+|---|---|
+| ![재현 대본 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/replay-editor-pc.webp) | ![재현 대본 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/replay-editor-m-dark.webp) |
+
+![재현 영상 장면: 도입 → 매수 → 추가 매수 → 매도 → 고지](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/replay-video-frames.webp)
 
 ## [2.0.0] - 2026-10-14
 

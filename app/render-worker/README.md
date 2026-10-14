@@ -59,6 +59,12 @@ python3 -m devlog_render render script.json out.mp4
  "scenes": [{"caption": "볼륨이 사라졌어요", "narration": "어제 도커 볼륨을 지웠더니 글이 전부 사라졌어요.", "code": null}]}
 ```
 
+## 매매 재현 영상 (#265)
+
+서버가 준 작업에 `replay`가 있으면 그 구간의 공개 캔들을 받아(바이낸스 `api.binance.com`, 막히면 `data-api.binance.vision` / 업비트 `api.upbit.com`, API 키 없음) 캔들이 흘러가며 체결 시각에 매수·매도가 찍히는 차트를 그려요.
+1번 장면은 체결 전 흐름, 2번 장면부터 체결 하나에 장면 하나씩 표시가 찍히고, 남은 장면에서 마지막 캔들까지 흘러가요. 캔들을 받지 못하면 서버에 실패를 알려 다시 맡겨요.
+서버 없이 해 보려면 `script.json`의 `replay`에 `candles`(`[[시작 epoch초, 시가, 고가, 저가, 종가], …]`)를 넣으면 시세를 받지 않고 그대로 그려요.
+
 ## 테스트
 
 ```bash
