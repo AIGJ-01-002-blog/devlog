@@ -5,7 +5,7 @@ import { SignupAgreements, type AgreementChecks } from '../components/SignupAgre
 import { api, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { fieldErrors } from '../lib/fieldErrors'
-import { useNicknameCheck } from '../lib/nickname'
+import { normalizeNickname, useNicknameCheck } from '../lib/nickname'
 import { cleanHandleInput, passwordOk } from '../lib/password'
 import { Link, navigate, useLocation } from '../lib/router'
 import { t } from '../lib/i18n'
@@ -162,7 +162,7 @@ export function SignupEmailPage() {
       await api('/api/auth/redirect', { method: 'POST', body: { redirect } })
       const r = await api<{ handle: string; redirect: string }>('/api/auth/signup/email', {
         method: 'POST',
-        body: { email, handleBody: body, password, passwordConfirm: confirm, nickname, agreeTerms: agreed.terms, agreePrivacy: agreed.privacy, agreeAi: agreed.ai },
+        body: { email, handleBody: body, password, passwordConfirm: confirm, nickname: normalizeNickname(nickname), agreeTerms: agreed.terms, agreePrivacy: agreed.privacy, agreeAi: agreed.ai },
       })
       await refresh()
       navigate(r.redirect || '/', { replace: true })
