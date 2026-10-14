@@ -93,7 +93,7 @@ export function SeriesPage({ handle, slug }: { handle: string; slug: string }) {
       ) : <h1>{series.name}</h1>}
       <p className="muted small">
         
-        {t('글 {0}개', { 0: series.posts.length })} · <time dateTime={series.updatedAt} title={fullDate(series.updatedAt)}>{relativeDate(series.updatedAt)}  {t('수정')}</time>
+        {t('글 {0}개', { 0: series.posts.length })} · <time dateTime={series.updatedAt} title={fullDate(series.updatedAt)}>{t('{0} 수정', { 0: relativeDate(series.updatedAt) })}</time>
       </p>
       {!series.mine && series.posts.length > 0 && !editing && (
         <section className="series-progress" aria-label={t('이어 읽기')}>
@@ -190,7 +190,7 @@ export function BlogSeries({ handle, mine }: { handle: string; mine: boolean }) 
             <h2 className="card-title"><Link to={seriesPath(handle, s.slug)}>{s.name}</Link></h2>
             <div className="card-meta">
               
-              {t('글 {0}개', { 0: s.postCount })} · <time dateTime={s.updatedAt} title={fullDate(s.updatedAt)}>{relativeDate(s.updatedAt)}  {t('수정')}</time>
+              {t('글 {0}개', { 0: s.postCount })} · <time dateTime={s.updatedAt} title={fullDate(s.updatedAt)}>{t('{0} 수정', { 0: relativeDate(s.updatedAt) })}</time>
             </div>
           </div>
         </article>

@@ -15,6 +15,7 @@ export function SiteFooter() {
         <Link to="/privacy" data-tip={t('모으는 정보와 광고·쿠키 안내')}><b>{t('개인정보 처리방침')}</b></Link>
         <Link to="/support" data-tip={t('질문·버그·신고 남기기')}>{t('문의·신고')}</Link>
         <Link to="/releases" data-tip={t('버전마다 바뀐 것')}>{t('릴리스 노트')}</Link>
+        <Link to="/lists/read" data-tip={t('이 기기에서 최근에 연 글')}>{t('최근 읽은 글')}</Link>
         <GitHubLink className="site-footer-github" size={14} />
       </nav>
     </footer>

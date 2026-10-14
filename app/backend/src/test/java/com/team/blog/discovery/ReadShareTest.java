@@ -62,12 +62,31 @@ class ReadShareTest extends IntegrationTest {
                 .contains("og:description\" content=\"첫 문단 &quot;요약&quot;")
                 .contains("<h1>제목 &lt;script&gt;</h1>").contains("<h3")
                 .doesNotContain("noindex").doesNotContain("<script>")
-                .contains("<script id=\"initial-data\" type=\"application/json\">");
+                .contains("<script id=\"initial-data\" type=\"application/json\">")
+                // spec 097: X·슬랙 큰 미리보기와 검색 엔진 구조화 데이터. 제목의 <는 데이터 블록 안에서도 이스케이프한다
+                .contains("<meta name=\"twitter:card\" content=\"summary_large_image\">")
+                .contains("<script type=\"application/ld+json\">{\"@context\":\"https://schema.org\",\"@type\":\"BlogPosting\"")
+                .contains("\"headline\":\"제목 \\u003cscript\\u003e - ")
+                .contains("\"author\":{\"@type\":\"Person\",\"name\":");
         mvc.perform(get("/api/posts/" + id)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.title").value("제목 <script>"))
                 .andExpect(jsonPath("$.author.handle").value(s.handle()))
                 .andExpect(jsonPath("$.mine").value(false))
                 .andExpect(jsonPath("$.owner").doesNotExist());
+    }
+
+    @Test
+    void 어느_주소에도_맞지_않는_화면_주소는_앱_404_화면이고_API는_JSON이다() throws Exception {
+        // spec 097 FR-001: 브라우저로 잘못된 주소에 들어오면 JSON 글자 대신 [홈으로]가 있는 화면을 본다
+        String page = html(mvc.perform(get("/this-does-not-exist").header("Accept", "text/html,application/xhtml+xml,*/*;q=0.8"))
+                .andExpect(status().isNotFound())
+                .andExpect(header().string("Content-Type", org.hamcrest.Matchers.containsString("text/html"))).andReturn());
+        assertThat(page).contains("<h1>볼 수 없는 페이지예요</h1>").contains("href=\"/\"").contains("noindex")
+                .contains("\"page\":\"notFound\"");
+        mvc.perform(get("/this-does-not-exist").header("Accept", "application/json")).andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+        mvc.perform(get("/api/no-such-endpoint").header("Accept", "text/html")).andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
 
     @Test

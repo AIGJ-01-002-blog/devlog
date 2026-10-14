@@ -9,6 +9,8 @@ import {
   type PeoplePage, type SearchPostPage, type SearchSort, type SearchTab,
 } from '../lib/search'
 import type { FeedPage } from '../lib/types'
+import { forgetSearch, recentSearches, rememberSearch } from '../lib/recentSearches'
+import { tagPath, tagsApi, type TagCount } from '../lib/tags'
 import { t } from '../lib/i18n'
 
 /** 검색 (spec 014): 글 탭(관련도순·최신순, 9개씩 [더 보기])과 사람 탭. 서버 화면은 수집 거부(noindex)다. */
@@ -21,6 +23,7 @@ export function SearchPage() {
 
   useEffect(() => {
     document.title = q ? t('\'{0}\' 검색 - devlog', { 0: q }) : t('검색 - devlog')
+    if (q) rememberSearch(q)
   }, [q])
 
   const go = (nq: string, ntab: SearchTab = tab, nsort: SearchSort = sort) => navigate(searchPath(nq, ntab, nsort))
@@ -28,6 +31,7 @@ export function SearchPage() {
     <main className="container">
       <h1 className="sr-only">{t('검색')}</h1>
       <SearchBox initial={q} placeholder={t('글·태그·사람 검색')} autoFocus={!q} onSearch={(nq) => go(nq)} />
+      {!q && <SearchStart onPick={(nq) => go(nq)} />}
       {q && (
         <>
           <div className="search-head">
@@ -48,6 +52,50 @@ export function SearchPage() {
         </>
       )}
     </main>
+  )
+}
+
+/**
+ * 검색어를 넣기 전 화면 (spec 097 FR-009): 이 브라우저의 최근 검색어와 많이 쓰인 태그를 보여 줘 바로 고르게 한다.
+ * 빈 입력창만 있던 화면에서 무엇을 찾을 수 있는지 알 수 있다.
+ */
+function SearchStart({ onPick }: { onPick: (q: string) => void }) {
+  const [recent, setRecent] = useState(() => recentSearches())
+  const [tags, setTags] = useState<TagCount[] | null>(null)
+  useEffect(() => {
+    let alive = true
+    tagsApi.top().then((list) => { if (alive) setTags(list.slice(0, 12)) }).catch(() => { if (alive) setTags([]) })
+    return () => { alive = false }
+  }, [])
+  return (
+    <div className="search-start">
+      {recent.length > 0 && (
+        <section aria-labelledby="recent-searches">
+          <h2 id="recent-searches" className="search-start-title">{t('최근 검색어')}</h2>
+          <ul className="search-start-list">
+            {recent.map((r) => (
+              <li key={r} className="recent-chip">
+                <button type="button" className="recent-chip-main" data-tip={t('\'{0}\' 다시 검색', { 0: r })} onClick={() => onPick(r)}>{r}</button>
+                <button type="button" className="recent-chip-remove" aria-label={t('\'{0}\' 검색어 지우기', { 0: r })} data-tip={t('이 검색어 지우기')}
+                        onClick={() => { forgetSearch(r); setRecent(recentSearches()) }}>×</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {tags && tags.length > 0 && (
+        <section aria-labelledby="popular-tags">
+          <h2 id="popular-tags" className="search-start-title">{t('많이 쓰인 태그')}</h2>
+          <ul className="search-start-list">
+            {tags.map((tag) => (
+              <li key={tag.name}>
+                <Link to={tagPath(tag.name)} className="tag-link" data-tip={t('#{0} 글 {1}편 보기', { 0: tag.name, 1: tag.postCount })}>#{tag.name}</Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
   )
 }
 

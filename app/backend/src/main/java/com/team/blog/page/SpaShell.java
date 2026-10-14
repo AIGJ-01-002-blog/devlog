@@ -4,7 +4,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
+import java.time.Instant;
 import java.util.Base64;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
@@ -112,6 +115,9 @@ public class SpaShell {
             if (meta.modifiedTime() != null) {
                 head.append("<meta property=\"article:modified_time\" content=\"").append(meta.modifiedTime()).append(TAG_END);
             }
+            // X(트위터)·슬랙 등은 twitter:card가 있어야 큰 미리보기를 그린다. 제목·사진은 og 값을 읽는다 (spec 097)
+            head.append("<meta name=\"twitter:card\" content=\"").append(meta.ogImage() != null ? "summary_large_image" : "summary").append(TAG_END);
+            if ("article".equals(meta.ogType())) head.append(articleJsonLd(meta));
         }
         if (initialData != null) {
             // </script> 탈출을 막기 위해 <, >, &를 유니코드 이스케이프로 바꾼다 (JSON 문자열 안에서만 나타나므로 의미는 같다)
@@ -120,6 +126,27 @@ public class SpaShell {
             head.append("<script id=\"initial-data\" type=\"application/json\">").append(data).append("</script>\n");
         }
         return page.replace(HEAD_MARK, head.toString()).replace(BODY_MARK, bodyHtml == null ? "" : bodyHtml);
+    }
+
+    /**
+     * 글 화면의 구조화 데이터(schema.org Article). 실행되지 않는 데이터 블록이라 CSP nonce가 필요 없다.
+     * initial-data와 같이 <, >, &를 유니코드 이스케이프로 바꿔 </script> 탈출을 막는다.
+     */
+    private String articleJsonLd(HeadMeta meta) {
+        Map<String, Object> ld = new LinkedHashMap<>();
+        ld.put("@context", "https://schema.org");
+        ld.put("@type", "BlogPosting");
+        ld.put("headline", meta.title());
+        if (meta.description() != null && !meta.description().isBlank()) ld.put("description", meta.description());
+        ld.put("url", meta.canonical());
+        ld.put("mainEntityOfPage", meta.canonical());
+        if (meta.ogImage() != null) ld.put("image", meta.ogImage());
+        if (meta.publishedTime() != null) ld.put("datePublished", meta.publishedTime().toString());
+        Instant modified = meta.modifiedTime() != null ? meta.modifiedTime() : meta.publishedTime();
+        if (modified != null) ld.put("dateModified", modified.toString());
+        if (meta.author() != null) ld.put("author", Map.of("@type", "Person", "name", meta.author()));
+        String data = json.writeValueAsString(ld).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026");
+        return "<script type=\"application/ld+json\">" + data + "</script>\n";
     }
 
     /** 요청에 nonce를 남겨 CSP 헤더가 같은 값을 쓰게 한다. 요청 밖(직접 호출)이면 광고를 넣지 않는다 */

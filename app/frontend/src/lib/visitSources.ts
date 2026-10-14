@@ -47,6 +47,7 @@ const PAGES: Record<string, string> = {
   '/notifications': '알림',
   '/settings': '내 설정',
   '/lists/liked': '좋아한 글',
+  '/lists/read': '최근 읽은 글',
   '/manage/posts': '내 글 관리',
 }
 
