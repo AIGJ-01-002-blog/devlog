@@ -62,7 +62,8 @@ jobs:
 
       - name: 학교 서버 SSH 키 (변수 SCHOOL_SSH_KNOWN_HOSTS에 넣을 값)
         run: |
-          # 공개 키라 비밀이 아니다. 아래 서버 안 지문과 같으면 이 줄을 변수에 넣는다
+          # 공개 키라 비밀이 아니다. 처음 넣을 때는 SSH가 아닌 길(서버 앞에서 직접, 관리자 콘솔)로
+          # ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub 를 보고 아래 지문과 같을 때만 이 줄을 변수에 넣는다
           ssh-keyscan -p "$SSH_PORT" -t ed25519 "$HOST" 2>/dev/null | tee "$RUNNER_TEMP/scan"
           echo "러너에서 받은 지문: $(ssh-keygen -lf "$RUNNER_TEMP/scan" | awk '{print $2}')"
 

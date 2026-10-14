@@ -48,12 +48,12 @@ jobs:
           SSHPASS: ${{ secrets.SCHOOL_SSH_PASSWORD }}
         run: |
           # 학교 서버 SSH 키를 저장소 변수 SCHOOL_SSH_KNOWN_HOSTS로 고정한다. 변수가 없으면 붙지 않는다
-          if [ -n "$KNOWN_HOSTS" ]; then mkdir -p ~/.ssh && printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 600 ~/.ssh/known_hosts; HKC=yes
-          else echo "::error::변수 SCHOOL_SSH_KNOWN_HOSTS가 없어 학교 서버 SSH 키를 확인할 수 없습니다. 확인 안 된 서버에는 비밀번호를 보내지 않습니다"; exit 1; fi
           if [ -z "$SSHPASS" ]; then
             echo "::warning::Secret SCHOOL_SSH_PASSWORD가 없어 서버 안 점검을 건너뜁니다"
             exit 0
           fi
+          if [ -n "$KNOWN_HOSTS" ]; then mkdir -p ~/.ssh && printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 600 ~/.ssh/known_hosts; HKC=yes
+          else echo "::error::변수 SCHOOL_SSH_KNOWN_HOSTS가 없어 학교 서버 SSH 키를 확인할 수 없습니다. 확인 안 된 서버에는 비밀번호를 보내지 않습니다"; exit 1; fi
           [ -n "$SSH_USER" ] || { echo "::error::변수 SCHOOL_SSH_USER를 설정하세요"; exit 1; }
           sudo apt-get install -y -qq sshpass >/dev/null
           # 서버에서 실행할 명령. 아무것도 남기지 않는다(시험 컨테이너는 --rm)

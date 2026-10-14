@@ -26,7 +26,7 @@ on:
         options: [selfhosted, nhn]
         default: selfhosted
       staging:
-        description: "이 브랜치를 시험 환경(blog-dev)에 배포 (운영 배포와 따로)"
+        description: "이 브랜치를 시험 환경(blog-dev)에 배포 (운영 배포와 따로, 변수 STAGING_ENABLED=true일 때만)"
         type: boolean
         default: false
       rollback_test:
@@ -270,7 +270,7 @@ jobs:
     # develop에 머지되면 테스트와 이미지가 통과한 커밋을 시험 환경에 올린다. 운영(blog)과 데이터·비밀값을 나눈다
     needs: [image, backend-test, frontend-test]
     if: >-
-      (github.event_name == 'workflow_dispatch' && inputs.staging) ||
+      (github.event_name == 'workflow_dispatch' && inputs.staging && vars.STAGING_ENABLED == 'true') ||
       (github.event_name == 'push' && github.ref == 'refs/heads/develop' && vars.STAGING_ENABLED == 'true')
     runs-on: ubuntu-latest
     environment: staging

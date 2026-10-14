@@ -58,7 +58,7 @@ jobs:
           <table><thead><tr><th>어디로</th><th>가운데값</th><th>가장 빠름</th></tr></thead><tbody id="t"></tbody></table>
           <p id="done"></p>
           <script>
-          async function time(url){const r=[];for(let i=0;i<10;i++){const s=performance.now();try{await fetch(url+(url.includes('?')?'&':'?')+'n='+i+Math.random(),{mode:'no-cors',cache:'no-store'})}catch(e){r.push(NaN);continue}r.push(performance.now()-s)}const ok=r.filter(x=>!isNaN(x)).sort((a,b)=>a-b);return ok.length?{p50:ok[Math.floor((ok.length-1)/2)],min:ok[0]}:null}
+          async function time(url){const same=url.startsWith(location.origin);const r=[];for(let i=0;i<10;i++){const s=performance.now();try{const res=await fetch(url+(url.includes('?')?'&':'?')+'n='+i+Math.random(),{mode:same?'same-origin':'no-cors',cache:'no-store',signal:AbortSignal.timeout(5000)});if(same&&!res.ok)throw new Error(res.status)}catch(e){r.push(NaN);continue}r.push(performance.now()-s)}const ok=r.filter(x=>!isNaN(x)).sort((a,b)=>a-b);return ok.length?{p50:ok[Math.floor((ok.length-1)/2)],min:ok[0]}:null}
           (async()=>{const rows=[['학교 서버 포트 직접',location.origin+'/ping.txt'],['devlog.life (Cloudflare)','https://devlog.life/favicon.svg']];const t=document.getElementById('t');
           for(const [n,u] of rows){const v=await time(u);t.insertAdjacentHTML('beforeend','<tr><td>'+n+'</td><td><b>'+(v?v.p50.toFixed(0)+'ms':'실패')+'</b></td><td>'+(v?v.min.toFixed(0)+'ms':'-')+'</td></tr>')}
           document.getElementById('done').textContent='다 쟀어요. 이 화면을 캡처해서 보내 주세요.'})()

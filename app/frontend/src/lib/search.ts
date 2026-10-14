@@ -49,7 +49,10 @@ let warmedAt = -WARM_EVERY_MS
 export function warmSearch(now = Date.now()): boolean {
   if (now - warmedAt < WARM_EVERY_MS) return false
   warmedAt = now
-  void fetch('/api/search/warm', { credentials: 'same-origin' }).catch(() => undefined)
+  // 보내지 못했거나 거절되면 다음에 검색창에 들어올 때 다시 보낸다
+  api<void>('/api/search/warm').catch(() => {
+    if (warmedAt === now) warmedAt = -WARM_EVERY_MS
+  })
   return true
 }
 

@@ -14,7 +14,7 @@
 
 ## Requirements
 
-- **FR-001**: 블로그 배포 워크플로는 develop 푸시에서 백엔드·화면 테스트와 이미지 빌드를 거친 뒤 `deploy-staging` 잡으로 네임스페이스 `blog-dev`에 배포한다. 변수 `STAGING_ENABLED`가 `true`일 때만 돈다. 수동 실행의 "시험 환경에 배포"로도 돈다.
+- **FR-001**: 블로그 배포 워크플로는 develop 푸시에서 백엔드·화면 테스트와 이미지 빌드를 거친 뒤 `deploy-staging` 잡으로 네임스페이스 `blog-dev`에 배포한다. 변수 `STAGING_ENABLED`가 `true`일 때만 돈다. 수동 실행의 "시험 환경에 배포"도 같은 변수가 `true`일 때만 돈다(Access 없이 개발용 로그인이 열리지 않게).
 - **FR-002**: 운영 배포 잡(main 푸시, 수동 실행 `deploy`)의 조건과 단계는 바꾸지 않는다. 학교 서버 SSH 터널은 두 잡이 같은 composite action(`.github/actions/school-tunnel`)을 쓴다.
 - **FR-003**: 시험 환경은 `deploy/k8s/overlays/staging`으로 PostgreSQL·Redis·MinIO를 `blog-dev`에 따로 띄운다. 앱 1개(메모리 요청 384Mi), 디스크 2Gi, 검색 임베딩 모델·매일 DB 백업·PDB는 뺀다.
 - **FR-004**: 시험 환경 비밀값은 운영 값을 쓰지 않는다. 첫 배포 때 `gen-secret-env.sh staging`으로 임의 값을 만들어 클러스터 Secret `blog-dev-seed`에 두고, 다음 배포부터 그 값을 다시 쓴다.
