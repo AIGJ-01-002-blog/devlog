@@ -22,6 +22,7 @@ import { compactNumber } from '../lib/format'
 import { t } from '../lib/i18n'
 import { loadBadges, type StreakBadge } from '../lib/points'
 import { StreakBadgeIcon } from '../components/StreakBadge'
+import { bannerProps, frameProps, loadDecorations, themeStyle, type Decorations } from '../lib/shop'
 
 /** 블로그 표지 색(0~3). 같은 블로그는 언제나 같은 색이다. */
 export function blogTone(handle: string): number {
@@ -50,6 +51,13 @@ export function BlogPage({ handle, tab = 'posts' }: { handle: string; tab?: 'pos
     return () => { alive = false }
   }, [handle, pointsOn])
   const topBadge = badges.length > 0 ? badges[badges.length - 1] : null
+  const [deco, setDeco] = useState<Decorations | null>(null)
+
+  useEffect(() => {
+    // 블로그 꾸미기 (#268): 포인트를 켠 서버에서만 받는다. 못 받아도 기본 모습으로 보인다
+    setDeco(null)
+    if (pointsOn) loadDecorations(handle).then(setDeco).catch(() => {})
+  }, [handle, pointsOn])
 
   useEffect(() => {
     // 정규화되지 않은 필터 값은 정규화된 주소로 바꾼다 (서버는 301)
@@ -65,19 +73,25 @@ export function BlogPage({ handle, tab = 'posts' }: { handle: string; tab?: 'pos
 
   if (missing || badTag) return <NotFoundPage />
   if (!profile) return <main className="container"><p className="muted center">{t('불러오는 중…')}</p></main>
+  const banner = bannerProps(deco?.banner)
+  const frame = frameProps(deco?.frame)
+  const theme = themeStyle(deco?.theme)
   return (
-    <main className="container">
+    <main className={`container${theme ? ' blog-themed' : ''}`} style={theme}>
       <header className="blog-hero">
-        <div className="blog-cover" data-tone={blogTone(profile.handle)} aria-hidden="true" />
+        <div className={`blog-cover${deco?.banner ? ' deco-banner' : ''}${banner.image ? ' has-image' : ''}`} data-tone={blogTone(profile.handle)}
+          data-banner={banner['data-banner']} style={banner.style} aria-hidden="true" />
         <div className="blog-hero-body">
           <div className="blog-hero-top">
-            <span className="blog-avatar"><Avatar src={profile.profileImageUrl} name={profile.nickname} seed={profile.handle} size={112} /></span>
+            <span className={`blog-avatar${frame['data-frame'] ? ' deco-frame' : ''}`} data-frame={frame['data-frame']} style={frame.style}
+              title={deco?.frame ? t('{0} 테두리', { 0: deco.frame.name }) : undefined}><Avatar src={profile.profileImageUrl} name={profile.nickname} seed={profile.handle} size={112} /></span>
             <div className="blog-hero-actions">
               <Link to={`/@${profile.handle}/rss`} className="btn btn-outline btn-icon" aria-label={t('RSS 구독')}
                     data-tip={t('RSS 구독: 구독 앱으로 이 블로그의 새 글 받기')}><NavIcon name="rss" /></Link>
               {profile.mine ? <>
                 <Link to="/settings#profile" className="btn btn-outline" data-tip={t('사진·닉네임·소개 바꾸기')}>{t('프로필 편집')}</Link>
                 <Link to="/manage/posts" className="btn btn-outline" data-tip={t('임시글·발행 글·휴지통 관리')}>{t('글 관리')}</Link>
+                {pointsOn && <Link to="/shop" className="btn btn-outline" data-tip={t('상점 포인트로 테마 색·프로필 테두리·표지를 사서 블로그 꾸미기')}>{t('꾸미기')}</Link>}
                 <Link to="/write" className="btn btn-primary" data-tip={t('새 글 쓰기')}><NavIcon name="pen" size={16} />{t('새 글')}</Link>
               </> : <>
                 <FriendButton profile={profile} onChange={(f) => {

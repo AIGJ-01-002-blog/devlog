@@ -100,6 +100,26 @@
   --grad-3b: #3b82f6;
   --grad-4a: #f59e0b;
   --grad-4b: #ef4444;
+  /* 블로그 꾸미기 아이템 (이슈 268): 표지·테두리 모양. 다크 모드에서도 같은 색을 쓴다(표지 그림이라서) */
+  --deco-gold-a: #fde68a;
+  --deco-gold-b: #b8860b;
+  --deco-aurora-a: #34d399;
+  --deco-aurora-b: #8b5cf6;
+  --deco-r1: #ef4444;
+  --deco-r2: #f59e0b;
+  --deco-r3: #eab308;
+  --deco-r4: #22c55e;
+  --deco-r5: #3b82f6;
+  --deco-r6: #8b5cf6;
+  --deco-sunset-a: #ff8a3d;
+  --deco-sunset-b: #f0508c;
+  --deco-ocean-a: #1e3a8a;
+  --deco-ocean-b: #14b8a6;
+  --deco-night-a: #0b1026;
+  --deco-night-b: #3b2a6b;
+  --deco-star: rgba(255, 255, 255, 0.85);
+  --deco-forest-a: #a3e635;
+  --deco-forest-b: #166534;
   --color-cover-text: #ffffff;
   --color-cover-shade: rgba(9, 9, 11, 0.18);
   --color-cover-chip: rgba(9, 9, 11, 0.5);
@@ -2489,6 +2509,7 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 }
 
 /* 블로그 포인트 (이슈 266) */
+.points-title { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .points-notice { margin: -4px 0 12px; }
 .points-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 16px; align-items: start; margin: 16px 0; }
 .points-attend h2, .points-ways h2, .points-history h2, .points-admin h2 { margin-top: 0; }
@@ -2581,3 +2602,56 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 .points-tabs .settings-panel h2 { margin-top: 0; }
 .attend-nudge { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 12px 0 0; }
 .attend-nudge-actions { display: flex; align-items: center; gap: 4px; }
+/* 블로그 꾸미기 (이슈 268): 블로그 주인이 상점에서 산 테마 색·프로필 테두리·표지 */
+.blog-themed { --color-brand: var(--blog-theme); --color-brand-fill: var(--blog-theme); --color-brand-fill-hover: color-mix(in srgb, var(--blog-theme) 85%, black); }
+:root[data-theme="dark"] .blog-themed { --color-brand: color-mix(in srgb, var(--blog-theme) 60%, white); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .blog-themed { --color-brand: color-mix(in srgb, var(--blog-theme) 60%, white); }
+}
+.blog-themed .blog-tabs a[aria-current="page"] { color: var(--color-brand); }
+.deco-frame { padding: 4px; border-radius: 50%; background: var(--frame-bg, var(--color-surface)); }
+.deco-frame[data-frame="color"] { --frame-bg: var(--frame-color); }
+.deco-frame[data-frame="gold"] { --frame-bg: conic-gradient(from 210deg, var(--deco-gold-a), var(--deco-gold-b), var(--deco-gold-a), var(--deco-gold-b), var(--deco-gold-a)); }
+.deco-frame[data-frame="rainbow"] { --frame-bg: conic-gradient(var(--deco-r1), var(--deco-r2), var(--deco-r3), var(--deco-r4), var(--deco-r5), var(--deco-r6), var(--deco-r1)); }
+.deco-frame[data-frame="aurora"] { --frame-bg: conic-gradient(from 90deg, var(--deco-aurora-a), var(--deco-aurora-b), var(--deco-aurora-a)); }
+.blog-avatar.deco-frame { padding: 7px; }
+.blog-avatar.deco-frame .avatar { box-shadow: 0 0 0 3px var(--color-surface); }
+.deco-banner[data-banner="sunset"] { --cover-a: var(--deco-sunset-a); --cover-b: var(--deco-sunset-b); }
+.deco-banner[data-banner="ocean"] { --cover-a: var(--deco-ocean-a); --cover-b: var(--deco-ocean-b); }
+.deco-banner[data-banner="forest"] { --cover-a: var(--deco-forest-a); --cover-b: var(--deco-forest-b); }
+.deco-banner[data-banner="night"] {
+  background: radial-gradient(1.5px 1.5px at 12% 30%, var(--deco-star), transparent), radial-gradient(1px 1px at 28% 70%, var(--deco-star), transparent),
+    radial-gradient(1.5px 1.5px at 46% 22%, var(--deco-star), transparent), radial-gradient(1px 1px at 63% 58%, var(--deco-star), transparent),
+    radial-gradient(2px 2px at 78% 32%, var(--deco-star), transparent), radial-gradient(1px 1px at 90% 75%, var(--deco-star), transparent),
+    linear-gradient(160deg, var(--deco-night-a), var(--deco-night-b));
+}
+.deco-banner.has-image { background-size: cover; background-position: center; }
+
+/* 상점 (이슈 268) */
+.shop-notice { margin: -4px 0 12px; }
+.shop-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.shop-card { display: flex; flex-direction: column; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); overflow: hidden; }
+.shop-card.applied { border-color: var(--color-brand); box-shadow: inset 0 0 0 1px var(--color-brand); }
+.shop-preview { position: relative; height: 104px; display: grid; place-items: center; background: var(--color-surface-2); }
+.shop-preview.deco-banner:not([data-banner="night"]) { background: radial-gradient(120% 140% at 0% 0%, var(--cover-a) 0%, transparent 60%), linear-gradient(120deg, var(--cover-a), var(--cover-b)); }
+.shop-preview.deco-banner[data-banner="night"], .shop-preview.deco-banner.has-image { background-color: var(--color-surface-2); }
+.shop-preview-theme { display: flex; align-items: center; gap: 8px; }
+.shop-swatch { width: 40px; height: 40px; border-radius: 50%; background: var(--swatch); box-shadow: inset 0 0 0 1px var(--color-border); }
+.shop-preview-theme .btn { pointer-events: none; }
+.shop-body { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px 14px; flex: 1; }
+.shop-body h3 { margin: 0; font-size: 1rem; }
+.shop-price { font-weight: 700; font-variant-numeric: tabular-nums; }
+.shop-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 8px; }
+.shop-actions .btn { flex: 1; }
+.shop-admin-list { list-style: none; margin: 0; padding: 0; }
+.shop-admin-list li { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--color-border); }
+.shop-admin-list .shop-preview { height: 40px; border-radius: var(--radius); }
+.shop-admin-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px 16px; }
+@media (max-width: 640px) {
+  .shop-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .shop-preview { height: 80px; }
+  .shop-actions .btn { flex-basis: 100%; }
+  .shop-admin-list li { grid-template-columns: 44px minmax(0, 1fr); }
+  .shop-admin-list li > :last-child { grid-column: 1 / -1; }
+}
