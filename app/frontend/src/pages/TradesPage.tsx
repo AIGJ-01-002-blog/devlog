@@ -5,9 +5,9 @@ import { dayLabels, num } from '../lib/dashboard'
 import { t } from '../lib/i18n'
 import { Link, navigate, useLocation } from '../lib/router'
 import {
-  coinUnit, createTradeDraft, createTradeShorts, deleteTradeFill, exchangeName, fillTime, isDate, loadTradeDay, loadTrades, mainCurrency,
-  MEMO_MAX, money, moneys, pnlClass, qty, saveTradeMemo, TRADE_PERIODS, tradePeriodOf, winRate, type Money, type TradeDay,
-  type TradeFill, type TradeOverview, type TradePeriod,
+  actionLabel, closes, coinUnit, createTradeDraft, createTradeShorts, deleteTradeFill, exchangeName, fillTime, isDate, loadTradeDay, loadTrades,
+  mainCurrency, MEMO_MAX, money, moneys, pnlClass, positionLabel, qty, replayHref, saveTradeMemo, TRADE_PERIODS, tradePeriodOf, winRate,
+  type Money, type TradeDay, type TradeFill, type TradeOverview, type TradePeriod,
 } from '../lib/trades'
 
 /**
@@ -63,7 +63,7 @@ export function TradesPage() {
       {data && (
         <>
           <div className="kpi-grid dashboard-kpis" style={{ '--kpi-cols': 4 } as CSSProperties}>
-            <div className="kpi" data-tip={t('기간 안에 매도로 확정된 손익이에요. 수수료·세금을 뺀 값이에요')}>
+            <div className="kpi" data-tip={t('기간 안에 매도·선물 청산으로 확정된 손익이에요. 수수료·세금을 뺀 값이에요')}>
               <span className="kpi-label">{t('기간 실현 손익')}</span>
               <span className="kpi-value"><Amounts m={data.total.realizedPnl} main={main} pnl stack /></span>
             </div>
@@ -76,8 +76,8 @@ export function TradesPage() {
               <span className="kpi-value">{num(data.total.trades)}</span>
               <span className="kpi-foot"><span className="kpi-prev">{t('매수 {0} · 매도 {1}', { 0: num(data.total.buys), 1: num(data.total.sells) })}</span></span>
             </div>
-            <div className="kpi" data-tip={t('손익이 난 매도 가운데 이익을 본 비율이에요')}>
-              <span className="kpi-label">{t('이긴 매도')}</span>
+            <div className="kpi" data-tip={t('손익이 난 매도·선물 청산 가운데 이익을 본 비율이에요')}>
+              <span className="kpi-label">{t('이긴 청산')}</span>
               <span className="kpi-value">{rate === null ? '-' : `${rate}%`}</span>
               <span className="kpi-foot"><span className="kpi-prev">{t('이익 {0} · 손해 {1}', { 0: num(data.total.wins), 1: num(data.total.losses) })}</span></span>
             </div>
@@ -123,7 +123,7 @@ function DayBars({ data, selected, href }: { data: TradeOverview; selected: stri
                 {d.postId && <span title={t('요약 글 있음')}> · {t('글')}</span>}
                 {d.shortsId && <span title={t('쇼츠 대본 있음')}> · {t('쇼츠')}</span>}
               </span>
-              <span className="trades-day-pnl">{d.summary.sells > 0 ? <Amounts m={pnl} main={main} pnl /> : t('확정 손익 없음')}</span>
+              <span className="trades-day-pnl">{d.summary.closes > 0 ? <Amounts m={pnl} main={main} pnl /> : t('확정 손익 없음')}</span>
               {Object.keys(pnl).length === 0
                 ? <span className="trades-bar" aria-hidden="true" />
                 : Object.entries(pnl).map(([c, v]) => (
@@ -197,9 +197,12 @@ function DayCard({ date, onChanged }: { date: string; onChanged: () => void }) {
             <li key={f.id}>
               <div className="trades-fill-head">
                 <span className="muted small">{fillTime(f.executedAt)}</span>
-                <span className={`badge ${f.side === 'BUY' ? 'trades-buy' : 'trades-sell'}`}>{f.side === 'BUY' ? t('매수') : t('매도')}</span>
+                <span className={`badge ${f.side === 'BUY' ? 'trades-buy' : 'trades-sell'}`}
+                  data-tip={f.market === 'FUTURES' ? (closes(f) ? t('포지션을 닫은 체결이에요. 실현 손익이 여기서 확정돼요') : t('포지션을 연 체결이에요')) : undefined}>{actionLabel(f)}</span>
                 <strong>{f.symbolName || f.symbol}</strong>
                 {f.exchange && <span className="muted trades-exchange">{exchangeName(f.exchange)}</span>}
+                {f.market === 'FUTURES' && <span className="badge trades-position" data-tip={t('선물 포지션 방향과 레버리지예요. 손익은 레버리지만큼 커져요')}>{positionLabel(f)}</span>}
+                {f.interval && <span className="muted trades-exchange" data-tip={t('봇이 이 봉을 보고 판단했어요')}>{f.interval}</span>}
                 {f.mode === 'LIVE' && <span className="badge" data-tip={t('실계좌 주문으로 남긴 체결이에요')}>{t('실계좌')}</span>}
                 <button type="button" className="btn btn-text btn-small trades-fill-delete" onClick={() => void remove(f.id)}
                   aria-label={t('{0} 체결 기록 지우기', { 0: f.symbolName || f.symbol })} data-tip={t('봇이 잘못 보낸 기록을 지워요')}>{t('지우기')}</button>
@@ -232,6 +235,10 @@ function DayCard({ date, onChanged }: { date: string; onChanged: () => void }) {
           : <button type="button" className="btn btn-outline btn-small" disabled={day.fills.length === 0 || !day.memo.trim() || memoChanged || busy !== null}
               data-tip={!day.memo.trim() || memoChanged ? t('메모를 저장해야 쇼츠 대본을 만들 수 있어요') : t('하루 성적·눈에 띄는 체결·메모로 60초 대본을 만들어요. 영상은 스튜디오에서 확인하고 만들어요')}
               onClick={() => void run('shorts', () => createTradeShorts(date), t('쇼츠 대본을 만들었어요. 스튜디오에서 다듬어 주세요.'))}>{busy === 'shorts' ? t('만드는 중…') : t('쇼츠 대본 만들기')}</button>)}
+        {me?.features?.shorts && day.fills.length > 0 && (
+          <Link to={replayHref(date)} className="btn btn-outline btn-small"
+            data-tip={t('이날 체결을 골라 실시간으로 매매하는 것처럼 캔들 위에 다시 그리는 영상을 스튜디오에서 만들어요')}>{t('재현 영상 만들기')}</Link>
+        )}
       </div>
       {message && <p className={message.ok ? 'ok small' : 'error small'} role={message.ok ? 'status' : 'alert'}>{message.text}</p>}
     </section>

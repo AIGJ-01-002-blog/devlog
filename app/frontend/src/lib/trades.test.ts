@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { coinUnit, exchangeName, fillTime, isDate, mainCurrency, money, moneyClass, moneys, pnlClass, qty, tradePeriodOf, winRate, won } from './trades'
+import { actionLabel, closes, coinUnit, exchangeName, fillTime, isDate, mainCurrency, money, moneyClass, moneys, pnlClass, positionLabel, qty, replayHref, tradePeriodOf, winRate, won } from './trades'
 
-const summary = { trades: 0, buys: 0, sells: 0, wins: 0, losses: 0, realizedPnl: {}, fees: {} }
+const summary = { trades: 0, buys: 0, sells: 0, closes: 0, wins: 0, losses: 0, realizedPnl: {}, fees: {} }
 
 describe('매매 일지 (#243)', () => {
   it('금액은 원 단위로 반올림하고 이익에만 +를 붙인다', () => {
@@ -64,5 +64,21 @@ describe('매매 일지 (#243)', () => {
     expect(coinUnit({ exchange: '', symbol: '005930', currency: 'KRW' })).toBeNull()
     expect(exchangeName('UPBIT')).toBe('업비트')
     expect(exchangeName('FOO')).toBe('FOO')
+  })
+
+  it('선물은 포지션 방향으로 진입·청산을 읽는다 (#260)', () => {
+    const spot = { market: 'SPOT' as const, positionSide: null, leverage: null }
+    expect(closes({ ...spot, side: 'SELL' })).toBe(true)
+    expect(actionLabel({ ...spot, side: 'BUY' })).toBe('매수')
+    expect(positionLabel(spot)).toBeNull()
+    const short = { market: 'FUTURES' as const, positionSide: 'SHORT' as const, leverage: 3 }
+    expect(closes({ ...short, side: 'BUY' })).toBe(true)
+    expect(actionLabel({ ...short, side: 'SELL' })).toBe('숏 진입')
+    expect(actionLabel({ ...short, side: 'BUY' })).toBe('숏 청산')
+    expect(positionLabel(short)).toBe('선물 숏 3배')
+    const long = { market: 'FUTURES' as const, positionSide: 'LONG' as const, leverage: 7 }
+    expect(actionLabel({ ...long, side: 'BUY' })).toBe('롱 진입')
+    expect(actionLabel({ ...long, side: 'SELL' })).toBe('롱 청산')
+    expect(replayHref('2026-10-14')).toBe('/studio?replay=2026-10-14')
   })
 })

@@ -59,6 +59,18 @@ public final class TradeTexts {
         return live ? "실계좌" : "모의투자";
     }
 
+    /** 선물 포지션: "선물 롱 3배". 현물은 빈 문자열 */
+    public static String positionLabel(TradeJournal.Fill f) {
+        if (!f.market().equals("FUTURES")) return "";
+        return "선물 " + (f.positionSide().equals("SHORT") ? "숏" : "롱") + " " + (f.leverage() == null ? 1 : f.leverage()) + "배";
+    }
+
+    /** 체결 구분: 현물 "매수"·"매도", 선물 "롱 진입"·"롱 청산"·"숏 진입"·"숏 청산" */
+    public static String actionLabel(TradeJournal.Fill f) {
+        if (!f.market().equals("FUTURES")) return f.side().equals("BUY") ? "매수" : "매도";
+        return (f.positionSide().equals("SHORT") ? "숏 " : "롱 ") + (f.closes() ? "청산" : "진입");
+    }
+
     private static String name(TradeJournal.Fill f) {
         return f.symbolName().isBlank() ? f.symbol() : f.symbolName();
     }
@@ -71,7 +83,7 @@ public final class TradeTexts {
     static String draftTitle(TradeJournal.Day day) {
         TradeJournal.Summary s = day.summary();
         String head = "매매 일지 " + day.date() + " (" + modeLabel(day) + ")";
-        return s.sells() > 0 ? head + ": 실현 손익 " + money(day, s.realizedPnl(), true) : head + ": 체결 " + s.trades() + "건";
+        return s.closes() > 0 ? head + ": 실현 손익 " + money(day, s.realizedPnl(), true) : head + ": 체결 " + s.trades() + "건";
     }
 
     /** 하루 요약 임시글 본문 (Markdown). 체결 표·요약·메모·고지 */
@@ -82,9 +94,9 @@ public final class TradeTexts {
         if (!day.memo().isBlank()) md.append("## 오늘 메모\n\n").append(day.memo().strip()).append("\n\n");
         md.append("## 요약\n\n");
         md.append("- 체결 ").append(s.trades()).append("건 (매수 ").append(s.buys()).append(" · 매도 ").append(s.sells()).append(")\n");
-        if (s.sells() > 0) {
+        if (s.closes() > 0) {
             md.append("- 실현 손익: ").append(money(day, s.realizedPnl(), true))
-                    .append(" (이익 본 매도 ").append(s.wins()).append(" · 손해 본 매도 ").append(s.losses()).append(")\n");
+                    .append(" (이익 본 청산 ").append(s.wins()).append(" · 손해 본 청산 ").append(s.losses()).append(")\n");
         }
         md.append("- 수수료·세금: ").append(money(day, s.fees(), false)).append('\n');
         md.append("- 지금까지 실현 손익: ").append(money(day, day.cumulativePnl(), true)).append("\n\n");
@@ -92,7 +104,8 @@ public final class TradeTexts {
         for (TradeJournal.Fill f : day.fills().stream().sorted(Comparator.comparing(TradeJournal.Fill::executedAt)).toList()) {
             md.append("| ").append(TIME.format(f.executedAt()))
                     .append(" | ").append(cell(nameWithExchange(f))).append(f.mode().equals("LIVE") ? " (실계좌)" : "")
-                    .append(" | ").append(f.side().equals("BUY") ? "매수" : "매도")
+                    .append(f.market().equals("FUTURES") ? " (" + positionLabel(f) + ")" : "")
+                    .append(" | ").append(actionLabel(f))
                     .append(" | ").append(Money.crypto(f.exchange()) ? amountOf(f) : qty(f.quantity()))
                     .append(" | ").append(money(f, f.price(), false))
                     .append(" | ").append(f.realizedPnl() == null ? "" : money(f, f.realizedPnl(), true))
@@ -109,7 +122,7 @@ public final class TradeTexts {
     static String shortsTitle(TradeJournal.Day day) {
         String t = day.date().getMonthValue() + "월 " + day.date().getDayOfMonth() + "일 매매 봇 일지";
         TradeJournal.Summary s = day.summary();
-        return s.sells() > 0 ? t + " " + money(day, s.realizedPnl(), true) : t;
+        return s.closes() > 0 ? t + " " + money(day, s.realizedPnl(), true) : t;
     }
 
     /**
@@ -123,10 +136,13 @@ public final class TradeTexts {
         List<ShortsScript.Scene> head = new ArrayList<>();
         head.add(new ShortsScript.Scene(d.getMonthValue() + "/" + d.getDayOfMonth() + " 봇 성적은?",
                 d.getMonthValue() + "월 " + d.getDayOfMonth() + "일, 제 " + mode + " 봇은 돈을 벌었을까요?", null));
-        String result = s.sells() > 0
-                ? "체결 " + s.trades() + "건 가운데 매도 " + s.sells() + "번에서 실현 손익은 " + money(day, s.realizedPnl(), true) + "이었어요."
-                : "체결은 " + s.trades() + "건이었고 모두 매수라서 아직 확정된 손익은 없어요.";
-        head.add(new ShortsScript.Scene(s.sells() > 0 ? "실현 손익 " + money(day, s.realizedPnl(), true) : "매수 " + s.buys() + "건", result, null));
+        boolean futures = day.fills().stream().anyMatch(f -> f.market().equals("FUTURES"));
+        String close = futures ? "청산" : "매도";
+        String open = futures ? "진입" : "매수";
+        String result = s.closes() > 0
+                ? "체결 " + s.trades() + "건 가운데 " + close + " " + s.closes() + "번에서 실현 손익은 " + money(day, s.realizedPnl(), true) + "이었어요."
+                : "체결은 " + s.trades() + "건이었고 모두 " + open + "라서 아직 확정된 손익은 없어요.";
+        head.add(new ShortsScript.Scene(s.closes() > 0 ? "실현 손익 " + money(day, s.realizedPnl(), true) : open + " " + s.trades() + "건", result, null));
 
         List<ShortsScript.Scene> fills = new ArrayList<>();
         Set<String> seen = new LinkedHashSet<>();
@@ -137,11 +153,13 @@ public final class TradeTexts {
         for (TradeJournal.Fill f : notable) {
             if (fills.size() >= SHORTS_FILLS_MAX || !seen.add(f.symbol())) continue;
             String why = f.reason().isBlank() ? f.strategy() : f.reason();
-            String verb = f.side().equals("BUY") ? "샀어요" : "팔았어요";
+            String verb = f.market().equals("FUTURES")
+                    ? positionLabel(f) + (f.closes() ? "로 청산했어요" : "로 들어갔어요")
+                    : f.side().equals("BUY") ? "샀어요" : "팔았어요";
             String pnl = f.realizedPnl() == null ? "" : " 손익은 " + money(f, f.realizedPnl(), true) + ".";
             String narration = name(f) + " " + amountOf(f) + "를 " + money(f, f.price(), false) + "에 " + verb + "." + pnl
                     + (why.isBlank() ? "" : " 신호는 " + why + ".");
-            fills.add(new ShortsScript.Scene(clip(name(f) + (f.side().equals("BUY") ? " 매수" : " 매도"), ShortsScript.CAPTION_MAX),
+            fills.add(new ShortsScript.Scene(clip(name(f) + " " + actionLabel(f), ShortsScript.CAPTION_MAX),
                     clip(narration, ShortsScript.NARRATION_MAX), null));
         }
 

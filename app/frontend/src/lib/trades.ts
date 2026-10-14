@@ -5,6 +5,7 @@ import { t } from './i18n'
 /**
  * 매매 일지 (#243). 서버 TradeJournal과 같은 모양.
  * 코인 거래소(#254)는 원화와 USDT가 섞이므로 손익·수수료는 통화별 금액({ KRW: 1200, USDT: 3.5 })으로 온다.
+ * 선물(#260)은 롱 진입 BUY, 롱 청산 SELL, 숏 진입 SELL, 숏 청산 BUY로 읽고, 실현 손익은 청산(closes)에만 붙는다.
  */
 export type TradePeriod = 7 | 30 | 90
 export const TRADE_PERIODS: TradePeriod[] = [7, 30, 90]
@@ -16,6 +17,8 @@ export interface TradeSummary {
   trades: number
   buys: number
   sells: number
+  /** 포지션을 닫은 체결 수(현물 매도, 선물 청산) */
+  closes: number
   wins: number
   losses: number
   realizedPnl: Money
@@ -39,6 +42,12 @@ export interface TradeFill {
   strategy: string
   reason: string
   executedAt: string
+  market: 'SPOT' | 'FUTURES'
+  /** 선물만. 현물은 null */
+  positionSide: 'LONG' | 'SHORT' | null
+  leverage: number | null
+  /** 봇이 판단한 봉 (1m·5m·15m·1h·4h·1d). 비어 있으면 알리지 않은 기록 */
+  interval: string
 }
 
 export interface TradeDayRow {
@@ -172,4 +181,32 @@ export function fillTime(iso: string): string {
 /** 수량. 소수점 아래 0은 지운다 */
 export function qty(n: number): string {
   return Number(n.toFixed(10)).toLocaleString('en-US', { maximumFractionDigits: 10 })
+}
+
+type FillSide = Pick<TradeFill, 'market' | 'positionSide' | 'side'>
+
+/** 포지션을 닫는 체결인가: 현물 매도, 선물 롱 청산(SELL)·숏 청산(BUY). 서버 Fill.closes와 같은 규칙 */
+export function closes(f: FillSide): boolean {
+  if (f.market === 'FUTURES') return f.positionSide === 'SHORT' ? f.side === 'BUY' : f.side === 'SELL'
+  return f.side === 'SELL'
+}
+
+/** 체결 구분: 현물 매수·매도, 선물 롱 진입·롱 청산·숏 진입·숏 청산 */
+export function actionLabel(f: FillSide): string {
+  if (f.market !== 'FUTURES') return f.side === 'BUY' ? t('매수') : t('매도')
+  const short = f.positionSide === 'SHORT'
+  if (closes(f)) return short ? t('숏 청산') : t('롱 청산')
+  return short ? t('숏 진입') : t('롱 진입')
+}
+
+/** 선물 포지션 "선물 롱 3배". 현물은 null */
+export function positionLabel(f: Pick<TradeFill, 'market' | 'positionSide' | 'leverage'>): string | null {
+  if (f.market !== 'FUTURES') return null
+  const x = f.leverage ?? 1
+  return f.positionSide === 'SHORT' ? t('선물 숏 {0}배', { 0: x }) : t('선물 롱 {0}배', { 0: x })
+}
+
+/** 그날 기록으로 매매 재현 영상을 만드는 스튜디오 주소 (#265) */
+export function replayHref(date: string): string {
+  return `/studio?replay=${date}`
 }

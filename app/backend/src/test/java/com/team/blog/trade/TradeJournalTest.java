@@ -214,6 +214,86 @@ class TradeJournalTest extends IntegrationTest {
         assertThat(forAi).contains("[BINANCE] 비트코인(BTCUSDT) 매수 0.0012 BTC @ 83752.3 USDT", "손익 1.0549 USDT", "실현 손익 -4200원 · 1.0549 USDT");
     }
 
+    Map<String, Object> futures(String id, LocalDate day, String time, String position, String side, int leverage, String pnl) {
+        Map<String, Object> a = new HashMap<>(Map.of("external_id", id, "exchange", "BINANCE", "symbol", "BTCUSDT", "symbol_name", "비트코인",
+                "currency", "USDT", "market", "FUTURES", "position_side", position, "side", side, "quantity", "0.01", "price", 83000));
+        a.put("leverage", leverage);
+        a.put("interval", "15m");
+        a.put("executed_at", at(day, time));
+        if (pnl != null) a.put("realized_pnl", pnl);
+        return a;
+    }
+
+    @Test
+    void 선물은_포지션_방향과_레버리지를_남기고_숏_청산_매수의_손익도_더한다() throws Exception {
+        Session me = signup(uniqueLogin("futures"));
+        String t = token(me);
+        LocalDate d = LocalDate.now(KST).minusDays(1);
+
+        // 숏 진입 SELL → 숏 청산 BUY(손익), 롱 진입 BUY → 롱 청산 SELL(손익)
+        for (Map<String, Object> a : List.of(futures("f-1", d, "09:00:00", "SHORT", "SELL", 3, null),
+                futures("f-2", d, "10:00:00", "SHORT", "BUY", 3, "12.5"),
+                futures("f-3", d, "11:00:00", "LONG", "BUY", 7, null),
+                futures("f-4", d, "12:00:00", "LONG", "SELL", 7, "-2.5"))) {
+            JsonNode r = call(t, "record_trade", a);
+            assertThat(r.path("isError").asBoolean()).as(text(r)).isFalse();
+        }
+
+        // 레버리지는 1~7배, 손익은 청산에만, 현물에는 포지션 방향을 적지 않는다
+        JsonNode tooHigh = call(t, "record_trade", futures("f-bad", d, "13:00:00", "LONG", "BUY", 8, null));
+        assertThat(tooHigh.path("isError").asBoolean()).isTrue();
+        assertThat(text(tooHigh)).contains("1~7배");
+        JsonNode openWithPnl = call(t, "record_trade", futures("f-bad2", d, "13:00:00", "SHORT", "SELL", 2, "1"));
+        assertThat(text(openWithPnl)).contains("청산에만");
+        JsonNode noSide = call(t, "record_trade", Map.of("external_id", "f-bad3", "market", "FUTURES", "symbol", "BTCUSDT", "side", "BUY",
+                "quantity", 1, "price", 1, "currency", "USDT"));
+        assertThat(text(noSide)).contains("position_side");
+        JsonNode spotSide = call(t, "record_trade", Map.of("external_id", "f-bad4", "symbol", "BTCUSDT", "side", "BUY", "quantity", 1,
+                "price", 1, "currency", "USDT", "position_side", "LONG", "interval", "2h"));
+        assertThat(text(spotSide)).contains("선물(market=FUTURES)에만", "봉(interval)");
+
+        JsonNode day = read(me.http().perform(get("/api/me/trades/" + d)).andExpect(status().isOk()).andReturn());
+        assertThat(day.path("fills")).hasSize(4);
+        JsonNode first = day.path("fills").get(0);
+        assertThat(first.path("market").asString()).isEqualTo("FUTURES");
+        assertThat(first.path("positionSide").asString()).isEqualTo("SHORT");
+        assertThat(first.path("leverage").asInt()).isEqualTo(3);
+        assertThat(first.path("interval").asString()).isEqualTo("15m");
+        JsonNode s = day.path("summary");
+        assertThat(s.path("closes").asInt()).isEqualTo(2);
+        assertThat(s.path("wins").asInt()).isEqualTo(1);
+        assertThat(s.path("losses").asInt()).isEqualTo(1);
+        assertThat(s.path("realizedPnl").path("USDT").decimalValue()).isEqualByComparingTo("10");
+
+        assertThat(text(call(t, "get_trade_day", Map.of("date", d.toString())))).contains("[선물 숏 3배] [15m]", "숏 청산", "롱 진입", "청산 2");
+
+        me.http().perform(asJson(put("/api/me/trades/" + d + "/memo"), Map.of("memo", "숏은 계획대로, 롱은 7배라 흔들렸어요.")))
+                .andExpect(status().isOk());
+        long postId = read(me.http().perform(post("/api/me/trades/" + d + "/draft").with(csrf())).andExpect(status().isOk()).andReturn())
+                .path("postId").asLong();
+        String body = jdbc.queryForObject("SELECT content_md FROM post WHERE id = ?", String.class, postId);
+        assertThat(body).contains("비트코인 · 바이낸스 (선물 숏 3배) | 숏 청산", "(선물 롱 7배) | 롱 진입", "이익 본 청산 1");
+    }
+
+    @Test
+    void 예전_봇이_이유_앞머리로_알린_선물_체결을_열로_옮긴다() throws Exception {
+        Session me = signup(uniqueLogin("legacyfut"));
+        jdbc.update("""
+                INSERT INTO trade (member_id, external_id, mode, exchange, symbol, side, quantity, price, currency, reason, executed_at)
+                VALUES (?, 'legacy-1', 'PAPER', 'BINANCE', 'BTCUSDT', 'SELL', 0.01, 83000, 'USDT', '[선물 숏 진입 3x] RSI 과열', now()),
+                       (?, 'legacy-2', 'PAPER', 'BINANCE', 'BTCUSDT', 'BUY', 0.01, 83000, 'USDT', '골든크로스', now())
+                """, me.memberId(), me.memberId());
+        String sql = new String(getClass().getResourceAsStream("/db/migration/V41__trade_futures.sql").readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        String update = sql.substring(sql.indexOf("UPDATE trade"), sql.indexOf(';', sql.indexOf("UPDATE trade")));
+        jdbc.update(update + " AND member_id = ?", me.memberId());
+        Map<String, Object> legacy = jdbc.queryForMap("SELECT market, position_side, leverage, reason FROM trade WHERE external_id = 'legacy-1' AND member_id = ?",
+                me.memberId());
+        assertThat(legacy).containsEntry("market", "FUTURES").containsEntry("position_side", "SHORT").containsEntry("reason", "RSI 과열");
+        assertThat(((Number) legacy.get("leverage")).intValue()).isEqualTo(3);
+        assertThat(jdbc.queryForObject("SELECT market FROM trade WHERE external_id = 'legacy-2' AND member_id = ?", String.class, me.memberId()))
+                .isEqualTo("SPOT");
+    }
+
     @Test
     void 하루_기록_상한을_넘으면_봇을_멈추라고_알린다() throws Exception {
         Session me = signup(uniqueLogin("tradecap"));

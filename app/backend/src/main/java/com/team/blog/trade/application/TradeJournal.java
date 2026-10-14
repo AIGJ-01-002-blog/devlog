@@ -34,6 +34,7 @@ import com.team.blog.shorts.application.ShortsService;
  * 하루 기록으로 요약 임시글과 쇼츠 대본을 만든다. 공개 여부는 회원이 글·쇼츠마다 정한다(여기서는 임시글·대본까지만 만든다).
  * 실제 주문은 devlog가 하지 않는다. 증권사·거래소 접속 정보도 받지 않는다.
  * 코인 거래소(#254)는 원화와 USDT가 섞이므로 손익·수수료 합계를 통화별로 따로 낸다({@link Money}).
+ * 선물(#260)은 포지션 방향이 있어 롱 진입 BUY, 롱 청산 SELL, 숏 진입 SELL, 숏 청산 BUY로 읽는다. 실현 손익은 청산에만 붙는다.
  */
 @Service
 public class TradeJournal {
@@ -51,33 +52,65 @@ public class TradeJournal {
     private static final Pattern SYMBOL = Pattern.compile("[A-Za-z0-9._-]{1," + SYMBOL_MAX + "}");
     private static final Pattern CURRENCY = Pattern.compile("[A-Z]{2,10}");
     private static final Pattern EXCHANGE = Pattern.compile("[A-Z0-9_]{0," + EXCHANGE_MAX + "}");
+    /** 선물 레버리지 상한 (블로그 주인 결정 2026-10-14) */
+    public static final int LEVERAGE_MAX = 7;
+    /** 봇이 판단하는 봉 */
+    public static final List<String> INTERVALS = List.of("1m", "5m", "15m", "1h", "4h", "1d");
 
     public enum Mode { PAPER, LIVE }
 
     public enum Side { BUY, SELL }
 
+    public enum Market { SPOT, FUTURES }
+
+    public enum PositionSide { LONG, SHORT }
+
     /**
      * 봇이 보내는 체결 하나.
      * @param exchange 거래소 코드(BINANCE·UPBIT…). 비우면 알리지 않은 것
      * @param currency 가격·수수료·손익의 통화. 비우면 KRW
+     * @param market 비우면 SPOT. positionSide·leverage는 FUTURES에만 (leverage를 비우면 1배)
+     * @param interval 봇이 판단한 봉(1m·5m·15m·1h·4h·1d). 비워도 된다
      */
     public record Input(String externalId, Mode mode, String symbol, String symbolName, Side side, BigDecimal quantity, BigDecimal price,
                         BigDecimal fee, BigDecimal realizedPnl, String strategy, String reason, Instant executedAt, String exchange,
-                        String currency) {}
+                        String currency, Market market, PositionSide positionSide, Integer leverage, String interval) {
+
+        /** 현물 체결 */
+        public Input(String externalId, Mode mode, String symbol, String symbolName, Side side, BigDecimal quantity, BigDecimal price,
+                     BigDecimal fee, BigDecimal realizedPnl, String strategy, String reason, Instant executedAt, String exchange,
+                     String currency) {
+            this(externalId, mode, symbol, symbolName, side, quantity, price, fee, realizedPnl, strategy, reason, executedAt, exchange,
+                    currency, null, null, null, "");
+        }
+    }
 
     /** @param duplicate 같은 externalId로 이미 남긴 체결이면 true (새로 남기지 않았다) */
     public record Recorded(long id, boolean duplicate, LocalDate day) {}
 
+    /** @param positionSide·leverage 선물만 (현물은 null), interval 비어 있으면 알리지 않은 것 */
     public record Fill(long id, String externalId, String mode, String exchange, String symbol, String symbolName, String side,
                        BigDecimal quantity, BigDecimal price, String currency, BigDecimal fee, BigDecimal realizedPnl, String strategy,
-                       String reason, Instant executedAt) {}
+                       String reason, Instant executedAt, String market, String positionSide, Integer leverage, String interval) {
+
+        /** 포지션을 닫는 체결인가: 현물 매도, 선물 롱 청산(SELL)·숏 청산(BUY) */
+        public boolean closes() {
+            return closes(market, positionSide, side);
+        }
+
+        static boolean closes(String market, String positionSide, String side) {
+            if (Market.FUTURES.name().equals(market)) return PositionSide.SHORT.name().equals(positionSide) ? side.equals("BUY") : side.equals("SELL");
+            return side.equals("SELL");
+        }
+    }
 
     /**
      * 손익·수수료는 통화별 금액(통화 코드 → 금액, KRW 먼저).
-     * @param wins 손익이 0보다 큰 매도 수, losses 0보다 작은 매도 수
-     * @param realizedPnl 매도가 있었던 통화마다 실현 손익 합
+     * @param closes 포지션을 닫은 체결 수(현물 매도, 선물 청산)
+     * @param wins 손익이 0보다 큰 청산 수, losses 0보다 작은 청산 수
+     * @param realizedPnl 청산이 있었던 통화마다 실현 손익 합
      */
-    public record Summary(int trades, int buys, int sells, int wins, int losses, Map<String, BigDecimal> realizedPnl,
+    public record Summary(int trades, int buys, int sells, int closes, int wins, int losses, Map<String, BigDecimal> realizedPnl,
                           Map<String, BigDecimal> fees) {}
 
     public record DayRow(LocalDate date, Summary summary, Map<String, BigDecimal> cumulativePnl, boolean memo, Long postId, Long shortsId) {}
@@ -137,11 +170,12 @@ public class TradeJournal {
                 }
                 Long id = jdbc.queryForObject("""
                         INSERT INTO trade (member_id, external_id, mode, exchange, symbol, symbol_name, side, quantity, price, currency, fee,
-                                           realized_pnl, strategy, reason, executed_at, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
+                                           realized_pnl, strategy, reason, executed_at, created_at, market, position_side, leverage, timeframe)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
                         """, Long.class, memberId, v.externalId(), v.mode().name(), v.exchange(), v.symbol(), v.symbolName(), v.side().name(),
                         v.quantity(), v.price(), v.currency(), v.fee(), v.realizedPnl(), v.strategy(), v.reason(), Timestamp.from(v.executedAt()),
-                        Timestamp.from(Times.now(clock)));
+                        Timestamp.from(Times.now(clock)), v.market().name(), v.positionSide() == null ? null : v.positionSide().name(),
+                        v.leverage(), v.interval());
                 return new Recorded(id, false, LocalDate.ofInstant(v.executedAt(), TradeTexts.KST));
             });
         } catch (DuplicateKeyException e) {
@@ -191,7 +225,28 @@ public class TradeJournal {
         if (in.price() == null || in.price().signum() < 0 || in.price().compareTo(AMOUNT_MAX) > 0) errors.add(new FieldErrorItem("price", "INVALID", "가격(price)은 0 이상이어야 해요."));
         if (in.fee() != null && (in.fee().signum() < 0 || in.fee().compareTo(AMOUNT_MAX) > 0)) errors.add(new FieldErrorItem("fee", "INVALID", "수수료(fee)는 0 이상이어야 해요."));
         if (in.realizedPnl() != null && in.realizedPnl().abs().compareTo(AMOUNT_MAX) > 0) errors.add(new FieldErrorItem("realized_pnl", "INVALID", "실현 손익이 너무 커요."));
-        if (in.realizedPnl() != null && in.side() == Side.BUY) errors.add(new FieldErrorItem("realized_pnl", "INVALID", "실현 손익은 매도(SELL)에만 적어요."));
+        Market market = in.market() == null ? Market.SPOT : in.market();
+        Integer leverage = in.leverage();
+        String interval = trim(in.interval()).toLowerCase(Locale.ROOT);
+        if (market == Market.SPOT) {
+            if (in.positionSide() != null) errors.add(new FieldErrorItem("position_side", "INVALID", "포지션 방향(position_side)은 선물(market=FUTURES)에만 적어요."));
+            if (leverage != null) errors.add(new FieldErrorItem("leverage", "INVALID", "레버리지(leverage)는 선물(market=FUTURES)에만 적어요."));
+        } else {
+            if (in.positionSide() == null) errors.add(new FieldErrorItem("position_side", "REQUIRED", "선물은 포지션 방향(position_side: LONG·SHORT)이 필요해요."));
+            if (leverage == null) leverage = 1;
+            else if (leverage < 1 || leverage > LEVERAGE_MAX) {
+                errors.add(new FieldErrorItem("leverage", "INVALID", "레버리지(leverage)는 1~" + LEVERAGE_MAX + "배예요."));
+            }
+        }
+        if (!interval.isEmpty() && !INTERVALS.contains(interval)) {
+            errors.add(new FieldErrorItem("interval", "INVALID", "봉(interval)은 " + String.join(", ", INTERVALS) + " 가운데 하나예요."));
+        }
+        if (in.realizedPnl() != null && in.side() != null && !(market == Market.FUTURES && in.positionSide() == null)
+                && !Fill.closes(market.name(), in.positionSide() == null ? null : in.positionSide().name(), in.side().name())) {
+            errors.add(new FieldErrorItem("realized_pnl", "INVALID", market == Market.SPOT
+                    ? "실현 손익은 매도(SELL)에만 적어요."
+                    : "실현 손익은 청산에만 적어요. 롱 청산은 SELL, 숏 청산은 BUY예요."));
+        }
         if (strategy.length() > STRATEGY_MAX) errors.add(new FieldErrorItem("strategy", "TOO_LONG", "전략 이름은 " + STRATEGY_MAX + "자까지예요."));
         if (reason.length() > REASON_MAX) errors.add(new FieldErrorItem("reason", "TOO_LONG", "이유는 " + REASON_MAX + "자까지예요."));
         Instant now = Times.now(clock);
@@ -200,7 +255,8 @@ public class TradeJournal {
         if (at.isAfter(now.plusSeconds(600))) errors.add(new FieldErrorItem("executed_at", "FUTURE", "체결 시각(executed_at)이 지금보다 뒤예요."));
         if (!errors.isEmpty()) throw ApiException.validation(errors);
         return new Input(externalId, in.mode() == null ? Mode.PAPER : in.mode(), symbol, symbolName, in.side(), in.quantity(), in.price(),
-                in.fee() == null ? BigDecimal.ZERO : in.fee(), in.realizedPnl(), strategy, reason, at, exchange, currency);
+                in.fee() == null ? BigDecimal.ZERO : in.fee(), in.realizedPnl(), strategy, reason, at, exchange, currency, market,
+                market == Market.FUTURES ? in.positionSide() : null, market == Market.FUTURES ? leverage : null, interval);
     }
 
     private static String trim(String s) {
@@ -328,7 +384,7 @@ public class TradeJournal {
     private List<Fill> fills(long memberId, LocalDate from, LocalDate to) {
         return jdbc.query("""
                 SELECT id, external_id, mode, exchange, symbol, symbol_name, side, quantity, price, currency, fee, realized_pnl, strategy,
-                       reason, executed_at
+                       reason, executed_at, market, position_side, leverage, timeframe
                 FROM trade WHERE member_id = ? AND executed_at >= ? AND executed_at < ?
                 ORDER BY executed_at, id
                 """, TradeJournal::fill, memberId, Timestamp.from(start(from)), Timestamp.from(start(to.plusDays(1))));
@@ -338,7 +394,8 @@ public class TradeJournal {
         return new Fill(rs.getLong("id"), rs.getString("external_id"), rs.getString("mode"), rs.getString("exchange"), rs.getString("symbol"),
                 rs.getString("symbol_name"), rs.getString("side"), plain(rs.getBigDecimal("quantity")), plain(rs.getBigDecimal("price")),
                 rs.getString("currency"), plain(rs.getBigDecimal("fee")), plain(rs.getBigDecimal("realized_pnl")), rs.getString("strategy"),
-                rs.getString("reason"), rs.getTimestamp("executed_at").toInstant());
+                rs.getString("reason"), rs.getTimestamp("executed_at").toInstant(), rs.getString("market"), rs.getString("position_side"),
+                rs.getObject("leverage", Integer.class), rs.getString("timeframe"));
     }
 
     /** numeric(28, 10)의 꼬리 0을 지운다 (1.5000000000 → 1.5) */
@@ -357,14 +414,16 @@ public class TradeJournal {
     static Summary summarize(List<Fill> fills) {
         int buys = 0;
         int sells = 0;
+        int closes = 0;
         int wins = 0;
         int losses = 0;
         Map<String, BigDecimal> pnl = Money.empty();
         Map<String, BigDecimal> fees = Money.empty();
         for (Fill f : fills) {
             if (f.side().equals("BUY")) buys++;
-            else {
-                sells++;
+            else sells++;
+            if (f.closes()) {
+                closes++;
                 Money.add(pnl, f.currency(), f.realizedPnl());
             }
             Money.add(fees, f.currency(), f.fee());
@@ -373,7 +432,7 @@ public class TradeJournal {
                 else if (f.realizedPnl().signum() < 0) losses++;
             }
         }
-        return new Summary(fills.size(), buys, sells, wins, losses, pnl, fees);
+        return new Summary(fills.size(), buys, sells, closes, wins, losses, pnl, fees);
     }
 
     private Map<String, BigDecimal> pnlBefore(long memberId, LocalDate date) {
