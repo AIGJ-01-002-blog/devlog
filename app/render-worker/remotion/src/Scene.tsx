@@ -34,8 +34,8 @@ export const Scene: React.FC<{scene: SceneData; index: number; title: string; fo
           {title}
         </div>
       </div>
-      {/* 요점 자막: 낱말이 차례로 튀어나오고 뒤로 형광펜이 그어진다 */}
-      <div style={{position: 'absolute', top: 230, left: 70, right: 70, height: 330, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+      {/* 요점 자막: 낱말이 차례로 튀어나오고 뒤로 형광펜이 그어진다. 자막이 없는 장면(매매 재현 끝 고지 카드)은 형광펜도 그리지 않는다 */}
+      {scene.caption && <div style={{position: 'absolute', top: 230, left: 70, right: 70, height: 330, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
         <div style={{position: 'relative', textAlign: 'center', font: `900 ${scene.caption.length > 12 ? 92 : 108}px/1.18 ${FONT}`,
           letterSpacing: '-0.01em', wordBreak: 'keep-all'}}>
           <div style={{position: 'absolute', left: -14, right: -14, bottom: 6, height: '38%', background: '#facc15', opacity: 0.85,
@@ -50,7 +50,7 @@ export const Scene: React.FC<{scene: SceneData; index: number; title: string; fo
             );
           })}
         </div>
-      </div>
+      </div>}
       <div style={{position: 'absolute', top: STAGE_TOP, left: 0, width: STAGE_W, height: STAGE_H, transformOrigin: '50% 60%',
         scale: String(punch * beat), translate: `${driftX}px ${driftY}px`}}>
         {Custom ? <Custom scene={scene} data={scene.custom?.data} /> : <Act scene={scene} first={index === 0} />}

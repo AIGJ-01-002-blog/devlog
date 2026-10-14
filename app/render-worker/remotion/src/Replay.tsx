@@ -6,7 +6,6 @@
 import React from 'react';
 import {AbsoluteFill, Easing, interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
 import {STAGE_H, STAGE_W} from './actions';
-import {Emoji, type EmojiName} from './Emoji';
 import type {CustomSceneProps} from './custom';
 import {FONT} from './fonts';
 
@@ -14,7 +13,7 @@ const UP = '#26a69a';
 const DOWN = '#ef5350';
 const MUTED = '#94a3b8';
 const GRID = 'rgba(148,163,184,0.16)';
-const HOT = '#fbbf24';
+const SOFT = '#e2e8f0';
 
 export type ReplayCandle = {o: number; h: number; l: number; c: number; time: string};
 export type ReplayFill = {index: number; at: number; side: 'BUY' | 'SELL'; price: number; banner: string; closeIndex: number | null; good: boolean};
@@ -42,10 +41,7 @@ const SMOOTH = 10;
 
 const FLASH = 6;
 const RING = 18;
-const BANNER = 54;
-const SHAKE = 11;
-/** 체결·결과 순간 떠오르는 움직이는 이모지가 보이는 길이 */
-const POP = 42;
+const BANNER = 60;
 
 const headAt = (d: ReplayData, g: number) => d.head[Math.max(0, Math.min(d.head.length - 1, g))] ?? 0;
 
@@ -129,31 +125,27 @@ export const ReplayScene: React.FC<CustomSceneProps> = ({data}) => {
   const playing = speed >= 2 && head < n;
 
   const fills = d.fills.filter((f) => f.at <= g);
-  // 체결 순간 화면이 짧게 흔들린다(가장 최근 체결 기준, 점점 잦아든다)
   const recent = fills.length > 0 ? fills[fills.length - 1] : null;
   const since = recent ? g - recent.at : Infinity;
-  const amp = since < SHAKE ? 10 * (1 - since / SHAKE) : 0;
-  const shake = `translate(${amp * Math.sin(since * 2.1)}px, ${amp * Math.cos(since * 1.7)}px)`;
   const resultOn = d.result && g >= d.result.at && (d.result.until === null || g < d.result.until);
   const ticks = [0, 1, 2, 3].map((k) => lo + ((hi - lo) * (k + 0.5)) / 4);
   const bar = {x0: PLOT.x0, x1: PLOT.x1 + 140, y: BOX.y + BOX.h - 40};
   const barX = (pos: number) => bar.x0 + (bar.x1 - bar.x0) * Math.min(1, Math.max(0, pos / Math.max(1, n)));
 
   return (
-    <AbsoluteFill style={{transform: shake}}>
+    <AbsoluteFill>
       <div style={{position: 'absolute', left: BOX.x, top: BOX.y, width: BOX.w, height: BOX.h, borderRadius: 28,
-        background: 'rgba(10,16,34,0.9)', border: '2px solid rgba(255,255,255,0.08)', boxShadow: '0 24px 60px rgba(0,0,0,0.45)'}} />
-      <div style={{position: 'absolute', left: BOX.x + 30, top: BOX.y + 22, font: `800 32px ${FONT}`, color: '#f8fafc'}}>{d.header}</div>
+        background: 'rgba(10,16,34,0.92)', border: '1px solid rgba(255,255,255,0.06)'}} />
+      <div style={{position: 'absolute', left: BOX.x + 30, top: BOX.y + 22, font: `700 30px ${FONT}`, color: SOFT}}>{d.header}</div>
       <div style={{position: 'absolute', left: BOX.x + 30, top: BOX.y + 66, display: 'flex', gap: 14, alignItems: 'center'}}>
         <div style={{font: `700 26px ${FONT}`, color: MUTED}}>{d.mode}</div>
         {playing && (
-          <div style={{font: `900 26px ${FONT}`, color: '#0b1024', background: HOT, padding: '2px 12px', borderRadius: 8,
-            opacity: 0.75 + 0.25 * Math.sin(local / 3)}}>▶▶ ×{speed}</div>
+          <div style={{font: `700 24px ${FONT}`, color: MUTED, border: `1px solid ${GRID}`, padding: '1px 10px', borderRadius: 6}}>▶▶ ×{speed}</div>
         )}
       </div>
       {/* 시계: 지금 그리는 캔들의 한국 시간 */}
       <div style={{position: 'absolute', right: STAGE_W - BOX.x - BOX.w + 30, top: BOX.y + 18, textAlign: 'right',
-        font: `900 64px ${FONT}`, color: '#f8fafc', fontVariantNumeric: 'tabular-nums', letterSpacing: 1}}>{clock}</div>
+        font: `700 60px ${FONT}`, color: SOFT, fontVariantNumeric: 'tabular-nums', letterSpacing: 1}}>{clock}</div>
 
       <svg width={STAGE_W} height={STAGE_H} style={{position: 'absolute', inset: 0}}>
         <defs>
@@ -205,27 +197,27 @@ export const ReplayScene: React.FC<CustomSceneProps> = ({data}) => {
           const buy = f.side === 'BUY';
           const color = buy ? UP : DOWN;
           const age = g - f.at;
-          const ring = interpolate(age, [0, RING], [20, 150], {extrapolateRight: 'clamp', easing: Easing.out(Easing.cubic)});
+          const ring = interpolate(age, [0, RING], [12, 70], {extrapolateRight: 'clamp', easing: Easing.out(Easing.cubic)});
           const pop = spring({frame: age, fps, config: {damping: 10, stiffness: 220}});
           const labelY = buy ? Math.min(y(f.price) + 70, PLOT.y1 + 20) : Math.max(y(f.price) - 70, PLOT.y0 - 20);
           return (
             <g key={`f${k}`} opacity={x < PLOT.x0 ? 0.3 : 1}>
-              {age < RING && <circle cx={x} cy={y(f.price)} r={ring} fill="none" stroke={color} strokeWidth={6} strokeOpacity={1 - age / RING} />}
-              <line x1={x} x2={x} y1={y(f.price)} y2={labelY} stroke={color} strokeWidth={4} />
-              <circle cx={x} cy={y(f.price)} r={9 * pop} fill="#fff" stroke={color} strokeWidth={5} />
+              {age < RING && <circle cx={x} cy={y(f.price)} r={ring} fill="none" stroke={color} strokeWidth={2} strokeOpacity={0.8 * (1 - age / RING)} />}
+              <line x1={x} x2={x} y1={y(f.price)} y2={labelY} stroke={color} strokeWidth={2} />
+              <circle cx={x} cy={y(f.price)} r={7 * pop} fill="#fff" stroke={color} strokeWidth={3} />
               <g style={{transformOrigin: `${x}px ${labelY}px`, transform: `scale(${pop})`}}>
-                <rect x={x - 46} y={labelY - 22} width={92} height={44} rx={10} fill={color} />
-                <text x={x} y={labelY + 10} textAnchor="middle" fill="#fff" style={{font: `800 28px ${FONT}`}}>{buy ? '매수' : '매도'}</text>
+                <rect x={x - 38} y={labelY - 18} width={76} height={36} rx={6} fill={color} />
+                <text x={x} y={labelY + 8} textAnchor="middle" fill="#fff" style={{font: `700 24px ${FONT}`}}>{buy ? '매수' : '매도'}</text>
               </g>
             </g>
           );
         })}
         {/* 진행 막대: 차트 전체 시간 중 어디까지 왔는지와 체결 자리 */}
-        <line x1={bar.x0} x2={bar.x1} y1={bar.y} y2={bar.y} stroke="rgba(148,163,184,0.25)" strokeWidth={8} strokeLinecap="round" />
-        <line x1={bar.x0} x2={barX(head)} y1={bar.y} y2={bar.y} stroke={HOT} strokeWidth={8} strokeLinecap="round" />
+        <line x1={bar.x0} x2={bar.x1} y1={bar.y} y2={bar.y} stroke="rgba(148,163,184,0.2)" strokeWidth={4} strokeLinecap="round" />
+        <line x1={bar.x0} x2={barX(head)} y1={bar.y} y2={bar.y} stroke={SOFT} strokeOpacity={0.8} strokeWidth={4} strokeLinecap="round" />
         {d.fills.map((f, k) => (
-          <circle key={`p${k}`} cx={barX(f.index + 0.5)} cy={bar.y} r={f.at <= g ? 10 : 7}
-            fill={f.at <= g ? (f.side === 'BUY' ? UP : DOWN) : '#0a1022'} stroke={f.side === 'BUY' ? UP : DOWN} strokeWidth={3} />
+          <circle key={`p${k}`} cx={barX(f.index + 0.5)} cy={bar.y} r={f.at <= g ? 7 : 5}
+            fill={f.at <= g ? (f.side === 'BUY' ? UP : DOWN) : '#0a1022'} stroke={f.side === 'BUY' ? UP : DOWN} strokeWidth={2} />
         ))}
         <text x={bar.x0} y={bar.y - 16} fill={MUTED} style={{font: `600 20px ${FONT}`}}>{d.candles[0]?.time}</text>
         <text x={bar.x1} y={bar.y - 16} textAnchor="end" fill={MUTED} style={{font: `600 20px ${FONT}`}}>{d.candles[n - 1]?.time}</text>
@@ -234,40 +226,28 @@ export const ReplayScene: React.FC<CustomSceneProps> = ({data}) => {
       {/* 체결 순간: 차트가 그 색으로 번쩍이고 가격 띠가 오른쪽에서 밀려 들어온다 */}
       {recent && since < FLASH && (
         <div style={{position: 'absolute', left: BOX.x, top: BOX.y, width: BOX.w, height: BOX.h, borderRadius: 28,
-          background: recent.side === 'BUY' ? UP : DOWN, opacity: 0.32 * (1 - since / FLASH)}} />
+          background: recent.side === 'BUY' ? UP : DOWN, opacity: 0.08 * (1 - since / FLASH)}} />
       )}
       {recent && since < BANNER && (() => {
         const enter = spring({frame: since, fps, config: {damping: 16, stiffness: 160}});
         const leave = interpolate(since, [BANNER - 8, BANNER], [1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
         return (
           <div style={{position: 'absolute', top: BOX.y + 128, left: 0, right: 0, display: 'flex', justifyContent: 'center',
-            transform: `translateX(${(1 - enter) * STAGE_W}px)`, opacity: leave}}>
-            <div style={{font: `900 50px ${FONT}`, color: '#fff', background: recent.side === 'BUY' ? UP : DOWN, padding: '12px 30px',
-              borderRadius: 18, boxShadow: '0 14px 40px rgba(0,0,0,0.45)'}}>{recent.banner}</div>
+            transform: `translateY(${(1 - enter) * 16}px)`, opacity: Math.min(enter, leave)}}>
+            <div style={{font: `700 40px ${FONT}`, color: recent.side === 'BUY' ? UP : DOWN, background: 'rgba(10,16,34,0.92)',
+              border: `1px solid ${recent.side === 'BUY' ? UP : DOWN}`, padding: '8px 24px', borderRadius: 10}}>{recent.banner}</div>
           </div>
         );
       })()}
-      {/* 체결 순간: 매수는 로켓, 이익 매도는 100점, 손실 매도는 경광등이 표시 위로 떠올랐다 사라진다 */}
-      {recent && since < POP && (() => {
-        const name: EmojiName = recent.side === 'BUY' ? 'rocket' : recent.good ? 'hundred' : 'siren';
-        const s = spring({frame: since, fps, config: {damping: 11, stiffness: 200}});
-        const fade = interpolate(since, [POP - 10, POP], [1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
-        // 가격 띠(위쪽 가운데)를 가리지 않게 표시 왼쪽 옆에서 천천히 떠오른다
-        const x = Math.max(PLOT.x0 + 60, cx(recent.index) - 110);
-        const top = Math.min(PLOT.y1 - 40, Math.max(PLOT.y0 + 90, y(recent.price)));
-        return <Emoji name={name} x={x} y={top - since * 1.2} size={120} scale={s} opacity={fade} />;
-      })()}
       {/* 결과 장면: 손익 합계가 차트 가운데에 크게 튀어나온다 */}
       {resultOn && d.result && (() => {
-        const s = spring({frame: g - d.result.at, fps, config: {damping: 9, stiffness: 180}});
+        const s = spring({frame: g - d.result.at, fps, config: {damping: 20, stiffness: 120}});
         return (
           <>
             <div style={{position: 'absolute', left: BOX.x, top: BOX.y, width: BOX.w, height: BOX.h, borderRadius: 28,
-              background: 'rgba(0,0,0,0.5)', opacity: Math.min(1, s)}} />
-            <Emoji name={d.result.good ? 'party' : 'siren'} x={STAGE_W / 2} y={STAGE_H / 2 - 150} size={170} scale={s} />
+              background: 'rgba(10,16,34,0.7)', opacity: Math.min(1, s)}} />
             <div style={{position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-              <div style={{font: `900 132px ${FONT}`, color: d.result.good ? UP : DOWN, scale: String(0.3 + 0.7 * s),
-                WebkitTextStroke: '8px #0b1024', paintOrder: 'stroke', textShadow: '0 12px 0 rgba(0,0,0,0.35)'}}>{d.result.label}</div>
+              <div style={{font: `800 112px ${FONT}`, color: d.result.good ? UP : DOWN, scale: String(0.85 + 0.15 * s), opacity: Math.min(1, s)}}>{d.result.label}</div>
             </div>
           </>
         );
