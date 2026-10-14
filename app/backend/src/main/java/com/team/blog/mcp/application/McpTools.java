@@ -252,16 +252,31 @@ public class McpTools {
                       "team_work":{"type":"string","description":"우리 팀이 한 일 (2,000자까지)"},
                       "my_role":{"type":"string","description":"제 역할: 사용자가 맡은 부분만 (2,000자까지)"}},
                      "required":["series_id"]}""", Gate.AI_PUBLISH, false),
+            new Tool("plan_shorts", "쇼츠 주제 나누기",
+                    "devlog 글(post_id) 하나나 대화로 받은 맥락(source_text) 하나를 작은 주제 2~5개로 나눈 쇼츠 묶음을 만든다. "
+                            + "주제마다 제목·첫 질문(hook)·다룰 범위(scope)를 적는다. 대본은 만들지 않는다: 이어서 주제마다 create_shorts_script(batch_id, topic)로 한 편씩 쓴다. "
+                            + ShortsTools.PLAN_GUIDE, true, """
+                    {"type":"object","properties":{
+                      "title":{"type":"string","description":"묶음 이름 (60자까지)"},
+                      "post_id":{"type":"integer","description":"근거가 될 내 devlog 글 번호"},
+                      "source_text":{"type":"string","description":"근거가 될 맥락 본문: 작업 기록·대화 요약 등 (20,000자까지). 글이 없으면 필수"},
+                    """ + ShortsTools.TOPICS_SCHEMA + """
+                    },
+                     "required":["title","topics"]}""", Gate.SHORTS, false),
             new Tool("create_shorts_script", "쇼츠 대본 만들기",
-                    "사용자의 devlog 글(post_id, 선택)을 YouTube Shorts·Instagram Reels·TikTok용 세로 영상 대본으로 저장한다. "
+                    "사용자의 devlog 글(post_id, 선택)이나 받은 맥락(source_text, 선택)을 YouTube Shorts·Instagram Reels·TikTok용 세로 영상 대본으로 저장한다. "
+                            + "plan_shorts로 만든 묶음의 한 주제라면 batch_id와 topic을 주고, 근거는 묶음 것을 쓴다(post_id·source_text는 무시). "
                             + "장면마다 화면 자막(caption)과 읽을 문장(narration)을 쓴다. 저장하면 양산형 방지 검사 결과와 고칠 점을 돌려준다. "
                             + ShortsTools.GUIDE + " 영상은 만들지 않는다: 사용자가 devlog 스튜디오에서 확인하고 직접 [영상 만들기]를 누른다.", true, """
                     {"type":"object","properties":{
                       "post_id":{"type":"integer","description":"원본 devlog 글 번호 (내 글만). 있으면 영상 설명에 근거로 이어진다"},
-                      "title":{"type":"string","description":"쇼츠 제목 (60자까지)"},
+                      "source_text":{"type":"string","description":"글이 아닌 맥락에서 쓸 때 그 맥락 본문 (20,000자까지). 원문을 그대로 읽는지 검사하는 데 쓴다"},
+                      "batch_id":{"type":"integer","description":"plan_shorts로 만든 묶음 번호"},
+                      "topic":{"type":"integer","minimum":1,"maximum":5,"description":"묶음 안 주제 번호 (batch_id와 함께)"},
+                      "title":{"type":"string","description":"쇼츠 제목 (60자까지). 묶음에서 비우면 주제 제목"},
                     """ + ShortsTools.SCENES_SCHEMA + """
                     },
-                     "required":["title","scenes"]}""", Gate.SHORTS, false),
+                     "required":["scenes"]}""", Gate.SHORTS, false),
             new Tool("update_shorts_script", "쇼츠 대본 고치기",
                     "쇼츠 대본의 제목이나 장면을 고친다. 장면을 주면 통째로 바꾼다. 만들어 둔 영상이 있으면 지워지고 대본 상태로 돌아간다. "
                             + "고친 뒤 양산형 방지 검사 결과를 돌려준다. " + ShortsTools.GUIDE, true, """
@@ -431,6 +446,7 @@ public class McpTools {
                 case "list_inquiries" -> listInquiries(a);
                 case "get_inquiry" -> getInquiry(a);
                 case "update_inquiry" -> updateInquiry(caller, a);
+                case "plan_shorts" -> shorts.plan(caller, a);
                 case "create_shorts_script" -> shorts.create(caller, a);
                 case "update_shorts_script" -> shorts.update(caller, a);
                 case "list_shorts" -> shorts.list(caller);

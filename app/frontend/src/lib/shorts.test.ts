@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ApiError } from './api'
-import { emptyScene, estimateSeconds, hashtags, renderProblems, reportOf, shareVideo, uploadGuide, videoFileName, workerOnline, type ShortsItem } from './shorts'
+import { emptyScene, estimateSeconds, groupByBatch, hashtags, renderProblems, reportOf, shareVideo, uploadGuide, videoFileName, workerOnline, writtenTopics, type ShortsBatch, type ShortsItem } from './shorts'
 
 const scene = (narration: string) => ({ caption: '자막', narration, code: null })
 
@@ -28,6 +28,16 @@ describe('shorts', () => {
     expect(workerOnline('2026-10-14T09:50:00Z', now)).toBe(false)
   })
 
+  it('묶음별로 주제 순서대로 모으고 대본을 다 쓴 주제를 센다 (#276)', () => {
+    const topic = (n: number, shortsId: number | null) => ({ number: n, title: `주제 ${n}`, hook: '왜?', scope: '', shortsId, status: shortsId ? 'DRAFT' as const : null })
+    const batch: ShortsBatch = { id: 9, postId: null, postTitle: null, title: '배포 손본 날', hasSource: true,
+      topics: [topic(1, 12), topic(2, 11), topic(3, null)], createdAt: '', updatedAt: '' }
+    const items = [ready({ id: 11, batchId: 9, topic: 2 }), ready({ id: 30 }), ready({ id: 12, batchId: 9, topic: 1 })]
+    const groups = groupByBatch(items, [batch])
+    expect(groups[0].items.map((it) => it.id)).toEqual([12, 11])
+    expect(writtenTopics(batch)).toBe(2)
+  })
+
   it('파일 이름에 못 쓰는 글자를 뺀다', () => {
     expect(videoFileName('도커: 볼륨/복구?')).toBe('도커 볼륨복구.mp4')
     expect(videoFileName('  ')).toBe('devlog-shorts.mp4')
@@ -44,7 +54,7 @@ describe('shorts', () => {
     scenes: [scene('왜 배포만 하면 다 로그아웃될까요?'), scene('직렬화가 범인이었어요.'), scene('JSON으로 바꿨어요.')],
     status: 'READY', attempts: 1, videoUrl: '/media/shorts/2026/10/a.mp4', durationMs: 31500, videoBytes: 1000, error: null,
     estimatedSeconds: 30, queuedAt: null, renderedAt: null, createdAt: '', updatedAt: '', version: 1,
-    postTags: ['spring', 'spring-boot', 'c++', '세션', 'redis', 'docker', 'k8s'], uploads: [], ...over,
+    postTags: ['spring', 'spring-boot', 'c++', '세션', 'redis', 'docker', 'k8s'], uploads: [], batchId: null, topic: null, ...over,
   })
 
   it('태그를 해시태그로 바꿀 때 못 쓰는 글자를 빼고 한도까지만 쓴다', () => {

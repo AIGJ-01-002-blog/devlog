@@ -12,10 +12,16 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ### 추가
 - 매매 일지가 코인 거래소 체결을 받는다. `record_trade`에 거래소(`exchange`)와 통화(`currency`)를 적고, 0.00012345 BTC 같은 소수 수량·가격을 그대로 남긴다. 원화와 USDT는 더하지 않고 손익·수수료를 통화별로 따로 보여 준다. DB `trade`에 `exchange`·`currency` 열이 생기고 금액 자릿수가 넓어진다(V40). (#254)
-- 블로그 포인트 1단계: 포인트 원장(지갑 두 개: 투자 전용·상점), 가입 첫 지급 10,000,000P(모의투자 전용), 출석 보상(100 × 연속 출석 일수², 365일에 하루 13,322,500크레딧으로 멈춤)과 출석 알림(오늘 출석 전이면 화면 위에 한 줄), 연속 출석 휘장(20일 동·50일 은·100일 금·150일 비취·200일 청옥·300일 자수정 메달과 365일 햇살 별 특별 휘장, 블로그 이름 옆에 보임), 활동으로 번 포인트를 "크레딧"으로 표시, 처음 전체 공개한 글 적립(하루 3편·300자 이상), 모의투자 수익 적립 규칙, 내 포인트 화면(`/points`, 내 설정처럼 왼쪽 탭: 출석·휘장·크레딧 얻는 법·내역), 관리자 포인트 규칙 화면(`/admin/points`). `POINTS_ENABLED`로 켠다(기본 꺼짐). DB에 `point_ledger`·`point_attendance`·`point_rule`·`point_badge`가 생긴다(V42). ([#266](https://github.com/AIGJ-01-002-blog/devlog/issues/266), 목표 [#253](https://github.com/AIGJ-01-002-blog/devlog/issues/253))
+- 블로그 포인트 1단계: 포인트 원장(지갑 두 개: 투자 전용·상점), 가입 첫 지급 10,000,000P(모의투자 전용), 출석 보상(100 × 연속 출석 일수², 365일에 하루 13,322,500크레딧으로 멈춤)과 출석 알림(오늘 출석 전이면 화면 위에 한 줄), 연속 출석 휘장(20일 동·50일 은·100일 금·150일 비취·200일 청옥·300일 자수정 메달과 365일 햇살 별 특별 휘장, 블로그 이름 옆에 보임), 활동으로 번 포인트를 "크레딧"으로 표시, 처음 전체 공개한 글 적립(하루 3편·300자 이상), 모의투자 수익 적립 규칙, 내 포인트 화면(`/points`, 내 설정처럼 왼쪽 탭: 출석·휘장·크레딧 얻는 법·내역), 관리자 포인트 규칙 화면(`/admin/points`). `POINTS_ENABLED`로 켠다(기본 꺼짐). DB에 `point_ledger`·`point_attendance`·`point_rule`·`point_badge`가 생긴다(V43). ([#266](https://github.com/AIGJ-01-002-blog/devlog/issues/266), 목표 [#253](https://github.com/AIGJ-01-002-blog/devlog/issues/253))
+- 매매 일지가 선물 체결을 받는다. `record_trade`에 `market`(SPOT·FUTURES), `position_side`(LONG·SHORT), `leverage`(1~7배), `interval`(1m·5m·15m·1h·4h·1d)을 적는다. 롱 진입 BUY·롱 청산 SELL·숏 진입 SELL·숏 청산 BUY로 읽고, 숏 청산(BUY)의 실현 손익도 합계에 더한다. 화면·요약 글·쇼츠 대본에 "선물 숏 3배", "숏 청산"처럼 보인다. 예전 봇이 이유 앞머리("[선물 숏 진입 3x]")로 알린 선물 체결은 열로 옮긴다(V41). (#260)
+- 같은 날 모의투자와 실계좌 체결이 섞이면 실현 손익을 더하지 않고 나눠 보여 준다. 화면(기간 합계·날짜 목록·하루 상세), 요약 글 제목과 본문, 쇼츠 제목과 대본에서 "모의투자 +12.00 USDT · 실계좌 -4.00 USDT"처럼 적는다. (#260)
+- 쇼츠 주제 묶음: 글 하나나 AI와 나눈 맥락 하나를 작은 주제 2~5개로 나눠 주제마다 쇼츠 한 편씩 만든다. MCP `plan_shorts`가 주제(제목·첫 질문·다룰 범위)를 남기고, `create_shorts_script`는 `batch_id`·`topic`이나 맥락 근거 `source_text`를 받는다. 양산형 검사는 맥락 근거와도 비교하고, 같은 묶음의 다른 편과 겹치면 경고한다. 스튜디오는 묶음별로 대본을 모아 보여 주고 [묶음 영상 모두 만들기]로 통과한 편을 한 번에 대기열에 넣는다(막힌 편은 이유와 함께 건너뜀). DB `shorts_batch` 표와 `shorts`의 `batch_id`·`topic`·`source_text` 열(V42). 장면마다 배경 그림(`image`, devlog에 올린 그림이나 사이트 경로만)을 고를 수 있고, 렌더 워커가 받는 작업에 장면 그림과 원본 글 대표 사진(`coverImage`)이 함께 간다. 장면마다 연출(`visual`: explain·shock·typing·panic·restore·wait·fast·idea·protect·think·celebrate, 비우면 워커가 고름)과 효과음(`effects`: pop·ding·whoosh·boing·tick·typing, 장면당 3개)을 고를 수 있고, 워커에는 작업 단위 `effects[]`로 펼쳐 보낸다(#277 워커와 짝). (#276)
+- 매매 일지의 날마다 [재현 영상 만들기]로 그날 체결을 스튜디오의 매매 재현 영상으로 넘긴다(`/studio?replay=날짜`). (#265)
 
 ### 바꿈
+- 운영(devlog.life)에서 숏폼 스튜디오와 매매 일지를 켰다(`SHORTS_ENABLED`, `TRADES_ENABLED`). 렌더 워커 토큰은 GitHub Secret `SHORTS_WORKER_TOKEN`으로 넣고, 없으면 대본까지만 만들고 영상은 만들지 않는다. (#256)
 - 매매 일지 손익 색을 거래소 차트처럼 바꿨다: 이익·매수 초록, 손실·매도 빨강. (#254)
+- 매매 기록 하루 상한을 계정당 500건에서 2,000건으로 올리고 운영 설정 `TRADES_DAILY_LIMIT`로 바꿀 수 있게 했다. 승률 칸은 "이긴 매도"에서 "이긴 청산"으로 바뀐다. (#260)
 
 ### 화면
 | 내 포인트 (PC) | 출석한 뒤 (휴대폰) | 휴대폰 · 다크 |
@@ -37,6 +43,14 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 | 매매 일지 코인 (PC) | 휴대폰 | 휴대폰 · 다크 |
 |---|---|---|
 | ![매매 일지 코인 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/trades-coin-pc.webp) | ![매매 일지 코인 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/trades-coin-m.webp) | ![매매 일지 코인 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/trades-coin-m-dark.webp) |
+
+| 매매 일지 선물 (PC) | 휴대폰 · 다크 | 360px · 재현 영상 만들기 |
+|---|---|---|
+| ![매매 일지 선물 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/trades-futures-pc.webp) | ![매매 일지 선물 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/trades-futures-m-dark.webp) | ![재현 영상 만들기 버튼](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/trades-futures-360.webp) |
+
+| 쇼츠 주제 묶음 (PC) | 휴대폰 · 다크 | 360px |
+|---|---|---|
+| ![쇼츠 주제 묶음 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/studio-batch-pc.webp) | ![쇼츠 주제 묶음 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/studio-batch-m-dark.webp) | ![쇼츠 주제 묶음 360px](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/studio-batch-360.webp) |
 
 ## [2.0.0] - 2026-10-14
 
@@ -70,7 +84,7 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 | ![렌더 워커 칸 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/worker-pc.webp) | ![워커 알림 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/worker-alert-pc.webp) | ![렌더 워커 칸 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/worker-m.webp) | ![렌더 워커 칸 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/worker-m-dark.webp) |
 
 ### 추가
-- 매매 일지(`/trades`, 기본 꺼짐 `TRADES_ENABLED=false`): 집 컴퓨터의 매매 봇이 쓰기 토큰으로 MCP `record_trade`를 부르면 체결(모의투자·실계좌, 종목, 수량·가격·수수료, 실현 손익, 신호)이 남고, 7·30·90일 실현 손익·누적 손익·날별 막대와 그날 체결을 본다. 그날 메모를 남기면 체결 표·고지가 들어간 요약 임시글과 쇼츠 대본을 한 번에 만든다(메모 없는 쇼츠는 만들지 않음). devlog는 주문을 내지 않는다. 표준 라이브러리만 쓰는 모의 체결 봇 예제 [app/trade-bot](app/trade-bot/README.md)을 함께 넣었다. DB에 `trade`·`trade_day` 표가 생긴다 (목표 v2.0.0 [#236](https://github.com/AIGJ-01-002-blog/devlog/issues/236) · spec 099, #243)
+- 매매 일지(`/trades`, 기본 꺼짐 `TRADES_ENABLED=false`): 집 컴퓨터의 매매 봇이 쓰기 토큰으로 MCP `record_trade`를 부르면 체결(모의투자·실계좌, 종목, 수량·가격·수수료, 실현 손익, 신호)이 남고, 7·30·90일 실현 손익·누적 손익·날별 막대와 그날 체결을 본다. 그날 메모를 남기면 체결 표·고지가 들어간 요약 임시글과 쇼츠 대본을 한 번에 만든다(메모 없는 쇼츠는 만들지 않음). devlog는 주문을 내지 않는다. 매매 봇은 비공개 저장소 [AIGJ-01-002-blog/trade-bot](https://github.com/AIGJ-01-002-blog/trade-bot)에서 따로 버전을 매긴다(v0.1.0부터, #259). DB에 `trade`·`trade_day` 표가 생긴다 (목표 v2.0.0 [#236](https://github.com/AIGJ-01-002-blog/devlog/issues/236) · spec 099, #243)
 - 관리자 대시보드에 쇼츠 렌더 워커 칸: 쇼츠를 켠 서버에서 워커가 마지막으로 온 시각, 대기·만드는 중·오늘 실패 수, 가장 오래 기다린 영상을 보이고, 기다리는 영상이 있는데 워커가 5분 넘게 안 오면 "처리할 일"에 띄운다. 워커 토큰은 `SHORTS_WORKER_TOKEN_PREVIOUS`에 옛 값을 두면 둘 다 받아서 워커를 멈추지 않고 바꿀 수 있고, 옛 토큰을 쓰는 워커가 있으면 대시보드가 알려 준다. 순서는 [app/render-worker/README.md](app/render-worker/README.md). DB 변경은 없다 (목표 v2.0.0 [#236](https://github.com/AIGJ-01-002-blog/devlog/issues/236) · spec 099, #241)
 - 집 컴퓨터로 옮기기(`deploy/home/`): 학교 서버의 DB(pg_dump)와 파일 저장소(사진·첨부·쇼츠 영상)를 폴더 하나로 받는 `fetch-backup.sh`·`backup.sh`와, 그 폴더로 Windows·맥에서 Docker로 다시 띄우는 `restore.ps1`·`restore.sh`·`compose.yaml`. 되살릴 때 `https://devlog.life` 주소를 이 컴퓨터 주소로 바꾸고, 소셜 로그인 대신 주인 계정 이메일·비밀번호 로그인을 만든다. 순서는 [deploy/home/README.md](deploy/home/README.md) (목표 v2.0.0 [#236](https://github.com/AIGJ-01-002-blog/devlog/issues/236), #241)
 - MCP 기록 자동화: AI가 개발 일지(`write_devlog`·`create_draft`)와 일기 메모(`add_note`)에 커밋·PR·이슈 주소를 `links`로 함께 남기면, 일지는 본문 끝 `## 근거`에, 일기는 주제 문단 아래 `근거:` 줄에 "PR #246 (devlog)"처럼 이름 붙은 링크로 들어간다. 글을 쓰거나 공개로 발행했을 때 겪은 문제·숫자로 된 결과·코드 가운데 둘 이상이 있으면 AI에게 쇼츠로 만들지 사용자에게 한 번 물어보라고 알리고, 새 도구 `list_shorts_candidates`로 아직 쇼츠가 없는 공개 글 가운데 후보를 본다. DB에 `ai_note.links` 열이 생긴다 (목표 v2.0.0 [#236](https://github.com/AIGJ-01-002-blog/devlog/issues/236) · spec 099, #240)

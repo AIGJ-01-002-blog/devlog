@@ -216,7 +216,8 @@ blog:
   # 매매 일지 (#243, 목표 v2.0.0): 2.0.0 릴리스 전까지 꺼 둔다. 봇은 개인 쓰기 토큰으로 MCP record_trade를 부른다
   trades:
     enabled: ${TRADES_ENABLED:false}
-    daily-records: 500
+    # 5개 코인을 1분·5분봉으로 돌려도 넘치지 않게 (#260). 시장·봉별로 나누지 않는다
+    daily-records: ${TRADES_DAILY_LIMIT:2000}
   # 블로그 포인트 (#266, 목표 #253): 출석·글 발행·모의투자 수익으로 쌓고 상점에서 쓴다. devlog 2.0 묶음 릴리스 전까지 꺼 둔다.
   # 적립 규칙 값은 관리자 화면(/admin/points)에서 바꾼다
   points:

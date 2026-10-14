@@ -21,6 +21,8 @@ public final class OriginalityCheck {
     static final double DUPLICATE_SIMILARITY = 0.6;
     static final double COPIED_CONTAINMENT = 0.8;
     static final double SCENE_SIMILARITY = 0.6;
+    /** 같은 묶음의 다른 편과 이만큼 겹치면 경고: 주제를 나눈 뜻이 없어진다 */
+    static final double SIBLING_SIMILARITY = 0.3;
     static final int SAME_OPENING_CHARS = 6;
     static final int MIN_NARRATION_CHARS = 8;
     /** 이보다 짧은 글은 비교할 조각이 너무 적어 우연히 겹친다. 비교하지 않는다 */
@@ -39,8 +41,15 @@ public final class OriginalityCheck {
 
     public record Report(int score, boolean passed, List<Issue> issues) {}
 
-    /** 같은 회원의 다른 쇼츠 대본 (제목은 보지 않는다) */
-    public record OtherScript(long id, String title, List<ShortsScript.Scene> scenes) {}
+    /**
+     * 같은 회원의 다른 쇼츠 대본 (제목은 보지 않는다).
+     * @param sameBatch 같은 주제 묶음(#276)의 다른 편. 같은 근거에서 나와 겹치기 쉬워 더 낮은 기준으로 경고한다
+     */
+    public record OtherScript(long id, String title, List<ShortsScript.Scene> scenes, boolean sameBatch) {
+        public OtherScript(long id, String title, List<ShortsScript.Scene> scenes) {
+            this(id, title, scenes, false);
+        }
+    }
 
     private OriginalityCheck() {}
 
@@ -54,16 +63,24 @@ public final class OriginalityCheck {
         String narration = joinNarration(scenes);
         Set<String> grams = grams(narration);
 
-        // ① 내 다른 쇼츠와 거의 같은 대본
+        // ① 내 다른 쇼츠와 거의 같은 대본. 같은 묶음의 편과는 덜 겹쳐도 경고한다
+        Issue sibling = null;
         for (OtherScript other : others) {
             double sim = jaccard(grams, grams(joinNarration(other.scenes())));
             if (sim >= DUPLICATE_SIMILARITY) {
                 issues.add(new Issue("DUPLICATE", Level.BLOCK,
                         "내 다른 쇼츠 '" + other.title() + "'와 내레이션이 " + percent(sim) + " 같아요.",
                         "같은 주제라도 이번 영상만의 장면(다른 문제, 다른 결과, 다른 예시)으로 바꿔 주세요."));
+                sibling = null;
                 break;
             }
+            if (sibling == null && other.sameBatch() && sim >= SIBLING_SIMILARITY) {
+                sibling = new Issue("SIBLING_OVERLAP", Level.WARN,
+                        "같은 묶음의 '" + other.title() + "'와 내레이션이 " + percent(sim) + " 겹쳐요.",
+                        "편마다 맡은 주제 하나만 다뤄 주세요. 겹치는 설명은 한쪽에만 두면 두 편 모두 짧고 또렷해져요.");
+            }
         }
+        if (sibling != null) issues.add(sibling);
 
         // ② 원본 글을 그대로 읽기만 함
         if (sourceBody != null && grams.size() >= MIN_GRAMS) {
@@ -106,8 +123,8 @@ public final class OriginalityCheck {
         // 경고: 원본 글 없음
         if (sourceBody == null) {
             issues.add(new Issue("NO_SOURCE", Level.WARN,
-                    "원본 글이 연결되지 않았어요.",
-                    "devlog 글에서 만들면 영상 설명에 글 링크를 넣어 근거와 자세한 내용을 보여 줄 수 있어요."));
+                    "원본 글이나 맥락 근거가 없어요.",
+                    "devlog 글에서 만들면 영상 설명에 글 링크를 넣어 근거와 자세한 내용을 보여 줄 수 있어요. AI라면 받은 맥락을 source_text로 함께 주세요."));
         }
 
         long blocks = issues.stream().filter(i -> i.level() == Level.BLOCK).count();
