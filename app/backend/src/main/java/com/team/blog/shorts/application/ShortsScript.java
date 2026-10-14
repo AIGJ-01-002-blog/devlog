@@ -57,7 +57,6 @@ public final class ShortsScript {
             image = image == null || image.isBlank() ? null : image.strip();
             visual = visual == null || visual.isBlank() ? null : visual.strip().toLowerCase(java.util.Locale.ROOT);
             effects = effects == null ? List.of() : effects.stream().filter(java.util.Objects::nonNull).toList();
-            diagram = diagram == null || diagram.isEmpty() ? null : diagram;
         }
 
         public Scene(String caption, String narration, String code) {

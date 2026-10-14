@@ -134,7 +134,8 @@ class ShortsBatchTest extends IntegrationTest {
         long drawnId = Long.parseLong(jdbc.queryForObject("SELECT max(id)::text FROM shorts WHERE member_id = ?", String.class, me.memberId()));
         JsonNode saved = read(me.http().perform(get("/api/me/shorts/" + drawnId)).andExpect(status().isOk()).andReturn());
         assertThat(saved.path("scenes").get(1).path("diagram").path("items").get(2).path("note").asString()).isEqualTo("해시");
-        for (Map<String, Object> wrong : List.of(
+        for (Object wrong : List.of(
+                Map.of(), "flow", List.of("a", "b"),
                 Map.<String, Object>of("type", "pie", "items", List.of("a", "b")),
                 Map.<String, Object>of("type", "flow", "items", List.of("a", "b", "c", "d", "e")),
                 Map.<String, Object>of("type", "steps", "items", List.of("하나", "x".repeat(21))),
