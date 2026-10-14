@@ -10,6 +10,9 @@ blog:
   trades:
     enabled: true
     daily-records: 8
+  # 블로그 포인트(#266)도 시험에서 켠다. 꺼졌을 때는 PointsDisabledTest가 본다
+  points:
+    enabled: true
   dev-login:
     enabled: true
   cursor:

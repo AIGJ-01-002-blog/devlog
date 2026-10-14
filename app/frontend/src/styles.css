@@ -2432,3 +2432,41 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
   .dashboard-kpis .kpi { padding: 10px; }
   .dashboard-kpis .kpi-value { font-size: 1.25rem; }
 }
+
+/* 블로그 포인트 (이슈 266) */
+.points-notice { margin: -4px 0 12px; }
+.points-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 16px; align-items: start; margin: 16px 0; }
+.points-attend h2, .points-ways h2, .points-history h2, .points-admin h2 { margin-top: 0; }
+.points-dots { list-style: none; margin: 0 0 12px; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.points-dot { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 0.75rem; color: var(--color-text-muted); }
+.points-dot-mark { display: grid; place-items: center; width: 100%; max-width: 40px; aspect-ratio: 1; border-radius: 50%; border: 1.5px dashed var(--color-border);
+  font-weight: 700; font-size: 1rem; }
+.points-dot.done .points-dot-mark { border: 0; background: var(--color-ok-bg); color: var(--color-ok-text); }
+.points-dot.today .points-dot-mark { border-style: solid; border-color: var(--color-brand); }
+.points-dot.today.done .points-dot-mark { box-shadow: inset 0 0 0 2px var(--color-ok-text); }
+.points-dot.today { color: var(--color-text); font-weight: 600; }
+.points-attend-btn { width: 100%; margin-top: 4px; }
+.points-rules { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.points-rules li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 10px 0; border-bottom: 1px solid var(--color-border); }
+.points-rules li:last-child { border-bottom: 0; }
+.points-rules b { text-align: right; font-variant-numeric: tabular-nums; color: var(--color-ok-text); }
+.points-rules .small { grid-column: 1 / -1; }
+.points-history-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.points-history-head h2 { margin: 0; }
+.points-entries { list-style: none; margin: 0 0 12px; padding: 0; }
+.points-entries li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 10px 0; border-bottom: 1px solid var(--color-border); }
+.points-entry-main { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+.points-entry-memo { flex-basis: 100%; }
+.points-entry-time { grid-column: 1; }
+.points-amount { grid-row: 1; grid-column: 2; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+.points-amount.plus { color: var(--color-ok-text); }
+.points-amount.minus { color: var(--color-danger); }
+.points-wallet.shop { color: var(--color-brand); }
+.points-wallet.invest { color: var(--color-text-muted); }
+.points-admin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px 16px; }
+.points-admin-grid input { width: 100%; }
+.points-admin-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+@media (max-width: 760px) {
+  .points-layout { grid-template-columns: 1fr; }
+  .points-kpis .kpi:last-child { grid-column: 1 / -1; }
+}
