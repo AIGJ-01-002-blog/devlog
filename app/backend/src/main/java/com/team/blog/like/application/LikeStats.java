@@ -30,6 +30,14 @@ public class LikeStats {
                 """, from);
     }
 
+    /** 몇몇 글(회원 한 명의 글)이 날짜별로 받은 좋아요 (#239) */
+    public Map<LocalDate, Long> byDayOfPosts(List<Long> postIds, Instant from) {
+        return Counts.byDayOfKeys(jdbc, """
+                SELECT (created_at AT TIME ZONE 'Asia/Seoul')::date AS d, count(*) AS n
+                FROM post_like WHERE post_id = ANY (?) AND created_at >= ? GROUP BY d
+                """, postIds, from);
+    }
+
     public Map<Long, Long> byPosts(List<Long> postIds) {
         return Counts.byKeys(jdbc, "SELECT post_id AS k, count(*) AS n FROM post_like WHERE post_id = ANY (?) GROUP BY k", postIds);
     }

@@ -2372,3 +2372,21 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
   .studio-layout { grid-template-columns: 1fr; }
   .studio-video video { max-width: 100%; max-height: 70vh; }
 }
+
+/* 내 대시보드 (이슈 239). 관리자 통계의 칸·막대그래프를 그대로 쓰고, 글 목록과 쇼츠 칸만 더한다 */
+.dashboard-page { padding-top: 24px; padding-bottom: 48px; }
+.dashboard-kpis { margin-bottom: 6px; }
+.dashboard-totals { margin: 0 0 16px; }
+.dashboard-top { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
+.dashboard-top li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.dashboard-top-title { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.dashboard-top-nums { flex-basis: 100%; }
+.dashboard-shorts { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin: 0 0 12px; }
+.dashboard-shorts div { padding: 8px 10px; border: 1px solid var(--color-border); border-radius: var(--radius); }
+.dashboard-shorts dt { font-size: 0.75rem; color: var(--color-text-muted); }
+.dashboard-shorts dd { margin: 2px 0 0; font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.dashboard-uploads { margin: 0 0 12px; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+@media (max-width: 760px) {
+  .dashboard-kpis .kpi { padding: 10px; }
+  .dashboard-kpis .kpi-value { font-size: 1.25rem; }
+}

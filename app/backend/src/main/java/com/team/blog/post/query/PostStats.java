@@ -158,6 +158,20 @@ public class PostStats {
         return out;
     }
 
+    /** 글쓴이 본인이 보는 내 글 (#239 내 대시보드). 비공개 글도 제목을 그대로 준다 */
+    public Map<Long, Row> ownByIds(long authorId, List<Long> ids) {
+        Map<Long, Row> out = new HashMap<>();
+        if (ids.isEmpty()) return out;
+        jdbc.query("""
+                SELECT p.id, p.author_id, m.handle, p.title, p.visibility, p.hidden_at IS NOT NULL AS hidden, p.hidden_reason, p.published_at
+                FROM post p JOIN member m ON m.id = p.author_id
+                WHERE p.id = ANY (?) AND p.author_id = ? AND p.status = 'PUBLISHED' AND p.deleted_at IS NULL
+                """, (RowCallbackHandler) rs -> out.put(rs.getLong("id"), new Row(rs.getLong("id"), rs.getLong(AUTHOR_ID), rs.getString("handle"),
+                rs.getString("title"), rs.getString("visibility"), rs.getBoolean(HIDDEN), rs.getString("hidden_reason"),
+                rs.getTimestamp("published_at").toInstant())), ids.toArray(Long[]::new), authorId);
+        return out;
+    }
+
     private static Row row(ResultSet rs) throws SQLException {
         boolean open = "PUBLIC".equals(rs.getString("visibility"));
         return new Row(rs.getLong("id"), rs.getLong(AUTHOR_ID), rs.getString("handle"), open ? rs.getString("title") : null,

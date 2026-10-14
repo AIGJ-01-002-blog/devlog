@@ -204,6 +204,33 @@ public class ShortsService {
 
     public record ReportDetails(OriginalityCheck.Report report) {}
 
+    /** 회원 대시보드(#239)의 쇼츠 칸. recent는 최근에 올린 영상 주소 */
+    public record Summary(long scripts, long ready, Map<UploadLink.Platform, Long> uploads, List<UploadLine> recent) {}
+
+    public record UploadLine(long shortsId, String title, UploadLink.Platform platform, String url, Instant uploadedAt) {}
+
+    static final int RECENT_UPLOADS = 5;
+
+    /** 쇼츠가 꺼져 있으면 비어 있다(화면이 칸을 숨긴다) */
+    public Optional<Summary> summary(long memberId) {
+        if (!props.enabled()) return Optional.empty();
+        long[] counts = jdbc.queryForObject("""
+                SELECT count(*), count(*) FILTER (WHERE status = 'READY') FROM shorts WHERE member_id = ?
+                """, (rs, i) -> new long[] {rs.getLong(1), rs.getLong(2)}, memberId);
+        Map<UploadLink.Platform, Long> uploads = new java.util.EnumMap<>(UploadLink.Platform.class);
+        for (UploadLink.Platform p : UploadLink.Platform.values()) uploads.put(p, 0L);
+        jdbc.query("""
+                SELECT u.platform, count(*) FROM shorts_upload u JOIN shorts s ON s.id = u.shorts_id
+                WHERE s.member_id = ? GROUP BY u.platform
+                """, rs -> { uploads.put(UploadLink.Platform.valueOf(rs.getString(1)), rs.getLong(2)); }, memberId);
+        List<UploadLine> recent = jdbc.query("""
+                SELECT s.id, s.title, u.platform, u.url, u.uploaded_at FROM shorts_upload u JOIN shorts s ON s.id = u.shorts_id
+                WHERE s.member_id = ? ORDER BY u.uploaded_at DESC, s.id DESC LIMIT ?
+                """, (rs, i) -> new UploadLine(rs.getLong(1), rs.getString(2), UploadLink.Platform.valueOf(rs.getString(3)),
+                rs.getString(4), rs.getTimestamp(5).toInstant()), memberId, RECENT_UPLOADS);
+        return Optional.of(new Summary(counts[0], counts[1], uploads, recent));
+    }
+
     /**
      * 직접 올린 영상 주소를 남긴다 (#238). 완성된 영상이 있을 때만, 플랫폼마다 하나(다시 붙여 넣으면 바꾼다).
      * devlog는 SNS에 아무것도 보내지 않는다. 주소가 그 플랫폼 도메인의 https 주소인지만 본다.
