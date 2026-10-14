@@ -186,11 +186,21 @@ public class SemanticSearch {
     public void warmUp() {
         // Gemini에는 올릴 모델이 없고 요청이 할당량만 쓴다
         if (client.provider() != EmbeddingClient.Provider.LOCAL || !enabled()) return;
+        boolean gated = false;
         try {
             if (Boolean.TRUE.equals(redis.hasKey(DOWN))) return;
             if (!Boolean.TRUE.equals(redis.opsForValue().setIfAbsent(WARM_GATE, "1", props.warmEvery()))) return;
+            gated = true;
             redis.opsForValue().set(WARMING, "1", props.warmTimeout());
         } catch (RuntimeException e) {
+            // 보내지 못한 예열이 간격 표시만 남겨 다음 예열을 warmEvery 동안 막지 않게 한다
+            if (gated) {
+                try {
+                    redis.delete(WARM_GATE);
+                } catch (RuntimeException ignored) {
+                    // 지우지 못해도 warmEvery 뒤 저절로 사라진다
+                }
+            }
             return;
         }
         warmer.execute(() -> {
