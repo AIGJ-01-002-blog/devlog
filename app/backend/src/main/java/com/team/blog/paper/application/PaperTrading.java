@@ -30,7 +30,7 @@ import com.team.blog.trade.application.TradeJournal;
  * <ul>
  *   <li>살 때는 투자 전용 포인트(가입 첫 지급)를 먼저 쓰고, 회원이 고르면 모자란 만큼 상점 포인트도 쓴다.</li>
  *   <li>보유분마다 어느 지갑에서 얼마를 냈는지(원금)를 들고 있다가, 팔 때 원금을 낸 지갑으로 돌려준다.
- *       수익은 투자 전용으로 들어가 다시 투자에 쓰고, 그와 별도로 수익의 일부(기본 1%, 하루 상한)가 상점 포인트로 적립된다.
+ *       수익은 전부 크레딧(상점 지갑)으로 들어간다(블로그 주인 결정: 가입 첫 지급만 투자 전용).
  *       손실은 원금을 낸 지갑에서 비율대로 빠진다.</li>
  *   <li>체결은 그 회원의 매매 일지에 PAPER(모의투자)·거래소 UPBIT·통화 KRW로 남는다.</li>
  *   <li>같은 주문 번호(clientOrderId)로 다시 보내면 한 번만 체결된다(두 번 누르기·재전송).</li>
@@ -62,7 +62,7 @@ public class PaperTrading {
     public record State(List<CoinQuote> quotes, List<Position> positions, long invest, long shop, long holdings, BigDecimal feeRate, long minOrder,
                         String quotesError) {}
 
-    /** @param tradeId 매매 일지 체결 번호, reward 이번 매도로 적립된 상점 포인트 */
+    /** @param tradeId 매매 일지 체결 번호, reward 이번 매도 수익으로 들어간 크레딧 */
     public record Filled(boolean duplicate, Long tradeId, String side, String symbol, BigDecimal quantity, BigDecimal price, long fee, Long pnl,
                          long reward, State state) {}
 
@@ -225,8 +225,8 @@ public class PaperTrading {
         long backInvest;
         long backShop;
         if (pnl >= 0) {
-            // 원금은 낸 지갑으로, 수익은 투자 전용으로 (다시 투자에 쓴다)
-            backInvest = partInvest + pnl;
+            // 원금은 낸 지갑으로 돌려주고, 수익은 아래에서 전부 크레딧으로 넣는다 (블로그 주인 결정)
+            backInvest = partInvest;
             backShop = partShop;
         } else {
             // 손실은 원금을 낸 비율대로 나눠 뺀다
@@ -246,7 +246,7 @@ public class PaperTrading {
                     """, qty, partInvest, partShop, Timestamp.from(Times.now(clock)), memberId, v.coin().symbol());
         }
         long tradeId = record(memberId, v, externalId, TradeJournal.Side.SELL, qty, price, fee, BigDecimal.valueOf(pnl));
-        long reward = points.rewardTradeProfit(memberId, tradeId, BigDecimal.valueOf(pnl));
+        long reward = points.creditTradeProfit(memberId, tradeId, pnl);
         return new Filled(false, tradeId, Side.SELL.name(), v.coin().symbol(), qty, price, fee, pnl, reward, null);
     }
 
