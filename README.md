@@ -129,7 +129,7 @@ AI 사용에 동의했다면 AI가 제목을 붙이고 문장을 다듬고, 아�
 
 ### 반응과 관계
 
-- **좋아요·댓글·답글** — 좋아요는 누르는 즉시 반영하고, 댓글은 1단계 답글까지. 좋아한 글은 따로 모아 봅니다.
+- **좋아요·댓글·답글** — 좋아요는 누르는 즉시 반영하고, 답글에 다시 답글을 달 수 있고, 이어진 답글은 Git 브랜치처럼 선으로 잇습니다. 답글이 5개 이하면 더 보기 없이 모두 보입니다. 좋아한 글은 따로 모아 봅니다.
 - **조회수** — 같은 사람·같은 글은 24시간에 한 번만 셉니다. 원래 IP는 어디에도 저장하지 않습니다.
 - **팔로우와 피드** — 팔로우한 사람의 전체 공개 글만 모은 `/feed`.
 - **친구** — 친구 요청·수락, 친구끼리 최근 활동 보기, 친구 공개 글.
@@ -141,6 +141,15 @@ AI 사용에 동의했다면 AI가 제목을 붙이고 문장을 다듬고, 아�
 - **프로필·설정** — 사진 자르기, 닉네임·소개, 블로그 소개 탭, 소셜 링크, 기본 공개 범위, 팔로워·팔로잉 목록 공개, 알림 설정. 화면은 한국어·English·日本語·中文 중에서 고릅니다.
 - **신고·숨김·정지** — 글·댓글 신고(사유 6가지), 관리자 신고 처리 화면, 1일~영구 정지.
 - **탈퇴와 복구** — 30일 유예 동안 로그인하면 복구, 그 뒤 매일 한 사람씩 한 트랜잭션으로 정리합니다.
+
+### 만들고 남기기
+
+- **쇼츠 스튜디오** — 내 AI가 MCP로 쓴 쇼츠 대본을 장면(자막·읽을 문장·코드)별로 다듬고, [영상 만들기]를 누르면 내 컴퓨터의 렌더 워커가 9:16 MP4로 만들어 올립니다. 만들기 전에 양산형 검사로 다른 대본과 겹치거나 글을 그대로 옮긴 대본을 막습니다.
+- **올리기 안내** — YouTube Shorts·Instagram Reels·TikTok마다 제목·설명·고정 댓글을 복사 버튼과 함께 보여 주고 올리는 순서를 안내합니다. 자동 업로드는 없고, 올린 뒤 영상 주소를 남깁니다.
+- **내 대시보드** — 내 글의 조회수·좋아요·받은 댓글을 7·30·90일로 보고 이전 기간과 견줍니다. 많이 읽힌 글과 쇼츠 현황도 한 화면에 모읍니다.
+- **매매 일지** — 집 컴퓨터의 매매 봇이 MCP로 남긴 체결을 날별 손익으로 보고, 그날 메모로 요약 임시글과 쇼츠 대본을 만듭니다. devlog는 주문을 내지 않습니다.
+- **AI 기록의 근거 링크** — AI가 개발 일지와 일기 메모에 커밋·PR·이슈 주소를 함께 남기면 글 끝 `## 근거`와 일기 문단 아래에 링크로 붙습니다.
+- **집 컴퓨터로 옮기기** — DB와 파일 저장소를 폴더 하나로 받아 Windows·맥에서 Docker로 같은 블로그를 되살리는 백업·복원 스크립트(`deploy/home/`).
 
 ## 아키텍처
 
@@ -177,6 +186,9 @@ flowchart LR
 | **telegram** | 계정 연결, 알림 보내기, 메모 → 임시글 | PostgreSQL |
 | **moderation** | 신고, 숨김, 정지, 관리자 화면 | PostgreSQL |
 | **admin** | 관리자 대시보드·글·회원 관리 (각 모듈의 집계를 조립, SQL 없음) | - |
+| **shorts** | 쇼츠 대본·양산형 검사·렌더 대기열·올린 기록 | PostgreSQL, MinIO/S3(영상) |
+| **trade · dashboard** | 매매 일지, 내 글·쇼츠 성과 대시보드 | PostgreSQL |
+| **mcp** | AI 연결(MCP) 도구: 임시글·메모·근거 링크·쇼츠 대본 | PostgreSQL |
 | **shared** | Markdown 렌더링과 HTML 정화, 요청 제한, 예약 작업 잠금, 오류 형식, 메일 | Redis |
 
 ### 요청 흐름
@@ -247,8 +259,9 @@ GitHub Actions로 테스트하고 이미지를 만들어 GHCR에 올린 뒤, kus
 | [app/backend](app/backend) | 백엔드 — Spring Boot 4.1, Java 21. 기능 모듈, Flyway 마이그레이션(V1~V46), 테스트 |
 | [app/frontend](app/frontend) | 프론트엔드 — React 19 SPA, TypeScript, Vite. 화면, 자동 저장(IndexedDB), 다크 모드 |
 | [deploy](deploy) | 배포 — Dockerfile, 쿠버네티스 매니페스트(base·selfhosted·nhn·local), 배포·롤백·비밀값 검사 스크립트 |
+| [app/render-worker](app/render-worker) | 쇼츠 렌더 워커 — Python 3.10, ffmpeg. 내 컴퓨터에서 대기열의 대본을 9:16 MP4로 만들어 올립니다 |
 | [.github](.github) | CI/CD — 백엔드·화면 테스트, 이미지 빌드·배포, 릴리스, Discord·텔레그램 알림 |
-| [specs](specs) | 기능 명세 — [GitHub Spec Kit](https://github.com/github/spec-kit) 흐름의 기능별 spec·plan·tasks(001~044) |
+| [specs](specs) | 기능 명세 — [GitHub Spec Kit](https://github.com/github/spec-kit) 흐름의 기능별 spec·plan·tasks(001~100) |
 | [docs](https://github.com/AIGJ-01-002-blog/docs) | 설계 문서 — 공통 요구사항, 아키텍처, 통합 ERD, 기능별 설계, 권한 표 |
 | [erd](erd) · [scripts](scripts) | 기준 스키마와 동작 테스트, 설계 검증 스크립트와 보고서 |
 
@@ -348,6 +361,7 @@ npm run dev        # http://localhost:5173
 | PostgreSQL 16 · 17 | 로컬 · 클러스터 | 서비스 DB. 검색에 `pg_trgm`과 `pgvector`가 있으면 씁니다 |
 | Redis 7 · 7.4 | 로컬 · 클러스터 | 세션, 요청 제한, 조회수 집계, 렌더링 캐시, 자동 저장, 예약 작업 잠금 |
 | MinIO | 클러스터 | 사진·첨부 저장(S3 호환). 첫 배포 때 버킷을 만들고 받기만 공개합니다 |
+| Python 3.10 · ffmpeg | 렌더 워커(내 컴퓨터) | 쇼츠 영상 만들기. 음성은 기기 안 음성(맥 `say`, Windows 기본 음성)만 써서 비용이 없습니다 |
 | Docker · GHCR | 이미지 | 화면 빌드 → 백엔드에 넣어 하나의 이미지로. 루트가 아닌 사용자로 실행합니다 |
 | Kubernetes · kustomize | 배포 | Deployment·HPA·PDB·NetworkPolicy, 오버레이 3종(selfhosted·nhn·local) |
 | nginx 인그레스 | 앞단 | TLS, 경로별 전달(`/blog-images`는 MinIO로) |
@@ -358,10 +372,10 @@ npm run dev        # http://localhost:5173
 
 | 기술 | 쓰는 곳 | 역할 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | 백엔드 | 단위·통합 테스트 572건(v1.64.2 기준) |
+| JUnit 5 · Spring Boot Test · Spring Security Test | 백엔드 | 단위·통합 테스트 665건(v2.0.0 기준) |
 | Testcontainers (PostgreSQL) | 백엔드 | 실제 PostgreSQL로 마이그레이션·쿼리·동시성을 검증합니다 |
 | JaCoCo | 백엔드 | 줄 커버리지 40% 기준을 CI에서 확인합니다 |
-| Vitest · Testing Library · jsdom | 프론트엔드 | 화면과 로직 테스트 312건(v1.64.2 기준) |
+| Vitest · Testing Library · jsdom | 프론트엔드 | 화면과 로직 테스트 375건(v2.0.0 기준) |
 | fake-indexeddb | 프론트엔드 | 오프라인 자동 저장 테스트 |
 
 ## 릴리스

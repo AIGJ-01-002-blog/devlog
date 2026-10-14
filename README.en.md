@@ -131,7 +131,7 @@ If you have agreed to AI use, the AI adds a title and tidies up the text; otherw
 
 ### Reactions and relationships
 
-- **Likes, comments and replies**: likes update instantly, and comments support one level of replies. Liked posts are collected in their own list.
+- **Likes, comments and replies**: likes update instantly, and you can reply to a reply, and threads of replies are joined by lines like Git branches. When there are five replies or fewer, all of them show without a "more" button. Liked posts are collected in their own list.
 - **View counts**: the same person viewing the same post counts once per 24 hours. Original IP addresses are never stored.
 - **Follow and feed**: `/feed` shows only the public posts of people you follow.
 - **Friends**: send and accept friend requests, see friends' recent activity, and read friends-only posts.
@@ -143,6 +143,15 @@ If you have agreed to AI use, the AI adds a title and tidies up the text; otherw
 - **Profile and settings**: photo cropping, nickname and bio, a blog About tab, social links, default visibility, follower/following list visibility, notification settings. The interface comes in Korean, English, Japanese and Chinese.
 - **Report, hide, suspend**: report posts and comments (6 reasons), an admin screen for handling reports, suspensions from 1 day to permanent.
 - **Account deletion and recovery**: log in during the 30-day grace period to recover your account. After that, accounts are purged one person per day, each in a single transaction.
+
+### Creating and recording
+
+- **Shorts studio**: polish a shorts script your AI wrote over MCP scene by scene (caption, narration, code). Press [Make video] and the render worker on your own computer turns it into a 9:16 MP4 and uploads it. Before rendering, a mass-production check blocks scripts that overlap other scripts or copy the post as is.
+- **Upload guide**: titles, descriptions and pinned comments with copy buttons for YouTube Shorts, Instagram Reels and TikTok, plus the upload steps. There is no automatic upload; you record the video URL after posting.
+- **My dashboard**: views, likes and received comments on your posts over 7, 30 or 90 days, compared with the previous period, with your most-read posts and shorts on one screen.
+- **Trade journal**: fills that the trading bot on your home computer records over MCP, shown as daily profit and loss. A note for the day turns into a summary draft and a shorts script. devlog never places orders.
+- **Evidence links for AI records**: when your AI adds commit, PR and issue URLs to a devlog post or diary note, they appear as links under `## 근거` (Evidence) at the end of the post and under the diary paragraph.
+- **Move to a home computer**: backup and restore scripts (`deploy/home/`) that download the database and file storage into one folder and bring the same blog back up with Docker on Windows or macOS.
 
 ## Architecture
 
@@ -179,6 +188,9 @@ flowchart LR
 | **telegram** | Account linking, sending notifications, notes → drafts | PostgreSQL |
 | **moderation** | Reports, hiding, suspensions, admin screens | PostgreSQL |
 | **admin** | Admin dashboard, post and member management (assembles each module's stats, no SQL) | - |
+| **shorts** | Shorts scripts, mass-production check, render queue, upload records | PostgreSQL, MinIO/S3 (videos) |
+| **trade · dashboard** | Trade journal, dashboard of your posts and shorts | PostgreSQL |
+| **mcp** | AI connection (MCP) tools: drafts, notes, evidence links, shorts scripts | PostgreSQL |
 | **shared** | Markdown rendering and HTML sanitizing, rate limiting, scheduled-job locks, error format, mail | Redis |
 
 ### Request flows
@@ -249,8 +261,9 @@ Code lives in this repository; design documents live in the documentation reposi
 | [app/backend](app/backend) | Backend: Spring Boot 4.1, Java 21. Feature modules, Flyway migrations (V1~V46), tests |
 | [app/frontend](app/frontend) | Frontend: React 19 SPA, TypeScript, Vite. Screens, autosave (IndexedDB), dark mode |
 | [deploy](deploy) | Deployment: Dockerfile, Kubernetes manifests (base, selfhosted, nhn, local), deploy, rollback and secret-check scripts |
+| [app/render-worker](app/render-worker) | Shorts render worker: Python 3.10, ffmpeg. Runs on your computer and turns queued scripts into 9:16 MP4s |
 | [.github](.github) | CI/CD: backend and frontend tests, image build and deploy, releases, Discord and Telegram notifications |
-| [specs](specs) | Feature specs: spec, plan and tasks per feature (001~044) following the [GitHub Spec Kit](https://github.com/github/spec-kit) flow |
+| [specs](specs) | Feature specs: spec, plan and tasks per feature (001~100) following the [GitHub Spec Kit](https://github.com/github/spec-kit) flow |
 | [docs](https://github.com/AIGJ-01-002-blog/docs) | Design documents: common requirements, architecture, unified ERD, per-feature designs, permission matrix |
 | [erd](erd) · [scripts](scripts) | Baseline schema and its tests, design-check scripts and reports |
 
@@ -350,6 +363,7 @@ To try it on Kubernetes, run `kubectl apply -k deploy/k8s/overlays/local` on kin
 | PostgreSQL 16 · 17 | Local · cluster | Service database. Uses `pg_trgm` and `pgvector` for search when available |
 | Redis 7 · 7.4 | Local · cluster | Sessions, rate limits, view-count aggregation, render cache, autosave, scheduled-job locks |
 | MinIO | Cluster | Image and attachment storage (S3 compatible). Creates the bucket on first deploy and makes it download-only for the public |
+| Python 3.10 · ffmpeg | Render worker (your computer) | Makes shorts videos. Uses only on-device voices (macOS `say`, the Windows default voice), so it costs nothing |
 | Docker · GHCR | Image | Builds the UI and bundles it into the backend as one image, running as a non-root user |
 | Kubernetes · kustomize | Deployment | Deployment, HPA, PDB, NetworkPolicy, three overlays (selfhosted, nhn, local) |
 | nginx ingress | Front | TLS and per-path routing (`/blog-images` goes to MinIO) |
@@ -360,10 +374,10 @@ To try it on Kubernetes, run `kubectl apply -k deploy/k8s/overlays/local` on kin
 
 | Technology | Where | Role |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | Backend | 572 unit and integration tests (as of v1.64.2) |
+| JUnit 5 · Spring Boot Test · Spring Security Test | Backend | 665 unit and integration tests (as of v2.0.0) |
 | Testcontainers (PostgreSQL) | Backend | Verifies migrations, queries and concurrency against a real PostgreSQL |
 | JaCoCo | Backend | Enforces a 40% line-coverage threshold in CI |
-| Vitest · Testing Library · jsdom | Frontend | 312 UI and logic tests (as of v1.64.2) |
+| Vitest · Testing Library · jsdom | Frontend | 375 UI and logic tests (as of v2.0.0) |
 | fake-indexeddb | Frontend | Tests for offline autosave |
 
 ## Releases
