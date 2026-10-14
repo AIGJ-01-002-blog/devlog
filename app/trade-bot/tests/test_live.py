@@ -99,8 +99,9 @@ class SwitchTest(unittest.TestCase):
     def test_limits_are_required_and_leverage_is_capped(self):
         with self.assertRaisesRegex(LiveRefused, "--max-daily-loss"):
             Limits(Decimal(100), Decimal(20), Decimal(0))
-        with self.assertRaisesRegex(LiveRefused, "1~3배"):
-            Limits(Decimal(100), Decimal(20), Decimal(50), leverage=4)
+        with self.assertRaisesRegex(LiveRefused, "1~7배"):
+            Limits(Decimal(100), Decimal(20), Decimal(50), leverage=8)
+        Limits(Decimal(100), Decimal(20), Decimal(50), leverage=7)
 
     def test_keys_come_only_from_env(self):
         with mock.patch.dict(os.environ, {}, clear=True):
@@ -275,6 +276,7 @@ class FuturesTest(unittest.TestCase):
     def fx(self):
         fx = FakeExchange()
         fx.routes[("POST", "/fapi/v1/leverage")] = lambda q: (200, {"leverage": int(q["leverage"])})
+        fx.routes[("POST", "/fapi/v1/marginType")] = lambda q: (400, {"code": -4046, "msg": "No need to change margin type."})
         fx.routes[("GET", "/fapi/v1/exchangeInfo")] = lambda q: (200, {"symbols": [
             {"symbol": "BTCUSDT", "filters": [{"filterType": "MARKET_LOT_SIZE", "stepSize": "0.001"}]}]})
 
@@ -290,10 +292,10 @@ class FuturesTest(unittest.TestCase):
         fx.routes[("GET", "/fapi/v1/userTrades")] = lambda q: (200, [{"commission": "0.024", "commissionAsset": "USDT"}])
         return fx
 
-    def test_leverage_over_three_is_refused_before_any_request(self):
+    def test_leverage_over_seven_is_refused_before_any_request(self):
         fx = self.fx()
         with self.assertRaises(LiveRefused):
-            BinanceFuturesTrader("k", "s", True, fx).set_leverage("BTCUSDT", 5)
+            BinanceFuturesTrader("k", "s", True, fx).set_leverage("BTCUSDT", 8)
         self.assertEqual(fx.calls, [])
 
     def test_close_is_reduce_only_and_quantity_follows_step(self):
@@ -323,6 +325,8 @@ class FuturesTest(unittest.TestCase):
         self.assertEqual(entry.quantity, Decimal("0.001"))  # 상한 60 USDT / 60000 → 스텝 0.001
         lev = [c for c in fx.calls if c[2] == "/fapi/v1/leverage"]
         self.assertEqual((lev[0][3]["symbol"], lev[0][3]["leverage"]), ("BTCUSDT", "3"))
+        margin = next(c for c in fx.calls if c[2] == "/fapi/v1/marginType")
+        self.assertEqual(margin[3]["marginType"], "ISOLATED")  # 레버리지보다 먼저 격리 마진
         self.assertEqual(b.positions["BTCUSDT"].side, "SHORT")
         close = b.close("BTCUSDT", Decimal(60000), "", "2026-10-14T11:00:00+09:00")
         sent = [c for c in fx.calls if c[0] == "POST" and c[2] == "/fapi/v1/order"]
@@ -361,6 +365,14 @@ class FuturesTest(unittest.TestCase):
                 LiveBroker.open_state(path, spot_trader(fx, testnet=True), LIMITS)
         self.assertEqual((again.positions["BTCUSDT"].side, again.last_seen["BTCUSDT"]), ("SHORT", "2026-10-14T00:00:00Z"))
         self.assertEqual(again.leverage, Decimal(3))
+
+
+    def test_isolated_margin_failure_stops_the_entry(self):
+        fx = self.fx()
+        fx.routes[("POST", "/fapi/v1/marginType")] = lambda q: (400, {"code": -4047, "msg": "Margin type cannot be changed if there exists open orders."})
+        b = self.broker(fx)
+        self.assertIsNone(b.open("BTCUSDT", "비트코인 선물", "LONG", Decimal("0.001"), Decimal(60000), "", AT))
+        self.assertFalse(any(c[2] == "/fapi/v1/order" for c in fx.calls))
 
 
 class UpbitTest(unittest.TestCase):
