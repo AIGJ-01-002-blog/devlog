@@ -307,6 +307,15 @@ class CliTest(unittest.TestCase):
             code = cli.main(list(argv))
         return code, out.getvalue(), err.getvalue()
 
+    def test_version_is_its_own(self):
+        import devlog_trade
+        out = io.StringIO()
+        with redirect_stdout(out), self.assertRaises(SystemExit):
+            cli.main(["--version"])
+        self.assertEqual(out.getvalue().strip(), f"devlog_trade {devlog_trade.__version__}")
+        changelog = (Path(__file__).resolve().parent.parent / "CHANGELOG.md").read_text(encoding="utf-8")
+        self.assertIn(f"## [{devlog_trade.__version__}]", changelog)  # 버전을 올리면 CHANGELOG에도 적는다
+
     def test_live_orders_are_refused(self):
         code, _, err = self.run_cli("run", str(SAMPLE), "--live")
         self.assertEqual(code, 2)
@@ -452,9 +461,11 @@ class CoinCliTest(unittest.TestCase):
         self.assertEqual(broker.last_seen["BTCUSDT"], bars[-1].date)
 
     def test_futures_rules(self):
-        code, _, err = self.run_coin(BinanceFutures(fetch=lambda url: []), "--market", "futures", "--leverage", "5", "--dry-run")
+        code, _, err = self.run_coin(BinanceFutures(fetch=lambda url: []), "--market", "futures", "--leverage", "8", "--dry-run")
         self.assertEqual(code, 2)
-        self.assertIn("1~3배", err)
+        self.assertIn("1~7배", err)
+        code, out, _ = self.run_coin(BinanceFutures(fetch=lambda url: []), "--market", "futures", "--leverage", "7", "--dry-run")
+        self.assertEqual(code, 0, out)  # 7배까지는 받는다
         out, err = io.StringIO(), io.StringIO()
         with redirect_stdout(out), redirect_stderr(err):
             code = cli.main(["coin", "--exchange", "upbit", "--market", "futures", "--dry-run"])

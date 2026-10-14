@@ -3,6 +3,7 @@
 거래소 공개 시세(바이낸스·업비트 캔들)나 종가 CSV로 예제 전략을 돌려 **모의 체결**하고, 체결마다 devlog **매매 일지**(`/trades`, 이슈 #243·#255)에 기록을 남기는 작은 프로그램이에요.
 실제 주문은 내지 않아요. 거래소 API 키도 쓰지 않아요(키 없이 열린 시세 주소만 불러요). 기록이 쌓이면 devlog 화면에서 날마다 메모를 남기고, 요약 임시글과 쇼츠 대본을 만들 수 있어요.
 
+- 버전: 봇은 devlog와 따로 버전을 매겨요. 지금 0.1.0이고, 바뀐 점과 필요한 devlog 버전은 [CHANGELOG.md](CHANGELOG.md)에 있어요(`python3 -m devlog_trade --version`).
 - 필요한 것: Python 3.10 이상 (추가 패키지 없음). 맥·Windows·리눅스 모두 돌아요.
 - 예제 전략(`--window`일 이동평균 돌파, `--stop-loss` 손절)은 수익을 내는 전략이 아니라 기록 흐름을 보여 주는 예제예요. `devlog_trade/strategy.py`를 자기 전략으로 바꿔 쓰세요.
 - 투자 권유가 아니에요. devlog에 만들어지는 글과 쇼츠에도 같은 고지가 들어가요.
@@ -25,7 +26,7 @@ python3 -m devlog_trade coin --exchange binance --coins BTC,ETH --interval 4h --
 | 시드 `--cash` | 바이낸스 1,000 USDT · 업비트 1,000,000원 (계좌 하나에 코인 5종이 같이 들어요) | |
 | 한 번 들어갈 금액 `--budget` | 바이낸스 100 USDT · 업비트 100,000원 (선물은 증거금) | |
 | 수수료 `--fee-rate` | 바이낸스 현물 0.1% · 선물 0.05% · 업비트 0.05%, 매도세 없음 | |
-| 레버리지 `--leverage` | 선물만, 1~3배 | 1배 |
+| 레버리지 `--leverage` | 선물만, 1~7배 (실계좌와 같은 상한) | 1배 |
 
 - 시세는 API 키 없이 공개 캔들만 받아요. 바이낸스 현물 `data-api.binance.vision/api/v3/klines`, 선물 `fapi.binance.com/fapi/v1/klines`, 업비트 `api.upbit.com/v1/candles/…`. 선물 시세 주소는 나라에 따라 막힐 수 있어요.
 - **다 만들어진 봉의 종가로만** 판단하고, 그 봉이 닫힌 시각을 체결 시각으로 남겨요. 진행 중인 봉으로는 거래하지 않아요.
@@ -71,6 +72,26 @@ docker compose logs -f
 ```
 
 맥에서 쓰던 `trade-state-*.json`을 `./data`로 옮기면 이어서 돌아요. Docker 없이 Windows에서 돌리려면 작업 스케줄러에 `python -m devlog_trade jobs jobs.conf`를 5분마다 걸어도 돼요.
+
+## AI 매매 판단 켜고 끄기 (#263)
+
+코인 모드에서 매매 판단을 AI에게 맡길 수 있어요. **기본은 꺼져 있어요.**
+
+```bash
+export GEMINI_API_KEY='…'          # Google AI Studio에서 만든 키. 파일·저장소에 적지 마세요
+AI_DECISION=on python3 -m devlog_trade coin --exchange binance --interval 1h --dry-run
+python3 -m devlog_trade coin --exchange binance --market futures --interval 4h --ai on --dry-run   # 플래그가 환경 변수보다 먼저
+```
+
+- 15분봉 이상(`15m 30m 1h 4h 1d`)에서 봉이 닫힐 때만 AI에게 최근 종가 60개·포지션·평균 단가(진입가)·쓸 수 있는 현금을 주고 행동과 이유 한 줄을 받아요. 현물은 BUY·SELL·HOLD, 선물은 LONG·SHORT·CLOSE·HOLD예요. 1분·5분봉은 켜 두어도 규칙(이동평균·손절)으로 매매해요.
+- 손절선과 강제 청산은 AI에게 묻지 않고 규칙대로 정리해요.
+- AI 답이 형식에 맞지 않거나 늦으면(Gemini 20초) **관망**해요. 규칙으로 대신 사거나 팔지 않아요.
+- 하루 호출 상한(`--ai-daily-calls`, 기본 2,000회)이나 월 예산(`--ai-monthly-krw`, 기본 30,000원)을 넘으면 그날(그달)은 규칙 매매로 내려가요. 사용량은 지금 폴더의 `trade-ai-usage.json`에 모이고, 모든 코인·거래소·봉이 같은 파일을 써서 상한이 합쳐져요(`--ai-usage`로 바꿔요).
+- 매매 일지에는 이유가 `AI: …`로, 전략 이름이 `ma-cross+ai:gemini:gemini-2.5-flash-lite`처럼 남아요.
+- 기본 AI는 Gemini `gemini-2.5-flash-lite`(devlog 서버가 쓰는 모델과 같아요). 비용은 100만 토큰당 입력 0.10달러·출력 0.40달러, 1달러 1,400원으로 어림해요. 한 번 묻는 데 1원이 안 들어요(입력 1,500토큰 안팎).
+- 맥북에서 Ollama를 띄웠으면 돈 없이 돌릴 수 있어요: `AI_PROVIDER=ollama AI_MODEL=qwen2.5:7b` (주소는 `OLLAMA_BASE_URL`, 기본 `http://localhost:11434`). 모델은 `AI_MODEL`이나 `--ai-model`로 바꿔요.
+- `jobs.conf`에서는 줄마다 `--ai on`을 붙여 켜요. 맥 launchd는 Gemini 키를 키체인에서 읽어요: `security add-generic-password -a "$USER" -s devlog-trade-bot-gemini -w`. Docker는 `.env`에 `GEMINI_API_KEY=…`.
+- 켰는데 키가 없으면 매매하지 않고 멈춰요(종료 코드 2).
 
 ## 1. 먼저 화면에만 돌려 보기 (종가 CSV)
 
