@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { ApiError } from '../lib/api'
 import { num } from '../lib/dashboard'
 import { t } from '../lib/i18n'
@@ -32,10 +32,15 @@ export function PointsPage() {
     loadPoints().then((d) => { setData(d); setItems(d.history.items); setNext(d.history.nextBefore) }).catch(() => setError(true))
   }, [])
 
+  // 필터를 빠르게 바꿨을 때 늦게 온 이전 필터의 응답이 목록을 덮어쓰지 않게, 지금 필터를 따로 들고 있는다
+  const current = useRef<Filter>('ALL')
+  const choose = (f: Filter) => { current.current = f; setFilter(f) }
+
   const pick = async (f: Filter) => {
-    setFilter(f)
+    choose(f)
     try {
       const h = await loadPointHistory(f === 'ALL' ? null : f, null)
+      if (current.current !== f) return
       setItems(h.items)
       setNext(h.nextBefore)
     } catch {
@@ -45,8 +50,10 @@ export function PointsPage() {
 
   const more = async () => {
     if (next === null) return
+    const f = filter
     try {
-      const h = await loadPointHistory(filter === 'ALL' ? null : filter, next)
+      const h = await loadPointHistory(f === 'ALL' ? null : f, next)
+      if (current.current !== f) return
       setItems((prev) => [...prev, ...h.items])
       setNext(h.nextBefore)
     } catch {
@@ -60,7 +67,7 @@ export function PointsPage() {
     try {
       const r = await attend()
       setData(r.summary)
-      if (filter !== 'INVEST_ONLY') { setItems(r.summary.history.items); setNext(r.summary.history.nextBefore); setFilter('ALL') }
+      if (filter !== 'INVEST_ONLY') { setItems(r.summary.history.items); setNext(r.summary.history.nextBefore); choose('ALL') }
       setMessage({
         ok: true,
         text: r.already ? t('오늘은 이미 출석했어요.')

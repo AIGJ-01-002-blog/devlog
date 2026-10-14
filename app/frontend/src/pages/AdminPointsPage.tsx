@@ -28,7 +28,19 @@ export function AdminPointsPage() {
 
   const save = async () => {
     const body: Record<string, number> = {}
-    for (const r of changed) body[r.code] = Number(draft[r.code])
+    // 빈 칸이 0으로 저장되어 적립이 꺼지지 않게, 0 이상의 정수만 보낸다
+    const bad: Record<string, string> = {}
+    for (const r of changed) {
+      const raw = (draft[r.code] ?? '').trim()
+      const n = Number(raw)
+      if (raw === '' || !Number.isInteger(n) || n < 0) bad[r.code] = '0 이상의 정수를 넣어 주세요.'
+      else body[r.code] = n
+    }
+    if (Object.keys(bad).length > 0) {
+      setFieldErrors(bad)
+      setMessage({ ok: false, text: '고칠 값이 있어요.' })
+      return
+    }
     setBusy(true)
     setMessage(null)
     setFieldErrors({})
