@@ -10,27 +10,40 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
+## [1.70.0] - 2026-10-14
+
+**목표: v1.70.0 하이브리드 검색 되살리기** ([목표 이슈 #211](https://github.com/AIGJ-01-002-blog/devlog/issues/211)) · 함께 실은 목표: v1.71.0 [#214](https://github.com/AIGJ-01-002-blog/devlog/issues/214), v1.72.0 [#223](https://github.com/AIGJ-01-002-blog/devlog/issues/223)
+
+운영에서 하이브리드 검색이 사실상 키워드로만 돌던 문제를 고쳐, 뜻이 가까운 글이 다시 검색 결과에 섞여 나온다. 함께 develop에 모인 가입·글 관리 다듬기(첫 로그인 AI 연결 안내, 닉네임 실시간 확인, 내 글 관리 발행 글 탭부터, 네이버 이메일·사진)와 화면 고침을 한 번에 낸다. DB 변경은 없다.
+
 ### 화면
 | PC | 휴대폰 |
 |---|---|
-| ![AI 연결 안내 1단계 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/ai-onboarding-step1-pc.webp) | ![AI 연결 안내 2단계 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/ai-onboarding-step2-m.webp) |
-| ![마지막 단계 툴팁 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/ai-onboarding-tip-pc.webp) | ![AI 연결 안내 3단계 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/ai-onboarding-step3-m-dark.webp) |
+| ![AI 연결 안내 1단계 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.70.0/ai-onboarding-step1-pc.webp) | ![AI 연결 안내 2단계 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.70.0/ai-onboarding-step2-m.webp) |
+| ![마지막 단계 툴팁 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.70.0/ai-onboarding-tip-pc.webp) | ![AI 연결 안내 3단계 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.70.0/ai-onboarding-step3-m-dark.webp) |
 
 | 프로필 사진 자르기 전 | 후 (휴대폰 · 다크) |
 |---|---|
-| ![자르기 전: 원 경계가 안 보임](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/profile-crop-before.webp) | ![자르기 후: 원 바깥 어둡게 + 둘레 선](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/profile-crop-m.webp) ![자르기 후 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/profile-crop-m-dark.webp) |
+| ![자르기 전: 원 경계가 안 보임](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.70.0/profile-crop-before.webp) | ![자르기 후: 원 바깥 어둡게 + 둘레 선](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.70.0/profile-crop-m.webp) ![자르기 후 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.70.0/profile-crop-m-dark.webp) |
 
 | 닉네임 바꾸기 전 (휴대폰) | 후: 이미 쓰는 닉네임 (휴대폰) | 후: 확인 실패 시 [다시 확인] (휴대폰 · 다크) |
 |---|---|---|
-| ![전: 저장을 눌러야 알 수 있음](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/nickname-check-before-m.webp) | ![후: 조건 ✓와 중복 안내](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/nickname-check-taken-m.webp) | ![후: 다시 확인 버튼](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/nickname-check-recheck-m-dark.webp) |
+| ![전: 저장을 눌러야 알 수 있음](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.70.0/nickname-check-before-m.webp) | ![후: 조건 ✓와 중복 안내](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.70.0/nickname-check-taken-m.webp) | ![후: 다시 확인 버튼](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.70.0/nickname-check-recheck-m-dark.webp) |
 
 | 가입: 조건을 못 채움 (PC) | 설정: 쓸 수 있는 닉네임 (PC) |
 |---|---|
-| ![조건별 ✓](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/nickname-check-rules-pc.webp) | ![쓸 수 있어요](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/nickname-check-ok-pc.webp) |
+| ![조건별 ✓](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.70.0/nickname-check-rules-pc.webp) | ![쓸 수 있어요](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.70.0/nickname-check-ok-pc.webp) |
+
+| 내 글 관리: 발행 글 탭부터 (PC) | 휴대폰 | 휴대폰 · 다크 |
+|---|---|---|
+| ![내 글 관리 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.70.0/manage-pc.webp) | ![내 글 관리 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.70.0/manage-m.webp) | ![내 글 관리 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v1.70.0/manage-m-dark.webp) |
 
 ### 추가
 - 가입하고 처음 로그인하면 AI 연결 안내 팝업이 뜬다. "AI에게 말하면 일지가 써져요 → 주소 하나로 연결 → 공개는 내가" 세 단계를 짧은 움직임과 한 줄 설명으로 보여 주고, 마지막 [AI 연결하러 가기]가 설정 › AI 연결로 바로 보낸다. [나중에 하기]로 닫으면 다시 뜨지 않고, 이미 연결한 회원에게는 뜨지 않는다 (목표 v1.71.0 [#214](https://github.com/AIGJ-01-002-blog/devlog/issues/214) · spec 098, #215)
 - 닉네임을 정하거나 바꿀 때 저장을 누르기 전에 바로 알 수 있다. 입력하는 대로 2~10자·한글·영문·숫자만·한글이나 영문 1자 이상 조건이 ✓로 바뀌고, 조건을 다 채워 입력을 멈추면 이미 쓰는 닉네임인지·쓸 수 없는 단어인지 자동으로 보여 준다. 확인에 실패하면 [다시 확인] 버튼이 뜨고, 쓸 수 있을 때만 가입·저장 버튼이 눌린다. 이메일 가입, 소셜 가입, 설정 › 프로필 세 곳에 적용했다 (목표 v1.72.0 [#223](https://github.com/AIGJ-01-002-blog/devlog/issues/223), #224)
+
+### 바꿈
+- 내 글 관리에 들어가면 [발행 글] 탭이 먼저 열리고, 탭 순서가 발행 글·임시글·휴지통이 됐다 (목표 v1.72.0 [#223](https://github.com/AIGJ-01-002-blog/devlog/issues/223), #227, #225)
 
 ### 고침
 - 네이버로 가입할 때 `@naver.com` 이메일은 다시 묻지 않고, 네이버 프로필 사진도 고를 수 있다. 네이버 이메일을 모두 버리던 탓에 이메일 칸이 비고 사진 가져오기가 숨겨졌다. 다른 도메인 연락처 이메일은 지금처럼 가입 때 인증한다 (목표 v1.72.0 [#223](https://github.com/AIGJ-01-002-blog/devlog/issues/223) · spec 096, #230, 민서님 요청 "네이버Oauth도 주소 가져올수있게 해줘")
@@ -38,6 +51,21 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 - 프로필 사진 자르기 화면에서 실제로 프로필에 보일 원의 경계가 보이지 않던 문제. 흰 바탕 사진이면 어디까지가 원 안인지 알 수 없었다. 이제 원 바깥을 어둡게 덮고 둘레에 흰 선과 얇은 어두운 테를 그리며, 원에 마우스를 올리면 툴팁이 뜬다 (#217, #218)
 - 하이브리드 검색에서 의미 검색 결과가 거의 섞이지 않던 문제. 글 색인이 20개를 한 요청에 묶어 CPU 임베딩 서버의 30초 제한을 넘기고, 그 실패가 검색어 임베딩까지 1분씩 꺼 버리고 있었다. 이제 글을 하나씩 보내 끝난 만큼 저장하고, 색인 실패는 색인만 쉬게 한다 (#212)
 - 답글이 4~5개뿐인데도 처음 3개만 보이고 [답글 1개 더 보기]·[답글 2개 더 보기]를 눌러야 나머지가 나오던 문제. 이제 답글이 5개 이하면 모두 바로 보이고, 6개 이상일 때만 처음 3개 + [답글 N개 더 보기]로 접는다 (#219, #220)
+- 소나큐브 새 코드 경고 1건 정리(댓글 테스트의 답글 5개 이하 검사를 따로 나눔, 테스트만 바뀜) (#228, #229)
+
+### 포함된 작업
+| 이슈 | 브랜치 | PR |
+|---|---|---|
+| #212 글 색인을 작은 요청으로, 색인 실패가 의미 검색을 끄지 않게 | `claude/project-thread-chyg7t` | #213 |
+| #215 첫 로그인 AI 연결 안내 (spec 098) | - | #216 |
+| #217 프로필 사진 자르기 원 경계 | - | #218, #221 |
+| #219 답글 5개 이하 모두 보이기 | - | #220, #222 |
+| #224 닉네임 실시간 확인 | - | #226 |
+| #227 내 글 관리 발행 글 탭 먼저 | - | #225 |
+| #228 소나큐브 새 코드 경고 | - | #229 |
+| 네이버 이메일·프로필 사진 (spec 096) | - | #230 |
+
+**비교:** [v1.69.0...v1.70.0](https://github.com/AIGJ-01-002-blog/devlog/compare/v1.69.0...v1.70.0)
 
 ## [1.69.0] - 2026-10-14
 
