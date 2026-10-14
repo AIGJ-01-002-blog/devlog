@@ -1,5 +1,7 @@
 package com.team.blog.shorts.web;
 
+import java.util.List;
+
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.team.blog.shared.security.CurrentMember;
 import com.team.blog.shared.security.MemberPrincipal;
 import com.team.blog.shorts.application.OriginalityCheck;
+import com.team.blog.shorts.application.ShortsBatches;
 import com.team.blog.shorts.application.ShortsService;
 
 /**
@@ -25,14 +28,35 @@ import com.team.blog.shorts.application.ShortsService;
  *   <li>POST /api/me/shorts/{id}/check: 양산형 방지 검사만</li>
  *   <li>POST /api/me/shorts/{id}/render: 검사를 통과하면 대기열에 넣기</li>
  *   <li>PUT·DELETE /api/me/shorts/{id}/uploads/{platform}: 직접 올린 영상 주소 남기기·지우기 (youtube·instagram·tiktok)</li>
+ *   <li>GET /api/me/shorts/batches: 주제 묶음 목록 (#276). 묶음은 AI가 MCP plan_shorts로 만든다</li>
+ *   <li>POST /api/me/shorts/batches/{id}/render: 묶음의 대본을 모두 영상 만들기 대기열에 넣기 (막힌 편은 이유와 함께 건너뜀)</li>
+ *   <li>DELETE /api/me/shorts/batches/{id}: 묶음 풀기 (대본·영상은 남는다)</li>
  * </ul>
  */
 @RestController
 public class ShortsController {
     private final ShortsService shorts;
+    private final ShortsBatches batches;
 
-    public ShortsController(ShortsService shorts) {
+    public ShortsController(ShortsService shorts, ShortsBatches batches) {
         this.shorts = shorts;
+        this.batches = batches;
+    }
+
+    @GetMapping("/api/me/shorts/batches")
+    public ResponseEntity<List<ShortsBatches.Batch>> batches(@CurrentMember MemberPrincipal me) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(batches.list(me.id()));
+    }
+
+    @PostMapping("/api/me/shorts/batches/{id}/render")
+    public ShortsBatches.RenderAll renderBatch(@CurrentMember MemberPrincipal me, @PathVariable long id) {
+        return batches.renderAll(me.id(), id);
+    }
+
+    @DeleteMapping("/api/me/shorts/batches/{id}")
+    public ResponseEntity<Void> deleteBatch(@CurrentMember MemberPrincipal me, @PathVariable long id) {
+        batches.delete(me.id(), id);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/api/me/shorts")

@@ -57,7 +57,7 @@ class ShortsTest extends IntegrationTest {
                 .andExpect(status().isCreated()).andReturn()).path("id").asLong();
     }
 
-    private JsonNode create(Session s, Long postId, String title, List<Map<String, String>> scenes) throws Exception {
+    private JsonNode create(Session s, Long postId, String title, List<? extends Map<String, ?>> scenes) throws Exception {
         Map<String, Object> body = new HashMap<>();
         body.put("title", title);
         body.put("scenes", scenes);
@@ -133,6 +133,61 @@ class ShortsTest extends IntegrationTest {
 
         me.http().perform(delete("/api/me/shorts/" + id).with(csrf())).andExpect(status().isNoContent());
         me.http().perform(get("/api/me/shorts/" + id)).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void 장면_그림과_연출과_효과음은_워커가_아는_것만_받고_작업에_실어_보낸다() throws Exception {
+        Session me = signup(uniqueLogin("shortsimg"));
+        long postId = writePost(me, POST_BODY);
+        String key = "images/2026/10/" + java.util.UUID.randomUUID() + ".webp";
+        long resource = jdbc.queryForObject("""
+                INSERT INTO resource (uploader_id, storage_key, content_type, size_bytes, kind)
+                VALUES (?, ?, 'image/webp', 10, 'IMAGE') RETURNING id
+                """, Long.class, me.memberId(), key);
+        jdbc.update("INSERT INTO resource_image (resource_id, kind) VALUES (?, 'IMAGE')", resource);
+        jdbc.update("INSERT INTO post_image (post_id, resource_id, position) VALUES (?, ?, 0)", postId, resource);
+
+        // 바깥 주소는 워커가 아무 곳에나 요청하게 되니 막는다
+        List<Map<String, String>> outside = new java.util.ArrayList<>(GOOD);
+        outside.set(1, Map.of("caption", "범인은 직렬화", "narration", GOOD.get(1).get("narration"), "image", "https://evil.example/x.png"));
+        Map<String, Object> body = Map.of("postId", postId, "title", "그림 있는 쇼츠", "scenes", outside);
+        JsonNode bad = read(me.http().perform(asJson(post("/api/me/shorts"), body)).andExpect(status().isBadRequest()).andReturn());
+        assertThat(bad.toString()).contains("scenes[1].image");
+
+        // 연출 이름과 효과음은 워커가 아는 것만 받는다
+        List<Map<String, ?>> badVisual = new java.util.ArrayList<>(GOOD);
+        badVisual.set(0, Map.of("caption", "배포하면 다 로그아웃?", "narration", GOOD.get(0).get("narration"), "visual", "explode",
+                "effects", List.of(Map.of("sound", "airhorn", "at", 0.5))));
+        JsonNode badBody = read(me.http().perform(asJson(post("/api/me/shorts"), Map.of("title", "연출", "scenes", badVisual)))
+                .andExpect(status().isBadRequest()).andReturn());
+        assertThat(badBody.toString()).contains("scenes[0].visual", "scenes[0].effects");
+
+        List<Map<String, ?>> withImage = new java.util.ArrayList<>(GOOD);
+        withImage.set(0, Map.of("caption", "배포하면 다 로그아웃?", "narration", GOOD.get(0).get("narration"), "visual", "THINK",
+                "effects", List.of(Map.of("sound", "pop", "at", 0.4, "volume", 0.6))));
+        withImage.set(1, Map.of("caption", "범인은 직렬화", "narration", GOOD.get(1).get("narration"), "image", "/media/" + key,
+                "visual", "typing", "effects", List.of(Map.of("sound", "typing", "at", 1.0))));
+        JsonNode item = create(me, postId, "그림 있는 쇼츠", withImage);
+        assertThat(item.path("scenes").get(1).path("image").asString()).isEqualTo("/media/" + key);
+        long id = item.path("id").asLong();
+        me.http().perform(post("/api/me/shorts/" + id + "/render").with(csrf())).andExpect(status().isOk());
+
+        JsonNode job = claim();
+        assertThat(job.path("id").asLong()).isEqualTo(id);
+        assertThat(job.path("scenes").get(1).path("image").asString()).isEqualTo("/media/" + key);
+        assertThat(job.path("scenes").get(0).path("image").isNull()).isTrue();
+        assertThat(job.path("coverImage").asString()).endsWith("/" + key);
+        assertThat(job.path("scenes").get(0).path("visual").asString()).isEqualTo("think");
+        assertThat(job.path("scenes").get(1).path("visual").asString()).isEqualTo("typing");
+        assertThat(job.path("scenes").get(2).path("visual").isNull()).isTrue();
+        assertThat(job.path("scenes").get(0).has("effects")).as("효과음은 작업 단위로만 보낸다").isFalse();
+        JsonNode effects = job.path("effects");
+        assertThat(effects).hasSize(2);
+        assertThat(effects.get(0).path("scene").asInt()).isZero();
+        assertThat(effects.get(0).path("sound").asString()).isEqualTo("pop");
+        assertThat(effects.get(0).path("volume").asDouble()).isEqualTo(0.6);
+        assertThat(effects.get(1).path("scene").asInt()).isEqualTo(1);
+        assertThat(effects.get(1).path("at").asDouble()).isEqualTo(1.0);
     }
 
     @Test

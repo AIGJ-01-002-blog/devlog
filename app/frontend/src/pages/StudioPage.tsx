@@ -5,15 +5,20 @@ import { fieldErrors } from '../lib/fieldErrors'
 import { t, tNodes } from '../lib/i18n'
 import { Link, navigate, useLocation } from '../lib/router'
 import {
-  checkShorts, createShorts, deleteShorts, emptyScene, estimateSeconds, isBusy, LIMITS, listShorts, renderProblems, renderShorts,
-  reportOf, saveShorts, statusLabel, videoFileName, workerOnline,
-  type OriginalityReport, type Scene, type ShortsItem, type ShortsOverview,
+  checkShorts, createShorts, deleteBatch, deleteShorts, emptyScene, estimateSeconds, groupByBatch, isBusy, LIMITS, listBatches, listShorts,
+  renderBatch, renderProblems, renderShorts, reportOf, saveShorts, SCENE_VISUALS, statusLabel, videoFileName, workerOnline, writtenTopics,
+  type BatchRenderResult, type OriginalityReport, type Scene, type SceneVisual, type ShortsBatch, type ShortsItem, type ShortsOverview,
 } from '../lib/shorts'
 import type { ManagePage } from '../lib/types'
 import { ReplayInfo, ReplayPicker } from './StudioReplay'
 import { StudioUploadGuide } from './StudioUploadGuide'
 
 const POLL_MS = 5000
+/** 장면 연출 이름 → 화면 이름 (번역 키) */
+const VISUAL_LABELS: Record<SceneVisual, string> = {
+  explain: '설명하기', shock: '데이터가 사라짐', typing: '코드 고치기', panic: '요청 폭주', restore: '백업으로 복구', wait: '느린 로딩',
+  fast: '빨라짐', idea: '팁', protect: '막아 냄', think: '원인 질문', celebrate: '결과 축하',
+}
 
 /**
  * 쇼츠 스튜디오 (099). 왼쪽은 내 대본 목록, 오른쪽은 고른 대본 편집기.
@@ -26,16 +31,22 @@ export function StudioPage() {
   const { me } = useAuth()
   // 매매 재현 영상(#265)은 매매 일지가 켜져 있을 때만. /studio?replay=2026-10-14로 오면 그날 체결을 고르는 화면을 연다
   const trades = me?.features?.trades ?? false
+  const selectedBatch = Number(search.get('batch')) || null
   const [data, setData] = useState<ShortsOverview | null>(null)
+  const [batches, setBatches] = useState<ShortsBatch[]>([])
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [picking, setPicking] = useState(search.has('replay'))
 
   const load = useCallback(async () => {
-    try {
-      setData(await listShorts())
+    // 묶음 목록이 실패해도 대본 목록과 편집기는 보여 준다 (묶음은 지난 값을 유지)
+    const [overview, batchList] = await Promise.allSettled([listShorts(), listBatches()])
+    if (batchList.status === 'fulfilled') setBatches(batchList.value)
+    if (overview.status === 'fulfilled') {
+      setData(overview.value)
       setError(null)
-    } catch (e) {
+    } else {
+      const e = overview.reason
       setError(e instanceof ApiError ? e.message : t('잠시 후 다시 시도해 주세요.'))
     }
   }, [])
@@ -50,6 +61,9 @@ export function StudioPage() {
   }, [busy, load])
 
   const item = data?.items.find((it) => it.id === selected) ?? null
+  const batch = batches.find((b) => b.id === selectedBatch) ?? null
+  const groups = data ? groupByBatch(data.items, batches) : []
+  const loose = data?.items.filter((it) => it.batchId === null || !batches.some((b) => b.id === it.batchId)) ?? []
   const replace = (next: ShortsItem) =>
     setData((d) => d && { ...d, items: d.items.map((it) => (it.id === next.id ? next : it)) })
 
@@ -69,19 +83,21 @@ export function StudioPage() {
             <button type="button" className="btn btn-outline btn-block studio-replay-btn" onClick={() => { setCreating(false); setPicking(true) }}
               data-tip={t('매매 일지의 체결을 골라 차트가 흘러가는 재현 영상 만들기')}>{t('매매 재현 영상')}</button>
           )}
-          {data && data.items.length === 0 && (
-            <p className="muted small">{tNodes('아직 대본이 없어요. AI에게 "이 글로 쇼츠 대본 써 줘"라고 하면 {0} 도구로 여기에 만들어 줘요.', { 0: <code>create_shorts_script</code> })}</p>
+          {data && data.items.length === 0 && batches.length === 0 && (
+            <p className="muted small">{tNodes('아직 대본이 없어요. AI에게 "이 글로 쇼츠 여러 편 만들어 줘"라고 하면 {0}로 작은 주제를 나누고 주제마다 대본을 써 줘요.', { 0: <code>plan_shorts</code> })}</p>
           )}
-          <ul>
-            {data?.items.map((it) => (
-              <li key={it.id}>
-                <Link to={`/studio?id=${it.id}`} className={`studio-item${it.id === selected ? ' active' : ''}`} aria-current={it.id === selected ? 'true' : undefined}>
-                  <span className="studio-item-title">{it.replay && <span className="studio-kind" title={t('매매 재현 영상')} aria-label={t('매매 재현 영상')}>📈 </span>}{it.title}</span>
-                  <span className={`badge studio-status studio-status-${it.status.toLowerCase()}`}>{statusLabel(it.status)}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          {groups.map(({ batch: b, items }) => (
+            <div key={b.id} className="studio-batch">
+              <Link to={`/studio?batch=${b.id}`} className={`studio-batch-head${b.id === selectedBatch ? ' active' : ''}`} aria-current={b.id === selectedBatch ? 'true' : undefined}
+                data-tip={t('근거 하나를 작은 주제로 나눈 묶음이에요. 눌러서 주제와 진행을 봐요')}>
+                <span className="studio-item-title">{b.title}</span>
+                <span className="muted small">{t('{0}/{1}편', { 0: writtenTopics(b), 1: b.topics.length })}</span>
+              </Link>
+              <ItemList items={items} selected={selected} />
+            </div>
+          ))}
+          {loose.length > 0 && batches.length > 0 && <p className="muted small studio-loose">{t('따로 쓴 대본')}</p>}
+          <ItemList items={loose} selected={selected} />
         </aside>
         <section className="studio-editor">
           {picking && trades
@@ -96,6 +112,9 @@ export function StudioPage() {
                 setData((d) => d && { ...d, items: [it, ...d.items] })
                 navigate(`/studio?id=${it.id}`)
               }} />
+            : batch
+              ? <BatchPanel key={`${batch.id}:${batch.updatedAt}`} batch={batch} onReload={load}
+                  onDeleted={() => { navigate('/studio', { replace: true }); void load() }} />
             : item
               ? <Editor key={`${item.id}:${item.version}:${item.status}`} item={item} onChange={replace} onReload={load}
                   onDeleted={() => { navigate('/studio', { replace: true }); void load() }} />
@@ -103,6 +122,107 @@ export function StudioPage() {
         </section>
       </div>
     </main>
+  )
+}
+
+function ItemList({ items, selected }: { items: ShortsItem[]; selected: number | null }) {
+  if (items.length === 0) return null
+  return (
+    <ul>
+      {items.map((it) => (
+        <li key={it.id}>
+          <Link to={`/studio?id=${it.id}`} className={`studio-item${it.id === selected ? ' active' : ''}`} aria-current={it.id === selected ? 'true' : undefined}>
+            <span className="studio-item-title">
+              {it.replay && <span className="studio-kind" title={t('매매 재현 영상')} aria-label={t('매매 재현 영상')}>📈 </span>}
+              {it.topic !== null && <span className="muted">{it.topic}. </span>}{it.title}
+            </span>
+            <span className={`badge studio-status studio-status-${it.status.toLowerCase()}`}>{statusLabel(it.status)}</span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/**
+ * 주제 묶음 (#276). 주제마다 첫 질문·범위와 대본 상태를 보여 주고, 대본을 다 쓴 편을 한 번에 영상 만들기 대기열에 넣는다.
+ * 검사에 막힌 편은 건너뛰고 이유를 보여 준다. 묶음을 풀어도 대본과 영상은 남는다.
+ */
+function BatchPanel({ batch, onReload, onDeleted }: { batch: ShortsBatch; onReload: () => Promise<void>; onDeleted: () => void }) {
+  const [result, setResult] = useState<BatchRenderResult | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [working, setWorking] = useState(false)
+  const ready = batch.topics.filter((tp) => tp.status === 'DRAFT' || tp.status === 'FAILED').length
+  const run = async (task: () => Promise<void>) => {
+    setWorking(true)
+    setError(null)
+    try {
+      await task()
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : t('잠시 후 다시 시도해 주세요.'))
+    } finally {
+      setWorking(false)
+    }
+  }
+  const renderAll = () => run(async () => {
+    setResult(await renderBatch(batch.id))
+    await onReload()
+  })
+  const ungroup = () => {
+    if (!window.confirm(t('묶음을 풀까요? 대본과 영상은 그대로 남아요.'))) return
+    void run(async () => {
+      await deleteBatch(batch.id)
+      onDeleted()
+    })
+  }
+  return (
+    <div className="studio-form studio-batch-panel">
+      <h2>{batch.title}</h2>
+      <p className="muted small">
+        {batch.postId !== null && batch.postTitle
+          ? t('근거: 글 「{0}」', { 0: batch.postTitle })
+          : batch.hasSource ? t('근거: AI와 나눈 맥락') : t('근거 없음')}
+        {' · '}{t('대본 {0}/{1}편', { 0: writtenTopics(batch), 1: batch.topics.length })}
+      </p>
+      <ol className="studio-topics">
+        {batch.topics.map((tp) => (
+          <li key={tp.number} className="studio-topic">
+            <div className="studio-topic-head">
+              <b>{tp.number}. {tp.title}</b>
+              {tp.status
+                ? <span className={`badge studio-status studio-status-${tp.status.toLowerCase()}`}>{statusLabel(tp.status)}</span>
+                : <span className="badge" data-tip={t('AI에게 "{0}번 주제 대본 써 줘"라고 하면 채워져요', { 0: tp.number })}>{t('대본 없음')}</span>}
+            </div>
+            <p className="small"><span className="muted">{t('첫 질문')}</span> {tp.hook}</p>
+            {tp.scope && <p className="small"><span className="muted">{t('다룰 것')}</span> {tp.scope}</p>}
+            {tp.shortsId !== null && <Link to={`/studio?id=${tp.shortsId}`} className="small">{t('대본 열기')}</Link>}
+          </li>
+        ))}
+      </ol>
+      {result && (
+        <div className={`studio-report ${result.skipped.length ? 'blocked' : 'ok'}`} role="status">
+          <p><b>{t('{0}편을 영상 만들기 대기열에 넣었어요', { 0: result.queued.length })}</b></p>
+          {result.skipped.length > 0 && (
+            <ul>
+              {result.skipped.map((sk) => (
+                <li key={sk.shortsId} className="warn">
+                  <Link to={`/studio?id=${sk.shortsId}`}>{sk.title}</Link>{' '}<span className="muted small">{sk.reason}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+      {error && <p className="error" role="alert">{error}</p>}
+      <div className="studio-actions studio-bar">
+        <button type="button" className="btn btn-primary" onClick={() => void renderAll()} disabled={working || ready === 0}
+          data-tip={ready === 0 ? t('영상으로 만들 대본이 없어요. 대본을 쓰거나 고친 편이 있으면 다시 눌러요') : t('검사를 통과한 편만 대기열에 넣어요. 막힌 편은 이유를 알려 줘요')}>
+          {t('묶음 영상 모두 만들기')}
+        </button>
+        <button type="button" className="btn btn-text studio-delete" onClick={ungroup} disabled={working}
+          data-tip={t('묶음 표시만 지워요. 대본과 영상은 남아요')}>{t('묶음 풀기')}</button>
+      </div>
+    </div>
   )
 }
 
@@ -208,7 +328,7 @@ function Editor({ item, onChange, onReload, onDeleted }: {
     }
   }
   const save = async (): Promise<ShortsItem> => {
-    const saved = await saveShorts(item.id, { title, scenes: scenes.map((s) => ({ ...s, code: s.code?.trim() ? s.code : null })), version: item.version })
+    const saved = await saveShorts(item.id, { title, scenes: scenes.map((s) => ({ ...s, code: s.code?.trim() ? s.code : null, image: s.image?.trim() ? s.image.trim() : null })), version: item.version })
     onChange(saved)
     return saved
   }
@@ -232,6 +352,7 @@ function Editor({ item, onChange, onReload, onDeleted }: {
     <div className="studio-form">
       <div className="studio-head">
         <span className={`badge studio-status studio-status-${item.status.toLowerCase()}`}>{statusLabel(item.status)}</span>
+        {item.batchId !== null && <Link to={`/studio?batch=${item.batchId}`} className="small">{t('묶음의 {0}번 주제', { 0: item.topic ?? '' })}</Link>}
         {item.postUrl && <Link to={item.postUrl} className="small">{t('바탕 글: {0}', { 0: item.postTitle ?? '' })}</Link>}
       </div>
 
@@ -281,10 +402,30 @@ function Editor({ item, onChange, onReload, onDeleted }: {
                 {errors[`scenes[${i}].narration`] && <span className="error">{errors[`scenes[${i}].narration`]}</span>}
               </div>
               {!item.replay && (
+                <>
                 <div className="field">
                   <label htmlFor={`scene-${i}-code`}>{t('코드 (선택)')}</label>
                   <textarea id={`scene-${i}-code`} rows={2} className="mono" value={s.code ?? ''} maxLength={LIMITS.code} onChange={(e) => edit(i, { code: e.target.value })} />
                 </div>
+                <div className="field">
+                  <label htmlFor={`scene-${i}-image`}>{t('배경 그림 (선택)')}</label>
+                  <input id={`scene-${i}-image`} type="text" inputMode="url" value={s.image ?? ''} maxLength={LIMITS.image}
+                    placeholder="/media/images/…" data-tip={t('글에 올린 그림 주소를 넣으면 이 장면 배경으로 깔려요. 비우면 첫 장면에 글 대표 사진이 들어가요.')}
+                    onChange={(e) => edit(i, { image: e.target.value })} />
+                  {errors[`scenes[${i}].image`] && <span className="error">{errors[`scenes[${i}].image`]}</span>}
+                </div>
+                <div className="field">
+                  <label htmlFor={`scene-${i}-visual`}>{t('장면 연출')}</label>
+                  <select id={`scene-${i}-visual`} value={s.visual ?? ''} data-tip={t('장면 내용에 맞는 움직임을 골라요. 자동이면 자막과 내레이션을 보고 정해요.')}
+                    onChange={(e) => edit(i, { visual: (e.target.value || null) as SceneVisual | null })}>
+                    <option value="">{t('자동')}</option>
+                    {SCENE_VISUALS.map((v) => <option key={v} value={v}>{t(VISUAL_LABELS[v])}</option>)}
+                  </select>
+                  {s.effects && s.effects.length > 0 && <span className="muted">{t('효과음 {0}개', { 0: s.effects.length })}</span>}
+                  {errors[`scenes[${i}].visual`] && <span className="error">{errors[`scenes[${i}].visual`]}</span>}
+                  {errors[`scenes[${i}].effects`] && <span className="error">{errors[`scenes[${i}].effects`]}</span>}
+                </div>
+                </>
               )}
             </li>
           ))}

@@ -13,6 +13,7 @@ export const LIMITS = {
   caption: 40,
   narration: 200,
   code: 300,
+  image: 500,
   seconds: 60,
 } as const
 
@@ -27,7 +28,16 @@ export interface Scene {
   caption: string
   narration: string
   code: string | null
+  /** 장면 배경 그림 (선택, devlog에 올린 그림 주소나 /로 시작하는 사이트 경로) */
+  image?: string | null
+  /** 장면 연출 이름 (선택, 비우면 렌더 워커가 고름) */
+  visual?: SceneVisual | null
+  /** 장면 안 효과음 (선택, 연결한 AI가 넣음. 편집기는 그대로 보존) */
+  effects?: { sound: string; at: number; volume?: number | null }[]
 }
+
+export const SCENE_VISUALS = ['explain', 'shock', 'typing', 'panic', 'restore', 'wait', 'fast', 'idea', 'protect', 'think', 'celebrate'] as const
+export type SceneVisual = (typeof SCENE_VISUALS)[number]
 
 export interface ShortsItem {
   id: number
@@ -54,6 +64,37 @@ export interface ShortsItem {
   uploads: ShortsUpload[]
   /** 매매 재현 영상(#265)이면 고른 체결과 차트 구간. 글 쇼츠는 null */
   replay: TradeReplay | null
+  /** 주제 묶음(#276)에서 만든 편이면 묶음 번호와 주제 번호(1부터) */
+  batchId: number | null
+  topic: number | null
+}
+
+/** 주제 묶음의 한 주제. 아직 대본이 없으면 shortsId·status가 null */
+export interface BatchTopic {
+  number: number
+  title: string
+  hook: string
+  scope: string
+  shortsId: number | null
+  status: ShortsStatus | null
+}
+
+/** 글 하나나 MCP로 받은 맥락 하나를 작은 주제 여러 개로 나눈 묶음 (#276). AI가 plan_shorts로 만든다 */
+export interface ShortsBatch {
+  id: number
+  postId: number | null
+  postTitle: string | null
+  title: string
+  /** MCP로 받은 맥락 근거가 있는가 */
+  hasSource: boolean
+  topics: BatchTopic[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface BatchRenderResult {
+  queued: number[]
+  skipped: { shortsId: number; title: string; reason: string }[]
 }
 
 /** 고를 수 있는 봉. 서버 TradeReplay.Interval과 같은 이름 */
@@ -170,6 +211,20 @@ export function reportOf(err: unknown): OriginalityReport | null {
 }
 
 export const listShorts = () => api<ShortsOverview>('/api/me/shorts')
+export const listBatches = () => api<ShortsBatch[]>('/api/me/shorts/batches')
+export const renderBatch = (id: number) => api<BatchRenderResult>(`/api/me/shorts/batches/${id}/render`, { method: 'POST' })
+export const deleteBatch = (id: number) => api<void>(`/api/me/shorts/batches/${id}`, { method: 'DELETE' })
+
+/** 대본을 다 쓴 주제 수 */
+export const writtenTopics = (b: ShortsBatch) => b.topics.filter((t) => t.shortsId !== null).length
+
+/** 목록을 묶음별로 나눈다: 묶음마다 주제 순서로, 묶음에 없는 대본은 따로 */
+export function groupByBatch(items: ShortsItem[], batches: ShortsBatch[]): { batch: ShortsBatch; items: ShortsItem[] }[] {
+  return batches.map((batch) => ({
+    batch,
+    items: items.filter((it) => it.batchId === batch.id).sort((a, b) => (a.topic ?? 0) - (b.topic ?? 0)),
+  }))
+}
 export const createShorts = (body: { postId: number | null; title: string; scenes: Scene[] }) =>
   api<ShortsItem>('/api/me/shorts', { method: 'POST', body })
 export const saveShorts = (id: number, body: { title: string; scenes: Scene[]; version: number }) =>

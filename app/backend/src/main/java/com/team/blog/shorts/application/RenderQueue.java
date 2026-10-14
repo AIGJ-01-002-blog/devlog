@@ -21,8 +21,10 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
 
 import com.team.blog.media.storage.ObjectStorage;
+import com.team.blog.post.infra.PostSql;
 import com.team.blog.shared.error.ApiException;
 import com.team.blog.shared.error.NotFoundException;
+import com.team.blog.shared.markdown.ImageUrls;
 import com.team.blog.shared.time.Times;
 import com.team.blog.shorts.application.ShortsScript.Scene;
 
@@ -43,25 +45,47 @@ public class RenderQueue {
 
     /**
      * 워커에게 주는 일. postUrl은 영상 끝 화면에 적을 원본 글 주소(사이트 안 경로).
+     * coverImage는 원본 글 대표 사진(#277): 워커가 그림 없는 첫 장면의 가운데 카드로 쓴다. 장면마다 그림은 scenes[].image
      * replay가 있으면 매매 재현 영상(#265)이다: 워커가 그 구간의 공개 캔들을 받아 캔들과 체결 표시를 그린다.
      */
-    public record Job(long id, String claim, int attempt, String title, List<Scene> scenes, String handle, String postUrl, TradeReplay replay) {}
+    public record Job(long id, String claim, int attempt, String title, List<JobScene> scenes, String handle, String postUrl, String coverImage,
+                      List<JobEffect> effects, TradeReplay replay) {}
+
+    /** 워커가 읽는 장면. visual은 장면 연출 이름(#277), 비면 워커가 자막·내레이션·코드에서 고른다 */
+    public record JobScene(String caption, String narration, String code, String image, String visual) {}
+
+    /** 작업 단위 효과음(#277). scene은 0부터 센 장면 번호, at은 그 장면이 시작하고 몇 초 뒤 */
+    public record JobEffect(int scene, double at, String sound, Double volume) {}
+
+    static List<JobScene> jobScenes(List<Scene> scenes) {
+        return scenes.stream().map(s -> new JobScene(s.caption(), s.narration(), s.code(), s.image(), s.visual())).toList();
+    }
+
+    static List<JobEffect> jobEffects(List<Scene> scenes) {
+        List<JobEffect> out = new java.util.ArrayList<>();
+        for (int i = 0; i < scenes.size(); i++) {
+            for (ShortsScript.Effect e : scenes.get(i).effects()) out.add(new JobEffect(i, e.at(), e.sound(), e.volume()));
+        }
+        return out;
+    }
 
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
     private final ObjectStorage storage;
     private final StringRedisTemplate redis;
     private final ShortsProperties props;
+    private final ImageUrls imageUrls;
     private final Clock clock;
     private final JsonMapper json = JsonMapper.builder().build();
 
     public RenderQueue(JdbcTemplate jdbc, PlatformTransactionManager txm, ObjectStorage storage, StringRedisTemplate redis,
-                       ShortsProperties props, Clock clock) {
+                       ShortsProperties props, ImageUrls imageUrls, Clock clock) {
         this.jdbc = jdbc;
         this.tx = new TransactionTemplate(txm);
         this.storage = storage;
         this.redis = redis;
         this.props = props;
+        this.imageUrls = imageUrls;
         this.clock = clock;
     }
 
@@ -77,15 +101,18 @@ public class RenderQueue {
                 FROM next WHERE s.id = next.id
                 RETURNING s.id, s.attempts, s.title, s.scenes::text, s.post_id, s.replay::text AS replay,
                           (SELECT handle FROM member WHERE id = s.member_id) AS handle,
-                          (SELECT m.handle FROM post p JOIN member m ON m.id = p.author_id WHERE p.id = s.post_id AND p.deleted_at IS NULL) AS post_handle
-                """, rs -> {
+                          (SELECT m.handle FROM post p JOIN member m ON m.id = p.author_id WHERE p.id = s.post_id AND p.deleted_at IS NULL) AS post_handle,
+                          (SELECT %s FROM post p WHERE p.id = s.post_id AND p.deleted_at IS NULL) AS cover_key
+                """.formatted(PostSql.THUMBNAIL_KEY.replace(" AS thumbnail_key", "")), rs -> {
             if (!rs.next()) return null;
             long postId = rs.getLong("post_id");
             String postHandle = rs.getString("post_handle");
             String postUrl = rs.wasNull() || postHandle == null ? null : "/@" + postHandle + "/posts/" + postId;
+            List<Scene> scenes = json.readValue(rs.getString(4), SCENES);
             String replay = rs.getString("replay");
             return new Job(rs.getLong("id"), claim, rs.getInt("attempts"), rs.getString("title"),
-                    json.readValue(rs.getString(4), SCENES), rs.getString("handle"), postUrl,
+                    jobScenes(scenes), rs.getString("handle"), postUrl,
+                    postUrl == null ? null : imageUrls.urlOf(rs.getString("cover_key")), jobEffects(scenes),
                     replay == null ? null : json.readValue(replay, TradeReplay.class));
         }, claim, Timestamp.from(now), Timestamp.from(now))));
     }

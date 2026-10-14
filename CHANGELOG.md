@@ -12,9 +12,10 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ### 추가
 - 매매 일지가 코인 거래소 체결을 받는다. `record_trade`에 거래소(`exchange`)와 통화(`currency`)를 적고, 0.00012345 BTC 같은 소수 수량·가격을 그대로 남긴다. 원화와 USDT는 더하지 않고 손익·수수료를 통화별로 따로 보여 준다. DB `trade`에 `exchange`·`currency` 열이 생기고 금액 자릿수가 넓어진다(V40). (#254)
-- 매매 재현 숏폼: 스튜디오의 [매매 재현 영상]에서 매매 일지의 체결(같은 거래소·종목, 1~6개, 메모를 남긴 날)을 고르면 대본이 생긴다. 렌더 워커가 바이낸스·업비트 공개 캔들(API 키 없음)을 받아 캔들이 흘러가며 체결 시각에 매수·매도가 찍히는 9:16 영상을 만든다. 봉은 자동 또는 1분~1일. 대본은 내 AI가 MCP `get_shorts`로 체결·메모를 읽고 `update_shorts_script`로 "지금 사는 이유" 식으로 다시 쓴다. 체결 순간 차트가 번쩍이고 고리가 퍼지며 띠가 밀려 들어오고 화면이 짧게 흔들린다. 캔들 틱·매수·매도·익절·손절 효과음은 워커가 직접 합성한다(음원 파일 없음). 투자 권유 고지는 대본에 넣지 않고 영상 맨 끝에 1.3초 카드 한 장으로 붙인다. 양산형 검사·하루 한도·직접 올리기 안내는 다른 쇼츠와 같다. DB `shorts`에 `replay` 열이 생긴다(V42). (#265)
+- 매매 재현 숏폼: 스튜디오의 [매매 재현 영상]에서 매매 일지의 체결(같은 거래소·종목, 1~6개, 메모를 남긴 날)을 고르면 대본이 생긴다. 렌더 워커가 바이낸스·업비트 공개 캔들(API 키 없음)을 받아 캔들이 흘러가며 체결 시각에 매수·매도가 찍히는 9:16 영상을 만든다. 봉은 자동 또는 1분~1일. 대본은 내 AI가 MCP `get_shorts`로 체결·메모를 읽고 `update_shorts_script`로 "지금 사는 이유" 식으로 다시 쓴다. 체결 순간 차트가 번쩍이고 고리가 퍼지며 띠가 밀려 들어오고 화면이 짧게 흔들린다. 캔들 틱·매수·매도·익절·손절 효과음은 워커가 직접 합성한다(음원 파일 없음). 투자 권유 고지는 대본에 넣지 않고 영상 맨 끝에 1.3초 카드 한 장으로 붙인다. 양산형 검사·하루 한도·직접 올리기 안내는 다른 쇼츠와 같다. DB `shorts`에 `replay` 열이 생긴다(V43). (#265)
 - 매매 일지가 선물 체결을 받는다. `record_trade`에 `market`(SPOT·FUTURES), `position_side`(LONG·SHORT), `leverage`(1~7배), `interval`(1m·5m·15m·1h·4h·1d)을 적는다. 롱 진입 BUY·롱 청산 SELL·숏 진입 SELL·숏 청산 BUY로 읽고, 숏 청산(BUY)의 실현 손익도 합계에 더한다. 화면·요약 글·쇼츠 대본에 "선물 숏 3배", "숏 청산"처럼 보인다. 예전 봇이 이유 앞머리("[선물 숏 진입 3x]")로 알린 선물 체결은 열로 옮긴다(V41). (#260)
 - 같은 날 모의투자와 실계좌 체결이 섞이면 실현 손익을 더하지 않고 나눠 보여 준다. 화면(기간 합계·날짜 목록·하루 상세), 요약 글 제목과 본문, 쇼츠 제목과 대본에서 "모의투자 +12.00 USDT · 실계좌 -4.00 USDT"처럼 적는다. (#260)
+- 쇼츠 주제 묶음: 글 하나나 AI와 나눈 맥락 하나를 작은 주제 2~5개로 나눠 주제마다 쇼츠 한 편씩 만든다. MCP `plan_shorts`가 주제(제목·첫 질문·다룰 범위)를 남기고, `create_shorts_script`는 `batch_id`·`topic`이나 맥락 근거 `source_text`를 받는다. 양산형 검사는 맥락 근거와도 비교하고, 같은 묶음의 다른 편과 겹치면 경고한다. 스튜디오는 묶음별로 대본을 모아 보여 주고 [묶음 영상 모두 만들기]로 통과한 편을 한 번에 대기열에 넣는다(막힌 편은 이유와 함께 건너뜀). DB `shorts_batch` 표와 `shorts`의 `batch_id`·`topic`·`source_text` 열(V42). 장면마다 배경 그림(`image`, devlog에 올린 그림이나 사이트 경로만)을 고를 수 있고, 렌더 워커가 받는 작업에 장면 그림과 원본 글 대표 사진(`coverImage`)이 함께 간다. 장면마다 연출(`visual`: explain·shock·typing·panic·restore·wait·fast·idea·protect·think·celebrate, 비우면 워커가 고름)과 효과음(`effects`: pop·ding·whoosh·boing·tick·typing, 장면당 3개)을 고를 수 있고, 워커에는 작업 단위 `effects[]`로 펼쳐 보낸다(#277 워커와 짝). (#276)
 - 매매 일지의 날마다 [재현 영상 만들기]로 그날 체결을 스튜디오의 매매 재현 영상으로 넘긴다(`/studio?replay=날짜`). (#265)
 
 ### 바꿈
@@ -46,6 +47,10 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 ![쇼츠 품질 전후: 도커 볼륨](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shorts-quality-docker-volume.webp)
 ![쇼츠 품질 전후: useEffect](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shorts-quality-react-effect.webp)
 ![쇼츠 품질 전후: 인덱스](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shorts-quality-pg-index.webp)
+
+| 쇼츠 주제 묶음 (PC) | 휴대폰 · 다크 | 360px |
+|---|---|---|
+| ![쇼츠 주제 묶음 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/studio-batch-pc.webp) | ![쇼츠 주제 묶음 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/studio-batch-m-dark.webp) | ![쇼츠 주제 묶음 360px](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/studio-batch-360.webp) |
 
 ## [2.0.0] - 2026-10-14
 
