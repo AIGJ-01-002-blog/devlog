@@ -305,6 +305,43 @@ class FuturesTest(unittest.TestCase):
         self.assertTrue(all(c[1] == "testnet.binancefuture.com" for c in fx.calls))
 
 
+    def broker(self, fx, amt="-0.001"):
+        fx.routes[("GET", "/fapi/v2/balance")] = lambda q: (200, [{"asset": "USDT", "availableBalance": "300"}])
+        fx.routes[("GET", "/fapi/v2/positionRisk")] = lambda q: (200, [{"symbol": "BTCUSDT", "positionAmt": amt}])
+        return LiveBroker(cash=Decimal(300), trader=BinanceFuturesTrader("k", "s", True, fx),
+                          limits=Limits(Decimal(60), Decimal(20), Decimal(50), leverage=3), currency="USDT",
+                          exchange="BINANCE_FUTURES", log=lambda m: None)
+
+    def test_short_entry_is_sell_and_close_is_reduce_only_buy(self):
+        fx = self.fx()
+        b = self.broker(fx)
+        entry = b.open_short("BTCUSDT", "비트코인", Decimal("0.001"), Decimal(60000), "하락 돌파", AT)
+        self.assertEqual((entry.side, entry.symbol_name), ("SELL", "비트코인 선물"))
+        self.assertEqual(entry.reason, "[선물 숏 진입 3x] 하락 돌파")
+        self.assertEqual(b.short_holding("BTCUSDT"), Decimal("0.001"))
+        fx.orders.clear()
+        close = b.close_short("BTCUSDT", "비트코인", Decimal("0.001"), Decimal(60000), "", "2026-10-14T11:00:00+09:00")
+        sent = [c for c in fx.calls if c[0] == "POST" and c[2] == "/fapi/v1/order"]
+        self.assertEqual((sent[0][3]["side"], sent[1][3]["side"], sent[1][3].get("reduceOnly")), ("SELL", "BUY", "true"))
+        self.assertEqual((close.side, close.reason), ("BUY", "[선물 숏 청산 3x]"))
+        self.assertEqual(close.realized_pnl, Decimal("-0.024"))  # 같은 값에 사고팔아 수수료만큼 손해
+        self.assertEqual(b.short_holding("BTCUSDT"), 0)
+
+    def test_shorts_survive_save_and_spot_refuses_short(self):
+        fx = self.fx()
+        b = self.broker(fx)
+        b.open_short("BTCUSDT", "비트코인", Decimal("0.001"), Decimal(60000), "", AT)
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "f.json"
+            b.save(path)
+            again = LiveBroker.open(path, BinanceFuturesTrader("k", "s", True, fx), b.limits)
+        self.assertEqual(again.short_holding("BTCUSDT"), Decimal("0.001"))
+        spot = FakeExchange()
+        binance_spot(spot)
+        with self.assertRaises(LiveRefused):
+            live_broker(spot).open_short("BTCUSDT", "비트코인", Decimal("0.001"), Decimal(50000), "", AT)
+
+
 class UpbitTest(unittest.TestCase):
     def test_market_buy_cancel_state_with_volume_counts_as_filled(self):
         fx = FakeExchange()

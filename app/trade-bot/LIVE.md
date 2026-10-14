@@ -42,6 +42,11 @@ UPBIT_ACCESS_KEY='…' UPBIT_SECRET_KEY='…' python3 -m devlog_trade.live check
 
 출금 권한이 켜진 키면 여기서 멈춰요.
 
+## 선물 방향과 기록 모양
+
+- 롱 진입 `buy` = BUY, 롱 청산 `sell` = SELL(reduceOnly). 숏 진입 `open_short` = SELL, 숏 청산 `close_short` = BUY(reduceOnly). 단방향 포지션 기준이라 같은 종목에 롱과 숏을 함께 들지 않아요.
+- devlog 기록은 지금(#260 전) 현물과 같은 모양이고, 이름은 `비트코인 선물`, 이유 앞에 `[선물 숏 진입 3x]`처럼 방향과 레버리지를 붙여요. 실계좌 체결은 `mode=LIVE`로 보내요.
+
 ## 봇에 붙이는 법
 
 `coin` 모드에 붙이는 입구는 `live.open_live(args, market, state)`와 `live.add_live_args(parser)`예요(봇 통합 브랜치에서 연결해요).
