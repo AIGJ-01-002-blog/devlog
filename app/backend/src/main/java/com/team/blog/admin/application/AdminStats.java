@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 
 import com.team.blog.account.application.MemberStats;
 import com.team.blog.comment.application.CommentStats;
+import com.team.blog.shorts.application.RenderWorkerStatus;
 import com.team.blog.inquiry.application.InquiryService;
 import com.team.blog.like.application.LikeStats;
 import com.team.blog.moderation.application.AdminReportQuery;
@@ -41,10 +42,11 @@ public class AdminStats {
     private final ViewStats views;
     private final AdminReportQuery reports;
     private final InquiryService inquiries;
+    private final RenderWorkerStatus worker;
     private final Clock clock;
 
     public AdminStats(MemberStats members, PostStats posts, CommentStats comments, LikeStats likes, ViewStats views,
-                      AdminReportQuery reports, InquiryService inquiries, Clock clock) {
+                      AdminReportQuery reports, InquiryService inquiries, RenderWorkerStatus worker, Clock clock) {
         this.members = members;
         this.posts = posts;
         this.comments = comments;
@@ -52,6 +54,7 @@ public class AdminStats {
         this.views = views;
         this.reports = reports;
         this.inquiries = inquiries;
+        this.worker = worker;
         this.clock = clock;
     }
 
@@ -79,9 +82,10 @@ public class AdminStats {
 
     public record AuthorLine(String handle, String nickname, long posts) {}
 
+    /** @param worker 쇼츠 렌더 워커 상태 (#241). 쇼츠가 꺼져 있으면 null */
     public record Dashboard(int days, LocalDate from, LocalDate to, Totals totals, Sums current, Sums previous, long activeMembers,
                             VisitorSummary visitors, List<Day> daily, List<PostLine> topPosts, List<AuthorLine> topAuthors,
-                            List<ViewStats.SourceLine> sources, List<PageLine> topPages) {}
+                            List<ViewStats.SourceLine> sources, List<PageLine> topPages, RenderWorkerStatus.Status worker) {}
 
     public Dashboard dashboard(int days) {
         int n = PERIODS.contains(days) ? days : 30;
@@ -121,7 +125,8 @@ public class AdminStats {
         Totals totals = new Totals(members.summary(), postSummary, comments.total(), likes.total(), views.total(),
                 reports.pendingCount(), inquiries.openCount());
         return new Dashboard(n, from, today, totals, current, previous, members.activeSince(periodStart), visitors, daily,
-                topPosts(periodStart), topAuthors(periodStart), views.sources(from, today, TOP), topPages(from, today));
+                topPosts(periodStart), topAuthors(periodStart), views.sources(from, today, TOP), topPages(from, today),
+                worker.status().orElse(null));
     }
 
     private static final java.util.regex.Pattern POST_PAGE = java.util.regex.Pattern.compile("^/@[^/]+/posts/(\\d{1,18})$");

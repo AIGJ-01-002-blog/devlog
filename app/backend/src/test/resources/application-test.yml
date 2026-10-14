@@ -3,6 +3,8 @@ blog:
   shorts:
     enabled: true
     worker-token: test-render-token
+    # 토큰을 바꾸는 동안 받는 옛 토큰 (#241)
+    previous-worker-token: test-render-token-old
     timeout-check-interval: 1h
   dev-login:
     enabled: true

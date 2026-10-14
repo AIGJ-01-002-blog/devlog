@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { AdminNav } from '../components/AdminNav'
 import { BarChart, type BarPoint } from '../components/BarChart'
-import { change, consoleApi, count, PERIODS, type Dashboard, type Period, type Sums } from '../lib/admin'
+import { ago, change, consoleApi, count, PERIODS, workerHealth, workerLabel, type Dashboard, type Period, type Sums, type WorkerStatus } from '../lib/admin'
 import { Link, navigate, useLocation } from '../lib/router'
 import { decode, GROUP_LABEL, pageLabel, sourceGroup, sourceLabel, type SourceGroup } from '../lib/visitSources'
 
@@ -92,6 +92,38 @@ function Sources({ data }: { data: Dashboard }) {
 }
 
 /** 관리자 대시보드 (062): 처리할 일, 기간 합계(이전 기간 대비), 날짜별 추이, 많이 본 글·많이 쓴 회원, 전체 현황. */
+/** 쇼츠 렌더 워커 (#241): 대기 중인 영상이 있는데 워커가 안 보이면 맨 위 할 일에도 띄운다 */
+function workerAlert(w: WorkerStatus | null): string | null {
+  if (!w) return null
+  const h = workerHealth(w)
+  if (w.queued > 0 && h.state !== 'ok') return `영상 ${count(w.queued)}개가 기다리는데 렌더 워커가 ${h.state === 'no-token' ? '꺼져 있어요' : '안 보여요'}`
+  if (w.previousToken) return '렌더 워커가 옛 토큰으로 들어오고 있어요'
+  return null
+}
+
+function WorkerCard({ w }: { w: WorkerStatus }) {
+  const h = workerHealth(w)
+  const waited = w.oldestQueuedAt ? Math.floor((Date.now() - Date.parse(w.oldestQueuedAt)) / 60_000) : null
+  return (
+    <section className="admin-card">
+      <h2 data-tip="회원이 [영상 만들기]를 누르면 대기에 들어가고, 내 컴퓨터의 렌더 워커가 받아 MP4로 만들어 올려요">쇼츠 렌더 워커</h2>
+      <dl className="totals">
+        <div data-tip="워커는 몇 초마다 일감을 물어요. 5분 넘게 묻지 않으면 꺼졌거나 연결이 끊긴 거예요">
+          <dt>워커</dt><dd className={h.state === 'ok' ? '' : 'warn-text'}>{workerLabel(h)}</dd>
+          {h.state === 'no-token' && <dd className="muted small">SHORTS_WORKER_TOKEN을 실행 환경 비밀값으로 넣어야 워커가 붙어요</dd>}
+          {w.previousToken && <dd className="muted small">옛 토큰(SHORTS_WORKER_TOKEN_PREVIOUS)으로 들어온 워커가 있어요. 워커 설정을 새 토큰으로 바꾼 뒤 옛 토큰을 비워 주세요</dd>}
+        </div>
+        <div data-tip="만들기를 기다리는 영상"><dt>대기</dt><dd>{count(w.queued)}개</dd>
+          {waited !== null && <dd className="muted small">가장 오래 기다린 영상 {ago(waited)}</dd>}</div>
+        <div data-tip="워커가 받아서 만드는 중인 영상. 15분 안에 결과가 없으면 다시 대기로 돌아가요"><dt>만드는 중</dt><dd>{count(w.rendering)}개</dd></div>
+        <div data-tip="오늘 0시(한국 시간)부터 세 번 실패해 멈춘 영상"><dt>오늘 실패</dt><dd>{count(w.failedToday)}개</dd></div>
+      </dl>
+    </section>
+  )
+}
+
+const REFRESH_MS = 60_000
+
 export function AdminDashboardPage() {
   const { search } = useLocation()
   const days = (PERIODS.find((p) => String(p) === search.get('days')) ?? 30) as Period
@@ -108,6 +140,12 @@ export function AdminDashboardPage() {
     consoleApi.dashboard(days)
       .then((d) => { if (current.current === days) setData(d) })
       .catch(() => { if (current.current === days) setError(true) })
+    // 열어 둔 화면에서도 워커가 멈춘 것을 알 수 있게 1분마다 다시 읽는다. 다시 읽다 실패하면 보던 숫자를 그대로 둔다
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      consoleApi.dashboard(days).then((d) => { if (current.current === days) setData(d) }).catch(() => {})
+    }, REFRESH_MS)
+    return () => window.clearInterval(timer)
   }, [days])
 
   const m = METRICS.find((x) => x.key === metric) ?? METRICS[0]
@@ -157,8 +195,11 @@ export function AdminDashboardPage() {
       {!data && !error && <p className="muted center">불러오는 중…</p>}
       {data && (
         <>
-          {(data.totals.pendingReports > 0 || data.totals.openInquiries > 0) && (
+          {(data.totals.pendingReports > 0 || data.totals.openInquiries > 0 || workerAlert(data.worker)) && (
             <section className="admin-todo" aria-label="처리할 일">
+              {workerAlert(data.worker) && (
+                <span className="admin-todo-item" data-tip="아래 쇼츠 렌더 워커 칸에서 자세히 봐요">{workerAlert(data.worker)}</span>
+              )}
               {data.totals.pendingReports > 0 && (
                 <Link to="/admin/reports" className="admin-todo-item" data-tip="처리를 기다리는 신고로 가요">
                   처리할 신고 <strong>{count(data.totals.pendingReports)}</strong>건
@@ -243,6 +284,8 @@ export function AdminDashboardPage() {
               )}
             </section>
           </div>
+
+          {data.worker && <WorkerCard w={data.worker} />}
 
           <section className="admin-card">
             <h2>전체 현황</h2>

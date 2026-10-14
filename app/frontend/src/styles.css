@@ -1267,6 +1267,7 @@ input[type="checkbox"], input[type="radio"] { width: auto; flex-shrink: 0; margi
 .admin-todo { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
 .admin-todo-item { padding: 8px 14px; border-radius: var(--radius); background: var(--color-warn-bg); color: var(--color-warn-text); }
 .admin-todo-item strong { font-size: 1.125rem; margin: 0 2px; }
+.admin-card .warn-text { color: var(--color-warn-text); font-weight: 600; }
 /* 대시보드 지표 칸 (073): 방문 / 회원·글 / 반응 세 묶음. 숫자를 크게, 이전 기간 대비는 기호+색, 아래에 날짜별 흐름 */
 .kpi-board { display: grid; grid-template-columns: 3fr 4fr; gap: 12px 16px; margin-bottom: 16px; }
 .kpi-group { min-width: 0; }

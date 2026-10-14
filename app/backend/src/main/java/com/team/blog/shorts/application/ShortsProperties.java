@@ -11,6 +11,7 @@ import org.springframework.util.unit.DataSize;
  *
  * @param enabled        SHORTS_ENABLED. 꺼져 있으면 /api/me/shorts·워커 API는 없는 주소(404)이고 MCP 도구도 보이지 않는다
  * @param workerToken    SHORTS_WORKER_TOKEN. 렌더 워커가 X-Render-Token으로 보낸다. 비어 있으면 워커 API는 404다
+ * @param previousWorkerToken SHORTS_WORKER_TOKEN_PREVIOUS. 토큰을 바꾸는 동안 옛 토큰도 받는다(#241). 워커를 새 토큰으로 바꾼 뒤 비운다
  * @param maxVideo       워커가 올리는 MP4 상한. 인그레스 본문 상한(21m)보다 작아야 한다
  * @param dailyRenders   회원별 하루(한국 0시 기준) 영상 만들기 횟수
  * @param renderTimeout  워커가 받은 뒤 이만큼 결과가 없으면 대기로 되돌린다
@@ -19,6 +20,7 @@ import org.springframework.util.unit.DataSize;
 @ConfigurationProperties(prefix = "blog.shorts")
 public record ShortsProperties(@DefaultValue("false") boolean enabled,
                                @DefaultValue("") String workerToken,
+                               @DefaultValue("") String previousWorkerToken,
                                @DefaultValue("20MB") DataSize maxVideo,
                                @DefaultValue("10") int dailyRenders,
                                @DefaultValue("15m") Duration renderTimeout,

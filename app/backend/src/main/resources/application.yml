@@ -207,6 +207,8 @@ blog:
   shorts:
     enabled: ${SHORTS_ENABLED:false}
     worker-token: ${SHORTS_WORKER_TOKEN:}
+    # 토큰을 바꿀 때: 새 값을 SHORTS_WORKER_TOKEN에, 옛 값을 여기에 두고 워커를 새 값으로 바꾼 뒤 비운다 (#241)
+    previous-worker-token: ${SHORTS_WORKER_TOKEN_PREVIOUS:}
     max-video: 20MB
     daily-renders: 10
     render-timeout: 15m

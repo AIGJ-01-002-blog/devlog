@@ -27,7 +27,12 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 |---|---|---|
 | ![내 대시보드 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/my-dash-pc.webp) | ![내 대시보드 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/my-dash-m.webp) | ![쇼츠 칸 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/my-dash-m-dark.webp) |
 
+| 렌더 워커 상태 (PC) | 처리할 일 알림 (PC) | 휴대폰 | 휴대폰 · 다크 |
+|---|---|---|---|
+| ![렌더 워커 칸 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/worker-pc.webp) | ![워커 알림 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/worker-alert-pc.webp) | ![렌더 워커 칸 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/worker-m.webp) | ![렌더 워커 칸 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/worker-m-dark.webp) |
+
 ### 추가
+- 관리자 대시보드에 쇼츠 렌더 워커 칸: 쇼츠를 켠 서버에서 워커가 마지막으로 온 시각, 대기·만드는 중·오늘 실패 수, 가장 오래 기다린 영상을 보이고, 기다리는 영상이 있는데 워커가 5분 넘게 안 오면 "처리할 일"에 띄운다. 워커 토큰은 `SHORTS_WORKER_TOKEN_PREVIOUS`에 옛 값을 두면 둘 다 받아서 워커를 멈추지 않고 바꿀 수 있고, 옛 토큰을 쓰는 워커가 있으면 대시보드가 알려 준다. 순서는 [app/render-worker/README.md](app/render-worker/README.md). DB 변경은 없다 (목표 v2.0.0 [#236](https://github.com/AIGJ-01-002-blog/devlog/issues/236) · spec 099, #241)
 - 집 컴퓨터로 옮기기(`deploy/home/`): 학교 서버의 DB(pg_dump)와 파일 저장소(사진·첨부·쇼츠 영상)를 폴더 하나로 받는 `fetch-backup.sh`·`backup.sh`와, 그 폴더로 Windows·맥에서 Docker로 다시 띄우는 `restore.ps1`·`restore.sh`·`compose.yaml`. 되살릴 때 `https://devlog.life` 주소를 이 컴퓨터 주소로 바꾸고, 소셜 로그인 대신 주인 계정 이메일·비밀번호 로그인을 만든다. 순서는 [deploy/home/README.md](deploy/home/README.md) (목표 v2.0.0 [#236](https://github.com/AIGJ-01-002-blog/devlog/issues/236), #241)
 - MCP 기록 자동화: AI가 개발 일지(`write_devlog`·`create_draft`)와 일기 메모(`add_note`)에 커밋·PR·이슈 주소를 `links`로 함께 남기면, 일지는 본문 끝 `## 근거`에, 일기는 주제 문단 아래 `근거:` 줄에 "PR #246 (devlog)"처럼 이름 붙은 링크로 들어간다. 글을 쓰거나 공개로 발행했을 때 겪은 문제·숫자로 된 결과·코드 가운데 둘 이상이 있으면 AI에게 쇼츠로 만들지 사용자에게 한 번 물어보라고 알리고, 새 도구 `list_shorts_candidates`로 아직 쇼츠가 없는 공개 글 가운데 후보를 본다. DB에 `ai_note.links` 열이 생긴다 (목표 v2.0.0 [#236](https://github.com/AIGJ-01-002-blog/devlog/issues/236) · spec 099, #240)
 - 내 대시보드(`/dashboard`, 내 메뉴): 내 글(비공개 포함)이 받은 조회수·좋아요·받은 댓글을 7·30·90일로 보고 이전 같은 기간과 견준다. 날짜별 막대그래프, 기간 안에 많이 읽힌 글, 쇼츠(대본·완성 영상·플랫폼별로 올린 수·최근에 올린 영상 주소)를 한 화면에 모은다. 받은 댓글에서 내가 단 답글은 뺀다. 플랫폼 조회수는 각 앱에서 본다(API 연동 없음). DB 변경은 없다 (목표 v2.0.0 [#236](https://github.com/AIGJ-01-002-blog/devlog/issues/236), #239)
