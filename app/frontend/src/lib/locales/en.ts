@@ -656,6 +656,8 @@ export const en: Record<string, string> = {
   "사진 대체글": "Image alt text",
   "사진 올리기": "Upload photo",
   "사진 위치 (화살표 키로 옮기기)": "Photo position (move with arrow keys)",
+  "원 안이 프로필 사진으로 보여요": "The area inside the circle becomes your profile photo",
+  "원 안이 프로필 사진으로 보여요.": "The area inside the circle becomes your profile photo.",
   "사진 자르기": "Crop photo",
   "사진 저장 공간": "Photo storage",
   "사진 저장 공간 사용량": "Photo storage usage",

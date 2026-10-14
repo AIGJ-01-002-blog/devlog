@@ -88,6 +88,11 @@
   --motion-slow: 320ms;
   --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --color-crop-shade: rgba(0, 0, 0, 0.55);
+  --color-crop-line: rgba(255, 255, 255, 0.95);
+  --color-crop-line-edge: rgba(0, 0, 0, 0.45);
+  --color-crop-check-a: #d4d4d8;
+  --color-crop-check-b: #f4f4f5;
 }
 :root[data-theme="dark"] {
   --color-bg: #14161b;
@@ -151,6 +156,11 @@
   --branch-topic: #5fd0d9;
   --color-tag-bg: #262a45;
   color-scheme: dark;
+  --color-crop-shade: rgba(0, 0, 0, 0.55);
+  --color-crop-line: rgba(255, 255, 255, 0.95);
+  --color-crop-line-edge: rgba(0, 0, 0, 0.45);
+  --color-crop-check-a: #3f3f46;
+  --color-crop-check-b: #27272a;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -215,6 +225,11 @@
     --branch-topic: #5fd0d9;
     --color-tag-bg: #262a45;
     color-scheme: dark;
+    --color-crop-shade: rgba(0, 0, 0, 0.55);
+    --color-crop-line: rgba(255, 255, 255, 0.95);
+    --color-crop-line-edge: rgba(0, 0, 0, 0.45);
+    --color-crop-check-a: #3f3f46;
+    --color-crop-check-b: #27272a;
   }
 }
 /* 테마를 바꾸는 순간에는 색이 서서히 바뀌지 않게 한다 (FR-012) */
@@ -663,7 +678,14 @@ input[type="checkbox"], input[type="radio"] { width: auto; flex-shrink: 0; margi
 .profile-photo { display: flex; align-items: center; gap: 16px; }
 .profile-photo-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .cropper { display: flex; flex-direction: column; gap: 8px; padding: 16px; border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-surface); }
-.cropper-canvas { width: min(256px, 100%); aspect-ratio: 1; border-radius: 50%; cursor: grab; touch-action: none; background: var(--color-surface-2); }
+.cropper-stage { position: relative; width: min(256px, 100%); aspect-ratio: 1; border-radius: 4px; overflow: hidden; background: repeating-conic-gradient(var(--color-crop-check-a) 0 25%, var(--color-crop-check-b) 0 50%) 0 0 / 16px 16px; }
+.cropper-canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+.cropper-canvas:focus-visible { outline: none; }
+.cropper-stage:has(.cropper-canvas:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+/* 원 바깥은 어둡게, 둘레는 흰 선 + 바깥 어두운 테로 밝은 사진·어두운 사진 어디서든 보이게 한다 */
+.cropper-mask { position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+  border: 2px solid var(--color-crop-line);
+  box-shadow: 0 0 0 1px var(--color-crop-line-edge), 0 0 0 999px var(--color-crop-shade); }
 .cropper-canvas:active { cursor: grabbing; }
 .cropper-zoom { display: flex; align-items: center; gap: 8px; }
 .cropper-zoom input { flex: 1; max-width: 240px; }
