@@ -27,6 +27,7 @@ import com.team.blog.account.infra.oauth.SocialAvatarRelay;
 import com.team.blog.media.ProfileImages;
 import com.team.blog.shared.config.BlogProperties;
 import com.team.blog.shorts.application.ShortsProperties;
+import com.team.blog.trade.application.TradeProperties;
 import com.team.blog.shared.error.ApiException;
 import com.team.blog.shared.security.CurrentMember;
 import com.team.blog.shared.security.LoginSessions;
@@ -46,11 +47,12 @@ public class AuthController {
     private final SocialAvatarRelay avatarRelay;
     private final BlogProperties props;
     private final ShortsProperties shortsProps;
+    private final TradeProperties tradeProps;
     private final Clock clock;
 
     public AuthController(SignupService signupService, AgreementService agreementService, MemberQueryService memberQuery,
                           EmailVerification verification, ProfileImages profileImages, LoginSessions sessions,
-                          SocialAvatarRelay avatarRelay, BlogProperties props, ShortsProperties shortsProps, Clock clock) {
+                          SocialAvatarRelay avatarRelay, BlogProperties props, ShortsProperties shortsProps, TradeProperties tradeProps, Clock clock) {
         this.signupService = signupService;
         this.agreementService = agreementService;
         this.memberQuery = memberQuery;
@@ -60,6 +62,7 @@ public class AuthController {
         this.avatarRelay = avatarRelay;
         this.props = props;
         this.shortsProps = shortsProps;
+        this.tradeProps = tradeProps;
         this.clock = clock;
     }
 
@@ -68,7 +71,8 @@ public class AuthController {
                              PreviousLogin previousLogin, boolean pendingSignup, boolean emailVerified, Features features) {}
 
     /** 서버 설정으로 켜고 끄는 기능. 화면이 메뉴를 보일지 정한다 (099 FR-008) */
-    public record Features(boolean shorts) {}
+    /** @param trades 매매 일지 (#243, TRADES_ENABLED) */
+    public record Features(boolean shorts, boolean trades) {}
 
     public record MemberView(long id, String handle, String nickname, String role, String defaultVisibility, String status,
                              String profileImageUrl) {}
@@ -93,7 +97,7 @@ public class AuthController {
     }
 
     private Features features() {
-        return new Features(shortsProps.enabled());
+        return new Features(shortsProps.enabled(), tradeProps.enabled());
     }
 
     public record SignupDraftResponse(String provider, String prefix, String handleBody, String nickname, String email,

@@ -213,6 +213,10 @@ blog:
     daily-renders: 10
     render-timeout: 15m
     max-attempts: 3
+  # 매매 일지 (#243, 목표 v2.0.0): 2.0.0 릴리스 전까지 꺼 둔다. 봇은 개인 쓰기 토큰으로 MCP record_trade를 부른다
+  trades:
+    enabled: ${TRADES_ENABLED:false}
+    daily-records: 500
   # AI (spec 018·052): 집 PC Ollama가 설정돼 있고 켜져 있으면 먼저, 꺼졌거나 바쁘면 외부 AI(Gemini 무료 등급).
   # AI_PREFER=gemini면 예전처럼 Gemini 먼저, 한도면 Ollama. 둘 다 비어 있으면 기능이 꺼진다
   ai:
