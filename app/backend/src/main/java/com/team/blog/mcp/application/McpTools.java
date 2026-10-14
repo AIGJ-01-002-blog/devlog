@@ -65,7 +65,7 @@ public class McpTools {
      * REPORT는 읽기 토큰으로도 부르는 신고 도구다(글을 쓰지 않으므로). 자체 요청 제한을 따른다.
      * DIARY는 회원이 "AI 일기 쓰기"를 켰을 때만(061) 보인다.
      */
-    enum Gate { NONE, AI_PUBLISH, REPORT, ADMIN, DIARY }
+    enum Gate { NONE, AI_PUBLISH, REPORT, ADMIN, DIARY, SHORTS }
 
     /** 도구 하나. write면 WRITE 토큰과 메일 인증이 필요하다. */
     record Tool(String name, String title, String description, boolean write, String inputSchema, Gate gate, boolean destructive) {
@@ -78,7 +78,8 @@ public class McpTools {
                 case AI_PUBLISH -> caller.aiPublishAllowed();
                 case ADMIN -> caller.admin();
                 case DIARY -> caller.aiDiaryEnabled();
-                case NONE, REPORT -> true;
+                // 서버 설정(SHORTS_ENABLED)은 McpTools가 따로 본다
+                case NONE, REPORT, SHORTS -> true;
             };
         }
 
@@ -242,6 +243,27 @@ public class McpTools {
                       "team_work":{"type":"string","description":"우리 팀이 한 일 (2,000자까지)"},
                       "my_role":{"type":"string","description":"제 역할: 사용자가 맡은 부분만 (2,000자까지)"}},
                      "required":["series_id"]}""", Gate.AI_PUBLISH, false),
+            new Tool("create_shorts_script", "쇼츠 대본 만들기",
+                    "사용자의 devlog 글(post_id, 선택)을 YouTube Shorts·Instagram Reels·TikTok용 세로 영상 대본으로 저장한다. "
+                            + "장면마다 화면 자막(caption)과 읽을 문장(narration)을 쓴다. 저장하면 양산형 방지 검사 결과와 고칠 점을 돌려준다. "
+                            + ShortsTools.GUIDE + " 영상은 만들지 않는다: 사용자가 devlog 스튜디오에서 확인하고 직접 [영상 만들기]를 누른다.", true, """
+                    {"type":"object","properties":{
+                      "post_id":{"type":"integer","description":"원본 devlog 글 번호 (내 글만). 있으면 영상 설명에 근거로 이어진다"},
+                      "title":{"type":"string","description":"쇼츠 제목 (60자까지)"},
+                    """ + ShortsTools.SCENES_SCHEMA + """
+                    },
+                     "required":["title","scenes"]}""", Gate.SHORTS, false),
+            new Tool("update_shorts_script", "쇼츠 대본 고치기",
+                    "쇼츠 대본의 제목이나 장면을 고친다. 장면을 주면 통째로 바꾼다. 만들어 둔 영상이 있으면 지워지고 대본 상태로 돌아간다. "
+                            + "고친 뒤 양산형 방지 검사 결과를 돌려준다. " + ShortsTools.GUIDE, true, """
+                    {"type":"object","properties":{
+                      "shorts_id":{"type":"integer"},
+                      "title":{"type":"string","description":"쇼츠 제목 (60자까지)"},
+                    """ + ShortsTools.SCENES_SCHEMA + """
+                    },
+                     "required":["shorts_id"]}""", Gate.SHORTS, false),
+            new Tool("list_shorts", "내 쇼츠 보기",
+                    "사용자의 쇼츠 목록(번호·제목·상태·장면 수·예상 길이·원본 글)과 오늘 영상 만들기 횟수를 돌려준다.", false, NO_ARGS_SCHEMA, Gate.SHORTS, false),
             new Tool("list_tags", "태그 보기",
                     "사용자가 자주 쓴 태그와 devlog 인기 태그를 돌려준다. 태그를 제안할 때 이 목록의 표기를 따르면 좋다.", false, NO_ARGS_SCHEMA),
             new Tool("report_bug", "devlog 버그 신고",
@@ -293,6 +315,7 @@ public class McpTools {
     private final SeriesService series;
     private final SeriesProjects projects;
     private final TopicSuggester topics;
+    private final ShortsTools shorts;
     private final JdbcTemplate jdbc;
     private final Clock clock;
     private final String baseUrl;
@@ -300,7 +323,7 @@ public class McpTools {
 
     public McpTools(PostCommandService commands, PostEditorQuery editor, MyPostsQuery myPosts, SearchQuery search,
                     PostDetailQuery details, TagQuery tags, AiDraftHints hints, PostTrashService trash, InquiryService inquiries,
-                    McpImages images, AiJournal journal, SeriesService series, SeriesProjects projects, TopicSuggester topics, RateLimiter rateLimiter,
+                    McpImages images, AiJournal journal, SeriesService series, SeriesProjects projects, TopicSuggester topics, ShortsTools shorts, RateLimiter rateLimiter,
                     JdbcTemplate jdbc, Clock clock, BlogProperties props) {
         this.commands = commands;
         this.editor = editor;
@@ -316,6 +339,7 @@ public class McpTools {
         this.series = series;
         this.projects = projects;
         this.topics = topics;
+        this.shorts = shorts;
         this.rateLimiter = rateLimiter;
         this.jdbc = jdbc;
         this.clock = clock;
@@ -327,7 +351,7 @@ public class McpTools {
     public List<Map<String, Object>> definitions(AccessTokens.Caller caller) {
         List<Map<String, Object>> out = new ArrayList<>();
         for (Tool t : TOOLS) {
-            if (!t.visibleTo(caller)) continue;
+            if (!t.visibleTo(caller) || t.gate() == Gate.SHORTS && !shorts.enabled()) continue;
             out.add(Map.of("name", t.name(), TITLE, t.title(), "description", t.description(),
                     "inputSchema", json.readTree(t.inputSchema()),
                     "annotations", Map.of("readOnlyHint", t.readOnly(), "destructiveHint", t.destructive(), "openWorldHint", false)));
@@ -338,7 +362,8 @@ public class McpTools {
     public Result call(AccessTokens.Caller caller, String name, JsonNode args) {
         Optional<Tool> tool = TOOLS.stream().filter(t -> t.name().equals(name)).findFirst();
         // 관리자 도구는 관리자가 아니면 없는 도구와 같다 (있는지도 알리지 않는다)
-        if (tool.isEmpty() || tool.get().gate() == Gate.ADMIN && !caller.admin()) return Result.fail("없는 도구예요: " + name);
+        if (tool.isEmpty() || tool.get().gate() == Gate.ADMIN && !caller.admin()
+                || tool.get().gate() == Gate.SHORTS && !shorts.enabled()) return Result.fail("없는 도구예요: " + name);
         if (!rateLimiter.tryAcquire("mcp:" + caller.memberId(), CALLS_PER_MINUTE, Duration.ofMinutes(1))) {
             return Result.fail("요청이 너무 많아요. 1분 뒤에 다시 시도해 주세요.");
         }
@@ -380,6 +405,9 @@ public class McpTools {
                 case "list_inquiries" -> listInquiries(a);
                 case "get_inquiry" -> getInquiry(a);
                 case "update_inquiry" -> updateInquiry(caller, a);
+                case "create_shorts_script" -> shorts.create(caller, a);
+                case "update_shorts_script" -> shorts.update(caller, a);
+                case "list_shorts" -> shorts.list(caller);
                 default -> Result.fail("없는 도구예요: " + name);
             };
         } catch (ApiException e) {

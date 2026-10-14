@@ -154,7 +154,7 @@ flowchart LR
     T[Telegram] -->|Bot API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>multiple pods]
     I -->|/blog-images| M[(MinIO / S3<br/>images · attachments)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V35)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V36)]
     A --> R[(Redis<br/>sessions · rate limits · views · cache)]
     A --> M
     A -.optional.-> G[Google Gemini]
@@ -246,7 +246,7 @@ Code lives in this repository; design documents live in the documentation reposi
 
 | Path | Description |
 | --- | --- |
-| [app/backend](app/backend) | Backend: Spring Boot 4.1, Java 21. Feature modules, Flyway migrations (V1~V35), tests |
+| [app/backend](app/backend) | Backend: Spring Boot 4.1, Java 21. Feature modules, Flyway migrations (V1~V36), tests |
 | [app/frontend](app/frontend) | Frontend: React 19 SPA, TypeScript, Vite. Screens, autosave (IndexedDB), dark mode |
 | [deploy](deploy) | Deployment: Dockerfile, Kubernetes manifests (base, selfhosted, nhn, local), deploy, rollback and secret-check scripts |
 | [.github](.github) | CI/CD: backend and frontend tests, image build and deploy, releases, Discord and Telegram notifications |
@@ -326,7 +326,7 @@ To try it on Kubernetes, run `kubectl apply -k deploy/k8s/overlays/local` on kin
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub, Google, Kakao, Naver and Facebook login, sessions, CSRF, per-path authorization |
 | Spring Data JPA (Hibernate) | Boot 4.1 | All domains | Storing members, posts, comments and other domain data |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | Sessions, rate limits, views, cache | Lets multiple pods share sessions, and decides concurrent requests with a single Redis script |
-| Flyway | Boot 4.1 | Database | Manages the schema as migrations V1~V35, applied at startup |
+| Flyway | Boot 4.1 | Database | Manages the schema as migrations V1~V36, applied at startup |
 | commonmark-java (+ GFM extensions) | 0.30.0 | Body rendering | Markdown → HTML: tables, strikethrough, task lists, autolinks, heading anchors |
 | OWASP Java HTML Sanitizer | 20260924.2 | Body sanitizing | Sanitizes rendered HTML against an allow list to prevent XSS |
 | AWS SDK for Java (S3) | 2.55.12 | media | Uploads images and attachments to MinIO and S3 |
@@ -372,6 +372,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v1.70.0 | 2026-10-14 | Hybrid search back on and sign-up/post management polish: search indexing fixed so meaning-based results mix in again, an AI connection guide on first login, live nickname checks, My posts opens on Published, a visible circle when cropping profile photos, all replies shown when there are five or fewer, and Naver email and profile photo accepted | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.70.0) |
 | v1.69.0 | 2026-10-14 | Reading polish: an in-app 404 page for unknown addresses, bold text followed by Korean particles fixed, copy and wrap buttons on code blocks, a collapsible table of contents on phones, image zoom, recently read posts, and a search start screen | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.69.0) |
 | v1.68.0 | 2026-10-14 | A staging environment (dev.devlog.life) separate from production that develop can deploy to (switched off for now), loading the search embedding model only when needed to save school-server memory, and pinning the school server SSH key | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.68.0) |
 | v1.67.0 | 2026-10-13 | First goal-based release (deployment confidence and release records): Naver login, GitHub shortcuts on the home page and footer, replies linked like Git branches, UI motion, and release notes with screenshots | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.67.0) |

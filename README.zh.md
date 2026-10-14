@@ -154,7 +154,7 @@ flowchart LR
     T[Telegram] -->|Bot API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>多个 Pod]
     I -->|/blog-images| M[(MinIO / S3<br/>图片 · 附件)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V35)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V36)]
     A --> R[(Redis<br/>会话 · 限流 · 浏览数 · 缓存)]
     A --> M
     A -.可选.-> G[Google Gemini]
@@ -246,7 +246,7 @@ sequenceDiagram
 
 | 路径 | 说明 |
 | --- | --- |
-| [app/backend](app/backend) | 后端：Spring Boot 4.1、Java 21。功能模块、Flyway 迁移（V1~V35）、测试 |
+| [app/backend](app/backend) | 后端：Spring Boot 4.1、Java 21。功能模块、Flyway 迁移（V1~V36）、测试 |
 | [app/frontend](app/frontend) | 前端：React 19 SPA、TypeScript、Vite。界面、自动保存（IndexedDB）、深色模式 |
 | [deploy](deploy) | 部署：Dockerfile、Kubernetes 清单（base、selfhosted、nhn、local），部署、回滚、密钥检查脚本 |
 | [.github](.github) | CI/CD：后端与界面测试、镜像构建与部署、版本发布、Discord 与 Telegram 通知 |
@@ -326,7 +326,7 @@ npm run dev        # http://localhost:5173
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub、Google、Kakao、Naver、Facebook 登录，会话，CSRF，按路径的权限 |
 | Spring Data JPA (Hibernate) | Boot 4.1 | 所有领域 | 保存会员、文章、评论等领域数据 |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | 会话、限流、浏览数、缓存 | 多个 Pod 共享同一会话，并发请求也由一个 Redis 脚本判定 |
-| Flyway | Boot 4.1 | 数据库 | 用 V1~V35 迁移管理模式，启动时自动应用 |
+| Flyway | Boot 4.1 | 数据库 | 用 V1~V36 迁移管理模式，启动时自动应用 |
 | commonmark-java (+ GFM 扩展) | 0.30.0 | 正文渲染 | Markdown → HTML。表格、删除线、任务清单、自动链接、标题锚点 |
 | OWASP Java HTML Sanitizer | 20260924.2 | 正文净化 | 按白名单净化渲染后的 HTML，防止 XSS |
 | AWS SDK for Java (S3) | 2.55.12 | media | 把图片和附件上传到 MinIO、S3 |
@@ -372,6 +372,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v1.70.0 | 2026-10-14 | 恢复混合搜索并打磨注册与文章管理：修复搜索索引让语义结果重新混入、首次登录的 AI 连接引导、昵称实时检查、我的文章默认打开已发布标签、头像裁剪显示圆形边界、回复不超过 5 条时全部显示、接收 Naver 邮箱与头像 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.70.0) |
 | v1.69.0 | 2026-10-14 | 阅读体验打磨：不存在的地址显示应用内 404 页面、修复后接韩语助词的粗体、代码块复制与换行、手机可折叠目录、图片放大、最近阅读、搜索起始页 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.69.0) |
 | v1.68.0 | 2026-10-14 | 可将 develop 部署到与生产分离的测试环境（dev.devlog.life）（目前关闭）、仅在需要时加载搜索嵌入模型以节省学校服务器内存、固定学校服务器 SSH 密钥 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.68.0) |
 | v1.67.0 | 2026-10-13 | 首个按目标发布的版本（部署可靠性与发布记录）：NAVER 登录、首页与页脚的 GitHub 入口、像 Git 分支一样用线连接回复、界面动效、带截图的发布说明 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.67.0) |

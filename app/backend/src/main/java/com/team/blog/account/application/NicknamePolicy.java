@@ -19,6 +19,8 @@ public class NicknamePolicy {
     private static final Pattern CHARS = Pattern.compile("^[가-힣a-zA-Z0-9]{2,10}$");
     private static final Pattern HAS_LETTER = Pattern.compile("[가-힣a-zA-Z]");
     private static final Pattern NOT_ALLOWED = Pattern.compile("[^가-힣a-zA-Z0-9]");
+    /** 겹칠 때 붙여 볼 숫자의 끝(2~19). 그래도 겹치면 빈칸으로 두고 직접 입력받는다. */
+    private static final int MAX_SUFFIX = 20;
 
     private final WordFilter wordFilter;
     private final List<String> reserved;
@@ -69,10 +71,20 @@ public class NicknamePolicy {
         return null;
     }
 
-    /** 소셜 이름 미리 채우기 (§7): 허용되지 않는 문자를 지우고 10자로 자른다. 규칙에 안 맞으면 빈칸. */
+    /**
+     * 소셜 이름 미리 채우기 (§7): 허용되지 않는 문자를 지우고 10자로 자른다. 규칙에 안 맞으면 빈칸.
+     * 이미 쓰는 닉네임이면 블로그 주소 추천(_2, _3)처럼 뒤에 숫자를 붙여 비어 있는 값을 채운다.
+     */
     public String prefill(String socialName) {
         String s = NOT_ALLOWED.matcher(normalize(socialName)).replaceAll("");
         if (s.length() > 10) s = s.substring(0, 10);
-        return check(s, -1) == null ? s : "";
+        if (checkRules(s) != null) return "";
+        if (!members.existsNicknameIgnoreCase(s, -1)) return s;
+        for (int n = 2; n < MAX_SUFFIX; n++) {
+            String suffix = Integer.toString(n);
+            String candidate = s.substring(0, Math.min(s.length(), 10 - suffix.length())) + suffix;
+            if (check(candidate, -1) == null) return candidate;
+        }
+        return "";
     }
 }

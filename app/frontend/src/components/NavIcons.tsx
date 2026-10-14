@@ -43,6 +43,7 @@ const PATHS = {
   arrowUp: <path d="M12 19V5M5 12l7-7 7 7" />,
   wrap: <><path d="M3 6h18M3 12h15a3 3 0 0 1 0 6h-4" /><path d="m16 16-2 2 2 2M3 18h7" /></>,
   check: <path d="M20 6 9 17l-5-5" />,
+  video: <><rect x="6" y="2" width="12" height="20" rx="2" /><path d="m10 9 5 3-5 3z" /></>,
 } as const
 
 export type IconName = keyof typeof PATHS
