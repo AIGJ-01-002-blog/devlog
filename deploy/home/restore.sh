@@ -62,6 +62,7 @@ if [ -n "$handle" ]; then
   # 비밀번호는 이 컴퓨터의 명령줄에 남기지 않고 환경 변수로만 컨테이너에 넘겨 bcrypt 해시로 바꾼다
   hash="$(DEVLOG_PW="$pw" docker run --rm -e DEVLOG_PW httpd:2.4-alpine sh -c 'htpasswd -nbBC 10 x "$DEVLOG_PW"' < /dev/null | cut -d: -f2 | tr -d '\r\n')"
   unset pw pw2
+  case "$hash" in '$2'[aby]'$'*) ;; *) die "비밀번호 해시를 만들지 못했어요. Docker가 httpd 이미지를 받을 수 있는지 확인해 주세요." ;; esac
   psql -v handle="$handle" -v email="$email" -v hash="$hash" < "$HERE/owner-login.sql"
 fi
 

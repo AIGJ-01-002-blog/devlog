@@ -32,6 +32,9 @@ say "1/3 DB 받는 중 (pg_dump)"
 kubectl -n "$NS" exec statefulset/postgres -c postgres -- \
   sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc --no-owner --no-privileges' > "$OUT/db.dump.part"
 [ -s "$OUT/db.dump.part" ] || die "DB 백업이 비어 있어요."
+# 중간에 끊겨 잘린 덤프를 걸러 내려고, 받은 파일을 서버의 pg_restore가 데이터까지 끝까지 읽을 수 있는지 본다 (--list는 목차만 읽어 잘린 데이터를 놓친다)
+kubectl -n "$NS" exec -i statefulset/postgres -c postgres -- pg_restore -f /dev/null < "$OUT/db.dump.part" \
+  || die "DB 백업이 온전하지 않아요. 다시 실행해 주세요."
 mv "$OUT/db.dump.part" "$OUT/db.dump"
 
 say "2/3 파일 저장소 받는 중 (MinIO → media/)"

@@ -63,9 +63,12 @@ if ($handle) {
     }
     # 비밀번호는 이 컴퓨터의 명령줄에 남기지 않고 환경 변수로만 컨테이너에 넘겨 bcrypt 해시로 바꾼다
     $env:DEVLOG_PW = $p1
-    $hash = ((docker run --rm -e DEVLOG_PW httpd:2.4-alpine sh -c 'htpasswd -nbBC 10 x "$DEVLOG_PW"') | Out-String).Trim().Split(":")[1]
+    $out = (docker run --rm -e DEVLOG_PW httpd:2.4-alpine sh -c 'htpasswd -nbBC 10 x "$DEVLOG_PW"') | Out-String
+    $code = $LASTEXITCODE
     Remove-Item Env:DEVLOG_PW
     Remove-Variable p1, p2
+    $hash = ($out.Trim().Split(":") | Select-Object -Index 1)
+    if ($code -ne 0 -or $hash -notmatch '^\$2[aby]\$') { Fail "비밀번호 해시를 만들지 못했어요. Docker가 httpd 이미지를 받을 수 있는지 확인해 주세요." }
     PsqlFile "$Here\owner-login.sql" @("-v", "handle=$handle", "-v", "email=$email", "-v", "hash=$hash")
 }
 

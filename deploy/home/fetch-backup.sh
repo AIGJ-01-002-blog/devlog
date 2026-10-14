@@ -29,7 +29,7 @@ fi
 
 echo "== 받은 파일 확인"
 if command -v sha256sum >/dev/null; then got="$(sha256sum "$DEST/$NAME/db.dump" | cut -d' ' -f1)"; else got="$(shasum -a 256 "$DEST/$NAME/db.dump" | cut -d' ' -f1)"; fi
-grep -q "$got" "$DEST/$NAME/MANIFEST.txt" || { echo "db.dump가 서버 것과 달라요. 다시 받아 주세요." >&2; exit 1; }
+grep -q "^db.dump: .* sha256 $got\$" "$DEST/$NAME/MANIFEST.txt" || { echo "db.dump가 서버 것과 달라요. 다시 받아 주세요." >&2; exit 1; }
 want="$(sed -n 's/^media: 파일 \([0-9]*\)개.*/\1/p' "$DEST/$NAME/MANIFEST.txt")"
 have="$(find "$DEST/$NAME/media" -type f | wc -l | tr -d ' ')"
 [ "$want" = "$have" ] || { echo "사진·파일 수가 달라요 (서버 $want, 받은 것 $have). 다시 받아 주세요." >&2; exit 1; }
