@@ -20,6 +20,8 @@ from . import layout, tts
 
 FPS = 30
 SCENE_PADDING = 0.4
+#: ffmpeg 한 번이 멈췄을 때 기다리는 한도. 장면 하나는 보통 몇 초면 끝난다
+FFMPEG_TIMEOUT = 300
 #: 인그레스 본문 상한(21MB)과 서버 상한(20MB) 안에 들어가게 비트레이트를 묶는다
 VIDEO_MAXRATE = "3M"
 
@@ -57,8 +59,12 @@ class Script:
     @staticmethod
     def from_job(job: dict, site: str = "devlog.life") -> "Script":
         scenes = [Scene(s.get("caption") or "", s.get("narration") or "", s.get("code")) for s in job.get("scenes", [])]
+        post_url = job.get("postUrl")
         handle = job.get("handle")
-        footer = f"{site}/@{handle}" if handle else site
+        if post_url:  # 바탕 글이 있으면 그 글 주소(서버는 사이트 안 경로를 준다)
+            footer = post_url.split("://", 1)[-1] if "://" in post_url else site + post_url
+        else:
+            footer = f"{site}/@{handle}" if handle else site
         return Script(job.get("title") or "", scenes, footer)
 
 
@@ -167,16 +173,22 @@ class Renderer:
         return ",".join(parts)
 
     def _ffmpeg(self, work: Path, args: list[str]) -> None:
-        result = subprocess.run([self.ffmpeg, "-y", "-loglevel", "error", *args], cwd=work, capture_output=True, text=True,
-                                encoding="utf-8", errors="replace")
+        try:
+            result = subprocess.run([self.ffmpeg, "-y", "-loglevel", "error", *args], cwd=work, capture_output=True, text=True,
+                                    encoding="utf-8", errors="replace", timeout=FFMPEG_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            raise RuntimeError(f"ffmpeg가 {FFMPEG_TIMEOUT}초 안에 끝나지 않았어요.") from None
         if result.returncode != 0:
             raise RuntimeError(f"ffmpeg 실패 (코드 {result.returncode}): {result.stderr.strip()[-400:]}")
 
 
 def probe_ms(path: Path, ffmpeg: str = "ffmpeg") -> int:
     ffprobe = str(Path(ffmpeg).with_name("ffprobe" + (".exe" if ffmpeg.lower().endswith(".exe") else ""))) if os.sep in ffmpeg else "ffprobe"
-    result = subprocess.run([ffprobe, "-v", "error", "-show_entries", "format=duration", "-of", "json", str(path)],
-                            capture_output=True, text=True)
+    try:
+        result = subprocess.run([ffprobe, "-v", "error", "-show_entries", "format=duration", "-of", "json", str(path)],
+                                capture_output=True, text=True, timeout=60)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("ffprobe가 60초 안에 끝나지 않았어요.") from None
     if result.returncode != 0:
         raise RuntimeError(f"ffprobe 실패: {result.stderr.strip()[:200]}")
     return round(float(json.loads(result.stdout)["format"]["duration"]) * 1000)

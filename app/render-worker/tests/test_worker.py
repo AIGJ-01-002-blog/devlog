@@ -43,9 +43,11 @@ class RenderTest(unittest.TestCase):
             self.assertIn("audio", kinds)
             self.assertAlmostEqual(probe_ms(out), ms, delta=50)
 
-    def test_footer_uses_handle(self):
-        self.assertEqual(Script.from_job(JOB, "devlog.life").footer, "devlog.life/@minseo")
-        self.assertEqual(Script.from_job({**JOB, "handle": None}).footer, "devlog.life")
+    def test_footer_prefers_post_url(self):
+        self.assertEqual(Script.from_job({**JOB, "postUrl": "/@minseo/posts/1"}, "devlog.life").footer, "devlog.life/@minseo/posts/1")
+        self.assertEqual(Script.from_job({**JOB, "postUrl": "https://devlog.life/@minseo/posts/1"}).footer, "devlog.life/@minseo/posts/1")
+        self.assertEqual(Script.from_job({**JOB, "postUrl": None}, "devlog.life").footer, "devlog.life/@minseo")
+        self.assertEqual(Script.from_job({**JOB, "postUrl": None, "handle": None}).footer, "devlog.life")
 
 
 class FakeServer:

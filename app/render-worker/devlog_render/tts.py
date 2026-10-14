@@ -16,6 +16,8 @@ import tempfile
 from pathlib import Path
 
 CHARS_PER_SECOND = 6.5
+#: 음성 엔진 한 번이 멈췄을 때 기다리는 한도 (문장 하나는 200자까지)
+TTS_TIMEOUT = 120
 
 
 def estimate_seconds(text: str) -> float:
@@ -76,6 +78,9 @@ def _ps_quote(path: Path) -> str:
 
 
 def _run(args: list[str]) -> None:
-    result = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    try:
+        result = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TTS_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(f"{Path(args[0]).name}가 {TTS_TIMEOUT}초 안에 끝나지 않았어요.") from None
     if result.returncode != 0:
         raise RuntimeError(f"{Path(args[0]).name} 실패 (코드 {result.returncode}): {result.stderr.strip()[:300]}")

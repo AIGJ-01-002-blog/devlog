@@ -90,16 +90,23 @@ public class RenderQueue {
         String key = "shorts/" + MONTH.format(Times.now(clock)) + "/" + UUID.randomUUID() + ".mp4";
         requireClaim(id, claim);
         storage.put(key, video, "video/mp4");
-        Boolean saved = tx.execute(s -> {
-            if (!holds(id, claim)) return false;
-            Instant now = Times.now(clock);
-            jdbc.update("""
-                    UPDATE shorts SET status = 'READY', claim_token = NULL, video_key = ?, video_bytes = ?, duration_ms = ?, rendered_at = ?,
-                           error = NULL, updated_at = ?, version = version + 1
-                    WHERE id = ?
-                    """, key, (long) video.length, durationMs, Timestamp.from(now), Timestamp.from(now), id);
-            return true;
-        });
+        Boolean saved;
+        try {
+            saved = tx.execute(s -> {
+                if (!holds(id, claim)) return false;
+                Instant now = Times.now(clock);
+                jdbc.update("""
+                        UPDATE shorts SET status = 'READY', claim_token = NULL, video_key = ?, video_bytes = ?, duration_ms = ?, rendered_at = ?,
+                               error = NULL, updated_at = ?, version = version + 1
+                        WHERE id = ?
+                        """, key, (long) video.length, durationMs, Timestamp.from(now), Timestamp.from(now), id);
+                return true;
+            });
+        } catch (RuntimeException e) {
+            // DB에 적지 못한 영상은 어떤 행도 가리키지 않으니 바로 지운다
+            storage.delete(key);
+            throw e;
+        }
         if (!Boolean.TRUE.equals(saved)) {
             storage.delete(key);
             throw staleClaim();

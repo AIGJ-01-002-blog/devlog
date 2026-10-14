@@ -10,11 +10,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import tools.jackson.core.type.TypeReference;
@@ -35,6 +39,8 @@ import com.team.blog.shorts.application.ShortsScript.Scene;
  */
 @Service
 public class ShortsService {
+    private static final Logger log = LoggerFactory.getLogger(ShortsService.class);
+
     public enum Status { DRAFT, QUEUED, RENDERING, READY, FAILED }
 
     public record Item(long id, Long postId, String postTitle, String postUrl, String title, List<Scene> scenes, Status status,
@@ -193,12 +199,36 @@ public class ShortsService {
         if (video != null) storage.delete(video);
     }
 
-    /** 탈퇴 정리 (FR-001): 영상 파일을 먼저 지우고 행을 지운다. 저장소 삭제가 실패하면 예외로 다음 정리 때 다시 한다 */
+    /**
+     * 탈퇴 정리 (FR-001): 행을 지우고, 영상 파일은 정리 트랜잭션이 커밋된 뒤에 지운다.
+     * 뒤 단계가 실패해 롤백되면 행과 파일이 함께 남아 다음 정리 때 다시 한다(롤백된 행이 지운 파일을 가리키지 않게).
+     */
     public void purge(long memberId) {
-        for (String key : jdbc.queryForList("SELECT video_key FROM shorts WHERE member_id = ? AND video_key IS NOT NULL", String.class, memberId)) {
-            storage.delete(key);
-        }
+        List<String> keys = jdbc.queryForList("SELECT video_key FROM shorts WHERE member_id = ? AND video_key IS NOT NULL", String.class, memberId);
         jdbc.update("DELETE FROM shorts WHERE member_id = ?", memberId);
+        if (keys.isEmpty()) return;
+        afterCommit(() -> keys.forEach(this::deleteQuietly));
+    }
+
+    private void deleteQuietly(String key) {
+        try {
+            storage.delete(key);
+        } catch (RuntimeException e) {
+            log.warn("저장소에서 쇼츠 영상을 지우지 못했습니다: {} {}", key, e.getMessage());
+        }
+    }
+
+    private static void afterCommit(Runnable r) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            r.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                r.run();
+            }
+        });
     }
 
     OriginalityCheck.Report originality(long memberId, Item item) {
