@@ -223,6 +223,8 @@ class Renderer:
                     sfx.Effect(i, at, name, volume)
                     for i, v in enumerate(visuals) if script.scenes[i].custom is None
                     for name, at, volume in acting.effects(v, timings[i].lead, timings[i].speech, timings[i].length)]
+                # 장면이 넘어갈 때마다 휙 소리(전환과 같은 때)
+                effects += [sfx.Effect(i, 0.0, "whip", 0.3) for i in range(1, len(script.scenes))]
                 self._join(work, [video], audios, timings, total, joined, effects, joined_video=True)
             else:
                 stages = self._stages(script, audios, timings)

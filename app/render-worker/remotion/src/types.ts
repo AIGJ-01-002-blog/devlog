@@ -1,10 +1,12 @@
-// 렌더 워커(파이썬)가 넘기는 props. 모양을 바꾸면 devlog_render/remotion.py도 같이 바꾼다.
+// 렌더 워커(파이썬)가 넘기는 props. 모양을 바꾸면 devlog_render/render.py의 _props()도 같이 바꾼다.
+import type {Caption} from '@remotion/captions';
 
 export type Action =
   | 'explain' | 'shock' | 'typing' | 'panic' | 'restore' | 'wait'
   | 'fast' | 'idea' | 'protect' | 'think' | 'celebrate';
 
-export type Word = {text: string; startMs: number; endMs: number};
+/** 낱말 하나: @remotion/captions의 Caption. 시각은 그 장면 목소리가 시작한 때 기준 ms */
+export type Word = Caption;
 
 /** 화면에 한 번에 보이는 자막 묶음(1~2줄). 시각은 그 장면 목소리가 시작한 때 기준 */
 export type Page = {startMs: number; endMs: number; words: Word[]};
