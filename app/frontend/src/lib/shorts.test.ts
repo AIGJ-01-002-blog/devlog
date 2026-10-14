@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { ApiError } from './api'
-import { emptyScene, estimateSeconds, hashtags, renderProblems, reportOf, uploadGuide, videoFileName, workerOnline, type ShortsItem } from './shorts'
+import { emptyScene, estimateSeconds, hashtags, renderProblems, reportOf, shareVideo, uploadGuide, videoFileName, workerOnline, type ShortsItem } from './shorts'
 
 const scene = (narration: string) => ({ caption: '자막', narration, code: null })
 
@@ -80,5 +80,27 @@ describe('shorts', () => {
     expect(g.tags).toEqual([])
     const long = uploadGuide(ready({ durationMs: 200_000 }), 'YOUTUBE', 'https://devlog.life')
     expect(long.checks[0].ok).toBe(false)
+  })
+})
+
+describe('shareVideo', () => {
+  it('파일 공유를 못 하는 브라우저면 영상을 받기 전에 끝낸다', async () => {
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+    vi.stubGlobal('navigator', { share: vi.fn(), canShare: () => false })
+    expect(await shareVideo('/v.mp4', 'v.mp4', 't')).toBe('unsupported')
+    expect(fetchSpy).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
+  })
+
+  it('탭 허용 시간이 지나 막히면 받아 둔 파일로 다시 누르게 한다', async () => {
+    const fetchSpy = vi.fn(async () => ({ ok: true, blob: async () => new Blob(['x']) }))
+    const share = vi.fn().mockRejectedValueOnce(new DOMException('late', 'NotAllowedError')).mockResolvedValueOnce(undefined)
+    vi.stubGlobal('fetch', fetchSpy)
+    vi.stubGlobal('navigator', { share, canShare: () => true })
+    expect(await shareVideo('/w.mp4', 'w.mp4', 't')).toBe('retry')
+    expect(await shareVideo('/w.mp4', 'w.mp4', 't')).toBe('shared')
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    vi.unstubAllGlobals()
   })
 })

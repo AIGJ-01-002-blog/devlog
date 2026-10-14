@@ -254,21 +254,32 @@ function uploadSteps(platform: Platform): string[] {
   }
 }
 
+/** 한 번 받은 영상 파일. 느린 망에서 받는 사이 탭 허용 시간이 지나 공유가 막히면, 다시 누를 때 바로 넘긴다 */
+const sharedFiles = new Map<string, File>()
+
 /**
- * 휴대폰에서 영상을 바로 SNS 앱으로 넘긴다(Web Share API, 파일 공유). 못 쓰는 브라우저면 false를 돌려주고 화면은 [영상 받기]로 안내한다.
+ * 휴대폰에서 영상을 바로 SNS 앱으로 넘긴다(Web Share API, 파일 공유).
+ * 파일 공유를 못 하는 브라우저면 영상을 받기 전에 'unsupported'로 끝내고, 화면은 [영상 받기]로 안내한다.
+ * 받는 사이 탭 허용 시간이 지나 막히면(NotAllowedError) 'retry': 받아 둔 파일로 한 번 더 누르면 된다.
  */
-export async function shareVideo(url: string, fileName: string, title: string): Promise<'shared' | 'cancelled' | 'unsupported'> {
+export async function shareVideo(url: string, fileName: string, title: string): Promise<'shared' | 'cancelled' | 'retry' | 'unsupported'> {
   const nav = typeof navigator === 'undefined' ? undefined : navigator
   if (!nav?.share || !nav.canShare) return 'unsupported'
-  const res = await fetch(url, { credentials: 'same-origin' })
-  if (!res.ok) return 'unsupported'
-  const file = new File([await res.blob()], fileName, { type: 'video/mp4' })
-  if (!nav.canShare({ files: [file] })) return 'unsupported'
+  if (!nav.canShare({ files: [new File([], fileName, { type: 'video/mp4' })] })) return 'unsupported'
+  let file = sharedFiles.get(url)
+  if (!file) {
+    const res = await fetch(url, { credentials: 'same-origin' })
+    if (!res.ok) return 'unsupported'
+    file = new File([await res.blob()], fileName, { type: 'video/mp4' })
+    sharedFiles.clear()
+    sharedFiles.set(url, file)
+  }
   try {
     await nav.share({ files: [file], title })
     return 'shared'
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return 'cancelled'
+    if (e instanceof DOMException && e.name === 'NotAllowedError') return 'retry'
     return 'unsupported'
   }
 }

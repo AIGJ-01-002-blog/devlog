@@ -81,6 +81,7 @@ function ShareButtons({ item, appName, uploadUrl }: { item: ShortsItem; appName:
     try {
       const result = await shareVideo(item.videoUrl!, fileName, item.title)
       if (result === 'unsupported') setNote(t('이 브라우저는 앱으로 보내기를 못 해요. [영상 받기]로 받은 뒤 앱에서 골라 주세요.'))
+      else if (result === 'retry') setNote(t('영상을 준비했어요. [앱으로 보내기]를 한 번 더 눌러 주세요.'))
     } catch {
       setNote(t('영상을 불러오지 못했어요. [영상 받기]로 받아 주세요.'))
     } finally {

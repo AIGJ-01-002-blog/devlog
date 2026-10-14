@@ -1540,4 +1540,5 @@ export const en: Record<string, string> = {
   "한도를 넘었어요": "Over the limit",
   "해시태그 {0}개 (최대 {1}개)": "{0} hashtags (max {1})",
   "휴대폰 공유 창으로 영상을 {0} 앱에 바로 넘겨요": "Send the video straight to the {0} app from your phone's share sheet",
+  "영상을 준비했어요. [앱으로 보내기]를 한 번 더 눌러 주세요.": "The video is ready. Tap [Send to app] once more.",
 }
