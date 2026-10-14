@@ -20,6 +20,8 @@ import { NavIcon } from '../components/NavIcons'
 import { avatarColor, AVATAR_COLORS } from '../lib/avatar'
 import { compactNumber } from '../lib/format'
 import { t } from '../lib/i18n'
+import { loadBadges, type StreakBadge } from '../lib/points'
+import { StreakBadgeIcon } from '../components/StreakBadge'
 
 /** 블로그 표지 색(0~3). 같은 블로그는 언제나 같은 색이다. */
 export function blogTone(handle: string): number {
@@ -37,6 +39,17 @@ export function BlogPage({ handle, tab = 'posts' }: { handle: string; tab?: 'pos
   const badTag = tag != null && tagFormatError(tag) != null
   const q = (search.get('q') ?? '').trim()
   const searchIn = (nq: string) => navigate(`/@${handle}?q=${encodeURIComponent(nq)}`)
+  const { me } = useAuth()
+  const pointsOn = !!me?.features?.points
+  const [badges, setBadges] = useState<StreakBadge[]>([])
+  // 연속 출석 휘장(#266)은 포인트가 켜졌을 때만 받는다. 가장 높은 휘장 하나를 이름 옆에 둔다
+  useEffect(() => {
+    if (!pointsOn) return
+    let alive = true
+    loadBadges(handle).then((b) => { if (alive) setBadges(b) }).catch(() => { if (alive) setBadges([]) })
+    return () => { alive = false }
+  }, [handle, pointsOn])
+  const topBadge = badges.length > 0 ? badges[badges.length - 1] : null
 
   useEffect(() => {
     // 정규화되지 않은 필터 값은 정규화된 주소로 바꾼다 (서버는 301)
@@ -77,7 +90,9 @@ export function BlogPage({ handle, tab = 'posts' }: { handle: string; tab?: 'pos
               </>}
             </div>
           </div>
-          <h1 className="blog-name">{profile.nickname}</h1>
+          <h1 className="blog-name">{profile.nickname}
+            {topBadge && <StreakBadgeIcon days={topBadge.days} size={30} />}
+          </h1>
           <p className="blog-handle muted">@{profile.handle}
             {lastActiveLabel(profile.lastActiveDaysAgo) && <span className="blog-active">  {t('· 최근 활동')} {lastActiveLabel(profile.lastActiveDaysAgo)}</span>}
           </p>

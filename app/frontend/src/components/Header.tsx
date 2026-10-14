@@ -147,6 +147,7 @@ export function Header() {
                     <Link to="/dashboard" role="menuitem" title={t('내 글과 쇼츠가 받은 반응을 기간별로 보기')}><NavIcon name="chart" />{t('내 대시보드')}</Link>
                     {me?.features?.shorts && <Link to="/studio" role="menuitem" title={t('글로 쇼츠 대본을 쓰고 영상 만들기')}><NavIcon name="video" />{t('쇼츠 스튜디오')}</Link>}
                     {me?.features?.trades && <Link to="/trades" role="menuitem" title={t('매매 봇이 보낸 체결을 날짜별로 보고 글·쇼츠로 남기기')}><NavIcon name="trend" />{t('매매 일지')}</Link>}
+                    {me?.features?.points && <Link to="/points" role="menuitem" title={t('출석하고 포인트 잔액과 내역 보기')}><NavIcon name="coin" />{t('내 포인트')}</Link>}
                     {mobileExtra.length > 0 && (
                       <div className="menu-mobile-only" role="none">
                         <div className="menu-sep" role="separator" />
