@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { changeLocale, LOCALES, t, useLocale } from '../lib/i18n'
+import { NavIcon } from './NavIcons'
 
 /**
  * 머리말의 🌐 언어 메뉴 (081). 테마 버튼 옆에 두어 어느 화면에서나 한 번에 바꾼다.
@@ -49,7 +50,7 @@ export function LanguageMenu() {
     <div className="menu lang-menu" ref={boxRef}>
       <button type="button" ref={buttonRef} className="btn btn-text lang-toggle" aria-haspopup="menu" aria-expanded={open}
               aria-label={t('언어: {0}', { 0: current.label })} data-tip={t('화면 언어 바꾸기')} onClick={() => setOpen((o) => !o)}>
-        <span aria-hidden="true">🌐</span>
+        <NavIcon name="globe" />
       </button>
       {open && (
         <div className="menu-list lang-list" role="menu" aria-label={t('언어')} onKeyDown={onKey}>

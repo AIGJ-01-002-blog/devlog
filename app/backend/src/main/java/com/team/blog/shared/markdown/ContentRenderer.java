@@ -57,7 +57,7 @@ import com.team.blog.shared.config.BlogProperties;
 @Component
 public class ContentRenderer {
     /** 렌더링·정화 규칙을 바꾸면 올린다. 배치가 render_version이 낮은 글을 다시 렌더링한다 (docs/12 §7-7). */
-    public static final int RENDER_VERSION = 3; // 2: GIF는 첫 장면 + 원본 링크 (009), 3: 사진 가로·세로 (032)
+    public static final int RENDER_VERSION = 4; // 2: GIF는 첫 장면 + 원본 링크 (009), 3: 사진 가로·세로 (032), 4: 한글에 붙은 굵게 (097)
 
     private static final String INPUT = "input";
     private static final List<Extension> EXT = List.of(
@@ -205,6 +205,7 @@ public class ContentRenderer {
 
     private RenderedContent doRender(String md, long authorId) {
         Node doc = PARSER.parse(md);
+        CjkEmphasis.fix(doc);
         // 본문의 우리 사진 키를 모아 작성자가 올린 것인지 한 번에 확인한다
         List<String> keysInOrder = new ArrayList<>();
         doc.accept(new AbstractVisitor() {

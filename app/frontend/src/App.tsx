@@ -6,6 +6,7 @@ import { TooltipLayer } from './components/TooltipLayer'
 import { MobileNav } from './components/MobileNav'
 import { SiteFooter } from './components/SiteFooter'
 import { PageAnnouncer } from './components/PageAnnouncer'
+import { ScrollTopButton } from './components/ScrollTopButton'
 import { MAIN_ID } from './lib/focusMain'
 import { VerifyBanner } from './components/VerifyBanner'
 import { loginPath, useAuth } from './lib/auth'
@@ -14,7 +15,7 @@ import { match, navigate, useLocation } from './lib/router'
 import { BlogPage } from './pages/BlogPage'
 import { SeriesPage } from './pages/SeriesPage'
 import { PortfolioPage } from './pages/PortfolioPage'
-import { LikedPage } from './pages/LikedPage'
+import { LikedPage, RecentReadsPage } from './pages/LikedPage'
 import { FeedPage } from './pages/FeedPage'
 import { FollowsPage } from './pages/FollowsPage'
 import { HomePage } from './pages/HomePage'
@@ -79,6 +80,7 @@ export function App() {
       </div>
       {!path.startsWith('/write') && path !== '/account/restore' && !path.startsWith('/oauth/') && !path.startsWith('/admin') && !path.startsWith('/manage/') && <SiteFooter />}
       {!path.startsWith('/write') && path !== '/account/restore' && !path.startsWith('/oauth/') && <MobileNav path={path} />}
+      {!path.startsWith('/write') && !path.startsWith('/admin') && <ScrollTopButton />}
       <TooltipLayer />
     </>
   )
@@ -133,6 +135,7 @@ function route(path: string): ReactNode {
   if (path === '/manage/posts') return <RequireLogin><ManagePage /></RequireLogin>
   if (path === '/feed') return <RequireLogin><FeedPage /></RequireLogin>
   if (path === '/lists/liked') return <RequireLogin><LikedPage /></RequireLogin>
+  if (path === '/lists/read') return <RecentReadsPage />
   if (path === '/notifications') return <RequireLogin><NotificationsPage /></RequireLogin>
   if (path === '/settings') return <RequireLogin><SettingsPage /></RequireLogin>
   if (path === '/settings/withdraw') return <RequireLogin><WithdrawPage /></RequireLogin>

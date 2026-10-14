@@ -24,7 +24,7 @@ interface NavItem {
 export function headerItems(path: string): NavItem[] {
   return [
     { to: '/feed', label: t('피드'), tip: t('팔로우한 사람의 새 글'), icon: 'feed', on: (p) => p === '/feed', memberOnly: true },
-    { to: '/lists/liked', label: t('좋아한 글'), tip: t('내가 좋아요를 누른 글'), icon: 'heart', on: (p) => p === '/lists/liked', memberOnly: true },
+    { to: '/lists/liked', label: t('좋아한 글'), tip: t('내가 좋아요를 누른 글'), icon: 'heart', on: (p) => p === '/lists/liked' || p === '/lists/read', memberOnly: true },
     { to: '/tags', label: t('태그'), tip: t('태그별로 글 모아 보기'), icon: 'tag', on: (p) => p === '/tags' || p.startsWith('/tags/') },
     // 지금 화면 주소를 함께 넘겨 버그가 난 곳을 남긴다 (054)
     { to: path.startsWith('/support') ? '/support' : `/support?from=${encodeURIComponent(path)}`, label: t('문의·신고'),

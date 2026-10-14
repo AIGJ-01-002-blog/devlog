@@ -14,6 +14,9 @@ import { SimilarPosts } from '../components/SimilarPosts'
 import { ReadProgress } from '../components/ReadProgress'
 import { ShareButton } from '../components/ShareButton'
 import { Toc } from '../components/Toc'
+import { ImageZoom } from '../components/ImageZoom'
+import { enhanceCodeBlocks, labelTaskItems } from '../lib/postEnhance'
+import { rememberRead } from '../lib/recentReads'
 import { readingMinutes } from '../lib/toc'
 import { api, ApiError, takeInitialData } from '../lib/api'
 import { markRead, usePostBranch } from '../lib/branch'
@@ -48,6 +51,11 @@ export function PostPage({ handle, id }: { handle: string; id: string }) {
   const branch = usePostBranch(Number(id)) ?? null
   // 시리즈 이어 읽기(072): 이 기기에서 연 글을 기억한다. 서버에는 남기지 않는다
   useEffect(() => { if (post?.status === 'PUBLISHED') markRead(post.id) }, [post?.id, post?.status])
+  // 최근 읽은 글(097): 남의 공개 발행 글만 이 기기에 남긴다
+  useEffect(() => {
+    if (!post || post.status !== 'PUBLISHED' || post.visibility !== 'PUBLIC' || post.mine) return
+    rememberRead({ id: post.id, url: post.url, title: post.title, author: post.author.nickname, thumbnailUrl: post.thumbnailUrl ?? null })
+  }, [post?.id, post?.status])
 
   useEffect(() => {
     if (post && String(post.id) === id) return
@@ -66,6 +74,8 @@ export function PostPage({ handle, id }: { handle: string; id: string }) {
       void renderDiagramsWithin(bodyRef.current)
       void highlightWithin(bodyRef.current)
       enhanceGifs(bodyRef.current)
+      enhanceCodeBlocks(bodyRef.current)
+      labelTaskItems(bodyRef.current)
       const body = bodyRef.current
       if (body) setMinutes(readingMinutes(body.textContent ?? '', body.querySelectorAll('img').length))
     }
@@ -188,6 +198,7 @@ export function PostPage({ handle, id }: { handle: string; id: string }) {
         )}
         <Toc bodyRef={bodyRef} html={post.contentHtml} />
         <div className="post-body markdown" ref={bodyRef} dangerouslySetInnerHTML={{ __html: post.contentHtml }} />
+        <ImageZoom bodyRef={bodyRef} html={post.contentHtml} />
         <AttachmentList key={post.id} postId={post.id} />
         {branch && <BranchBox nav={branch} postId={post.id} />}
         {post.status === 'PUBLISHED' && <SimilarPosts key={`similar-${post.id}`} postId={post.id} />}
