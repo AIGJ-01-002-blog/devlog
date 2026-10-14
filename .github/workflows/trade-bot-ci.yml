@@ -58,8 +58,10 @@ jobs:
       - name: 업비트 KRW 코인 5종 1시간봉
         if: always()
         run: python -m devlog_trade coin --exchange upbit --dry-run --state "$RUNNER_TEMP/upbit.json"
-      - name: 바이낸스 USDT-M 선물 3배 15분봉
+      # 선물 시세(fapi)는 미국에서 451로 막혀 GitHub 러너에서는 실패할 수 있다. 한국에서는 열린다
+      - name: 바이낸스 USDT-M 선물 3배 15분봉 (미국 러너에서는 막힐 수 있음)
         if: always()
+        continue-on-error: true
         run: python -m devlog_trade coin --exchange binance --market futures --leverage 3 --interval 15m --dry-run --state "$RUNNER_TEMP/futures.json"
 
   # 집 PC용 Docker 이미지와 맥 launchd 파일이 깨지지 않았는지 본다
