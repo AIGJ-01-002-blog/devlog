@@ -1,0 +1,314 @@
+// 장면의 상황을 고양이가 연기한다. 무대 크기는 STAGE_W×STAGE_H, 시각은 장면 안 프레임.
+import React from 'react';
+import {Easing, interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
+import {basePose, Cat, type Pose} from './Cat';
+import {FONT} from './fonts';
+import {Badge, Bulb, C, CodeLine, Database, Mark, Paper, Pill, Server, Shield, Star, Trash} from './props';
+import type {SceneData} from './types';
+
+export const STAGE_W = 1080;
+export const STAGE_H = 720;
+const FEET = STAGE_H - 30;
+
+const clamp = {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'} as const;
+
+/** 공통 움직임: 숨쉬기, 깜빡임, 목소리에 맞춘 입, 꼬리 */
+const useLife = (scene: SceneData) => {
+  const frame = useCurrentFrame();
+  const {fps} = useVideoConfig();
+  const t = frame / fps;
+  const talkIndex = frame - scene.leadFrames;
+  const talk = talkIndex >= 0 && talkIndex < scene.mouth.length ? scene.mouth[talkIndex] : 0;
+  const blink = (t + 0.7) % 3.2 < 0.11;
+  const live = (over: Partial<Pose>): Pose => {
+    const p = basePose({y: FEET, ...over});
+    p.squash *= 1 + 0.018 * Math.sin(t * 2.8);
+    p.tail += Math.sin(t * 2.4) * 14;
+    if (p.eyes === 'open' && blink) p.eyes = 'blink';
+    if ((p.mouth === 'smile' || p.mouth === 'talk') && talk > 0.06) {
+      p.mouth = 'talk';
+      p.talk = talk;
+      p.headTilt += Math.sin(t * 9) * 2 * talk; // 말할 때 고개가 조금 까딱인다
+    }
+    return p;
+  };
+  /** start초부터 튀어나오는 정도 0→1(살짝 넘쳤다 돌아옴) */
+  const pop = (start: number, damping = 11) => spring({frame: frame - start * fps, fps, config: {damping, stiffness: 160}});
+  return {frame, fps, t, talk, live, pop};
+};
+
+export const Act: React.FC<{scene: SceneData; first: boolean}> = ({scene, first}) => {
+  const life = useLife(scene);
+  const enter = first ? life.pop(0, 9) : 1; // 첫 장면은 고양이가 통 튀어나오며 시작(훅)
+  const Body = ACTS[scene.action] ?? Explain;
+  return (
+    <div style={{position: 'absolute', inset: 0, scale: String(0.55 + 0.45 * enter), transformOrigin: '50% 95%'}}>
+      <Body scene={scene} life={life} />
+    </div>
+  );
+};
+
+type Life = ReturnType<typeof useLife>;
+type ActProps = {scene: SceneData; life: Life};
+
+const Explain: React.FC<ActProps> = ({life}) => {
+  const {t, live} = life;
+  const wave = t < 1.6 ? Math.sin(t * 9) * 18 : 0;
+  return <Cat p={live({x: 540, armR: 150 + wave, armL: 10, bodyTilt: Math.sin(t * 1.5) * 2, y: FEET - Math.abs(Math.sin(t * 3)) * 8})} />;
+};
+
+const Shock: React.FC<ActProps> = ({scene, life}) => {
+  const {t, live, pop, fps, frame} = life;
+  const hit = 0.9;
+  const shocked = t > hit;
+  const jump = shocked ? interpolate(t, [hit, hit + 0.18, hit + 0.42], [0, 70, 0], clamp) : 0;
+  const papers = [0, 1, 2].map((k) => {
+    const start = 1.0 + k * 0.16;
+    const f = interpolate(t, [start, start + 0.5], [0, 1], {...clamp, easing: Easing.in(Easing.cubic)});
+    const shake = t > 0.55 && t < start ? Math.sin(frame * 2.1 + k) * 7 : 0;
+    const x0 = 650 + k * 140;
+    const y0 = 200 + (k % 2) * 60;
+    return (
+      <Paper key={k} x={interpolate(f, [0, 1], [x0, 880]) + shake} y={interpolate(f, [0, 1], [y0, 470]) - Math.sin(f * Math.PI) * 120}
+        rotate={f * 260 + shake} scale={1 - 0.6 * f} opacity={f >= 1 ? 0 : 1} label={k === 1 && f === 0 ? scene.params.label : undefined} />
+    );
+  });
+  const lid = interpolate(t, [hit, hit + 0.15, 2.0, 2.2], [0, 1, 1, 0], clamp);
+  const crying = t > 2.0;
+  return (
+    <>
+      <Trash x={880} y={560} lid={lid} />
+      {papers}
+      <Cat p={live({
+        x: 330, y: FEET - jump, eyes: crying ? 'sad' : shocked ? 'shock' : 'open',
+        mouth: shocked && !crying ? 'o' : crying ? 'frown' : 'smile', brows: shocked ? 'worried' : '',
+        armL: shocked ? 165 : 12, armR: shocked ? 165 : 12, sweat: shocked ? 1 : 0, tears: crying ? (t * 1.2) % 1 : 0,
+        look: [1, 0], squash: shocked ? interpolate(t, [hit, hit + 0.1, hit + 0.3], [0.85, 1.12, 1], clamp) : 1,
+      })} />
+      {shocked ? <Mark x={560} y={110} text="!" color={C.red} size={170} scale={pop(hit, 8)} rotate={12} /> : null}
+      {shocked ? <Mark x={620} y={150} text="!" color={C.red} size={110} scale={pop(hit + 0.1, 8)} rotate={22} /> : null}
+      {void fps}
+    </>
+  );
+};
+
+const Typing: React.FC<ActProps> = ({scene, life}) => {
+  const {t, live, pop, fps, frame} = life;
+  const {params, code} = scene;
+  const lead = scene.leadFrames / fps;
+  // 말이 시작될 무렵 코드가 거의 다 써져 있어야 읽을 시간이 남는다
+  const typeStart = Math.min(0.2, lead);
+  const typeEnd = lead + Math.max(0.8, (scene.speechFrames / fps) * 0.3);
+  const typed = interpolate(t, [typeStart, typeEnd], [0, 1], clamp);
+  const total = code.reduce((a, l) => a + l.length, 0) || 1;
+  let budget = typed * total;
+  const done = t > typeEnd + 0.15;
+  const pulse = done && params.focus !== null ? 0.45 + 0.35 * Math.cos((t - typeEnd) * 7) : 0;
+  const size = code.some((l) => l.length > 30) ? 34 : 40;
+  const tap = Math.sin(frame * 1.3);
+  return (
+    <>
+      <div style={{position: 'absolute', left: 60, top: 10, width: 960, height: 430, background: C.slateD, borderRadius: 28,
+        border: '7px solid #3b2a22', boxShadow: '0 18px 0 rgba(0,0,0,0.25)', overflow: 'hidden'}}>
+        <div style={{display: 'flex', gap: 12, padding: '18px 24px', background: '#1e293b', alignItems: 'center'}}>
+          {[C.red, C.yellow, C.green].map((c) => <div key={c} style={{width: 22, height: 22, borderRadius: 11, background: c}} />)}
+          <div style={{marginLeft: 'auto', font: `600 24px ${FONT}`, color: C.muted}}>{params.shell ? '터미널' : '코드'}</div>
+        </div>
+        <div style={{padding: '22px 30px', display: 'flex', flexDirection: 'column', gap: size * 0.45}}>
+          {code.map((line, n) => {
+            const shown = line.slice(0, Math.max(0, Math.floor(budget)));
+            budget -= line.length;
+            const focus = params.focus === n && pulse > 0;
+            const prompt = params.shell && line.trim() && !/^\s*(#|\/\/|--)/.test(line);
+            return (
+              <div key={n} style={{minHeight: size * 1.2, borderRadius: 10, padding: '0 10px', margin: '0 -10px',
+                background: focus ? (params.good ? `rgba(34,197,94,${pulse * 0.5})` : `rgba(239,68,68,${pulse * 0.5})`) : 'transparent'}}>
+                {prompt ? <span style={{color: C.green, font: `700 ${size}px monospace`}}>$ </span> : null}
+                <CodeLine line={shown} size={size} />
+                {shown.length < line.length && shown.length > 0 ? <span style={{background: C.code, display: 'inline-block', width: size * 0.55, height: size}} /> : null}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <Cat p={live({x: 230, size: 400, armL: typed < 1 ? 60 + tap * 12 : 12, armR: typed < 1 ? 60 - tap * 12 : done && params.good ? 160 : 12,
+        eyes: done && params.good ? 'happy' : typed < 1 ? 'focus' : 'open', look: [0.6, -0.8],
+        sweat: done && !params.good && params.focus !== null ? 1 : 0, brows: done && !params.good && params.focus !== null ? 'worried' : ''})} />
+      {done && params.focus !== null ? (
+        params.good ? <Badge x={880} y={560} good scale={pop(typeEnd + 0.15, 9)} /> :
+          <Mark x={420} y={500} text="?" color={C.yellow} size={150} scale={pop(typeEnd + 0.15, 9)} rotate={-10} />
+      ) : null}
+    </>
+  );
+};
+
+const Panic: React.FC<ActProps> = ({scene, life}) => {
+  const {t, live, frame, fps} = life;
+  const target = scene.params.count ?? 100;
+  const alert = interpolate(t, [0.9, 1.3], [0, 1], clamp);
+  const n = Math.round(target * interpolate(t, [0.3, 0.3 + Math.max(0.6, (scene.speechFrames / fps) * 0.7)], [0, 1], {...clamp, easing: Easing.out(Easing.cubic)}));
+  const pills = Array.from({length: 12}).map((_, k) => {
+    const phase = (t * 1.5 + k / 12) % 1;
+    if (t * 1.5 + k / 12 < 1) return null;
+    const y = 80 + ((k * 53) % 520);
+    return <Pill key={k} x={interpolate(phase, [0, 1], [40, 760])} y={y} text="GET" bg={C.blue} size={28} opacity={phase > 0.92 ? 0 : 1} />;
+  });
+  const shake = Math.sin(frame * 2.3) * 7 * alert;
+  return (
+    <>
+      <Server x={880} y={400} alert={alert} rotate={Math.sin(frame * 2.7) * 3 * alert} />
+      {pills}
+      <Pill x={880} y={190} text={`${n.toLocaleString()}번`} bg={alert > 0.5 ? C.red : '#fff'} color={alert > 0.5 ? '#fff' : '#0f172a'} size={60} />
+      <Cat p={live({x: 340 + shake, eyes: alert > 0.5 ? 'shock' : 'open', mouth: alert > 0.5 && life.talk < 0.06 ? 'o' : 'smile',
+        armL: alert > 0.5 ? 168 : 12, armR: alert > 0.5 ? 168 : 12, sweat: alert, brows: alert > 0.5 ? 'worried' : '', look: [1, 0]})} />
+    </>
+  );
+};
+
+const Restore: React.FC<ActProps> = ({scene, life}) => {
+  const {t, live, pop, fps} = life;
+  const fillEnd = 0.5 + Math.max(1.0, (scene.speechFrames / fps) * 0.6);
+  const fill = interpolate(t, [0.5, fillEnd], [0, 1], {...clamp, easing: Easing.inOut(Easing.quad)});
+  const done = fill >= 1;
+  const flying = done ? null : [0, 1, 2, 3].map((k) => {
+    const ph = (t * 1.4 + k / 4) % 1;
+    return <Paper key={k} x={interpolate(ph, [0, 1], [560, 840])} y={interpolate(ph, [0, 1], [520, 380]) - Math.sin(ph * Math.PI) * 140}
+      scale={0.45} rotate={ph * 180} />;
+  });
+  return (
+    <>
+      <div style={{position: 'absolute', left: 470, top: 470, width: 190, height: 150, background: '#c08a52', border: '7px solid #3b2a22',
+        borderRadius: 18, display: 'grid', placeItems: 'center', font: `800 46px ${FONT}`, color: '#fff'}}>백업</div>
+      <Database x={860} y={420} fill={fill} color={done ? C.green : C.blue} />
+      {flying}
+      {done ? <Badge x={860} y={170} good scale={pop(fillEnd, 9)} /> : null}
+      <Cat p={live({x: 250, eyes: done ? 'happy' : 'open', mouth: done ? 'grin' : 'smile', armL: done ? 165 : 20,
+        armR: done ? 165 : 70 + Math.sin(t * 8) * 25, y: FEET - (done ? Math.abs(Math.sin(t * 8)) * 34 : 0), look: [1, 0]})} />
+    </>
+  );
+};
+
+const Wait: React.FC<ActProps> = ({scene, life}) => {
+  const {t, live, fps} = life;
+  const total = parseDuration(scene.params.before) ?? 4;
+  const shown = total * interpolate(t, [0.2, 0.2 + Math.max(1, (scene.speechFrames / fps) * 0.8)], [0, 1], clamp);
+  const sleepy = t > 1.2;
+  return (
+    <>
+      <div style={{position: 'absolute', left: 470, top: 40, width: 560, height: 430, background: C.slateD, border: '7px solid #3b2a22',
+        borderRadius: 28, padding: 36, display: 'flex', flexDirection: 'column', gap: 26}}>
+        {[1, 0.8, 0.6].map((w, k) => <div key={k} style={{height: 46, width: `${w * 100}%`, background: '#1e293b', borderRadius: 14,
+          opacity: 0.6 + 0.4 * Math.sin(t * 4 + k)}} />)}
+        <svg width={110} height={110} viewBox="0 0 110 110" style={{alignSelf: 'center', rotate: `${t * 360}deg`}}>
+          <circle cx={55} cy={55} r={42} stroke="#334155" strokeWidth={14} fill="none" />
+          <path d="M 55 13 A 42 42 0 0 1 97 55" stroke={C.blue} strokeWidth={14} fill="none" strokeLinecap="round" />
+        </svg>
+      </div>
+      <Pill x={750} y={40} text={`${shown.toFixed(1)}초`} bg={C.red} color="#fff" size={58} />
+      <Cat p={live({x: 260, eyes: sleepy ? 'bored' : 'open', mouth: sleepy && life.talk < 0.06 ? 'flat' : 'smile', headTilt: sleepy ? -10 : 0,
+        armL: sleepy ? 130 : 12, look: [1, -0.3]})} />
+      {sleepy ? [0, 1, 2].map((k) => {
+        const ph = ((t - 1.2) * 0.7 + k / 3) % 1;
+        return <Mark key={k} x={360 + ph * 90} y={190 - ph * 150} text="z" color="#e2e8f0" size={40 + 34 * ph} opacity={1 - ph} />;
+      }) : null}
+    </>
+  );
+};
+
+const Fast: React.FC<ActProps> = ({scene, life}) => {
+  const {t, live, pop} = life;
+  const {before, after, label} = scene.params;
+  const b = parseDuration(before);
+  const a = parseDuration(after);
+  const ratio = b && a && b > a ? a / b : 0.08;
+  const slow = interpolate(t, [0.3, 1.9], [0, 1], clamp);
+  const quick = interpolate(t, [0.6, 0.85], [0, 1], clamp) * Math.max(0.05, ratio);
+  const cheer = t > 1.0;
+  const bar = (y: number, frac: number, color: string, name: string, value: string | null) => (
+    <div style={{position: 'absolute', left: 60, top: y, width: 960, display: 'flex', alignItems: 'center', gap: 22}}>
+      <div style={{font: `800 46px ${FONT}`, color: '#fff', width: 60}}>{name}</div>
+      <div style={{flex: 1, height: 78, background: C.slate, borderRadius: 40, border: '6px solid #3b2a22', overflow: 'hidden'}}>
+        <div style={{width: `${Math.max(7, frac * 100)}%`, height: '100%', background: color, borderRadius: 40}} />
+      </div>
+      <div style={{font: `900 52px ${FONT}`, color, width: 190}}>{value}</div>
+    </div>
+  );
+  return (
+    <>
+      {bar(20, slow, C.red, '전', before)}
+      {bar(130, quick, C.green, '후', after)}
+      {cheer ? <Pill x={780} y={360} text={label} bg={C.yellow} size={66} scale={pop(1.0, 8)} /> : null}
+      {cheer ? [0, 1, 2, 3, 4].map((k) => {
+        const ang = k * 1.3 + t * 2;
+        return <Star key={k} x={540 + 380 * Math.cos(ang)} y={470 + 150 * Math.sin(ang)} scale={0.8 + 0.3 * Math.sin(t * 6 + k)} />;
+      }) : null}
+      <Cat p={live({x: 300, size: 430, eyes: cheer ? 'happy' : 'open', mouth: cheer ? 'grin' : 'smile', armL: cheer ? 160 : 12, armR: cheer ? 160 : 12,
+        y: FEET - (cheer ? Math.abs(Math.sin(t * 7)) * 46 : 0)})} />
+    </>
+  );
+};
+
+const Idea: React.FC<ActProps> = ({life}) => {
+  const {t, live, pop} = life;
+  const on = t > 0.5;
+  return (
+    <>
+      {on ? <Bulb x={760} y={170} glow={(t - 0.5) * 2} scale={pop(0.5, 8)} /> : null}
+      <Cat p={live({x: 470, eyes: t > 0.7 ? 'happy' : 'open', brows: on ? 'up' : '', armR: on ? 150 : 12, look: [0.6, -1],
+        y: FEET - interpolate(t, [0.5, 0.65, 0.85], [0, 40, 0], clamp)})} />
+    </>
+  );
+};
+
+const Protect: React.FC<ActProps> = ({life}) => {
+  const {t, live, pop} = life;
+  const on = t > 0.4;
+  return (
+    <>
+      {on ? <Shield x={760} y={360} scale={pop(0.4, 9)} /> : null}
+      {on ? [0, 1, 2, 3].map((k) => {
+        const ang = k * 1.57 + t * 1.6;
+        return <Star key={k} x={760 + 210 * Math.cos(ang)} y={360 + 190 * Math.sin(ang)} />;
+      }) : null}
+      <Cat p={live({x: 330, eyes: t > 0.6 ? 'happy' : 'open', brows: t > 0.6 ? 'angry' : '', armR: on ? 120 : 12, mouth: t > 0.6 ? 'grin' : 'smile'})} />
+    </>
+  );
+};
+
+const Think: React.FC<ActProps> = ({life}) => {
+  const {t, live, pop} = life;
+  return (
+    <>
+      <Cat p={live({x: 460, armR: 150, headTilt: 8 * Math.sin(t * 1.3), look: [0.8, -0.8], eyes: 'open', mouth: life.talk > 0.06 ? 'talk' : 'flat'})} />
+      {[[790, 140, 120], [900, 70, 90], [700, 60, 80]].map(([x, y, s], k) => (
+        <Mark key={k} x={x} y={y + Math.sin(t * 3 + k) * 10} text="?" color={C.yellow} size={s} scale={pop(0.3 + k * 0.25, 8)} rotate={-10 + k * 12} />
+      ))}
+    </>
+  );
+};
+
+const Celebrate: React.FC<ActProps> = ({life}) => {
+  const {t, live} = life;
+  return (
+    <>
+      {Array.from({length: 14}).map((_, k) => {
+        const ph = (t * 0.6 + k / 14) % 1;
+        return <Star key={k} x={80 + ((k * 0.37) % 1) * 920} y={-20 + ph * 700} color={[C.yellow, C.pink, C.blue, C.green][k % 4]} rotate={ph * 360} />;
+      })}
+      <Cat p={live({x: 540, eyes: 'happy', mouth: 'grin', armL: 160, armR: 160, y: FEET - Math.abs(Math.sin(t * 7)) * 56})} />
+    </>
+  );
+};
+
+const ACTS: Record<string, React.FC<ActProps>> = {
+  explain: Explain, shock: Shock, typing: Typing, panic: Panic, restore: Restore, wait: Wait,
+  fast: Fast, idea: Idea, protect: Protect, think: Think, celebrate: Celebrate,
+};
+
+function parseDuration(v: string | null): number | null {
+  if (!v) return null;
+  const m = v.match(/([\d.,]+)\s*(ms|초|분|시간)/);
+  if (!m) return null;
+  const n = parseFloat(m[1].replace(',', '.'));
+  return m[2] === 'ms' ? n / 1000 : n * ({초: 1, 분: 60, 시간: 3600} as Record<string, number>)[m[2]];
+}

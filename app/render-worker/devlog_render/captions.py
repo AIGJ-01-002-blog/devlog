@@ -191,3 +191,28 @@ def _fill_unknown(starts: list[float | None], duration: float) -> list[float]:
     for k in range(1, len(out)):
         out[k] = max(out[k], out[k - 1])
     return out  # type: ignore[return-value]
+
+
+def pages(text: str, duration: float, words: list[Word] | None = None, tail: float = 0.0) -> list[dict]:
+    """Remotion 자막용: 구절(cues)마다 낱말과 낱말이 소리 나는 시각(ms). 단어 시각이 없으면 구절 안에서 글자 수로 나눈다."""
+    parts = phrases(text)
+    timed = cues(text, duration, words, tail)
+    char_times = _char_times(_compact(text), words) if words else None
+    out, pos = [], 0
+    for part, cue in zip(parts, timed):
+        tokens = _TRAILING.sub("", part).split(" ")
+        lengths = [len(_compact(tok)) for tok in tokens]
+        total = sum(lengths) or 1
+        starts, acc = [], 0
+        for n in lengths:
+            known = _first_known(char_times, pos + acc, pos + acc + n) if char_times else None
+            guess = cue.start + (cue.end - cue.start) * acc / total
+            starts.append(known if known is not None and cue.start <= known < cue.end else guess)
+            acc += n
+        pos += len(_compact(part))
+        for k in range(1, len(starts)):
+            starts[k] = max(starts[k], starts[k - 1])
+        items = [{"text": tok, "startMs": round(starts[k] * 1000), "endMs": round((starts[k + 1] if k + 1 < len(starts) else cue.end) * 1000)}
+                 for k, tok in enumerate(tokens) if tok]
+        out.append({"startMs": round(cue.start * 1000), "endMs": round(cue.end * 1000), "words": items})
+    return out

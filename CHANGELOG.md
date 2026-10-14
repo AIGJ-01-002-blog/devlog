@@ -14,7 +14,7 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 - 매매 일지가 코인 거래소 체결을 받는다. `record_trade`에 거래소(`exchange`)와 통화(`currency`)를 적고, 0.00012345 BTC 같은 소수 수량·가격을 그대로 남긴다. 원화와 USDT는 더하지 않고 손익·수수료를 통화별로 따로 보여 준다. DB `trade`에 `exchange`·`currency` 열이 생기고 금액 자릿수가 넓어진다(V40). (#254)
 
 ### 바꿈
-- 쇼츠 영상 품질을 올렸다. 무료 신경망 한국어 음성(edge-tts SunHi, 실패하면 기기 음성)으로 읽고, 내레이션을 1~2줄 구절로 나눠 음성에 맞춰 띄운다. 장면마다 2D 고양이 캐릭터가 대본 상황을 연기한다(자료가 사라지면 깜짝 놀라고, 코드는 모니터에 써지고, 요청이 쏟아지면 머리를 감싸고, 빨라지면 환호. 입은 목소리에 맞춰 움직인다). 천천히 흐르는 그라데이션 배경(글 이미지가 있으면 흐린 이미지), 떠오르는 요점 자막, 연기에 맞춘 효과음, 직접 합성한 배경음(말할 때 낮춤), 장면 사이 페이드가 들어가고 장면 끝 쉼은 0.4초에서 0.15초로 줄었다. 최종 인코딩은 crf 20 · preset medium, 소리는 -14 LUFS. (#277)
+- 쇼츠 영상 품질을 올렸다. 화면은 이제 [Remotion](https://www.remotion.dev)(React로 영상을 만드는 도구)으로 그린다. 장면마다 SVG 2D 고양이가 대본 상황을 연기하고(자료가 사라지면 깜짝 놀라 울먹이고, 코드는 모니터에 써지고, 요청이 쏟아지면 머리를 감싸고, 빨라지면 환호. 숨 쉬고 눈을 깜빡이며 입은 목소리에 맞춰 움직인다), 요점 자막은 단어마다 튀어 오르며 형광펜이 그어지고, 내레이션 자막은 지금 읽는 단어를 노랗게 키운다. 장면 사이는 밀기 전환. 음성은 무료 신경망 한국어 음성(edge-tts SunHi, 실패하면 기기 음성), 연기에 맞춘 효과음, 직접 합성한 배경음(말할 때 낮춤), 소리 -14 LUFS. 렌더 워커에 Node 18 이상이 필요하고, 없으면 예전 Pillow 화면으로 내려간다. 대본 장면의 `custom`으로 고양이 대신 다른 화면(매매 재현 등)을 끼울 수 있다. (#277)
 - 운영(devlog.life)에서 숏폼 스튜디오와 매매 일지를 켰다(`SHORTS_ENABLED`, `TRADES_ENABLED`). 렌더 워커 토큰은 GitHub Secret `SHORTS_WORKER_TOKEN`으로 넣고, 없으면 대본까지만 만들고 영상은 만들지 않는다. (#256)
 - 매매 일지 손익 색을 거래소 차트처럼 바꿨다: 이익·매수 초록, 손실·매도 빨강. (#254)
 
@@ -28,6 +28,7 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 ![쇼츠 품질 전후: 도커 볼륨](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shorts-quality-docker-volume.webp)
 ![쇼츠 품질 전후: useEffect](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shorts-quality-react-effect.webp)
 ![쇼츠 품질 전후: 인덱스](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shorts-quality-pg-index.webp)
+![고양이 연기 11가지](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shorts-character-actions.webp)
 
 ## [2.0.0] - 2026-10-14
 
