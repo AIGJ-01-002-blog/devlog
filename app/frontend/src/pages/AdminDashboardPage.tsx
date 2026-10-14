@@ -122,6 +122,8 @@ function WorkerCard({ w }: { w: WorkerStatus }) {
   )
 }
 
+const REFRESH_MS = 60_000
+
 export function AdminDashboardPage() {
   const { search } = useLocation()
   const days = (PERIODS.find((p) => String(p) === search.get('days')) ?? 30) as Period
@@ -138,6 +140,12 @@ export function AdminDashboardPage() {
     consoleApi.dashboard(days)
       .then((d) => { if (current.current === days) setData(d) })
       .catch(() => { if (current.current === days) setError(true) })
+    // 열어 둔 화면에서도 워커가 멈춘 것을 알 수 있게 1분마다 다시 읽는다. 다시 읽다 실패하면 보던 숫자를 그대로 둔다
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      consoleApi.dashboard(days).then((d) => { if (current.current === days) setData(d) }).catch(() => {})
+    }, REFRESH_MS)
+    return () => window.clearInterval(timer)
   }, [days])
 
   const m = METRICS.find((x) => x.key === metric) ?? METRICS[0]
