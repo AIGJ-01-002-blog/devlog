@@ -54,11 +54,19 @@ class SemanticSearchWarmTest {
 
     @Test
     void 예열은_간격_안에_한_번만_모델을_부른다() throws Exception {
-        when(values.setIfAbsent(SemanticSearch.WARMING, "1", Duration.ofSeconds(60))).thenReturn(true, false);
+        when(values.setIfAbsent(SemanticSearch.WARM_GATE, "1", Duration.ofSeconds(60))).thenReturn(true, false);
         semantic.warmUp();
         semantic.warmUp();
         verify(client, timeout(2000)).embed(List.of("warm"), Purpose.QUERY, Duration.ofSeconds(30));
         verify(values, never()).set(eq(SemanticSearch.DOWN), anyString(), any(Duration.class));
+    }
+
+    @Test
+    void 예열이_끝나면_진행_표시를_지운다() throws Exception {
+        when(values.setIfAbsent(SemanticSearch.WARM_GATE, "1", Duration.ofSeconds(60))).thenReturn(true);
+        semantic.warmUp();
+        verify(values).set(SemanticSearch.WARMING, "1", Duration.ofSeconds(30));
+        verify(redis, timeout(2000)).delete(SemanticSearch.WARMING);
     }
 
     @Test
@@ -88,7 +96,7 @@ class SemanticSearchWarmTest {
     void 여러_사람이_동시에_검색창을_열어도_예열은_한_번() throws Exception {
         // Redis SETNX처럼 처음 한 번만 true
         AtomicBoolean taken = new AtomicBoolean();
-        when(values.setIfAbsent(SemanticSearch.WARMING, "1", Duration.ofSeconds(60))).thenAnswer(i -> taken.compareAndSet(false, true));
+        when(values.setIfAbsent(SemanticSearch.WARM_GATE, "1", Duration.ofSeconds(60))).thenAnswer(i -> taken.compareAndSet(false, true));
         int n = 8;
         CountDownLatch start = new CountDownLatch(1);
         CountDownLatch done = new CountDownLatch(n);
@@ -108,7 +116,9 @@ class SemanticSearchWarmTest {
             start.countDown();
             assertThat(done.await(5, TimeUnit.SECONDS)).isTrue();
         }
-        verify(client, after(500).times(1)).embed(any(), any(), any());
+        // 예열 작업이 늦게 시작해도 기다린 뒤, 더 불리지 않는지 확인한다
+        verify(client, timeout(2000)).embed(any(), any(), any());
+        verify(client, after(300).times(1)).embed(any(), any(), any());
     }
 
     @Test

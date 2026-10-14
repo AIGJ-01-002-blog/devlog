@@ -37,7 +37,10 @@ public class SemanticSearch {
     private static final Logger log = LoggerFactory.getLogger(SemanticSearch.class);
     static final String DOWN = "search:embed:down";
     static final String QUERY_CACHE = "search:qvec:";
+    /** 예열 요청이 진행 중인 동안만 있다. 끝나면 지운다 */
     static final String WARMING = "search:embed:warming";
+    /** 예열을 warmEvery에 한 번만 보내기 위한 표시. 진행 여부와 따로 둔다 */
+    static final String WARM_GATE = "search:embed:warm-gate";
     private static final String SIMILAR_PAIRS = """
             SELECT a.post_id, n.post_id, n.distance FROM post_embedding a
             CROSS JOIN LATERAL (
@@ -178,14 +181,15 @@ public class SemanticSearch {
     /**
      * 검색창을 열 때 임베딩 모델을 미리 올린다. 운영 Ollama는 쓰지 않으면 모델을 내려 메모리를 비우므로(OLLAMA_KEEP_ALIVE),
      * 사람이 검색어를 치는 동안 모델을 올려 두면 첫 검색도 의미 검색까지 제때 끝난다. 여러 사람이 동시에 열어도
-     * warmEvery에 한 번만 보내고, 그 동안은 검색어 임베딩이 늦어도 공급자가 내려간 것으로 표시하지 않는다.
+     * warmEvery에 한 번만 보내고, 예열이 진행되는 동안만 검색어 임베딩이 늦어도 공급자가 내려간 것으로 표시하지 않는다.
      */
     public void warmUp() {
         // Gemini에는 올릴 모델이 없고 요청이 할당량만 쓴다
         if (client.provider() != EmbeddingClient.Provider.LOCAL || !enabled()) return;
         try {
             if (Boolean.TRUE.equals(redis.hasKey(DOWN))) return;
-            if (!Boolean.TRUE.equals(redis.opsForValue().setIfAbsent(WARMING, "1", props.warmEvery()))) return;
+            if (!Boolean.TRUE.equals(redis.opsForValue().setIfAbsent(WARM_GATE, "1", props.warmEvery()))) return;
+            redis.opsForValue().set(WARMING, "1", props.warmTimeout());
         } catch (RuntimeException e) {
             return;
         }
@@ -194,6 +198,13 @@ public class SemanticSearch {
                 client.embed(List.of("warm"), Purpose.QUERY, props.warmTimeout());
             } catch (EmbedException e) {
                 markDown(e);
+            } finally {
+                // 모델이 올라온 뒤에는 검색어 임베딩 실패를 다시 장애로 본다
+                try {
+                    redis.delete(WARMING);
+                } catch (RuntimeException ignored) {
+                    // 지우지 못해도 warmTimeout 뒤 저절로 사라진다
+                }
             }
         });
     }

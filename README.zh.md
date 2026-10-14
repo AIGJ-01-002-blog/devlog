@@ -372,6 +372,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v1.68.0 | 2026-10-14 | 可将 develop 部署到与生产分离的测试环境（dev.devlog.life）（目前关闭）、仅在需要时加载搜索嵌入模型以节省学校服务器内存、固定学校服务器 SSH 密钥 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.68.0) |
 | v1.67.0 | 2026-10-13 | 首个按目标发布的版本（部署可靠性与发布记录）：NAVER 登录、首页与页脚的 GitHub 入口、像 Git 分支一样用线连接回复、界面动效、带截图的发布说明 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.67.0) |
 | v1.66.2 | 2026-10-12 | 未写任何内容就离开编辑器时，空草稿不进回收站直接删除 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.66.2) |
 | v1.66.1 | 2026-10-12 | 没有文章的标签地址返回 404(避免搜索引擎软 404)，站点地图加入 AI 连接指南和发布说明 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.66.1) |

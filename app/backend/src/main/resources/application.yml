@@ -184,6 +184,9 @@ blog:
       provider: ${SEARCH_EMBED_PROVIDER:auto}
       base-url: ${EMBED_BASE_URL:}
       local-model: ${EMBED_MODEL:bge-m3}
+      # 검색창을 열 때 임베딩 모델 예열(design/66): 요청 시간 제한, 여러 사람이 열어도 이 간격에 한 번
+      warm-timeout: 30s
+      warm-every: 60s
   # 주제 브랜치 (spec 072): 시리즈에 없는 공개 글을 태그·임베딩으로 묶는 간격과 기준
   topic:
     enabled: ${TOPIC_ENABLED:true}

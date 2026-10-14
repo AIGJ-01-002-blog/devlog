@@ -29,7 +29,21 @@ describe('search', () => {
       expect(warmSearch(1_000_000 + 60_000)).toBe(false)
       expect(warmSearch(1_000_000 + 5 * 60_000)).toBe(true)
       expect(fetchMock).toHaveBeenCalledTimes(2)
-      expect(fetchMock).toHaveBeenCalledWith('/api/search/warm', { credentials: 'same-origin' })
+      expect(fetchMock).toHaveBeenCalledWith('/api/search/warm', expect.objectContaining({ method: 'GET', credentials: 'same-origin' }))
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('예열이 실패하면 다음에 들어올 때 다시 보낸다', async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(new Response(null, { status: 503 })))
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      expect(warmSearch(2_000_000)).toBe(true)
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+      await new Promise((r) => setTimeout(r, 0))
+      expect(warmSearch(2_000_000 + 1_000)).toBe(true)
+      expect(fetchMock).toHaveBeenCalledTimes(2)
     } finally {
       vi.unstubAllGlobals()
     }
