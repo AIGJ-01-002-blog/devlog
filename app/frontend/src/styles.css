@@ -2631,25 +2631,22 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 .deco-frame[data-frame]:not([data-frame="color"]) { --frame-bg: conic-gradient(from 210deg, var(--ta), var(--tb), var(--ta), var(--tb), var(--ta)); }
 .deco-frame:is([data-frame="diamond"], [data-frame="master"], [data-frame="grandmaster"], [data-frame="challenger"]) { box-shadow: 0 0 12px 1px var(--ta); }
 .deco-frame:is([data-frame="master"], [data-frame="grandmaster"], [data-frame="challenger"]) {
-  --tg: color-mix(in srgb, var(--ta) 45%, var(--tb)); --spin: 2.2s; --flash: 2.6s;
+  --tg: color-mix(in srgb, var(--ta) 45%, var(--tb)); --tg2: var(--ta); --spin: 2.2s; --flash: 2.6s;
   animation: tier-breathe var(--flash) ease-in-out infinite;
 }
 .deco-frame[data-frame="grandmaster"] { --spin: 1.7s; --flash: 2.2s; }
 .deco-frame[data-frame="challenger"] {
-  --tg: var(--tier-challenger-c); --spin: 1.3s; --flash: 1.8s;
+  --tg: var(--tier-challenger-c); --tg2: var(--tier-challenger-b); --spin: 1.3s; --flash: 1.8s;
   --frame-bg: conic-gradient(from 0deg, var(--tier-challenger-c), var(--ta), var(--tb), var(--ta), var(--tier-challenger-c), var(--tb), var(--tier-challenger-c));
 }
-/* 빛줄기: 테두리 고리 안에서만 돈다 */
+/* 빛줄기 두 개(밝은 색·짙은 색)가 마주 보며 테두리 고리 안에서만 돈다 (블로그 주인 요청) */
 .deco-frame:is([data-frame="master"], [data-frame="grandmaster"], [data-frame="challenger"])::after {
   content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
-  background: conic-gradient(from 0deg, transparent 0 58%, var(--tg) 70%, var(--tier-spark) 76%, var(--tg) 82%, transparent 94%);
+  background: conic-gradient(from 0deg, transparent 0 20%, var(--tg2) 30%, var(--tier-spark) 34%, transparent 46%,
+    transparent 0 70%, var(--tg) 80%, var(--tier-spark) 84%, transparent 96%);
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 8px), black calc(100% - 7px));
   mask: radial-gradient(farthest-side, transparent calc(100% - 8px), black calc(100% - 7px));
   animation: tier-spin var(--spin) linear infinite;
-}
-.deco-frame[data-frame="challenger"]::after {
-  background: conic-gradient(from 0deg, transparent 0 20%, var(--tier-challenger-b) 30%, var(--tier-spark) 34%, transparent 46%,
-    transparent 0 70%, var(--tg) 80%, var(--tier-spark) 84%, transparent 96%);
 }
 /* 번쩍임: 테두리 바깥으로 자기 색 빛이 터졌다 사라진다 (얼굴은 가리지 않는다) */
 .deco-frame:is([data-frame="master"], [data-frame="grandmaster"], [data-frame="challenger"])::before {
