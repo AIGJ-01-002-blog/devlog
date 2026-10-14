@@ -12,16 +12,29 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ### 추가
 - 매매 일지가 코인 거래소 체결을 받는다. `record_trade`에 거래소(`exchange`)와 통화(`currency`)를 적고, 0.00012345 BTC 같은 소수 수량·가격을 그대로 남긴다. 원화와 USDT는 더하지 않고 손익·수수료를 통화별로 따로 보여 준다. DB `trade`에 `exchange`·`currency` 열이 생기고 금액 자릿수가 넓어진다(V40). (#254)
+- 매매 일지가 선물 체결을 받는다. `record_trade`에 `market`(SPOT·FUTURES), `position_side`(LONG·SHORT), `leverage`(1~7배), `interval`(1m·5m·15m·1h·4h·1d)을 적는다. 롱 진입 BUY·롱 청산 SELL·숏 진입 SELL·숏 청산 BUY로 읽고, 숏 청산(BUY)의 실현 손익도 합계에 더한다. 화면·요약 글·쇼츠 대본에 "선물 숏 3배", "숏 청산"처럼 보인다. 예전 봇이 이유 앞머리("[선물 숏 진입 3x]")로 알린 선물 체결은 열로 옮긴다(V41). (#260)
+- 같은 날 모의투자와 실계좌 체결이 섞이면 실현 손익을 더하지 않고 나눠 보여 준다. 화면(기간 합계·날짜 목록·하루 상세), 요약 글 제목과 본문, 쇼츠 제목과 대본에서 "모의투자 +12.00 USDT · 실계좌 -4.00 USDT"처럼 적는다. (#260)
+- 쇼츠 주제 묶음: 글 하나나 AI와 나눈 맥락 하나를 작은 주제 2~5개로 나눠 주제마다 쇼츠 한 편씩 만든다. MCP `plan_shorts`가 주제(제목·첫 질문·다룰 범위)를 남기고, `create_shorts_script`는 `batch_id`·`topic`이나 맥락 근거 `source_text`를 받는다. 양산형 검사는 맥락 근거와도 비교하고, 같은 묶음의 다른 편과 겹치면 경고한다. 스튜디오는 묶음별로 대본을 모아 보여 주고 [묶음 영상 모두 만들기]로 통과한 편을 한 번에 대기열에 넣는다(막힌 편은 이유와 함께 건너뜀). DB `shorts_batch` 표와 `shorts`의 `batch_id`·`topic`·`source_text` 열(V42). 장면마다 배경 그림(`image`, devlog에 올린 그림이나 사이트 경로만)을 고를 수 있고, 렌더 워커가 받는 작업에 장면 그림과 원본 글 대표 사진(`coverImage`)이 함께 간다. 장면마다 연출(`visual`: explain·shock·typing·panic·restore·wait·fast·idea·protect·think·celebrate, 비우면 워커가 고름)과 효과음(`effects`: pop·ding·whoosh·boing·tick·typing, 장면당 3개)을 고를 수 있고, 워커에는 작업 단위 `effects[]`로 펼쳐 보낸다(#277 워커와 짝). (#276)
+- 매매 일지의 날마다 [재현 영상 만들기]로 그날 체결을 스튜디오의 매매 재현 영상으로 넘긴다(`/studio?replay=날짜`). (#265)
 
 ### 바꿈
 - 쇼츠 영상 품질을 올렸다. 화면은 이제 [Remotion](https://www.remotion.dev)(React로 영상을 만드는 도구)으로 그린다. 장면마다 SVG 2D 고양이가 대본 상황을 연기하고(자료가 사라지면 깜짝 놀라 울먹이고, 코드는 모니터에 써지고, 요청이 쏟아지면 머리를 감싸고, 빨라지면 환호. 숨 쉬고 눈을 깜빡이며 입은 목소리에 맞춰 움직인다), 요점 자막은 단어마다 튀어 오르며 형광펜이 그어지고, 내레이션 자막은 지금 읽는 단어를 노랗게 키운다. 장면 사이는 밀기 전환. 음성은 무료 신경망 한국어 음성(edge-tts SunHi, 실패하면 기기 음성), 연기에 맞춘 효과음, 직접 합성한 배경음(말할 때 낮춤), 소리 -14 LUFS. 렌더 워커에 Node 18 이상이 필요하고, 없으면 예전 Pillow 화면으로 내려간다. 대본 장면의 `custom`으로 고양이 대신 다른 화면(매매 재현 등)을 끼울 수 있다. (#277)
 - 운영(devlog.life)에서 숏폼 스튜디오와 매매 일지를 켰다(`SHORTS_ENABLED`, `TRADES_ENABLED`). 렌더 워커 토큰은 GitHub Secret `SHORTS_WORKER_TOKEN`으로 넣고, 없으면 대본까지만 만들고 영상은 만들지 않는다. (#256)
 - 매매 일지 손익 색을 거래소 차트처럼 바꿨다: 이익·매수 초록, 손실·매도 빨강. (#254)
+- 매매 기록 하루 상한을 계정당 500건에서 2,000건으로 올리고 운영 설정 `TRADES_DAILY_LIMIT`로 바꿀 수 있게 했다. 승률 칸은 "이긴 매도"에서 "이긴 청산"으로 바뀐다. (#260)
 
 ### 화면
 | 매매 일지 코인 (PC) | 휴대폰 | 휴대폰 · 다크 |
 |---|---|---|
 | ![매매 일지 코인 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/trades-coin-pc.webp) | ![매매 일지 코인 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/trades-coin-m.webp) | ![매매 일지 코인 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/trades-coin-m-dark.webp) |
+
+| 매매 일지 선물 (PC) | 휴대폰 · 다크 | 360px · 재현 영상 만들기 |
+|---|---|---|
+| ![매매 일지 선물 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/trades-futures-pc.webp) | ![매매 일지 선물 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/trades-futures-m-dark.webp) | ![재현 영상 만들기 버튼](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/trades-futures-360.webp) |
+
+| 쇼츠 주제 묶음 (PC) | 휴대폰 · 다크 | 360px |
+|---|---|---|
+| ![쇼츠 주제 묶음 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/studio-batch-pc.webp) | ![쇼츠 주제 묶음 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/studio-batch-m-dark.webp) | ![쇼츠 주제 묶음 360px](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/studio-batch-360.webp) |
 
 쇼츠 견본 영상 개선 전(위)·후(아래) (#277)
 

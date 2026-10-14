@@ -17,11 +17,13 @@ import tools.jackson.databind.JsonNode;
 
 import com.team.blog.shared.config.BlogProperties;
 import com.team.blog.trade.application.TradeJournal;
+import com.team.blog.trade.application.TradeTexts;
 
 /**
  * 매매 일지 MCP 도구 (#243). record_trade는 집 컴퓨터의 매매 봇이 쓰기 토큰으로 체결마다 부르고,
  * get_trade_day는 사용자 쪽 AI가 그날 기록을 읽고 메모·글을 도울 때 쓴다. 주문을 내는 도구는 없다.
  * 코인 거래소(#254)는 exchange·currency를 함께 보내고, 금액은 그 통화로 읽는다.
+ * 선물(#260)은 market=FUTURES와 position_side·leverage를 보낸다. 롱 진입 BUY, 롱 청산 SELL, 숏 진입 SELL, 숏 청산 BUY.
  */
 @Component
 class TradeTools {
@@ -32,12 +34,16 @@ class TradeTools {
               "exchange":{"type":"string","description":"거래소 코드 (BINANCE, UPBIT, BYBIT 등). 증권사면 비워도 된다"},
               "symbol":{"type":"string","description":"종목·마켓 코드 (영문·숫자 20자까지, 예: BTCUSDT, KRW-BTC, 005930)"},
               "symbol_name":{"type":"string","description":"종목 이름 (예: 비트코인, 삼성전자)"},
-              "side":{"type":"string","enum":["BUY","SELL"]},
+              "market":{"type":"string","enum":["SPOT","FUTURES"],"default":"SPOT","description":"SPOT 현물, FUTURES 선물"},
+              "position_side":{"type":"string","enum":["LONG","SHORT"],"description":"선물 포지션 방향. 선물에만 (필수)"},
+              "leverage":{"type":"integer","minimum":1,"maximum":7,"description":"선물 레버리지 배수. 선물에만, 없으면 1"},
+              "interval":{"type":"string","enum":["1m","5m","15m","1h","4h","1d"],"description":"봇이 판단한 봉"},
+              "side":{"type":"string","enum":["BUY","SELL"],"description":"현물은 매수 BUY·매도 SELL. 선물은 롱 진입 BUY, 롱 청산 SELL, 숏 진입 SELL, 숏 청산 BUY"},
               "quantity":{"type":"number","exclusiveMinimum":0,"description":"수량. 코인은 소수 10자리까지 (예: 0.00012345)"},
               "price":{"type":"number","minimum":0,"description":"체결 가격 (currency 통화)"},
               "currency":{"type":"string","default":"KRW","description":"가격·수수료·손익의 통화 (KRW, USDT 등)"},
               "fee":{"type":"number","minimum":0,"description":"수수료·세금 (currency 통화)"},
-              "realized_pnl":{"type":"number","description":"매도로 확정된 손익 (currency 통화, 수수료·세금을 뺀 값). 매도에만"},
+              "realized_pnl":{"type":"number","description":"청산으로 확정된 손익 (currency 통화, 수수료·세금·펀딩비를 반영한 값). 현물 매도와 선물 청산에만"},
               "strategy":{"type":"string","description":"전략 이름 (60자까지)"},
               "reason":{"type":"string","description":"주문을 낸 신호·이유 (300자까지)"},
               "executed_at":{"type":"string","description":"체결 시각 ISO-8601 (예: 2026-10-14T10:03:00+09:00). 없으면 지금"}},
@@ -63,6 +69,22 @@ class TradeTools {
         String modeRaw = a.path("mode").asString("");
         TradeJournal.Mode mode = modeRaw.isBlank() ? TradeJournal.Mode.PAPER : enumOf(TradeJournal.Mode.class, modeRaw);
         if (!modeRaw.isBlank() && mode == null) return McpTools.Result.fail("mode는 PAPER나 LIVE예요.");
+        String marketRaw = a.path("market").asString("");
+        TradeJournal.Market market = marketRaw.isBlank() ? TradeJournal.Market.SPOT : enumOf(TradeJournal.Market.class, marketRaw);
+        if (market == null) return McpTools.Result.fail("market은 SPOT이나 FUTURES예요.");
+        String positionRaw = a.path("position_side").asString("");
+        TradeJournal.PositionSide position = enumOf(TradeJournal.PositionSide.class, positionRaw);
+        if (!positionRaw.isBlank() && position == null) return McpTools.Result.fail("position_side는 LONG이나 SHORT예요.");
+        BigDecimal leverageRaw = number(a, "leverage");
+        if (a.hasNonNull("leverage") && leverageRaw == null) {
+            return McpTools.Result.fail("leverage는 1~" + TradeJournal.LEVERAGE_MAX + " 사이 정수예요.");
+        }
+        Integer leverage;
+        try {
+            leverage = leverageRaw == null ? null : leverageRaw.intValueExact();
+        } catch (ArithmeticException e) {
+            return McpTools.Result.fail("leverage는 1~" + TradeJournal.LEVERAGE_MAX + " 사이 정수예요.");
+        }
         Instant at;
         try {
             at = a.hasNonNull("executed_at") ? OffsetDateTime.parse(a.path("executed_at").asString()).toInstant() : null;
@@ -72,7 +94,7 @@ class TradeTools {
         TradeJournal.Recorded r = trades.record(caller.memberId(), new TradeJournal.Input(a.path("external_id").asString(""), mode,
                 a.path("symbol").asString(""), a.path("symbol_name").asString(""), side, number(a, "quantity"), number(a, "price"),
                 number(a, "fee"), number(a, "realized_pnl"), a.path("strategy").asString(""), a.path("reason").asString(""), at,
-                a.path("exchange").asString(""), a.path("currency").asString("")));
+                a.path("exchange").asString(""), a.path("currency").asString(""), market, position, leverage, a.path("interval").asString("")));
         String link = baseUrl + "/trades?date=" + r.day();
         return McpTools.Result.ok(r.duplicate()
                 ? "이미 남긴 체결이에요 (체결 번호 " + r.id() + "). 다시 남기지 않았어요. 매매 일지: " + link
@@ -90,15 +112,17 @@ class TradeTools {
         if (d.fills().isEmpty() && d.memo().isBlank()) return McpTools.Result.ok(date + "에는 체결 기록이 없어요.");
         TradeJournal.Summary s = d.summary();
         StringBuilder sb = new StringBuilder(date + " 매매 기록\n");
-        sb.append("체결 ").append(s.trades()).append("건 (매수 ").append(s.buys()).append(" · 매도 ").append(s.sells()).append(")")
+        sb.append("체결 ").append(s.trades()).append("건 (매수 ").append(s.buys()).append(" · 매도 ").append(s.sells()).append(" · 청산 ").append(s.closes()).append(")")
                 .append(" · 실현 손익 ").append(plain(s.realizedPnl())).append(" (이익 ").append(s.wins()).append(" · 손해 ").append(s.losses()).append(")")
                 .append(" · 수수료·세금 ").append(plain(s.fees())).append(" · 누적 실현 손익 ").append(plain(d.cumulativePnl())).append('\n');
         for (TradeJournal.Fill f : d.fills()) {
             String unit = TradeJournal.unit(f);
             sb.append("- ").append(TIME.format(f.executedAt())).append(' ').append(f.mode().equals("LIVE") ? "[실계좌] " : "")
                     .append(f.exchange().isBlank() ? "" : "[" + f.exchange() + "] ")
+                    .append(f.market().equals("FUTURES") ? "[" + TradeTexts.positionLabel(f) + "] " : "")
+                    .append(f.interval().isBlank() ? "" : "[" + f.interval() + "] ")
                     .append(f.symbolName().isBlank() ? f.symbol() : f.symbolName() + "(" + f.symbol() + ")")
-                    .append(' ').append(f.side().equals("BUY") ? "매수" : "매도").append(' ').append(plain(f.quantity()))
+                    .append(' ').append(TradeTexts.actionLabel(f)).append(' ').append(plain(f.quantity()))
                     .append(unit.equals("주") ? "주" : " " + unit).append(" @ ").append(plain(f.price(), f.currency()));
             if (f.realizedPnl() != null) sb.append(" · 손익 ").append(plain(f.realizedPnl(), f.currency()));
             if (!f.reason().isBlank()) sb.append(" · 이유: ").append(f.reason());

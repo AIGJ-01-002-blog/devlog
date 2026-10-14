@@ -14,6 +14,7 @@ import tools.jackson.databind.JsonNode;
 import com.team.blog.shared.config.BlogProperties;
 import com.team.blog.shared.error.ApiException;
 import com.team.blog.shorts.application.OriginalityCheck;
+import com.team.blog.shorts.application.ShortsBatches;
 import com.team.blog.shorts.application.ShortsScript;
 import com.team.blog.shorts.application.ShortsService;
 
@@ -28,23 +29,42 @@ class ShortsTools {
             "scenes":{"type":"array","maxItems":10,"description":"장면 3~10개. 합쳐서 60초 안(내레이션 약 330자 안)","items":{"type":"object","properties":{
                 "caption":{"type":"string","description":"화면 큰 자막 (40자까지, 한 줄 요점)"},
                 "narration":{"type":"string","description":"읽을 문장 (200자까지, 말하듯이)"},
-                "code":{"type":"string","description":"화면에 보일 짧은 코드 (선택, 300자까지)"}},
+                "code":{"type":"string","description":"화면에 보일 짧은 코드 (선택, 300자까지)"},
+                "image":{"type":"string","description":"장면 배경으로 깔 그림 (선택). get_post 본문에 있는 devlog 그림 주소나 /로 시작하는 사이트 경로만. 그림이 없으면 글 대표 사진이 첫 장면에 들어가요"},
+                "visual":{"type":"string","enum":["explain","shock","typing","panic","restore","wait","fast","idea","protect","think","celebrate"],
+                  "description":"장면 연출. explain 설명, shock 데이터가 사라짐, typing 모니터에 코드(문제 줄 빨강·고친 줄 초록), panic 요청 폭주, restore 백업으로 복구, wait 느린 로딩, fast 전후 막대와 N배 빨라짐, idea 팁, protect 막아 냄, think 원인 질문, celebrate 결과 축하. 숫자는 내레이션에서 읽으니 '4초에서 100밀리초'처럼 내레이션에 숫자를 넣는다"},
+                "effects":{"type":"array","maxItems":3,"description":"장면 안 효과음 (선택, 꼭 필요한 곳에만)","items":{"type":"object","properties":{
+                  "sound":{"type":"string","enum":["pop","ding","whoosh","boing","tick","typing"]},
+                  "at":{"type":"number","description":"장면이 시작하고 몇 초 뒤"},
+                  "volume":{"type":"number","description":"0~1 (선택)"}},"required":["sound","at"]}}},
               "required":["caption","narration"]}}""";
 
     static final String GUIDE = "양산형으로 보이지 않게: 원본 글 문장을 그대로 읽지 말고 말로 풀어 쓴다. 첫 장면은 시청자가 겪는 문제나 질문으로 시작한다. "
             + "사용자가 직접 겪은 일과 결과(숫자)를 한 장면 이상 넣는다. 장면마다 새 정보(원인·시도·결과·배운 점)를 하나씩 넣고 같은 말로 시작하지 않는다. "
-            + "글에 없는 경험이나 수치를 지어내지 않는다.";
+            + "글에 없는 경험이나 수치를 지어내지 않는다. 장면마다 내용에 맞는 visual(연출)을 고르고, 효과음(effects)은 강조할 순간에만 넣는다.";
 
     static final int CANDIDATES_DEFAULT = 5;
     static final int CANDIDATES_MAX = 10;
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneId.of("Asia/Seoul"));
 
+    static final String TOPICS_SCHEMA = """
+            "topics":{"type":"array","minItems":2,"maxItems":5,"description":"작은 주제 2~5개. 한 편에 한 주제, 편끼리 겹치지 않게","items":{"type":"object","properties":{
+                "title":{"type":"string","description":"이 편의 제목 (60자까지)"},
+                "hook":{"type":"string","description":"첫 장면에서 던질 질문이나 문제 한 줄 (120자까지)"},
+                "scope":{"type":"string","description":"이 편에서만 다룰 것: 원인·시도·결과 가운데 무엇을 (300자까지)"}},
+              "required":["title","hook"]}}""";
+
+    static final String PLAN_GUIDE = "근거 하나를 작은 주제로 나눌 때: 한 편은 질문 하나에 답하고 끝낸다(문제 → 원인 → 내가 한 것 → 결과 숫자). "
+            + "같은 설명을 두 편에 넣지 않는다. 근거에 없는 경험·수치는 주제로 만들지 않는다. 근거가 작으면 2편, 크면 5편까지.";
+
     private final ShortsService shorts;
+    private final ShortsBatches batches;
     private final ShortsCandidates candidates;
     private final String baseUrl;
 
-    ShortsTools(ShortsService shorts, ShortsCandidates candidates, BlogProperties props) {
+    ShortsTools(ShortsService shorts, ShortsBatches batches, ShortsCandidates candidates, BlogProperties props) {
         this.shorts = shorts;
+        this.batches = batches;
         this.candidates = candidates;
         this.baseUrl = props.site().baseUrl();
     }
@@ -53,10 +73,36 @@ class ShortsTools {
         return shorts.enabled();
     }
 
+    /** 근거(글·맥락)를 작은 주제로 나눈 묶음을 만든다 (#276). 대본은 주제마다 create_shorts_script로 쓴다 */
+    McpTools.Result plan(AccessTokens.Caller caller, JsonNode a) {
+        Long postId = a.path("post_id").canConvertToLong() ? a.path("post_id").asLong() : null;
+        List<ShortsBatches.Topic> topics = new ArrayList<>();
+        for (JsonNode n : a.path("topics")) topics.add(new ShortsBatches.Topic(text(n, "title"), text(n, "hook"), text(n, "scope")));
+        try {
+            ShortsBatches.Batch b = batches.plan(caller.memberId(), new ShortsBatches.Plan(postId, text(a, "source_text"), text(a, "title"), topics));
+            StringBuilder sb = new StringBuilder("쇼츠 묶음을 만들었어요 (묶음 번호 " + b.id() + ", 주제 " + b.topics().size() + "개).\n");
+            for (ShortsBatches.TopicView t : b.topics()) {
+                sb.append(t.number()).append(". ").append(t.title()).append(" · 첫 질문: ").append(t.hook());
+                if (!t.scope().isEmpty()) sb.append(" · 범위: ").append(t.scope());
+                sb.append('\n');
+            }
+            sb.append("이제 주제마다 create_shorts_script(batch_id ").append(b.id()).append(", topic 번호)로 대본을 한 편씩 써 주세요. ")
+                    .append("첫 장면은 그 주제의 첫 질문으로 시작하고, 범위 밖 이야기는 다른 편에 맡겨요. ")
+                    .append("영상은 사용자가 스튜디오에서 확인하고 묶음째 [영상 만들기]를 눌러요: ").append(baseUrl).append("/studio?batch=").append(b.id());
+            return McpTools.Result.ok(sb.toString());
+        } catch (ApiException e) {
+            return McpTools.Result.fail(message(e));
+        }
+    }
+
     McpTools.Result create(AccessTokens.Caller caller, JsonNode a) {
         Long postId = a.path("post_id").canConvertToLong() ? a.path("post_id").asLong() : null;
+        Long batchId = a.path("batch_id").canConvertToLong() ? a.path("batch_id").asLong() : null;
+        Integer topic = a.path("topic").canConvertToInt() ? a.path("topic").asInt() : null;
         try {
-            ShortsService.Item item = shorts.create(caller.memberId(), new ShortsService.Draft(postId, text(a, "title"), scenes(a)));
+            ShortsService.Item item = batchId != null
+                    ? batches.create(caller.memberId(), batchId, topic, text(a, "title"), scenes(a))
+                    : shorts.create(caller.memberId(), new ShortsService.Draft(postId, text(a, "title"), scenes(a), null, null, text(a, "source_text")));
             return McpTools.Result.ok("쇼츠 대본을 저장했어요 (쇼츠 번호 " + item.id() + ", 예상 " + Math.round(item.estimatedSeconds()) + "초).\n"
                     + report(shorts.check(caller.memberId(), item.id()))
                     + "\n영상은 사용자가 이 화면에서 대본을 확인하고 [영상 만들기]를 눌러야 만들어져요: " + studioUrl(item.id()));
@@ -89,8 +135,14 @@ class ShortsTools {
             sb.append("- ").append(i.id()).append(" · ").append(i.title()).append(" · ").append(label(i.status()))
                     .append(" · 장면 ").append(i.scenes().size()).append("개 · 예상 ").append(Math.round(i.estimatedSeconds())).append("초");
             if (i.postId() != null) sb.append(" · 원본 글 ").append(i.postId());
+            if (i.batchId() != null) sb.append(" · 묶음 ").append(i.batchId()).append("의 ").append(i.topic()).append("번 주제");
             if (i.error() != null && i.status() != ShortsService.Status.READY) sb.append(" · 최근 오류: ").append(i.error());
             sb.append('\n');
+        }
+        for (ShortsBatches.Batch b : batches.list(caller.memberId())) {
+            List<String> missing = b.topics().stream().filter(t -> t.shortsId() == null).map(t -> t.number() + "번 " + t.title()).toList();
+            if (missing.isEmpty()) continue;
+            sb.append("묶음 ").append(b.id()).append(" '").append(b.title()).append("'에 대본이 없는 주제: ").append(String.join(", ", missing)).append('\n');
         }
         sb.append("오늘 영상 만들기 ").append(o.rendersToday()).append('/').append(o.dailyRenders()).append("번. 스튜디오: ").append(baseUrl).append("/studio");
         return McpTools.Result.ok(sb.toString());
@@ -165,7 +217,18 @@ class ShortsTools {
 
     private static List<ShortsScript.Scene> scenes(JsonNode a) {
         List<ShortsScript.Scene> out = new ArrayList<>();
-        for (JsonNode n : a.path("scenes")) out.add(new ShortsScript.Scene(text(n, "caption"), text(n, "narration"), n.has("code") ? text(n, "code") : null));
+        for (JsonNode n : a.path("scenes")) {
+            // visual은 "typing"이나 {"action":"typing"} 둘 다 받는다 (#277 워커와 같은 모양)
+            JsonNode v = n.path("visual");
+            String visual = v.isString() ? v.asString() : v.isObject() ? text(v, "action") : null;
+            List<ShortsScript.Effect> effects = new ArrayList<>();
+            for (JsonNode e : n.path("effects")) {
+                effects.add(new ShortsScript.Effect(text(e, "sound"), e.path("at").asDouble(0),
+                        e.path("volume").isNumber() ? e.path("volume").asDouble() : null));
+            }
+            out.add(new ShortsScript.Scene(text(n, "caption"), text(n, "narration"), n.has("code") ? text(n, "code") : null,
+                    n.has("image") ? text(n, "image") : null, visual, effects));
+        }
         return out;
     }
 
@@ -175,7 +238,7 @@ class ShortsTools {
     }
 
     private static String message(ApiException e) {
-        if (e.status().value() == 404) return "쇼츠를 찾을 수 없어요 (없는 번호이거나 내 쇼츠가 아니에요).";
+        if (e.status().value() == 404) return "쇼츠나 묶음을 찾을 수 없어요 (없는 번호이거나 내 것이 아니에요).";
         if (!e.errors().isEmpty()) return e.errors().stream().map(f -> f.message()).distinct().reduce((x, y) -> x + " " + y).orElse(e.getMessage());
         if ("VERSION_CONFLICT".equals(e.code())) return "그 사이 사용자가 대본을 고쳤어요. list_shorts로 다시 확인해 주세요.";
         return e.getMessage();
