@@ -26,7 +26,7 @@ import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import bgm, candles, captions, draw, layout, replay, sfx, trade_sfx, tts
+from . import acting, bgm, candles, captions, draw, layout, remotion, replay, sfx, trade_sfx, tts
 
 try:  # 캐릭터 무대는 Pillow가 있을 때만. 없으면 글자 화면으로 만든다
     from . import stage
@@ -70,10 +70,6 @@ CAPTION_BAR = "0x38bdf8"
 MIDDLE_TOP = 680
 #: 캐릭터 무대(1080×640)를 놓는 높이
 STAGE_Y = 630
-#: 매매 재현(#265): 차트 아래 구절 자막 자리, 맨 끝 고지 카드
-REPLAY_SUBTITLE_Y = 1350
-CARD_CAPTION = "투자 권유 아님"
-CARD_SILENCE = 0.6
 IMAGE_BOX = (920, 540)
 SUBTITLE_Y = 1330
 #: 배경을 움직이려고 화면보다 조금 크게 만들어 두고 잘라 낸다
@@ -92,6 +88,10 @@ MONO_CANDIDATES = {
 }
 
 
+#: 말 없는 장면(매매 재현 끝 고지 카드)의 길이. 앞 여유·끝 머묾을 더하면 1.3초 남짓
+SILENT_SECONDS = 0.35
+
+
 @dataclass
 class Scene:
     caption: str
@@ -101,6 +101,8 @@ class Scene:
     image: str | None = None
     #: 캐릭터 연기 지시. 문자열(연기 이름)이나 {"action": …}. 없으면 장면 글에서 상황을 읽어 고른다
     visual: str | dict | None = None
+    #: 캐릭터 대신 쓸 Remotion 장면(remotion/src/custom.tsx에 등록한 kind)과 그 데이터. 예: 매매 재현 {"kind": "replay", "data": {...}}
+    custom: dict | None = None
 
 
 @dataclass
@@ -122,14 +124,19 @@ class Script:
             image = s.get("image") or (cover if k == 0 else None)
             if image and image.startswith("/"):
                 image = origin + image
-            scenes.append(Scene(s.get("caption") or "", s.get("narration") or "", s.get("code"), image, s.get("visual")))
+            custom = s.get("custom")
+            if not (isinstance(custom, dict) and isinstance(custom.get("kind"), str) and custom["kind"]):
+                custom = None
+            else:
+                custom = {"kind": custom["kind"], "data": custom.get("data")}
+            scenes.append(Scene(s.get("caption") or "", s.get("narration") or "", s.get("code"), image, s.get("visual"), custom))
         post_url = job.get("postUrl")
         handle = job.get("handle")
         if post_url:  # 바탕 글이 있으면 그 글 주소(서버는 사이트 안 경로를 준다)
             footer = post_url.split("://", 1)[-1] if "://" in post_url else site + post_url
         else:
             footer = f"{site}/@{handle}" if handle else site
-        effects = [sfx.Effect(int(e["scene"]), float(e.get("at") or 0), str(e["sound"]), float(e.get("volume") or 0.6))
+        effects = [sfx.Effect(int(e["scene"]), float(e.get("at") or 0), str(e["sound"]), 0.6 if e.get("volume") is None else float(e["volume"]))
                    for e in job.get("effects") or [] if isinstance(e, dict) and e.get("sound") in sfx.SOUNDS]
         return Script(job.get("title") or "", scenes, footer, effects, job.get("replay"))
 
@@ -156,6 +163,7 @@ def plan(speech: list[float], words: list[list[captions.Word] | None], narration
     for i, seconds in enumerate(speech):
         lead = FIRST_LEAD if i == 0 else LEAD
         length = lead + seconds + (TAIL if i == last else SCENE_PADDING + TRANSITION)
+        length = math.ceil(length * FPS - 1e-6) / FPS  # 프레임 단위로 맞춰 화면(Remotion)과 소리가 어긋나지 않게
         cues = captions.cues(narrations[i], seconds, words[i], tail=SCENE_PADDING)
         out.append(Timing(start, lead, seconds, length, cues))
         start += length - TRANSITION
@@ -185,7 +193,7 @@ def find_font(explicit: str | None = None, mono: bool = False) -> str:
 
 class Renderer:
     def __init__(self, font: str, mono_font: str, engine: str = "auto", ffmpeg: str = "ffmpeg", voice: str | None = None,
-                 music: str | None = None, character: bool = True, fetch_candles=candles.fetch):
+                 music: str | None = None, character: bool = True, use_remotion: bool | None = None, fetch_candles=candles.fetch):
         self.font = font
         self.mono_font = mono_font
         self.engine = tts.pick(engine)
@@ -195,6 +203,8 @@ class Renderer:
         self.music = music
         #: 2D 캐릭터가 상황을 연기하는 무대를 쓸지(Pillow 필요)
         self.character = character
+        #: 화면을 Remotion으로 그릴지. None이면 node가 있을 때 쓴다. 못 쓰면 Pillow 무대(또는 글자 화면)로 그린다
+        self.use_remotion = remotion.available() if use_remotion is None else use_remotion
         self.fetch_candles = fetch_candles
 
     def render(self, script: Script, out: Path) -> int:
@@ -203,8 +213,12 @@ class Renderer:
             raise ValueError("장면이 없어요.")
         chart = self._replay(script) if script.replay else None
         if chart is not None:
+            if not self.use_remotion:
+                raise RuntimeError("매매 재현 영상은 Remotion(Node 18 이상)이 있어야 만들 수 있어요.")
             # 투자 권유 고지는 대본과 상관없이 맨 끝에 말 없는 짧은 카드 한 장으로 붙인다(AI가 대본을 다시 써도 빠지지 않는다)
-            script = Script(script.title, [*script.scenes, Scene(CARD_CAPTION, "")], script.footer, script.effects, script.replay)
+            mode = "실계좌" if (script.replay or {}).get("mode") == "LIVE" else "모의투자"
+            card = Scene("", "", custom={"kind": "replay-card", "data": {"mode": mode}})
+            script = Script(script.title, [*script.scenes, card], script.footer, list(script.effects), script.replay)
         with tempfile.TemporaryDirectory(prefix="devlog-render-") as tmp:
             work = Path(tmp)
             shutil.copyfile(self.font, work / ("font" + Path(self.font).suffix))
@@ -213,28 +227,33 @@ class Renderer:
             speech = [probe_ms(a, self.ffmpeg) / 1000 for a in audios]
             timings = plan(speech, words, [s.narration for s in script.scenes])
             total = timings[-1].start + timings[-1].length
+            images = [self._image(work, i, s.image) for i, s in enumerate(script.scenes)]
             if chart is not None:
-                segments, effects = self._replay_scenes(work, script, chart, timings, total)
+                self._attach_replay(script, chart, timings)
+            joined = work / "out.mp4"
+            if self.use_remotion:
+                # 화면은 Remotion이 한 번에(전환 포함) 그리고, 소리는 아래 _join이 섞는다
+                visuals = self._visuals(script)
+                video = work / "screen.mp4"
+                remotion.render(self._props(script, timings, total, audios, words, images, visuals), work, video)
+                effects = list(script.effects) + [
+                    sfx.Effect(i, at, name, volume)
+                    for i, v in enumerate(visuals) if script.scenes[i].custom is None
+                    for name, at, volume in acting.effects(v, timings[i].lead, timings[i].speech, timings[i].length)]
+                self._join(work, [video], audios, timings, total, joined, effects, joined_video=True)
             else:
-                images = [self._image(work, i, s.image) for i, s in enumerate(script.scenes)]
                 stages = self._stages(script, audios, timings)
                 segments = [self._encode(work, i, timings[i], images[i], stages[i],
                                          self._filters(work, script, i, scene, timings[i], total, images[i] is not None, stages[i] is not None))
                             for i, scene in enumerate(script.scenes)]
-                effects = self._effects(script, stages)
-            joined = work / "out.mp4"
-            self._join(work, segments, audios, timings, total, joined, effects)
+                effects = list(script.effects)
+                for i, act in enumerate(stages):
+                    if act is not None:
+                        effects += [sfx.Effect(i, at, name, volume) for name, at, volume in act.effects()]
+                self._join(work, segments, audios, timings, total, joined, effects)
             out.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(joined), str(out))
         return probe_ms(out, self.ffmpeg)
-
-    @staticmethod
-    def _effects(script: Script, stages: list) -> list:
-        effects = list(script.effects)
-        for i, act in enumerate(stages):
-            if act is not None:
-                effects += [sfx.Effect(i, at, name, volume) for name, at, volume in act.effects()]
-        return effects
 
     # ── 매매 재현 (#265) ───────────────────────────────────────────────
 
@@ -251,86 +270,47 @@ class Renderer:
             chart.candles = self.fetch_candles(chart.exchange, chart.symbol, chart.interval, start, end)
         return chart
 
-    def _replay_scenes(self, work: Path, script: Script, chart: replay.Replay, timings: list[Timing], total: float):
-        """재현 장면 영상과 효과음. 캔들은 영상 전체에 걸쳐 흐르므로 장면 시각을 모두 안 뒤에 언제 나올지 정한다.
-        차트 시계는 장면이 화면에 나오기 시작한 시각(Timing.start)을 쓴다. 마지막 장면은 고지 카드라 차트에 넣지 않는다."""
+    @staticmethod
+    def _attach_replay(script: Script, chart: replay.Replay, timings: list[Timing]) -> None:
+        """대본 장면마다 Remotion 매매 재현 장면을 붙이고 체결 효과음을 얹는다(마지막 장면은 고지 카드).
+        차트 시계는 장면이 화면에 나오기 시작한 시각(Timing.start)을 쓴다."""
         body = timings[:-1]
         starts = [t.start for t in body]
         end = body[-1].start + body[-1].length
-        layers = replay.scene_layers(chart, starts, end)
-        moves = replay.shakes(chart, starts, end)
-        segments = [self._encode(work, i, t, None, None, self._replay_filters(work, script, i, script.scenes[i], t, total, layers, moves))
-                    for i, t in enumerate(body)]
-        k = len(script.scenes) - 1
-        segments.append(self._encode(work, k, timings[k], None, None, self._card_filters(work, script, k, timings[k], total)))
-        effects = list(script.effects)
+        data = replay.chart_data(chart, starts, end, FPS)
+        for i, t in enumerate(body):
+            script.scenes[i].custom = {"kind": "replay", "data": {**data, "startFrame": round(t.start * FPS)}}
         for scene, at, kind, volume in trade_sfx.per_scene(replay.cues(chart, starts, end), starts):
-            effects.append(sfx.Effect(scene, at, str(trade_sfx.sound_file(kind, work)), volume))
-        return segments, effects
+            script.effects.append(sfx.Effect(scene, at, str(trade_sfx.sound_file(kind, trade_sfx.cache_dir())), volume))
 
-    def _replay_filters(self, work: Path, script: Script, i: int, scene: Scene, timing: Timing, total: float,
-                        layers: list, shakes: list) -> str:
-        """매매 재현 장면: 위에 제목·요점 자막, 가운데 캔들 차트, 아래 구절 자막. 차트 요소는 영상 전체 시각을 장면 안 시각으로 바꿔 켠다."""
-        c = draw.Canvas(work, f"t{i}", "font" + Path(self.font).suffix, "mono" + Path(self.mono_font).suffix)
-        start, seconds = timing.start, timing.length
-        c.progress(start, total, ACCENT)
-        title = layout.wrap(script.title, 22, 1)
-        if title:
-            c.text(title[0], 38, MUTED, 150, alpha="0.9")
-        for k, line in enumerate(layout.wrap(scene.caption, 13, 2)):
-            c.text(line, 72, "white", draw.rise(230 + k * 90, k * 0.06), border=4, border_color="black@0.35", shadow=6,
-                   alpha=draw.fade_in(k * 0.06))
+    def _visuals(self, script: Script) -> list:
+        everything = " ".join(f"{s.caption} {s.narration}" for s in script.scenes)
+        visuals = [acting.infer(scene, everything) for scene in script.scenes]
+        for i, v in enumerate(visuals):
+            log.info("장면 %d 연기: %s", i + 1, v.action)
+        return visuals
 
-        for layer in layers:
-            local, until = layer.start - start, None if layer.end is None else layer.end - start
-            if local >= seconds or (until is not None and until <= 0):
-                continue
-            if local <= 0 and (until is None or until >= seconds):
-                when = None
-            elif until is None:
-                when = draw.after(local)
-            else:
-                when = draw.between(max(local, 0.0), until)
-            t0 = f"{local:.3f}"
-
-            def ex(v):  # 움직이는 효과의 {T}를 이 요소가 나타나는 장면 안 시각으로
-                return v.replace("{T}", t0) if isinstance(v, str) else v
-
-            if isinstance(layer, replay.Box):
-                f = f"drawbox=x={ex(layer.x)}:y={ex(layer.y)}:w={ex(layer.w)}:h={ex(layer.h)}:color={layer.color}:t={layer.thickness}"
-                c.parts.append(f + (f":enable={when}" if when else ""))
-            else:
-                c.text(layer.value, ex(layer.fontsize) or layer.size, layer.color, ex(layer.y), ex(layer.x), alpha=ex(layer.alpha),
-                       enable=when, box=layer.box)
-
-        lead = timing.lead
-        for cue in timing.cues:
-            a, b = lead + cue.start, lead + cue.end
-            for k, line in enumerate(cue.lines):
-                y = REPLAY_SUBTITLE_Y + k * 80 - (len(cue.lines) - 1) * 40
-                c.text(line, 60, "white", draw.rise(y, a, 0.12, 14), border=7, border_color="black@0.9",
-                       alpha=draw.fade_in(a, 0.08), enable=draw.between(a, b))
-        c.text(script.footer, 34, MUTED, 1560, alpha="0.85")
-
-        # 체결 순간 화면이 짧게 흔들린다: 테두리를 조금 붙여 두고 잘라 내는 자리를 흔든다
-        moves = [m for m in shakes if 0 <= m.at - start < seconds]
-        if moves:
-            pad = max(m.amp for m in moves) + 2
-            dx = "+".join(f"if(between(t,{m.at - start:.3f},{m.at - start + m.seconds:.3f}),"
-                          f"{m.amp}*sin(t*95)*(1-(t-{m.at - start:.3f})/{m.seconds}),0)" for m in moves)
-            dy = dx.replace("sin(t*95)", "cos(t*77)")
-            c.parts.append(f"pad={layout.WIDTH + 2 * pad}:{layout.HEIGHT + 2 * pad}:{pad}:{pad}:color=0x0b1020")
-            c.parts.append(f"crop={layout.WIDTH}:{layout.HEIGHT}:x='{pad}+{dx}':y='{pad}+{dy}'")
-        return c.filters()
-
-    def _card_filters(self, work: Path, script: Script, i: int, timing: Timing, total: float) -> str:
-        """맨 끝 고지 카드: 말 없이 두 줄만"""
-        c = draw.Canvas(work, f"t{i}", "font" + Path(self.font).suffix, "mono" + Path(self.mono_font).suffix)
-        c.progress(timing.start, total, ACCENT)
-        mode = "실계좌" if (script.replay or {}).get("mode") == "LIVE" else "모의투자"
-        c.text(f"{mode} 기록", 72, "white", draw.rise(860, 0.0, 0.2, 20), border=4, border_color="black@0.35", alpha=draw.fade_in(0.0, 0.2))
-        c.text("투자 권유가 아니에요", 56, MUTED, draw.rise(970, 0.05, 0.2, 20), alpha=draw.fade_in(0.05, 0.2))
-        return c.filters()
+    def _props(self, script: Script, timings: list[Timing], total: float, audios: list[Path], words, images, visuals) -> dict:
+        """Remotion에 넘길 props (remotion/src/types.ts의 ShortsProps)"""
+        scenes = []
+        for i, scene in enumerate(script.scenes):
+            t, v = timings[i], visuals[i]
+            scenes.append({
+                "caption": scene.caption,
+                "code": layout.code_lines(scene.code, 40, 8) if scene.code else [],
+                "action": v.action,
+                "params": {"focus": v.focus, "good": v.good, "count": v.count, "before": v.before, "after": v.after,
+                           "label": v.label, "shell": v.shell},
+                "durationInFrames": round(t.length * FPS),
+                "leadFrames": round(t.lead * FPS),
+                "speechFrames": round(t.speech * FPS),
+                "pages": captions.pages(scene.narration, t.speech, words[i], tail=SCENE_PADDING),
+                "mouth": [round(m, 3) for m in acting.mouth_envelope(audios[i], FPS)],
+                "image": images[i].name if images[i] is not None else None,
+                "custom": scene.custom,
+            })
+        return {"title": script.title, "footer": script.footer, "transitionFrames": round(TRANSITION * FPS),
+                "totalFrames": round(total * FPS), "scenes": scenes}
 
     def _voices(self, work: Path, script: Script) -> tuple[list[Path], list[list[captions.Word] | None]]:
         """장면마다 음성. 신경망 음성이 한 장면이라도 실패하면 기기 음성으로 처음부터 다시 만든다."""
@@ -347,8 +327,8 @@ class Renderer:
         audios, words = [], []
         for i, scene in enumerate(script.scenes):
             audio = work / f"a{i}.wav"
-            if not scene.narration.strip():  # 말 없는 장면(재현 영상 끝 고지 카드)
-                self._ffmpeg(work, ["-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo", "-t", f"{CARD_SILENCE:.2f}", audio.name])
+            if not scene.narration.strip():  # 말 없는 장면(매매 재현 끝 고지 카드)
+                self._ffmpeg(work, ["-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo", "-t", f"{SILENT_SECONDS:.2f}", audio.name])
                 words.append(None)
             else:
                 words.append(tts.synthesize(scene.narration, audio, engine, self.ffmpeg, voice))
@@ -520,15 +500,20 @@ class Renderer:
                 c.text(comment, 38, CODE_COMMENT, y, x=str(x), mono=True, alpha=draw.fade_in(at, 0.12), enable=draw.after(at))
 
     def _join(self, work: Path, segments: list[Path], audios: list[Path], timings: list[Timing], total: float, out: Path,
-              effects: list | None = None) -> None:
+              effects: list | None = None, joined_video: bool = False) -> None:
         """장면을 xfade로 잇고, 내레이션을 제자리에 놓고, 배경음을 깔고, 효과음을 얹어 한 번에 최종 인코딩한다.
 
         효과음(sfx.Effect)은 장면이 화면에 나오기 시작한 시각(timings[scene].start) + at에 놓는다. 같은 소리 파일은 입력 하나를
         asplit으로 나눠 쓴다. 효과음은 배경음 줄이기(ducking)의 기준에 넣지 않는다(내레이션만 기준)."""
-        n = len(segments)
+        n = len(audios)
         args: list[str] = []
-        for seg in segments:
-            args += ["-i", seg.name]
+        if joined_video:  # 이미 이어진 화면 하나(Remotion). 입력 번호를 장면 수에 맞추려고 같은 파일을 한 번만 넣고 나머지 자리는 비운다
+            args += ["-i", segments[0].name]
+            for _ in range(n - 1):
+                args += ["-f", "lavfi", "-t", "0.04", "-i", "anullsrc=r=44100:cl=stereo"]
+        else:
+            for seg in segments:
+                args += ["-i", seg.name]
         for audio in audios:
             args += ["-i", audio.name]
         music = self._music()
@@ -545,7 +530,7 @@ class Renderer:
             args += ["-i", path]
 
         graph = []
-        if n == 1:
+        if n == 1 or joined_video:
             graph.append("[0:v]null[v]")
         else:
             prev = "[0:v]"

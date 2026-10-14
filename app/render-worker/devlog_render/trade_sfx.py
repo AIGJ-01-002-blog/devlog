@@ -7,8 +7,10 @@ replay.cues()가 낸 순서표(시각, 종류)를 영상 길이의 스테레오 
 from __future__ import annotations
 
 import math
+import os
 import random
 import sys
+import tempfile
 import wave
 from array import array
 from pathlib import Path
@@ -119,10 +121,24 @@ def render(cues, seconds: float, out: Path) -> Path:
 VOLUMES = {"tick": 0.35, "whoosh": 0.6, "buy": 0.9, "sell": 0.9, "win": 1.0, "loss": 1.0}
 
 
+#: 소리를 바꾸면 올린다(캐시 파일 이름에 들어간다)
+VERSION = 1
+
+
+def cache_dir() -> Path:
+    """합성한 효과음을 두는 곳. 배경음·캐릭터 효과음과 같은 캐시 폴더"""
+    base = Path(os.environ.get("DEVLOG_RENDER_CACHE") or Path.home() / ".cache" / "devlog-render")
+    try:
+        base.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        base = Path(tempfile.gettempdir())
+    return base
+
+
 def sound_file(kind: str, folder: Path) -> Path:
-    """효과음 한 종류를 WAV 파일로. 다른 렌더러(장면 효과음 훅 등)가 파일로 받아 쓸 때"""
-    path = folder / f"trade-{kind}.wav"
-    if not path.exists():
+    """효과음 한 종류를 WAV 파일로. 믹서의 장면 효과음 훅(sfx.Effect)이 파일로 받아 쓴다"""
+    path = folder / f"trade-{kind}-v{VERSION}.wav"
+    if not path.exists() or path.stat().st_size == 0:
         render([_At(0.0, kind)], len(_whoosh(0) if kind == "whoosh" else SOUNDS[kind]()) / RATE + 0.05, path)
     return path
 

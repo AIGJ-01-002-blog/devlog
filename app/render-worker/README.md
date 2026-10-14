@@ -5,8 +5,10 @@ devlog 쇼츠 스튜디오(spec 099)에서 [영상 만들기]를 누른 대본�
 
 - 음성: 무료 신경망 한국어 음성(edge-tts `ko-KR-SunHiNeural`)이 기본이에요. `--voice ko-KR-InJoonNeural`처럼 바꿀 수 있어요.
   인터넷이 막혔거나 실패하면 영상 전체를 기기 음성으로 다시 만들어요: 맥 `say`(Yuna), Windows 기본 한국어 음성(Heami), 리눅스 `espeak-ng`, 없으면 무음
-- 자막: 내레이션을 1~2줄 구절로 나눠 음성에 맞춰 한 구절씩 띄워요(신경망 음성은 단어마다 소리 나는 시각을 받아 맞춰요). 요점 자막은 0.25초 안에 떠올라요
-- 캐릭터: 크림색 2D 고양이가 장면마다 상황을 연기해요(Pillow 필요, 없으면 글자 화면). 말할 때 소리 크기에 맞춰 입을 움직이고 눈을 깜빡여요.
+- 자막: 내레이션을 1~2줄 구절로 나눠 음성에 맞춰 한 구절씩 띄우고, 지금 읽는 단어를 노랗게 키워요(신경망 음성은 단어마다 소리 나는 시각을 받아 맞춰요). 요점 자막은 단어마다 튀어 오르고 형광펜이 그어져요
+- 화면 도구: [Remotion](https://www.remotion.dev)(React로 영상을 만드는 도구)으로 그려요. `remotion/` 폴더가 화면(캐릭터·자막·전환)을, 파이썬 워커가 음성·시간·소리 섞기를 맡아요.
+  Node가 없으면 예전처럼 Pillow로 그린 무대로, Pillow도 없으면 글자 화면으로 내려가요
+- 캐릭터: 크림색 2D 고양이(SVG)가 장면마다 상황을 연기해요. 말할 때 소리 크기에 맞춰 입을 움직이고, 숨 쉬고, 눈을 깜빡여요.
   연기는 대본 장면의 `visual`(아래 표)을 따르고, 없으면 장면 글에서 상황을 읽어 골라요. 연기마다 효과음(뿅·띵·휙)이 붙어요
 
   | visual | 연기 | 글에서 고르는 단서 |
@@ -24,9 +26,10 @@ devlog 쇼츠 스튜디오(spec 099)에서 [영상 만들기]를 누른 대본�
   | `celebrate` | 별 속에서 폴짝 | 성공·해결·완성 |
 - 화면: 장면마다 천천히 흐르는 그라데이션 배경, 글 이미지(`image`·`coverImage`)가 있으면 흐린 배경으로 써요(캐릭터가 없을 때는 가운데 카드로도)
 - 배경음: 워커가 직접 합성한 잔잔한 반복 음악(저작권 걱정 없음)을 깔고 말할 때 소리를 낮춰요. 다른 음악은 `--bgm 파일`, 끄려면 `--bgm none`
-- 전환: 장면 사이 0.3초 페이드, 장면 끝 쉼 0.15초. 소리는 쇼츠 기준 -14 LUFS로 맞춰요
+- 전환: 장면 사이 0.3초 밀기(Remotion이 없으면 페이드), 장면 끝 쉼 0.15초. 소리는 쇼츠 기준 -14 LUFS로 맞춰요
 - 글꼴: 맥 Apple SD Gothic Neo, Windows 맑은 고딕, 리눅스 Noto Sans CJK (바꾸려면 `--font`)
-- 필요한 것: Python 3.10 이상, ffmpeg. 신경망 음성·캐릭터는 `pip install -r requirements.txt`(edge-tts, Pillow)
+- 필요한 것: Python 3.10 이상, ffmpeg, Node 18 이상(Remotion 화면). 신경망 음성은 `pip install -r requirements.txt`(edge-tts, Pillow)
+- 맞춤 장면: 대본 장면에 `custom: {"kind": "replay", "data": {...}}`를 주면 고양이 대신 `remotion/src/custom.tsx`의 `CUSTOM_SCENES`에 등록한 화면을 그려요(매매 재현 같은 다른 연출이 얹는 자리)
 
 ## 설치
 
@@ -39,8 +42,13 @@ devlog 쇼츠 스튜디오(spec 099)에서 [영상 만들기]를 누른 대본�
 ```bash
 cd app/render-worker
 python3 -m pip install -r requirements.txt   # 신경망 음성 (선택)
+(cd remotion && npm ci)                       # Remotion 화면 (처음 한 번, 안 해도 첫 렌더 때 알아서 해요)
 python3 -m devlog_render check      # ffmpeg·글꼴·음성 확인 (Windows는 python)
 ```
+
+Remotion은 처음 렌더할 때 헤드리스 크롬을 내려받아요. 이미 있는 크롬을 쓰려면 `DEVLOG_BROWSER`에 실행 파일 경로를, Remotion을 끄려면 `DEVLOG_REMOTION=0`을 주세요.
+화면만 고쳐 보려면 `cd remotion && npm run studio`로 견본 장면(`src/sample.ts`)을 브라우저에서 볼 수 있어요.
+Remotion은 개인과 직원 3명 이하 회사는 무료이고, 그보다 큰 회사가 쓰면 회사 라이선스가 필요해요([라이선스](https://www.remotion.dev/license)). 글꼴은 Pretendard·JetBrains Mono(둘 다 OFL)를 함께 넣어요.
 
 Windows 한국어 음성이 없다면 설정 → 시간 및 언어 → 언어 및 지역 → 한국어 → 언어 옵션 → 음성을 설치해 주세요.
 
@@ -95,4 +103,5 @@ python3 -m devlog_render render script.json out.mp4
 python3 -m unittest discover -s tests -t . -v
 ```
 
-ffmpeg가 있으면 실제로 영상을 만들고 가짜 서버와 주고받는 흐름까지 확인해요.
+ffmpeg가 있으면 실제로 영상을 만들고 가짜 서버와 주고받는 흐름까지 확인해요. 테스트는 기본으로 Pillow 무대로 그리고,
+Remotion으로 실제 렌더까지 보려면 `DEVLOG_REMOTION_TEST=1`을 주세요. 화면 코드 타입 검사는 `cd remotion && npm run typecheck`.

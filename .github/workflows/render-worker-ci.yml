@@ -46,7 +46,38 @@ jobs:
           PYTHONUTF8: "1"
         run: python -m unittest discover -s tests -t . -v
 
-  # 견본 대본 3개(samples/)를 실제 신경망 음성(edge-tts)으로 만들어 PR에서 내려받아 들어 볼 수 있게 올린다(#277).
+  # 화면을 그리는 Remotion 프로젝트(remotion/): 타입 검사 + 실제로 한 편 그려 보기(#277)
+  remotion:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: app/render-worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: app/render-worker/remotion/package-lock.json
+      - name: ffmpeg·한국어 글꼴
+        run: |
+          sudo apt-get update -q && sudo apt-get install -yq ffmpeg fonts-noto-cjk
+          python -m pip install -q -r requirements.txt
+      - name: Remotion 패키지·타입 검사
+        working-directory: app/render-worker/remotion
+        run: npm ci --no-audit --no-fund && npm run typecheck
+      - name: 실제 렌더 테스트
+        env:
+          PYTHONUTF8: "1"
+          DEVLOG_REMOTION: "1"
+          DEVLOG_REMOTION_TEST: "1"
+        run: python -m unittest tests.test_remotion -v
+
+  # 견본 대본 3개(samples/)를 Remotion 화면 + 실제 신경망 음성(edge-tts)으로 만들어 PR에서 내려받아 들어 볼 수 있게 올린다(#277).
   # 음성 서버에 닿지 않으면 워커처럼 기기 음성으로 내려가므로 이 단계는 실패하지 않는다.
   samples:
     if: github.event_name == 'pull_request'
@@ -60,10 +91,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: ffmpeg·한국어 글꼴·음성
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: app/render-worker/remotion/package-lock.json
+      - name: ffmpeg·한국어 글꼴·음성·Remotion
         run: |
           sudo apt-get update -q && sudo apt-get install -yq ffmpeg fonts-noto-cjk espeak-ng
           python -m pip install -q -r requirements.txt
+          (cd remotion && npm ci --no-audit --no-fund)
       - name: 견본 영상 만들기
         env:
           PYTHONUTF8: "1"
