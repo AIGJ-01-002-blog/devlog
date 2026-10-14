@@ -152,6 +152,8 @@ Run workflow의 `target`(기본 school)이 배포할 서버를 고른다. `schoo
 
 `pg-backup` CronJob이 매일 03:30(KST) `pg_dump`를 압축해 `pg-backup` 볼륨에 두고 7일치를 남긴다. 덤프가 비어 있으면 실패로 끝난다.
 
+서버 밖으로 DB와 파일 저장소(사진·첨부·쇼츠 영상)를 한꺼번에 받아 집 컴퓨터에서 되살리는 방법은 [home/README.md](home/README.md)에 있다.
+
 ```bash
 kubectl -n blog create job pg-backup-now --from=cronjob/pg-backup   # 지금 바로 백업
 # 복구: pg-backup 볼륨을 붙인 파드(라벨 app.kubernetes.io/name=pg-backup)에서
