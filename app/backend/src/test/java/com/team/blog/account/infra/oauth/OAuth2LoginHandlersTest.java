@@ -113,13 +113,23 @@ class OAuth2LoginHandlersTest {
     }
 
     @Test
-    void naverReadsResponseWrapperAndUploadedPhotoButNotUnverifiedEmail() throws Exception {
+    void naverReadsResponseWrapperNaverMailboxAndUploadedPhoto() throws Exception {
         Map<String, Object> attrs = Map.of("resultcode", "00", "message", "success", "response", Map.of(
                 "id", "32742776", "nickname", "민서", "name", "김민서", "email", "MinSeo@naver.com",
                 "profile_image", "https://phinf.pstatic.net/contact/20231001_1/abc.png"));
-        // 네이버 이메일은 인증 여부를 알 수 없어 넘기지 않는다(가입 마무리 화면에서 받아 인증한다)
+        // @naver.com 주소는 그 네이버 아이디의 메일함이라 인증된 이메일로 쓴다
         assertThat(succeed("naver", "response", attrs)).isEqualTo(new SocialProfile(AuthProvider.NAVER, "32742776", null,
-                "민서", null, "https://phinf.pstatic.net/contact/20231001_1/abc.png"));
+                "민서", "minseo@naver.com", "https://phinf.pstatic.net/contact/20231001_1/abc.png"));
+    }
+
+    @Test
+    void naverContactEmailOnOtherDomainIsAskedAgain() throws Exception {
+        // 네이버 응답에는 인증 여부 표시가 없어 다른 도메인 연락처 이메일은 가입 마무리 화면에서 받아 인증한다
+        SocialProfile p = succeed("naver", "response", Map.of("response", Map.of("id", "n-2", "nickname", "민서",
+                "email", "minseo@gmail.com")));
+        assertThat(p.verifiedEmail()).isNull();
+        assertThat(OAuth2LoginHandlers.naverMailbox("evil@naver.com.example")).isNull();
+        assertThat(OAuth2LoginHandlers.naverMailbox(" Kim@NAVER.com ")).isEqualTo(" Kim@NAVER.com ");
     }
 
     @Test

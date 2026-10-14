@@ -97,7 +97,8 @@ public class OAuth2LoginHandlers implements AuthenticationSuccessHandler, Authen
 
     /**
      * 네이버 사용자 정보 (spec 096). 값은 "response" 안에 온다. 사용자 식별은 앱마다 다른 id 문자열이다.
-     * 이메일은 넘기지 않는다. 네이버 응답에는 인증 여부 표시가 없어(카카오의 is_email_verified 같은 것) 가입 마무리 화면에서 받아 인증 메일로 확인한다.
+     * 네이버 응답에는 이메일 인증 여부 표시가 없다(카카오의 is_email_verified 같은 것). 그래서 그 네이버 아이디의 메일함인 {@code @naver.com} 주소만
+     * 인증된 이메일로 넘기고, 다른 연락처 이메일은 넘기지 않아 가입 마무리 화면에서 받아 인증 메일로 확인한다.
      * 닉네임이 없으면 이름을 쓴다. 사진은 회원이 올린 사진 서버(phinf.pstatic.net) 주소만 넘기므로 네이버 기본 사진은 빠진다.
      */
     static SocialProfile naver(Map<String, Object> attrs) {
@@ -107,8 +108,14 @@ public class OAuth2LoginHandlers implements AuthenticationSuccessHandler, Authen
                 str(r.get("id")),
                 null,
                 nickname == null || nickname.isBlank() ? str(r.get("name")) : nickname,
-                null,
+                naverMailbox(str(r.get(EMAIL))),
                 str(r.get("profile_image")));
+    }
+
+    /** 네이버 메일 주소(@naver.com)면 그대로, 아니면 null. 대소문자·앞뒤 공백은 SocialProfile이 정리한다. */
+    static String naverMailbox(String email) {
+        if (email == null) return null;
+        return email.strip().toLowerCase(java.util.Locale.ROOT).endsWith("@naver.com") ? email : null;
     }
 
     private static String str(Object o) {
