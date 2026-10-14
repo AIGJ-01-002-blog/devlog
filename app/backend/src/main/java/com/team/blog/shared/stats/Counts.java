@@ -31,6 +31,21 @@ public final class Counts {
     }
 
     /**
+     * 몇몇 글(키)만 날짜별로 센다 (회원 대시보드 #239).
+     * @param sql `SELECT (시각 AT TIME ZONE 'Asia/Seoul')::date AS d, count(*) AS n ... WHERE 키 = ANY (?) AND 시각 >= ? GROUP BY d` 모양
+     */
+    public static Map<LocalDate, Long> byDayOfKeys(JdbcTemplate jdbc, String sql, Collection<Long> keys, Instant from, Object... more) {
+        Map<LocalDate, Long> out = new HashMap<>();
+        if (keys.isEmpty()) return out;
+        Object[] args = new Object[2 + more.length];
+        args[0] = keys.toArray(Long[]::new);
+        args[1] = Timestamp.from(from);
+        System.arraycopy(more, 0, args, 2, more.length);
+        jdbc.query(sql, (RowCallbackHandler) rs -> out.put(rs.getObject("d", LocalDate.class), rs.getLong("n")), args);
+        return out;
+    }
+
+    /**
      * @param sql `SELECT 키 AS k, count(*) AS n ... WHERE 키 = ANY (?) GROUP BY k` 모양
      */
     public static Map<Long, Long> byKeys(JdbcTemplate jdbc, String sql, Collection<Long> keys) {

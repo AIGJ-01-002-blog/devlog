@@ -1,4 +1,5 @@
 import { count } from '../lib/admin'
+import { t } from '../lib/i18n'
 
 export interface BarPoint {
   /** 축에 쓰는 짧은 이름 (10.8) */
@@ -21,7 +22,7 @@ export function BarChart({ title, unit, points }: { title: string; unit: string;
     <figure className="bar-chart">
       <figcaption className="bar-chart-head">
         <span className="bar-chart-title">{title}</span>
-        <span className="muted small">합계 {count(total)}{unit} · 가장 많은 날 {count(max)}{unit}</span>
+        <span className="muted small">{t('합계 {0}{1} · 가장 많은 날 {2}{1}', { 0: count(total), 1: unit, 2: count(max) })}</span>
       </figcaption>
       <div className="bar-chart-plot" aria-hidden="true">
         <span className="bar-chart-max">{count(max)}</span>
@@ -37,8 +38,8 @@ export function BarChart({ title, unit, points }: { title: string; unit: string;
         {points.map((p, i) => <span key={p.fullLabel}>{marks.has(i) ? p.label : ''}</span>)}
       </div>
       <table className="sr-only">
-        <caption>{title} 날짜별 표</caption>
-        <thead><tr><th scope="col">날짜</th><th scope="col">{title}</th></tr></thead>
+        <caption>{t('{0} 날짜별 표', { 0: title })}</caption>
+        <thead><tr><th scope="col">{t('날짜')}</th><th scope="col">{title}</th></tr></thead>
         <tbody>{points.map((p) => <tr key={p.fullLabel}><th scope="row">{p.fullLabel}</th><td>{count(p.value)}{unit}</td></tr>)}</tbody>
       </table>
     </figure>

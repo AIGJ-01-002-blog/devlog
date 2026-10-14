@@ -23,7 +23,12 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 |---|---|---|
 | ![올리기 안내 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shorts-upload-guide-pc.webp) | ![올리기 안내 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shorts-upload-guide-m.webp) | ![올린 주소 남김 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shorts-upload-guide-m-dark.webp) |
 
+| 내 대시보드 (PC) | 휴대폰 | 휴대폰 · 다크 · 쇼츠 |
+|---|---|---|
+| ![내 대시보드 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/my-dash-pc.webp) | ![내 대시보드 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/my-dash-m.webp) | ![쇼츠 칸 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/my-dash-m-dark.webp) |
+
 ### 추가
+- 내 대시보드(`/dashboard`, 내 메뉴): 내 글(비공개 포함)이 받은 조회수·좋아요·받은 댓글을 7·30·90일로 보고 이전 같은 기간과 견준다. 날짜별 막대그래프, 기간 안에 많이 읽힌 글, 쇼츠(대본·완성 영상·플랫폼별로 올린 수·최근에 올린 영상 주소)를 한 화면에 모은다. 받은 댓글에서 내가 단 답글은 뺀다. 플랫폼 조회수는 각 앱에서 본다(API 연동 없음). DB 변경은 없다 (목표 v2.0.0 [#236](https://github.com/AIGJ-01-002-blog/devlog/issues/236), #239)
 - 쇼츠 올리기 안내: 완성된 쇼츠에서 YouTube Shorts·Instagram Reels·TikTok을 고르면 그 플랫폼에 맞춘 제목·설명(캡션)·고정 댓글을 복사 버튼과 함께 보여 주고, 앱 화면 기준 올리는 순서와 길이·비율·글자 수·해시태그 한도 확인을 띄운다. 휴대폰에서는 [앱으로 보내기]로 영상을 바로 SNS 앱에 넘긴다. 올린 뒤 영상 주소를 남기면(플랫폼 도메인의 https 주소만) 계정별 대시보드에서 쓴다. 자동 업로드는 여전히 없다. DB에 `shorts_upload` 표가 생긴다 (목표 v2.0.0 [#236](https://github.com/AIGJ-01-002-blog/devlog/issues/236) · spec 099, #238)
 - 쇼츠 스튜디오 1단계(`/studio`, 기본 꺼짐 `SHORTS_ENABLED=false`): 내 AI가 MCP(`create_shorts_script`·`update_shorts_script`·`list_shorts`)로 쓴 쇼츠 대본을 장면(자막·읽을 문장·코드)별로 다듬고, [영상 만들기]를 누르면 내 컴퓨터의 렌더 워커(`app/render-worker`, 맥 `say`·Windows 기본 음성)가 9:16 MP4로 만들어 올린다. 영상은 받아서 SNS에 직접 올리며 자동 업로드는 없다. 영상 만들기 전에 양산형 검사로 다른 대본과 겹침·글 그대로 옮김·장면 반복·같은 첫마디를 막는다. DB에 `shorts`·`shorts_render_request` 표가 생긴다 (목표 v2.0.0 [#236](https://github.com/AIGJ-01-002-blog/devlog/issues/236) · spec 099, #237, #242)
 

@@ -65,6 +65,7 @@ const RssGuidePage = lazyPage(() => import('./pages/RssGuidePage'), 'RssGuidePag
 const AdminInquiryPage = lazyPage(() => import('./pages/AdminInquiryPage'), 'AdminInquiryPage')
 const AboutPage = lazyPage(() => import('./pages/AboutPage'), 'AboutPage')
 const StudioPage = lazyPage(() => import('./pages/StudioPage'), 'StudioPage')
+const DashboardPage = lazyPage(() => import('./pages/DashboardPage'), 'DashboardPage')
 // 첫 로그인 회원만 보는 팝업이라 첫 묶음에 넣지 않는다 (spec 098)
 const AiOnboarding = lazy(() => import('./components/AiOnboarding').then((m) => ({ default: m.AiOnboarding })))
 
@@ -146,6 +147,7 @@ function route(path: string): ReactNode {
   if (path === '/write') return <RequireLogin><NewPostPage /></RequireLogin>
   if ((p = match('/write/:id', path))) return <RequireLogin><WritePage key={p.id} id={p.id} /></RequireLogin>
   if (path === '/manage/posts') return <RequireLogin><ManagePage /></RequireLogin>
+  if (path === '/dashboard') return <RequireLogin><DashboardPage /></RequireLogin>
   if (path === '/studio') return <RequireLogin><RequireShorts><StudioPage /></RequireShorts></RequireLogin>
   if (path === '/feed') return <RequireLogin><FeedPage /></RequireLogin>
   if (path === '/lists/liked') return <RequireLogin><LikedPage /></RequireLogin>
