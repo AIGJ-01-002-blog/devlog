@@ -243,6 +243,17 @@ class CommentTest extends IntegrationTest {
         browser().perform(get("/api/posts/" + p + "/comments").param("cursor", r0.path("repliesNextCursor").asString()))
                 .andExpect(status().isBadRequest());
 
+        // 답글이 5개 이하면 접지 않고 모두 보인다
+        List<Long> few = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            few.add(jdbc.queryForObject("INSERT INTO comment (post_id, author_id, parent_id, content, created_at, updated_at)"
+                    + " VALUES (?, ?, ?, ?, now(), now()) RETURNING id", Long.class, p, a.memberId(), roots.get(1), "f" + i)); // 쓰기 한도를 피해 바로 넣는다
+        }
+        JsonNode r1 = list(null, p, null).path("items").get(1);
+        assertThat(ids(r1.path("replies"))).isEqualTo(few);
+        assertThat(r1.path("replyCount").asInt()).isEqualTo(5);
+        assertThat(r1.path("repliesNextCursor").isNull()).isTrue();
+
         // 특정 댓글부터: 그 최상위부터 20개, 앞이 있으면 이전 커서, 6번째 답글이면 거기까지 펼친다
         JsonNode around = list(null, p, "around=" + replies.get(5));
         assertThat(around.path("items").get(0).path("id").asLong()).isEqualTo(roots.get(0));
