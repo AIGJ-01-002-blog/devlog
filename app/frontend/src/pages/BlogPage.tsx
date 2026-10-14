@@ -56,7 +56,11 @@ export function BlogPage({ handle, tab = 'posts' }: { handle: string; tab?: 'pos
   useEffect(() => {
     // 블로그 꾸미기 (#268): 포인트를 켠 서버에서만 받는다. 못 받아도 기본 모습으로 보인다
     setDeco(null)
-    if (pointsOn) loadDecorations(handle).then(setDeco).catch(() => {})
+    if (!pointsOn) return
+    // 블로그를 빠르게 옮겨 다닐 때 늦게 온 이전 블로그의 꾸미기가 덮어쓰지 않게 한다
+    let alive = true
+    loadDecorations(handle).then((d) => { if (alive) setDeco(d) }).catch(() => {})
+    return () => { alive = false }
   }, [handle, pointsOn])
 
   useEffect(() => {

@@ -71,6 +71,7 @@ const TradesPage = lazyPage(() => import('./pages/TradesPage'), 'TradesPage')
 const PointsPage = lazyPage(() => import('./pages/PointsPage'), 'PointsPage')
 const AdminPointsPage = lazyPage(() => import('./pages/AdminPointsPage'), 'AdminPointsPage')
 const ShopPage = lazyPage(() => import('./pages/ShopPage'), 'ShopPage')
+const PaperPage = lazyPage(() => import('./pages/PaperPage'), 'PaperPage')
 const AdminShopPage = lazyPage(() => import('./pages/AdminShopPage'), 'AdminShopPage')
 // 첫 로그인 회원만 보는 팝업이라 첫 묶음에 넣지 않는다 (spec 098)
 const AiOnboarding = lazy(() => import('./components/AiOnboarding').then((m) => ({ default: m.AiOnboarding })))
@@ -159,6 +160,8 @@ function route(path: string): ReactNode {
   if (path === '/trades') return <RequireLogin><RequireTrades><TradesPage /></RequireTrades></RequireLogin>
   if (path === '/points') return <RequireLogin><RequirePoints><PointsPage /></RequirePoints></RequireLogin>
   if (path === '/shop') return <RequireLogin><RequirePoints><ShopPage /></RequirePoints></RequireLogin>
+  // 포인트 모의투자(#267)는 체결을 매매 일지에 남기므로 둘 다 켜져야 보인다
+  if (path === '/paper') return <RequireLogin><RequirePoints><RequireTrades><PaperPage /></RequireTrades></RequirePoints></RequireLogin>
   if (path === '/feed') return <RequireLogin><FeedPage /></RequireLogin>
   if (path === '/lists/liked') return <RequireLogin><LikedPage /></RequireLogin>
   if (path === '/lists/read') return <RecentReadsPage />
