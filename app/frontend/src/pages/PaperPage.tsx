@@ -119,7 +119,7 @@ export function PaperPage() {
         <h1 className="page-title">{t('포인트 모의투자')}</h1>
         <Link to="/points" className="btn btn-outline btn-small" data-tip={t('출석하고 포인트 잔액과 내역 보기')}>{t('내 포인트')}</Link>
       </div>
-      <p className="muted small points-notice">{t('업비트 원화 시세로 비트코인·이더리움·리플·솔라나·도지코인을 포인트로 사고팔아요. 체결은 매매 일지에 모의투자로 남고, 수익의 일부는 크레딧으로 쌓여요.')}</p>
+      <p className="muted small points-notice">{t('업비트 원화 시세로 비트코인·이더리움·리플·솔라나·도지코인을 포인트로 사고팔아요. 체결은 매매 일지에 모의투자로 남고, 수익은 모두 크레딧으로 쌓여요.')}</p>
       {error && <p className="error" role="alert">{t('모의투자를 불러오지 못했어요.')}</p>}
       {!state && !error && <p className="muted center">{t('불러오는 중…')}</p>}
       {state && (

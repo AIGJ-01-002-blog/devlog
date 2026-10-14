@@ -4,7 +4,7 @@ import { t } from './i18n'
 
 /** 블로그 포인트 (#266). 서버 PointLedger와 같은 모양. 포인트는 정수(P) */
 export type Wallet = 'INVEST_ONLY' | 'SHOP'
-export type PointReason = 'WELCOME' | 'ATTENDANCE' | 'POST' | 'TRADE_PROFIT' | 'SHOP' | 'INVEST' | 'ADMIN'
+export type PointReason = 'WELCOME' | 'ATTENDANCE' | 'POST' | 'TRADE_PROFIT' | 'BOT_PROFIT' | 'SHOP' | 'INVEST' | 'ADMIN'
 
 export interface PointBalance {
   invest: number
@@ -67,7 +67,7 @@ export interface PointSummary {
   attendance: PointAttendance
   rules: PointRuleView[]
   postsRewardedToday: number
-  tradeProfitToday: number
+  botProfitToday: number
   history: PointHistory
   badges: StreakBadge[]
   nextBadge: number | null
@@ -132,6 +132,7 @@ export function reasonLabel(reason: string): string {
     case 'ATTENDANCE': return t('출석')
     case 'POST': return t('글 발행')
     case 'TRADE_PROFIT': return t('모의투자 수익')
+    case 'BOT_PROFIT': return t('봇 모의투자 수익')
     case 'SHOP': return t('상점 구매')
     case 'INVEST': return t('모의투자')
     case 'ADMIN': return t('운영자 조정')

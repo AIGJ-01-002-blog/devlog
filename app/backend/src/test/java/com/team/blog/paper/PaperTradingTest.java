@@ -19,8 +19,8 @@ import com.team.blog.support.FakeUpbit;
 import com.team.blog.support.IntegrationTest;
 
 /**
- * #267 포인트 모의투자: 투자 전용 포인트로 먼저 사고, 팔면 원금은 낸 지갑으로·수익은 투자 전용으로 돌아가며
- * 수익의 1%가 상점 포인트로 쌓인다. 체결은 매매 일지에 PAPER로 남는다.
+ * #267 포인트 모의투자: 투자 전용 포인트로 먼저 사고, 팔면 원금은 낸 지갑으로 돌아가고 수익은 전부 크레딧(상점 지갑)이 된다.
+ * 체결은 매매 일지에 PAPER로 남는다.
  */
 class PaperTradingTest extends IntegrationTest {
     final FakeUpbit upbit = FakeUpbit.INSTANCE;
@@ -60,7 +60,7 @@ class PaperTradingTest extends IntegrationTest {
     }
 
     @Test
-    void 투자_전용_포인트로_사고_팔면_수익은_투자로_1퍼센트는_상점으로() throws Exception {
+    void 투자_전용_포인트로_사고_팔면_원금은_투자로_수익은_전부_크레딧으로() throws Exception {
         Session me = signup(uniqueLogin("ppbuy"));
         JsonNode state = read(me.http().perform(get("/api/me/paper")).andExpect(status().isOk()).andReturn());
         assertThat(state.path("invest").asLong()).isEqualTo(10_000_000L);
@@ -90,10 +90,13 @@ class PaperTradingTest extends IntegrationTest {
         upbit.prices.put("BTC", new java.math.BigDecimal("120000000"));
         JsonNode sold = order(me, sellAll(orderId(), "BTC"), 200);
         assertThat(sold.path("pnl").asLong()).isEqualTo(198_800);
-        assertThat(sold.path("reward").asLong()).isEqualTo(1_988);
+        assertThat(sold.path("reward").asLong()).isEqualTo(198_800);
         assertThat(sold.path("state").path("positions").size()).isZero();
-        assertThat(wallet(me, "INVEST_ONLY")).isEqualTo(10_198_800L);
-        assertThat(wallet(me, "SHOP")).isEqualTo(1_988L);
+        assertThat(wallet(me, "INVEST_ONLY")).isEqualTo(10_000_000L);
+        assertThat(wallet(me, "SHOP")).isEqualTo(198_800L);
+        // 내 포인트 화면을 열어도 봇 수익으로 다시 정산되지 않는다(같은 체결)
+        me.http().perform(get("/api/me/points")).andExpect(status().isOk());
+        assertThat(wallet(me, "SHOP")).isEqualTo(198_800L);
         // 가진 게 없으면 못 판다
         assertThat(order(me, sellAll(orderId(), "BTC"), 409).path("code").asString()).isEqualTo("NO_POSITION");
     }

@@ -235,9 +235,14 @@ export function PointsPage() {
                   })}</span>
                 </li>
                 <li>
-                  <span data-tip={t('모의투자에서 팔아서 확정된 수익의 일부가 크레딧으로 들어와요. 손실은 빼지 않아요')}>{t('모의투자 수익')}</span>
-                  <b>{t('수익의 {0}%', { 0: ruleValue(data.rules, 'TRADE_PROFIT_PERCENT') })}</b>
-                  <span className="muted small">{t('오늘 {0}/{1}', { 0: credits(data.tradeProfitToday), 1: credits(ruleValue(data.rules, 'TRADE_PROFIT_DAILY_MAX')) })}</span>
+                  <span data-tip={t('모의투자에서 팔아서 확정된 수익은 모두 크레딧으로 들어와요. 손실은 낸 원금에서 빠져요')}>{t('모의투자 수익')}</span>
+                  <b>{t('수익 전부')}</b>
+                  <span className="muted small">{t('상한 없음')}</span>
+                </li>
+                <li>
+                  <span data-tip={t('매매 봇이 원화 모의투자로 남긴 확정 수익도 크레딧으로 들어와요. 최근 7일 기록을 이 화면이나 상점을 열 때 정산해요')}>{t('봇 모의투자 수익')}</span>
+                  <b>{t('수익 전부')}</b>
+                  <span className="muted small">{t('오늘 {0}/{1}', { 0: credits(data.botProfitToday), 1: credits(ruleValue(data.rules, 'BOT_PROFIT_DAILY_MAX')) })}</span>
                 </li>
               </ul>
             </section>

@@ -108,6 +108,8 @@ public class ShopService {
     public Shop shop(long memberId) {
         points.requireEnabled();
         points.ensureWelcome(memberId);
+        // 봇 모의투자 수익을 먼저 정산해 잔액에 보이게 한다
+        points.settleBotProfits(memberId);
         List<Item> raw = jdbc.query("""
                 SELECT i.*, (o.item_id IS NOT NULL) AS owned, (d.item_id IS NOT NULL) AS applied
                 FROM shop_item i
