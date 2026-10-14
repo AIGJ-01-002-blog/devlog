@@ -36,6 +36,8 @@ import com.team.blog.search.semantic.EmbeddingClient.Purpose;
 public class SemanticSearch {
     private static final Logger log = LoggerFactory.getLogger(SemanticSearch.class);
     static final String DOWN = "search:embed:down";
+    /** 글 색인이 실패해 색인만 쉬는 동안 있다. 색인 요청은 길어서 시간 제한에 걸려도 검색어 임베딩은 될 수 있으므로 DOWN과 나눈다 */
+    static final String INDEX_DOWN = "search:embed:index-down";
     static final String QUERY_CACHE = "search:qvec:";
     /** 예열 요청이 진행 중인 동안만 있다. 끝나면 지운다 */
     static final String WARMING = "search:embed:warming";
@@ -261,6 +263,24 @@ public class SemanticSearch {
             redis.opsForValue().set(DOWN, "1", props.downFor());
         } catch (RuntimeException ignored) {
             // Redis가 없으면 다음 검색이 다시 시도한다
+        }
+    }
+
+    /** 글 색인 실패. 색인만 downFor 동안 쉬고 검색의 의미 검색은 그대로 둔다 */
+    void markIndexDown(EmbedException e) {
+        log.warn("글 임베딩(색인)을 {} 동안 쉽니다: {}", props.downFor(), e.getMessage());
+        try {
+            redis.opsForValue().set(INDEX_DOWN, "1", props.downFor());
+        } catch (RuntimeException ignored) {
+            // Redis가 없으면 다음 실행이 다시 시도한다
+        }
+    }
+
+    boolean isIndexDown() {
+        try {
+            return Boolean.TRUE.equals(redis.hasKey(INDEX_DOWN));
+        } catch (RuntimeException e) {
+            return true;
         }
     }
 
