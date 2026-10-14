@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { NicknameStatus } from '../components/NicknameStatus'
 import { PasswordRules } from '../components/PasswordRules'
 import { SignupAgreements, type AgreementChecks } from '../components/SignupAgreements'
 import { api, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { fieldErrors } from '../lib/fieldErrors'
+import { useNicknameCheck } from '../lib/nickname'
 import { cleanHandleInput, passwordOk } from '../lib/password'
 import { Link, navigate, useLocation } from '../lib/router'
 import { t } from '../lib/i18n'
@@ -35,7 +37,6 @@ export function SignupEmailPage() {
   const [nickname, setNickname] = useState('')
   const [agreed, setAgreed] = useState<AgreementChecks>({ terms: false, privacy: false, ai: false })
   const [handleCheck, setHandleCheck] = useState<Check | null>(null)
-  const [nickCheck, setNickCheck] = useState<Check | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [emailTaken, setEmailTaken] = useState(false)
   const [withdrawnAccount, setWithdrawnAccount] = useState(false)
@@ -51,7 +52,7 @@ export function SignupEmailPage() {
   const [codeMsg, setCodeMsg] = useState<{ text: string; error: boolean } | null>(null)
   const [sending, setSending] = useState(false)
   const [confirming, setConfirming] = useState(false)
-  const timers = useRef<{ s?: number; h?: number; n?: number; e?: number }>({})
+  const timers = useRef<{ s?: number; h?: number; e?: number }>({})
 
   useEffect(() => {
     if (me?.authenticated) navigate('/', { replace: true })
@@ -105,13 +106,7 @@ export function SignupEmailPage() {
     }, 500)
   }, [body])
 
-  useEffect(() => {
-    if (!nickname) return setNickCheck(null)
-    clearTimeout(timers.current.n)
-    timers.current.n = window.setTimeout(() => {
-      api<Check>(`/api/nicknames/availability?nickname=${encodeURIComponent(nickname)}`).then(setNickCheck).catch(() => setNickCheck(null))
-    }, 500)
-  }, [nickname])
+  const nickCheck = useNicknameCheck(nickname)
 
   const verified = !!verifiedEmail && verifiedEmail === normEmail(email)
   const codeOpen = !!sentTo && sentTo === normEmail(email) && !verified
@@ -191,7 +186,7 @@ export function SignupEmailPage() {
 
   const emailUsable = emailCheck?.available === true
   const ready = agreed.terms && agreed.privacy && passwordOk(password, email) && password === confirm && body.length >= 3
-    && handleCheck?.available === true && emailUsable && (!codeRequired || verified)
+    && handleCheck?.available === true && emailUsable && (!codeRequired || verified) && nickCheck.state === 'available'
   const emailHelp = errors.email ?? (emailTaken || withdrawnAccount ? null
     : emailCheck == null ? t('로그인할 때 쓰는 아이디예요.')
     : emailCheck.available ? (verified ? t('인증을 마쳤어요.') : codeOpen ? t('쓸 수 있는 아이디예요. 메일로 받은 인증번호를 넣어 주세요.')
@@ -289,11 +284,10 @@ export function SignupEmailPage() {
         </label>
         <label className="field">
           <span>{t('닉네임')}</span>
-          <input value={nickname} onChange={(e) => setNickname(e.target.value)} maxLength={10} required autoComplete="nickname"
-                 aria-describedby="nickname-help" aria-invalid={!!errors.nickname || nickCheck?.available === false} />
-          <small id="nickname-help" aria-live="polite" className={errors.nickname || nickCheck?.available === false ? 'error' : 'muted'}>
-            {errors.nickname ?? (nickCheck == null ? t('한글·영문·숫자 2~10자') : nickCheck.available ? t('쓸 수 있는 닉네임이에요.') : nickCheck.message)}
-          </small>
+          <input value={nickname} onChange={(e) => { setNickname(e.target.value); setErrors(({ nickname: _, ...rest }) => rest) }}
+                 maxLength={10} required autoComplete="nickname" aria-describedby="nickname-help"
+                 aria-invalid={!!errors.nickname || nickCheck.state === 'taken' || nickCheck.state === 'rules'} />
+          <NicknameStatus id="nickname-help" value={nickname} check={nickCheck} error={errors.nickname} hint={t('한글·영문·숫자 2~10자')} />
         </label>
         <SignupAgreements value={agreed} onChange={setAgreed} termsDate={terms?.termsEffectiveDate}
                           privacyDate={terms?.privacyEffectiveDate} error={errors.agreeTerms ?? errors.agreePrivacy} />

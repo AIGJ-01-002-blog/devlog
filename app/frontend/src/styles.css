@@ -670,6 +670,9 @@ input[type="checkbox"], input[type="radio"] { width: auto; flex-shrink: 0; margi
 .pw-rules li.ok { color: var(--color-ok-text); }
 .pw-rules li.bad { color: var(--color-text); }
 @media (max-width: 480px) { .pw-rules { grid-template-columns: 1fr; } }
+.nick-status-line { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; margin-top: 4px; min-height: 1.25rem; }
+.nick-status-line .btn-small { padding: 4px 12px; height: auto; min-height: 32px; }
+@media (max-width: 480px) { .nick-status-line .btn-small { min-height: 40px; } }
 .verify-banner { background: var(--color-warn-bg); color: var(--color-warn-text); font-size: 0.9375rem; }
 .verify-inner { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; padding-top: 10px; padding-bottom: 10px; }
 .verify-inner .btn-text { color: inherit; text-decoration: underline; padding: 0; height: auto; }

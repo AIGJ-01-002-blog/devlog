@@ -20,8 +20,17 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 |---|---|
 | ![자르기 전: 원 경계가 안 보임](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/profile-crop-before.webp) | ![자르기 후: 원 바깥 어둡게 + 둘레 선](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/profile-crop-m.webp) ![자르기 후 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/profile-crop-m-dark.webp) |
 
+| 닉네임 바꾸기 전 (휴대폰) | 후: 이미 쓰는 닉네임 (휴대폰) | 후: 확인 실패 시 [다시 확인] (휴대폰 · 다크) |
+|---|---|---|
+| ![전: 저장을 눌러야 알 수 있음](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/nickname-check-before-m.webp) | ![후: 조건 ✓와 중복 안내](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/nickname-check-taken-m.webp) | ![후: 다시 확인 버튼](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/nickname-check-recheck-m-dark.webp) |
+
+| 가입: 조건을 못 채움 (PC) | 설정: 쓸 수 있는 닉네임 (PC) |
+|---|---|
+| ![조건별 ✓](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/nickname-check-rules-pc.webp) | ![쓸 수 있어요](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/nickname-check-ok-pc.webp) |
+
 ### 추가
 - 가입하고 처음 로그인하면 AI 연결 안내 팝업이 뜬다. "AI에게 말하면 일지가 써져요 → 주소 하나로 연결 → 공개는 내가" 세 단계를 짧은 움직임과 한 줄 설명으로 보여 주고, 마지막 [AI 연결하러 가기]가 설정 › AI 연결로 바로 보낸다. [나중에 하기]로 닫으면 다시 뜨지 않고, 이미 연결한 회원에게는 뜨지 않는다 (목표 v1.71.0 [#214](https://github.com/AIGJ-01-002-blog/devlog/issues/214) · spec 098, #215)
+- 닉네임을 정하거나 바꿀 때 저장을 누르기 전에 바로 알 수 있다. 입력하는 대로 2~10자·한글·영문·숫자만·한글이나 영문 1자 이상 조건이 ✓로 바뀌고, 조건을 다 채워 입력을 멈추면 이미 쓰는 닉네임인지·쓸 수 없는 단어인지 자동으로 보여 준다. 확인에 실패하면 [다시 확인] 버튼이 뜨고, 쓸 수 있을 때만 가입·저장 버튼이 눌린다. 이메일 가입, 소셜 가입, 설정 › 프로필 세 곳에 적용했다 (목표 v1.72.0 [#223](https://github.com/AIGJ-01-002-blog/devlog/issues/223), #224)
 
 ### 고침
 - 프로필 사진 자르기 화면에서 실제로 프로필에 보일 원의 경계가 보이지 않던 문제. 흰 바탕 사진이면 어디까지가 원 안인지 알 수 없었다. 이제 원 바깥을 어둡게 덮고 둘레에 흰 선과 얇은 어두운 테를 그리며, 원에 마우스를 올리면 툴팁이 뜬다 (#217, #218)

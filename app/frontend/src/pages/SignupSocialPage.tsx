@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { NicknameStatus } from '../components/NicknameStatus'
 import { SignupAgreements, type AgreementChecks } from '../components/SignupAgreements'
 import { api, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { setFlash } from '../lib/flash'
 import { attachProfileImage, prepareSocialAvatar, socialAvatarSource } from '../lib/image'
+import { useNicknameCheck } from '../lib/nickname'
 import { navigate } from '../lib/router'
 import { t } from '../lib/i18n'
 
@@ -29,10 +31,9 @@ export function SignupSocialPage() {
   const [usePhoto, setUsePhoto] = useState(true)
   const [photoBroken, setPhotoBroken] = useState(false)
   const [handleCheck, setHandleCheck] = useState<Check | null>(null)
-  const [nickCheck, setNickCheck] = useState<Check | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
-  const timers = useRef<{ h?: number; n?: number }>({})
+  const timers = useRef<{ h?: number }>({})
   // 가입 요청이 오류로 돌아와 다시 눌러도 사진은 한 번만 만든다
   const preparedPhoto = useRef<Promise<Blob | null> | null>(null)
 
@@ -52,13 +53,7 @@ export function SignupSocialPage() {
     }, 500)
   }, [body, draft])
 
-  useEffect(() => {
-    if (!nickname) return setNickCheck(null)
-    clearTimeout(timers.current.n)
-    timers.current.n = window.setTimeout(() => {
-      api<Check>(`/api/nicknames/availability?nickname=${encodeURIComponent(nickname)}`).then(setNickCheck).catch(() => setNickCheck(null))
-    }, 500)
-  }, [nickname])
+  const nickCheck = useNicknameCheck(nickname)
 
   if (expired) {
     return (
@@ -141,11 +136,10 @@ export function SignupSocialPage() {
         </label>
         <label className="field">
           <span>{t('닉네임')}</span>
-          <input value={nickname} onChange={(e) => setNickname(e.target.value)} maxLength={10} required autoComplete="nickname"
-                 aria-describedby="nickname-help" aria-invalid={!!errors.nickname || nickCheck?.available === false} />
-          <small id="nickname-help" aria-live="polite" className={errors.nickname || nickCheck?.available === false ? 'error' : 'muted'}>
-            {errors.nickname ?? (nickCheck == null ? t('2~10자') : nickCheck.available ? t('쓸 수 있는 닉네임이에요.') : nickCheck.message)}
-          </small>
+          <input value={nickname} onChange={(e) => { setNickname(e.target.value); setErrors(({ nickname: _, ...rest }) => rest) }}
+                 maxLength={10} required autoComplete="nickname" aria-describedby="nickname-help"
+                 aria-invalid={!!errors.nickname || nickCheck.state === 'taken' || nickCheck.state === 'rules'} />
+          <NicknameStatus id="nickname-help" value={nickname} check={nickCheck} error={errors.nickname} hint={t('한글·영문·숫자 2~10자')} />
         </label>
         {photo && (
           <label className="field social-photo">
@@ -161,7 +155,7 @@ export function SignupSocialPage() {
         <SignupAgreements value={agreed} onChange={setAgreed} termsDate={draft.terms.termsEffectiveDate}
                           privacyDate={draft.terms.privacyEffectiveDate} error={errors.agreeTerms ?? errors.agreePrivacy} />
         {errors.form && <div className="banner banner-warn" role="alert">{errors.form}</div>}
-        <button className="btn btn-primary btn-block" disabled={submitting || !agreed.terms || !agreed.privacy}>
+        <button className="btn btn-primary btn-block" disabled={submitting || !agreed.terms || !agreed.privacy || nickCheck.state !== 'available'}>
           {submitting ? (photo && usePhoto ? t('가입하고 사진을 가져오는 중…') : t('가입하는 중…')) : t('가입하기')}
         </button>
       </form>

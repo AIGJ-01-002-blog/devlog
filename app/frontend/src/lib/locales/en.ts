@@ -1435,4 +1435,12 @@ export const en: Record<string, string> = {
   "공개는 언제나 내가 정해요": "You always decide what goes public",
   "AI는 임시글까지만 써요. 읽어 보고 내가 [발행]을 눌러야 공개되고, 연결은 설정에서 언제든 끊을 수 있어요.": "The AI only writes drafts. Nothing goes public until you read it and click [Publish], and you can disconnect anytime in Settings.",
   "앱별 연결 순서와 AI가 쓸 수 있는 도구를 봐요": "See step-by-step setup for each app and the tools the AI can use",
+  "다시 확인": "Check again",
+  "쓸 수 있는지 확인하는 중…": "Checking availability…",
+  "위 조건을 채우면 쓸 수 있는지 바로 확인해요.": "Once the rules above are met, we'll check availability right away.",
+  "이 닉네임을 쓸 수 있는지 다시 확인해요": "Check again whether this nickname is available",
+  "쓸 수 있는지 확인하지 못했어요.": "Couldn't check availability.",
+  "한글·영문·숫자만 (공백·특수문자 불가)": "Korean, English letters, and numbers only (no spaces or symbols)",
+  "한글이나 영문 1자 이상": "At least 1 Korean or English letter",
+  "확인을 너무 자주 했어요. 잠시 뒤 다시 확인해 주세요.": "Too many checks. Please try again in a moment.",
 }
