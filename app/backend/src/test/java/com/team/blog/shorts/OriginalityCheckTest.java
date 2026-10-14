@@ -74,6 +74,20 @@ class OriginalityCheckTest {
     }
 
     @Test
+    void 같은_묶음의_다른_편과_절반쯤_겹치면_경고한다() {
+        // 앞 두 장면이 같고 뒤 두 장면만 다른 편: 다른 쇼츠라면 넘어가지만 같은 묶음이면 주제를 나눈 뜻이 없다 (#276)
+        List<Scene> half = List.of(GOOD.get(0), GOOD.get(1),
+                new Scene("페치 조인", "저는 작성자를 따로 불러오던 부분을 페치 조인 한 번으로 묶었어요.", null),
+                new Scene("결과", "목록 응답이 1.2초에서 0.15초로 빨라졌어요.", null));
+        OriginalityCheck.Report apart = OriginalityCheck.check(GOOD, POST, List.of(new OriginalityCheck.OtherScript(5, "다른 편", half)));
+        assertThat(apart.issues()).isEmpty();
+        OriginalityCheck.Report sibling = OriginalityCheck.check(GOOD, POST, List.of(new OriginalityCheck.OtherScript(5, "다른 편", half, true)));
+        assertThat(sibling.passed()).isTrue();
+        assertThat(codes(sibling, Level.WARN)).containsExactly("SIBLING_OVERLAP");
+        assertThat(sibling.issues().getFirst().message()).contains("같은 묶음의 '다른 편'");
+    }
+
+    @Test
     void 장면마다_같은_틀로_시작하면_막는다() {
         List<Scene> template = List.of(
                 new Scene("1", "오늘 알아볼 내용은 레디스 세션이 왜 풀리는지예요?", null),

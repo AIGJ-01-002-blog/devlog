@@ -70,7 +70,9 @@ public class McpController {
 
     /** 쇼츠 스튜디오를 켠 서버일 때 덧붙인다 (#240) */
     private static final String INSTRUCTIONS_SHORTS = " 글을 쓰거나 발행한 결과에 '쇼츠 후보'가 보이면 그 안내대로 사용자에게 한 번만 물어 주세요. "
-            + "사용자가 쇼츠 거리를 물으면 list_shorts_candidates로 후보를 보여 주고, 고른 글로만 create_shorts_script를 써 주세요.";
+            + "사용자가 쇼츠 거리를 물으면 list_shorts_candidates로 후보를 보여 주고, 고른 글로만 create_shorts_script를 써 주세요. "
+            + "사용자가 글이나 지금 나눈 맥락으로 쇼츠 여러 편을 원하면 plan_shorts로 작은 주제 2~5개로 나눈 뒤, 주제마다 create_shorts_script(batch_id, topic)로 한 편씩 써 주세요. "
+            + "글이 아닌 맥락에서 쓸 때는 그 맥락을 source_text로 함께 주세요.";
 
     /** 일기를 켜고 AI 발행도 허용한 회원 (071): 일기가 바로 발행된다 */
     private static final String INSTRUCTIONS_AI_DIARY_PUBLISH = " 이 사용자는 AI 발행도 허용해서 일기가 임시글을 거치지 않고 바로 발행돼요.";

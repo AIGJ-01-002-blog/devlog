@@ -14,6 +14,7 @@ import tools.jackson.databind.JsonNode;
 import com.team.blog.shared.config.BlogProperties;
 import com.team.blog.shared.error.ApiException;
 import com.team.blog.shorts.application.OriginalityCheck;
+import com.team.blog.shorts.application.ShortsBatches;
 import com.team.blog.shorts.application.ShortsScript;
 import com.team.blog.shorts.application.ShortsService;
 
@@ -39,12 +40,24 @@ class ShortsTools {
     static final int CANDIDATES_MAX = 10;
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneId.of("Asia/Seoul"));
 
+    static final String TOPICS_SCHEMA = """
+            "topics":{"type":"array","minItems":2,"maxItems":5,"description":"작은 주제 2~5개. 한 편에 한 주제, 편끼리 겹치지 않게","items":{"type":"object","properties":{
+                "title":{"type":"string","description":"이 편의 제목 (60자까지)"},
+                "hook":{"type":"string","description":"첫 장면에서 던질 질문이나 문제 한 줄 (120자까지)"},
+                "scope":{"type":"string","description":"이 편에서만 다룰 것: 원인·시도·결과 가운데 무엇을 (300자까지)"}},
+              "required":["title","hook"]}}""";
+
+    static final String PLAN_GUIDE = "근거 하나를 작은 주제로 나눌 때: 한 편은 질문 하나에 답하고 끝낸다(문제 → 원인 → 내가 한 것 → 결과 숫자). "
+            + "같은 설명을 두 편에 넣지 않는다. 근거에 없는 경험·수치는 주제로 만들지 않는다. 근거가 작으면 2편, 크면 5편까지.";
+
     private final ShortsService shorts;
+    private final ShortsBatches batches;
     private final ShortsCandidates candidates;
     private final String baseUrl;
 
-    ShortsTools(ShortsService shorts, ShortsCandidates candidates, BlogProperties props) {
+    ShortsTools(ShortsService shorts, ShortsBatches batches, ShortsCandidates candidates, BlogProperties props) {
         this.shorts = shorts;
+        this.batches = batches;
         this.candidates = candidates;
         this.baseUrl = props.site().baseUrl();
     }
@@ -53,10 +66,36 @@ class ShortsTools {
         return shorts.enabled();
     }
 
+    /** 근거(글·맥락)를 작은 주제로 나눈 묶음을 만든다 (#276). 대본은 주제마다 create_shorts_script로 쓴다 */
+    McpTools.Result plan(AccessTokens.Caller caller, JsonNode a) {
+        Long postId = a.path("post_id").canConvertToLong() ? a.path("post_id").asLong() : null;
+        List<ShortsBatches.Topic> topics = new ArrayList<>();
+        for (JsonNode n : a.path("topics")) topics.add(new ShortsBatches.Topic(text(n, "title"), text(n, "hook"), text(n, "scope")));
+        try {
+            ShortsBatches.Batch b = batches.plan(caller.memberId(), new ShortsBatches.Plan(postId, text(a, "source_text"), text(a, "title"), topics));
+            StringBuilder sb = new StringBuilder("쇼츠 묶음을 만들었어요 (묶음 번호 " + b.id() + ", 주제 " + b.topics().size() + "개).\n");
+            for (ShortsBatches.TopicView t : b.topics()) {
+                sb.append(t.number()).append(". ").append(t.title()).append(" · 첫 질문: ").append(t.hook());
+                if (!t.scope().isEmpty()) sb.append(" · 범위: ").append(t.scope());
+                sb.append('\n');
+            }
+            sb.append("이제 주제마다 create_shorts_script(batch_id ").append(b.id()).append(", topic 번호)로 대본을 한 편씩 써 주세요. ")
+                    .append("첫 장면은 그 주제의 첫 질문으로 시작하고, 범위 밖 이야기는 다른 편에 맡겨요. ")
+                    .append("영상은 사용자가 스튜디오에서 확인하고 묶음째 [영상 만들기]를 눌러요: ").append(baseUrl).append("/studio?batch=").append(b.id());
+            return McpTools.Result.ok(sb.toString());
+        } catch (ApiException e) {
+            return McpTools.Result.fail(message(e));
+        }
+    }
+
     McpTools.Result create(AccessTokens.Caller caller, JsonNode a) {
         Long postId = a.path("post_id").canConvertToLong() ? a.path("post_id").asLong() : null;
+        Long batchId = a.path("batch_id").canConvertToLong() ? a.path("batch_id").asLong() : null;
+        Integer topic = a.path("topic").canConvertToInt() ? a.path("topic").asInt() : null;
         try {
-            ShortsService.Item item = shorts.create(caller.memberId(), new ShortsService.Draft(postId, text(a, "title"), scenes(a)));
+            ShortsService.Item item = batchId != null
+                    ? batches.create(caller.memberId(), batchId, topic, text(a, "title"), scenes(a))
+                    : shorts.create(caller.memberId(), new ShortsService.Draft(postId, text(a, "title"), scenes(a), null, null, text(a, "source_text")));
             return McpTools.Result.ok("쇼츠 대본을 저장했어요 (쇼츠 번호 " + item.id() + ", 예상 " + Math.round(item.estimatedSeconds()) + "초).\n"
                     + report(shorts.check(caller.memberId(), item.id()))
                     + "\n영상은 사용자가 이 화면에서 대본을 확인하고 [영상 만들기]를 눌러야 만들어져요: " + studioUrl(item.id()));
@@ -89,8 +128,14 @@ class ShortsTools {
             sb.append("- ").append(i.id()).append(" · ").append(i.title()).append(" · ").append(label(i.status()))
                     .append(" · 장면 ").append(i.scenes().size()).append("개 · 예상 ").append(Math.round(i.estimatedSeconds())).append("초");
             if (i.postId() != null) sb.append(" · 원본 글 ").append(i.postId());
+            if (i.batchId() != null) sb.append(" · 묶음 ").append(i.batchId()).append("의 ").append(i.topic()).append("번 주제");
             if (i.error() != null && i.status() != ShortsService.Status.READY) sb.append(" · 최근 오류: ").append(i.error());
             sb.append('\n');
+        }
+        for (ShortsBatches.Batch b : batches.list(caller.memberId())) {
+            List<String> missing = b.topics().stream().filter(t -> t.shortsId() == null).map(t -> t.number() + "번 " + t.title()).toList();
+            if (missing.isEmpty()) continue;
+            sb.append("묶음 ").append(b.id()).append(" '").append(b.title()).append("'에 대본이 없는 주제: ").append(String.join(", ", missing)).append('\n');
         }
         sb.append("오늘 영상 만들기 ").append(o.rendersToday()).append('/').append(o.dailyRenders()).append("번. 스튜디오: ").append(baseUrl).append("/studio");
         return McpTools.Result.ok(sb.toString());
@@ -175,7 +220,7 @@ class ShortsTools {
     }
 
     private static String message(ApiException e) {
-        if (e.status().value() == 404) return "쇼츠를 찾을 수 없어요 (없는 번호이거나 내 쇼츠가 아니에요).";
+        if (e.status().value() == 404) return "쇼츠나 묶음을 찾을 수 없어요 (없는 번호이거나 내 것이 아니에요).";
         if (!e.errors().isEmpty()) return e.errors().stream().map(f -> f.message()).distinct().reduce((x, y) -> x + " " + y).orElse(e.getMessage());
         if ("VERSION_CONFLICT".equals(e.code())) return "그 사이 사용자가 대본을 고쳤어요. list_shorts로 다시 확인해 주세요.";
         return e.getMessage();
