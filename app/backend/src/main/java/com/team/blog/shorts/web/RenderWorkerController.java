@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.team.blog.shared.error.ApiException;
 import com.team.blog.shared.error.NotFoundException;
 import com.team.blog.shorts.application.RenderQueue;
+import com.team.blog.shorts.application.RenderWorkerStatus;
 import com.team.blog.shorts.application.ShortsProperties;
 
 /**
@@ -35,10 +36,12 @@ public class RenderWorkerController {
 
     private final RenderQueue queue;
     private final ShortsProperties props;
+    private final RenderWorkerStatus status;
 
-    public RenderWorkerController(RenderQueue queue, ShortsProperties props) {
+    public RenderWorkerController(RenderQueue queue, ShortsProperties props, RenderWorkerStatus status) {
         this.queue = queue;
         this.props = props;
+        this.status = status;
     }
 
     public record Failure(String message) {}
@@ -77,12 +80,15 @@ public class RenderWorkerController {
         return ResponseEntity.noContent().build();
     }
 
+    /** 지금 토큰이나, 바꾸는 중이면 옛 토큰(#241)이 맞아야 한다. 둘 다 시간이 같게 비교한다 */
     private void authorize(String token) {
         if (!props.workerEnabled()) throw new NotFoundException();
         byte[] given = token == null ? new byte[0] : token.getBytes(StandardCharsets.UTF_8);
-        if (!MessageDigest.isEqual(given, props.workerToken().getBytes(StandardCharsets.UTF_8))) {
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "RENDER_TOKEN", "렌더 워커 토큰이 맞지 않아요.");
-        }
+        boolean current = MessageDigest.isEqual(given, props.workerToken().getBytes(StandardCharsets.UTF_8));
+        String old = props.previousWorkerToken();
+        boolean previous = old != null && !old.isBlank() && MessageDigest.isEqual(given, old.getBytes(StandardCharsets.UTF_8));
+        if (!current && !previous) throw new ApiException(HttpStatus.UNAUTHORIZED, "RENDER_TOKEN", "렌더 워커 토큰이 맞지 않아요.");
+        status.seen(!current);
     }
 
     /** ISO BMFF: 4~8바이트가 "ftyp" */

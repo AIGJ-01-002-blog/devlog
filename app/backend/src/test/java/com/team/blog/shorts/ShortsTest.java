@@ -254,6 +254,33 @@ class ShortsTest extends IntegrationTest {
     }
 
     @Test
+    void 토큰을_바꾸는_동안_옛_토큰도_받고_관리자_대시보드에_워커_상태가_보인다() throws Exception {
+        redis.delete(List.of("shorts:worker:seen", "shorts:worker:previous-token"));
+        Session admin = signup(uniqueLogin("shadm"));
+        jdbc.update("UPDATE member SET role = 'ADMIN' WHERE id = ?", admin.memberId());
+        var a = relogin(admin);
+        JsonNode before = read(a.perform(get("/api/admin/dashboard")).andExpect(status().isOk()).andReturn()).path("worker");
+        assertThat(before.path("tokenSet").asBoolean()).isTrue();
+        assertThat(before.path("lastSeen").isNull()).isTrue();
+        assertThat(before.path("previousToken").asBoolean()).isFalse();
+
+        // 대기 중인 영상이 있는데 워커가 안 보이면 대시보드가 알 수 있다
+        Session me = signup(uniqueLogin("shwk"));
+        long id = create(me, writePost(me, POST_BODY), "배포하면 로그아웃", GOOD).path("id").asLong();
+        me.http().perform(post("/api/me/shorts/" + id + "/render").with(csrf())).andExpect(status().isOk());
+        JsonNode queued = read(a.perform(get("/api/admin/dashboard")).andExpect(status().isOk()).andReturn()).path("worker");
+        assertThat(queued.path("queued").asLong()).isGreaterThanOrEqualTo(1);
+        assertThat(queued.path("oldestQueuedAt").isNull()).isFalse();
+
+        // 옛 토큰으로 받아 가면 받되, 하루 동안 옛 토큰을 쓰는 워커가 있다고 보여 준다
+        mvc.perform(post("/api/render/jobs/claim").header("X-Render-Token", "test-render-token-old")).andExpect(status().isOk());
+        JsonNode after = read(a.perform(get("/api/admin/dashboard")).andExpect(status().isOk()).andReturn()).path("worker");
+        assertThat(after.path("lastSeen").isNull()).isFalse();
+        assertThat(after.path("previousToken").asBoolean()).isTrue();
+        assertThat(after.path("rendering").asLong()).isGreaterThanOrEqualTo(1);
+    }
+
+    @Test
     void 연결한_AI가_대본을_저장하면_검사_결과와_스튜디오_링크를_받는다() throws Exception {
         Session me = signup(uniqueLogin("shmcp"));
         long postId = writePost(me, POST_BODY);
