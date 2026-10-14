@@ -48,10 +48,14 @@ public final class Counts {
     /**
      * @param sql `SELECT 키 AS k, count(*) AS n ... WHERE 키 = ANY (?) GROUP BY k` 모양
      */
-    public static Map<Long, Long> byKeys(JdbcTemplate jdbc, String sql, Collection<Long> keys) {
+    /** @param more 키 배열 뒤에 이어지는 자리 표시자 값 */
+    public static Map<Long, Long> byKeys(JdbcTemplate jdbc, String sql, Collection<Long> keys, Object... more) {
         Map<Long, Long> out = new HashMap<>();
         if (keys.isEmpty()) return out;
-        jdbc.query(sql, (RowCallbackHandler) rs -> out.put(rs.getLong("k"), rs.getLong("n")), (Object) keys.toArray(Long[]::new));
+        Object[] args = new Object[more.length + 1];
+        args[0] = keys.toArray(Long[]::new);
+        System.arraycopy(more, 0, args, 1, more.length);
+        jdbc.query(sql, (RowCallbackHandler) rs -> out.put(rs.getLong("k"), rs.getLong("n")), args);
         return out;
     }
 
