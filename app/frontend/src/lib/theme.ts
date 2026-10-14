@@ -9,7 +9,7 @@ export const THEME_KEY = 'blog.theme'
 const ORDER: ThemeChoice[] = ['system', 'light', 'dark']
 
 export const THEME_LABEL: Record<ThemeChoice, string> = { system: t('시스템 설정'), light: t('라이트'), dark: t('다크') }
-export const THEME_ICON: Record<ThemeChoice, string> = { system: '🖥', light: '☀️', dark: '🌙' }
+export const THEME_ICON = { system: 'monitor', light: 'sun', dark: 'moon' } as const satisfies Record<ThemeChoice, string>
 
 /** 시스템 → 라이트 → 다크 → 시스템 (FR-004) */
 export function nextTheme(t: ThemeChoice): ThemeChoice {

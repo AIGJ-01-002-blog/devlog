@@ -35,6 +35,14 @@ const PATHS = {
   eye: <><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></>,
   comment: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />,
   trash: <><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" /></>,
+  // 097: 테마·언어 버튼도 이모지 대신 같은 선 아이콘으로(운영체제마다 이모지 모양이 달라서)
+  monitor: <><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8M12 16v4" /></>,
+  sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></>,
+  moon: <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />,
+  globe: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></>,
+  arrowUp: <path d="M12 19V5M5 12l7-7 7 7" />,
+  wrap: <><path d="M3 6h18M3 12h15a3 3 0 0 1 0 6h-4" /><path d="m16 16-2 2 2 2M3 18h7" /></>,
+  check: <path d="M20 6 9 17l-5-5" />,
 } as const
 
 export type IconName = keyof typeof PATHS

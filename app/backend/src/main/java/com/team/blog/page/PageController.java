@@ -424,7 +424,7 @@ public class PageController {
             String description = d.excerpt() == null ? "" : truncate(d.excerpt(), 160);
             meta = new HeadMeta(d.title() + " - " + d.author().nickname(), description, absolute(d.url()), "article",
                     d.thumbnailUrl() != null ? d.thumbnailUrl() : absolute(site.defaultOgImage()),
-                    d.firstPublicAt(), d.editedAt(), !d.aiDiary()); // AI 일기는 독자에게 보이되 수집·광고에서 뺀다 (spec 088)
+                    d.firstPublicAt(), d.editedAt(), !d.aiDiary(), d.author().nickname()); // AI 일기는 독자에게 보이되 수집·광고에서 뺀다 (spec 088)
         } else {
             meta = new HeadMeta(d.title() + " - " + site.name(), null, null, null, null, null, null, false);
         }
@@ -435,7 +435,7 @@ public class PageController {
     }
 
     /** 로그인이 필요하거나 개인적인 화면: 같은 껍데기, 수집 거부, 저장 안 함. React가 그린다. */
-    @GetMapping({"/login", "/signup", "/signup/social", "/forgot-password", "/reset-password", "/verify-email", "/agreements", "/write", "/write/{id}", "/manage/posts", "/settings", "/notifications", "/feed", "/lists/liked",
+    @GetMapping({"/login", "/signup", "/signup/social", "/forgot-password", "/reset-password", "/verify-email", "/agreements", "/write", "/write/{id}", "/manage/posts", "/settings", "/notifications", "/feed", "/lists/liked", "/lists/read",
             "/settings/{section}", "/oauth/authorize", "/support"})
     public ResponseEntity<String> app(@PathVariable(required = false) String id, @PathVariable(required = false) String section) {
         // 글 번호·설정 칸은 React가 주소에서 읽는다. 서버는 같은 껍데기만 준다
@@ -461,8 +461,13 @@ public class PageController {
     }
 
     private ResponseEntity<String> notFound() {
+        return notFoundPage(shell, site.name());
+    }
+
+    /** 없는 화면 404: 앱 껍데기에 안내와 [홈으로]를 그린다. 어느 주소에도 맞지 않는 화면 주소(NotFoundPageAdvice)도 이것을 쓴다 */
+    static ResponseEntity<String> notFoundPage(SpaShell shell, String siteName) {
         String body = "<main><h1>볼 수 없는 페이지예요</h1><p>주소가 바뀌었거나, 삭제·비공개된 글일 수 있어요.</p><a href=\"/\">홈으로</a></main>";
-        return html(HttpStatus.NOT_FOUND, shell.render(HeadMeta.privatePage(site.name(), "볼 수 없는 페이지예요"), body,
+        return html(HttpStatus.NOT_FOUND, shell.render(HeadMeta.privatePage(siteName, "볼 수 없는 페이지예요"), body,
                 Map.of("page", "notFound")), CacheControl.noStore());
     }
 

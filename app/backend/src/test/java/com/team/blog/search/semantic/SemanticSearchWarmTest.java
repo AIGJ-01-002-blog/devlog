@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.after;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
@@ -67,6 +68,15 @@ class SemanticSearchWarmTest {
         semantic.warmUp();
         verify(values).set(SemanticSearch.WARMING, "1", Duration.ofSeconds(30));
         verify(redis, timeout(2000)).delete(SemanticSearch.WARMING);
+    }
+
+    @Test
+    void 진행_표시를_못_남기면_간격_표시를_풀어_다음_예열을_막지_않는다() throws Exception {
+        when(values.setIfAbsent(SemanticSearch.WARM_GATE, "1", Duration.ofSeconds(60))).thenReturn(true);
+        doThrow(new RuntimeException("redis")).when(values).set(SemanticSearch.WARMING, "1", Duration.ofSeconds(30));
+        semantic.warmUp();
+        verify(redis).delete(SemanticSearch.WARM_GATE);
+        verify(client, after(300).never()).embed(any(), any(), any());
     }
 
     @Test
