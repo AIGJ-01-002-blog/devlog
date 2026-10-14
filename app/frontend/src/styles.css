@@ -2627,14 +2627,37 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 :is(.tier-grandmaster, [data-frame="grandmaster"], [data-banner="grandmaster"]) { --ta: var(--tier-grandmaster-a); --tb: var(--tier-grandmaster-b); }
 :is(.tier-challenger, [data-frame="challenger"], [data-banner="challenger"]) { --ta: var(--tier-challenger-a); --tb: var(--tier-challenger-b); }
 
-/* 테두리: 아래 티어는 금속 결, 다이아부터 빛나고, 마스터부터 빛이 숨 쉬고, 챌린저는 빛줄기가 돈다 */
+/* 테두리: 아래 티어는 금속 결, 다이아부터 빛난다. 마스터·그랜드마스터·챌린저는 자기 색 빛줄기가 테두리를 돌고 주기적으로 번쩍인다(블로그 주인 요청) */
 .deco-frame[data-frame]:not([data-frame="color"]) { --frame-bg: conic-gradient(from 210deg, var(--ta), var(--tb), var(--ta), var(--tb), var(--ta)); }
 .deco-frame:is([data-frame="diamond"], [data-frame="master"], [data-frame="grandmaster"], [data-frame="challenger"]) { box-shadow: 0 0 12px 1px var(--ta); }
-.deco-frame:is([data-frame="master"], [data-frame="grandmaster"], [data-frame="challenger"]) { animation: tier-breathe 2.8s ease-in-out infinite; }
+.deco-frame:is([data-frame="master"], [data-frame="grandmaster"], [data-frame="challenger"]) {
+  --tg: color-mix(in srgb, var(--ta) 45%, var(--tb)); --spin: 2.2s; --flash: 2.6s;
+  animation: tier-breathe var(--flash) ease-in-out infinite;
+}
+.deco-frame[data-frame="grandmaster"] { --spin: 1.7s; --flash: 2.2s; }
 .deco-frame[data-frame="challenger"] {
+  --tg: var(--tier-challenger-c); --spin: 1.3s; --flash: 1.8s;
   --frame-bg: conic-gradient(from 0deg, var(--tier-challenger-c), var(--ta), var(--tb), var(--ta), var(--tier-challenger-c), var(--tb), var(--tier-challenger-c));
 }
-.deco-frame[data-frame="challenger"]::after, :is(.blog-hero, .deco-effect-preview)[data-effect="radiance"] :is(.blog-avatar, .deco-effect-avatar)::after {
+/* 빛줄기: 테두리 고리 안에서만 돈다 */
+.deco-frame:is([data-frame="master"], [data-frame="grandmaster"], [data-frame="challenger"])::after {
+  content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+  background: conic-gradient(from 0deg, transparent 0 58%, var(--tg) 70%, var(--tier-spark) 76%, var(--tg) 82%, transparent 94%);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 8px), black calc(100% - 7px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 8px), black calc(100% - 7px));
+  animation: tier-spin var(--spin) linear infinite;
+}
+.deco-frame[data-frame="challenger"]::after {
+  background: conic-gradient(from 0deg, transparent 0 20%, var(--tier-challenger-b) 30%, var(--tier-spark) 34%, transparent 46%,
+    transparent 0 70%, var(--tg) 80%, var(--tier-spark) 84%, transparent 96%);
+}
+/* 번쩍임: 테두리 바깥으로 자기 색 빛이 터졌다 사라진다 (얼굴은 가리지 않는다) */
+.deco-frame:is([data-frame="master"], [data-frame="grandmaster"], [data-frame="challenger"])::before {
+  content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; opacity: 0;
+  box-shadow: 0 0 0 2px var(--tier-spark), 0 0 18px 6px var(--tg), 0 0 36px 12px var(--tg);
+  animation: tier-flash var(--flash) ease-out infinite;
+}
+:is(.blog-hero, .deco-effect-preview)[data-effect="radiance"] :is(.blog-avatar, .deco-effect-avatar):not(:is([data-frame="master"], [data-frame="grandmaster"], [data-frame="challenger"]))::after {
   content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
   background: conic-gradient(from 0deg, transparent 0 70%, var(--tier-spark) 80%, transparent 90%);
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), black calc(100% - 6px));
@@ -2642,7 +2665,8 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
   animation: tier-spin 2.4s linear infinite;
 }
 @keyframes tier-spin { to { transform: rotate(360deg); } }
-@keyframes tier-breathe { 50% { box-shadow: 0 0 22px 4px var(--ta); } }
+@keyframes tier-breathe { 50% { box-shadow: 0 0 22px 4px var(--tg, var(--ta)); } }
+@keyframes tier-flash { 0%, 62% { opacity: 0; transform: scale(0.96); } 70% { opacity: 1; transform: scale(1.04); } 100% { opacity: 0; transform: scale(1.16); } }
 @keyframes tier-twinkle { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
 @keyframes tier-sweep { from { background-position: 160% 0; } to { background-position: -60% 0; } }
 
