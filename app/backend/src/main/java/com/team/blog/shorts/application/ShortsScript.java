@@ -23,18 +23,35 @@ public final class ShortsScript {
     static final double SCENE_GAP_SECONDS = 0.6;
 
     public static final int IMAGE_MAX = 500;
+    public static final int EFFECTS_MAX = 3;
+    /** 렌더 워커(#277)가 아는 장면 연출. 비우면 워커가 자막·내레이션·코드에서 고른다 */
+    public static final List<String> VISUALS = List.of("explain", "shock", "typing", "panic", "restore", "wait", "fast", "idea", "protect", "think", "celebrate");
+    /** 워커에 내장된 효과음 이름. 이 밖의 이름은 받지 않는다 */
+    public static final List<String> SOUNDS = List.of("pop", "ding", "whoosh", "boing", "tick", "typing");
 
-    /** image: 장면 배경으로 깔 글 그림 (선택, #277 렌더 워커). devlog에 올린 그림 주소나 "/"로 시작하는 사이트 경로만 받는다 */
-    public record Scene(String caption, String narration, String code, String image) {
+    /** 장면 안 효과음. at은 장면이 시작하고 몇 초 뒤, volume은 0~1(비우면 워커 기본값) */
+    public record Effect(String sound, double at, Double volume) {
+        public Effect {
+            sound = sound == null ? "" : sound.strip().toLowerCase(java.util.Locale.ROOT);
+        }
+    }
+
+    /**
+     * image: 장면 배경으로 깔 글 그림 (선택, #277 렌더 워커). devlog에 올린 그림 주소나 "/"로 시작하는 사이트 경로만 받는다.
+     * visual: 장면 연출 이름 (선택, VISUALS). effects: 장면 안 효과음 (선택, EFFECTS_MAX개까지). 워커에는 작업 단위 effects[]로 펼쳐 보낸다.
+     */
+    public record Scene(String caption, String narration, String code, String image, String visual, List<Effect> effects) {
         public Scene {
             caption = TextCleaner.cleanLine(caption);
             narration = TextCleaner.cleanLine(narration);
             code = code == null || code.isBlank() ? null : TextCleaner.cleanMultiline(code);
             image = image == null || image.isBlank() ? null : image.strip();
+            visual = visual == null || visual.isBlank() ? null : visual.strip().toLowerCase(java.util.Locale.ROOT);
+            effects = effects == null ? List.of() : effects.stream().filter(java.util.Objects::nonNull).toList();
         }
 
         public Scene(String caption, String narration, String code) {
-            this(caption, narration, code, null);
+            this(caption, narration, code, null, null, null);
         }
     }
 
@@ -56,6 +73,17 @@ public final class ShortsScript {
             if (s.caption().length() > CAPTION_MAX) errors.add(new FieldErrorItem(at + "caption", "TOO_LONG", (i + 1) + "번 장면 자막은 " + CAPTION_MAX + "자까지예요."));
             if (s.narration().length() > NARRATION_MAX) errors.add(new FieldErrorItem(at + "narration", "TOO_LONG", (i + 1) + "번 장면 내레이션은 " + NARRATION_MAX + "자까지예요."));
             if (s.code() != null && s.code().length() > CODE_MAX) errors.add(new FieldErrorItem(at + "code", "TOO_LONG", (i + 1) + "번 장면 코드는 " + CODE_MAX + "자까지예요."));
+            if (s.visual() != null && !VISUALS.contains(s.visual())) {
+                errors.add(new FieldErrorItem(at + "visual", "INVALID", (i + 1) + "번 장면 연출은 " + String.join("·", VISUALS) + " 중 하나예요."));
+            }
+            if (s.effects().size() > EFFECTS_MAX) errors.add(new FieldErrorItem(at + "effects", "TOO_MANY", (i + 1) + "번 장면 효과음은 " + EFFECTS_MAX + "개까지예요."));
+            for (Effect e : s.effects()) {
+                if (!SOUNDS.contains(e.sound()) || e.at() < 0 || e.at() > SECONDS_MAX || (e.volume() != null && (e.volume() < 0 || e.volume() > 1))) {
+                    errors.add(new FieldErrorItem(at + "effects", "INVALID", (i + 1) + "번 장면 효과음은 " + String.join("·", SOUNDS)
+                            + " 중 하나, 시각(at)은 0~" + SECONDS_MAX + "초, 크기(volume)는 0~1이에요."));
+                    break;
+                }
+            }
         }
         return errors;
     }

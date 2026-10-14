@@ -5,13 +5,18 @@ import { t, tNodes } from '../lib/i18n'
 import { Link, navigate, useLocation } from '../lib/router'
 import {
   checkShorts, createShorts, deleteBatch, deleteShorts, emptyScene, estimateSeconds, groupByBatch, isBusy, LIMITS, listBatches, listShorts,
-  renderBatch, renderProblems, renderShorts, reportOf, saveShorts, statusLabel, videoFileName, workerOnline, writtenTopics,
-  type BatchRenderResult, type OriginalityReport, type Scene, type ShortsBatch, type ShortsItem, type ShortsOverview,
+  renderBatch, renderProblems, renderShorts, reportOf, saveShorts, SCENE_VISUALS, statusLabel, videoFileName, workerOnline, writtenTopics,
+  type BatchRenderResult, type OriginalityReport, type Scene, type SceneVisual, type ShortsBatch, type ShortsItem, type ShortsOverview,
 } from '../lib/shorts'
 import type { ManagePage } from '../lib/types'
 import { StudioUploadGuide } from './StudioUploadGuide'
 
 const POLL_MS = 5000
+/** 장면 연출 이름 → 화면 이름 (번역 키) */
+const VISUAL_LABELS: Record<SceneVisual, string> = {
+  explain: '설명하기', shock: '데이터가 사라짐', typing: '코드 고치기', panic: '요청 폭주', restore: '백업으로 복구', wait: '느린 로딩',
+  fast: '빨라짐', idea: '팁', protect: '막아 냄', think: '원인 질문', celebrate: '결과 축하',
+}
 
 /**
  * 쇼츠 스튜디오 (099). 왼쪽은 내 대본 목록, 오른쪽은 고른 대본 편집기.
@@ -384,6 +389,17 @@ function Editor({ item, onChange, onReload, onDeleted }: {
                   placeholder="/media/images/…" data-tip={t('글에 올린 그림 주소를 넣으면 이 장면 배경으로 깔려요. 비우면 첫 장면에 글 대표 사진이 들어가요.')}
                   onChange={(e) => edit(i, { image: e.target.value })} />
                 {errors[`scenes[${i}].image`] && <span className="error">{errors[`scenes[${i}].image`]}</span>}
+              </div>
+              <div className="field">
+                <label htmlFor={`scene-${i}-visual`}>{t('장면 연출')}</label>
+                <select id={`scene-${i}-visual`} value={s.visual ?? ''} data-tip={t('장면 내용에 맞는 움직임을 골라요. 자동이면 자막과 내레이션을 보고 정해요.')}
+                  onChange={(e) => edit(i, { visual: (e.target.value || null) as SceneVisual | null })}>
+                  <option value="">{t('자동')}</option>
+                  {SCENE_VISUALS.map((v) => <option key={v} value={v}>{t(VISUAL_LABELS[v])}</option>)}
+                </select>
+                {s.effects && s.effects.length > 0 && <span className="muted">{t('효과음 {0}개', { 0: s.effects.length })}</span>}
+                {errors[`scenes[${i}].visual`] && <span className="error">{errors[`scenes[${i}].visual`]}</span>}
+                {errors[`scenes[${i}].effects`] && <span className="error">{errors[`scenes[${i}].effects`]}</span>}
               </div>
             </li>
           ))}

@@ -103,6 +103,28 @@ class ShortsBatchTest extends IntegrationTest {
         assertThat(text(r)).contains("[막힘]", "원본 글 문장을 그대로").doesNotContain("원본 글이나 맥락 근거가 없어요");
     }
 
+    @Test
+    void 연결한_AI는_장면_연출을_이름이나_action_객체로_주고_효과음을_넣을_수_있다() throws Exception {
+        Session me = signup(uniqueLogin("visual"));
+        String token = token(me);
+        List<Map<String, Object>> scenes = List.of(
+                Map.of("caption", "빌드 7분, 왜?", "narration", CACHE.get(0).get("narration"), "visual", Map.of("action", "wait"),
+                        "effects", List.of(Map.of("sound", "tick", "at", 0.2))),
+                Map.of("caption", "캐시가 날아감", "narration", CACHE.get(1).get("narration"), "visual", "shock"),
+                Map.of("caption", "7분 → 2분", "narration", CACHE.get(3).get("narration"), "visual", "fast",
+                        "effects", List.of(Map.of("sound", "ding", "at", 1.5, "volume", 0.8))));
+        JsonNode r = call(token, "create_shorts_script", Map.of("title", "빌드가 느렸던 이유", "source_text", CONTEXT, "scenes", scenes));
+        assertThat(r.path("isError").asBoolean()).as(text(r)).isFalse();
+        long id = Long.parseLong(jdbc.queryForObject("SELECT max(id)::text FROM shorts WHERE member_id = ?", String.class, me.memberId()));
+        JsonNode item = read(me.http().perform(get("/api/me/shorts/" + id)).andExpect(status().isOk()).andReturn());
+        assertThat(item.path("scenes").get(0).path("visual").asString()).isEqualTo("wait");
+        assertThat(item.path("scenes").get(0).path("effects").get(0).path("sound").asString()).isEqualTo("tick");
+        assertThat(item.path("scenes").get(2).path("effects").get(0).path("volume").asDouble()).isEqualTo(0.8);
+
+        JsonNode bad = call(token, "create_shorts_script", Map.of("title", "x", "scenes", List.of(Map.of("caption", "a", "narration", "b", "visual", "explode"))));
+        assertThat(text(bad)).contains("연출은", "celebrate");
+    }
+
     private static List<Map<String, String>> topics(int n) {
         return java.util.stream.IntStream.rangeClosed(1, n)
                 .mapToObj(i -> Map.of("title", "주제 " + i, "hook", "왜 " + i + "번은 느렸을까요?", "scope", "원인과 결과"))

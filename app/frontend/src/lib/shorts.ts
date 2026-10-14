@@ -30,7 +30,14 @@ export interface Scene {
   code: string | null
   /** 장면 배경 그림 (선택, devlog에 올린 그림 주소나 /로 시작하는 사이트 경로) */
   image?: string | null
+  /** 장면 연출 이름 (선택, 비우면 렌더 워커가 고름) */
+  visual?: SceneVisual | null
+  /** 장면 안 효과음 (선택, 연결한 AI가 넣음. 편집기는 그대로 보존) */
+  effects?: { sound: string; at: number; volume?: number | null }[]
 }
+
+export const SCENE_VISUALS = ['explain', 'shock', 'typing', 'panic', 'restore', 'wait', 'fast', 'idea', 'protect', 'think', 'celebrate'] as const
+export type SceneVisual = (typeof SCENE_VISUALS)[number]
 
 export interface ShortsItem {
   id: number
