@@ -1610,6 +1610,8 @@ export const en: Record<string, string> = {
   "실계좌 기록 있음": "Has live-account records",
   "실계좌 주문으로 남긴 체결이에요": "A fill from a live-account order",
   "실계좌": "Live",
+  "모의투자": "Paper",
+  "모의투자와 실계좌 손익은 더하지 않고 따로 보여 줘요": "Paper and live P&L are shown separately, never added together",
   "실계좌(LIVE)로 남긴 체결이 있어요. 봇의 실계좌 주문은 직접 켰을 때만 나가요": "Some fills came from a live account (LIVE). The bot only places live orders when you turn that on yourself",
   "실현 손익": "Realized P&L",
   "아직 발행하지 않은 임시글이에요. 읽어 보고 발행할지 정해요": "An unpublished draft. Read it and decide whether to publish",

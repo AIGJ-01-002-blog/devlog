@@ -109,9 +109,10 @@ public class TradeJournal {
      * @param closes 포지션을 닫은 체결 수(현물 매도, 선물 청산)
      * @param wins 손익이 0보다 큰 청산 수, losses 0보다 작은 청산 수
      * @param realizedPnl 청산이 있었던 통화마다 실현 손익 합
+     * @param modes PAPER와 LIVE가 섞였을 때만 모드별 요약(PAPER 먼저). 한 모드뿐이면 비어 있다
      */
     public record Summary(int trades, int buys, int sells, int closes, int wins, int losses, Map<String, BigDecimal> realizedPnl,
-                          Map<String, BigDecimal> fees) {}
+                          Map<String, BigDecimal> fees, Map<String, Summary> modes) {}
 
     public record DayRow(LocalDate date, Summary summary, Map<String, BigDecimal> cumulativePnl, boolean memo, Long postId, Long shortsId) {}
 
@@ -411,7 +412,17 @@ public class TradeJournal {
         return out;
     }
 
+    /** 모의투자와 실계좌 성적이 섞이지 않게, 둘 다 있으면 모드별 요약도 낸다 (#260) */
     static Summary summarize(List<Fill> fills) {
+        Map<String, Summary> modes = new LinkedHashMap<>();
+        for (Mode m : Mode.values()) {
+            List<Fill> of = fills.stream().filter(f -> f.mode().equals(m.name())).toList();
+            if (!of.isEmpty()) modes.put(m.name(), tally(of, Map.of()));
+        }
+        return tally(fills, modes.size() < 2 ? Map.of() : modes);
+    }
+
+    private static Summary tally(List<Fill> fills, Map<String, Summary> modes) {
         int buys = 0;
         int sells = 0;
         int closes = 0;
@@ -432,7 +443,7 @@ public class TradeJournal {
                 else if (f.realizedPnl().signum() < 0) losses++;
             }
         }
-        return new Summary(fills.size(), buys, sells, closes, wins, losses, pnl, fees);
+        return new Summary(fills.size(), buys, sells, closes, wins, losses, pnl, fees, modes);
     }
 
     private Map<String, BigDecimal> pnlBefore(long memberId, LocalDate date) {

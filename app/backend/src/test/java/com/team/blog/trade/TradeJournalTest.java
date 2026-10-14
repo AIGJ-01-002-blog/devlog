@@ -281,6 +281,37 @@ class TradeJournalTest extends IntegrationTest {
     }
 
     @Test
+    void 같은_날_모의투자와_실계좌가_섞이면_합계와_요약_글을_나눠_적는다() throws Exception {
+        Session me = signup(uniqueLogin("mixedmode"));
+        String t = token(me);
+        LocalDate d = LocalDate.now(KST).minusDays(1);
+
+        Map<String, Object> live = futures("m-2", d, "10:00:00", "SHORT", "BUY", 3, "-4");
+        live.put("mode", "LIVE");
+        for (Map<String, Object> a : List.of(futures("m-1", d, "09:00:00", "LONG", "SELL", 2, "12"), live)) {
+            JsonNode r = call(t, "record_trade", a);
+            assertThat(r.path("isError").asBoolean()).as(text(r)).isFalse();
+        }
+
+        JsonNode s = read(me.http().perform(get("/api/me/trades/" + d)).andExpect(status().isOk()).andReturn()).path("summary");
+        assertThat(s.path("realizedPnl").path("USDT").decimalValue()).isEqualByComparingTo("8");
+        assertThat(s.path("modes").path("PAPER").path("realizedPnl").path("USDT").decimalValue()).isEqualByComparingTo("12");
+        assertThat(s.path("modes").path("LIVE").path("realizedPnl").path("USDT").decimalValue()).isEqualByComparingTo("-4");
+        assertThat(s.path("modes").path("LIVE").path("losses").asInt()).isEqualTo(1);
+
+        long postId = read(me.http().perform(post("/api/me/trades/" + d + "/draft").with(csrf())).andExpect(status().isOk()).andReturn())
+                .path("postId").asLong();
+        Map<String, Object> draft = jdbc.queryForMap("SELECT title, content_md FROM post WHERE id = ?", postId);
+        assertThat((String) draft.get("title")).contains("(모의투자·실계좌): 실현 손익 모의투자 +12.00 USDT · 실계좌 -4.00 USDT");
+        assertThat((String) draft.get("content_md")).contains("  - 모의투자: 체결 1건, 실현 손익 +12.00 USDT (이익 본 청산 1 · 손해 본 청산 0)",
+                "  - 실계좌: 체결 1건, 실현 손익 -4.00 USDT (이익 본 청산 0 · 손해 본 청산 1)");
+
+        // 한 모드뿐인 날은 나누지 않는다
+        JsonNode empty = read(me.http().perform(get("/api/me/trades/" + d.minusDays(1))).andExpect(status().isOk()).andReturn());
+        assertThat(empty.path("summary").path("modes").isEmpty()).isTrue();
+    }
+
+    @Test
     void 예전_봇이_이유_앞머리로_알린_선물_체결을_열로_옮긴다() throws Exception {
         Session me = signup(uniqueLogin("legacyfut"));
         jdbc.update("""

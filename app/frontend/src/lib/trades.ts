@@ -23,6 +23,8 @@ export interface TradeSummary {
   losses: number
   realizedPnl: Money
   fees: Money
+  /** 모의투자와 실계좌가 섞였을 때만 모드별 요약(PAPER 먼저). 한 모드뿐이면 비어 있다 */
+  modes?: Partial<Record<'PAPER' | 'LIVE', TradeSummary>>
 }
 
 export interface TradeFill {

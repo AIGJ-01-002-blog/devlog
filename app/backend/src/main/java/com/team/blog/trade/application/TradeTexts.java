@@ -52,6 +52,23 @@ public final class TradeTexts {
         return unit.equals("주") ? qty(f.quantity()) + "주" : qty(f.quantity()) + " " + unit;
     }
 
+    private static String modeName(String mode) {
+        return mode.equals("LIVE") ? "실계좌" : "모의투자";
+    }
+
+    /**
+     * 실현 손익. 모의투자와 실계좌가 섞인 날은 더하지 않고 나눠 적는다 (#260): "모의투자 +1.05 USDT · 실계좌 -4,200원".
+     * 청산이 없던 모드는 뺀다.
+     */
+    static String pnl(TradeJournal.Day day, TradeJournal.Summary s, String separator) {
+        if (s.modes().isEmpty()) return money(day, s.realizedPnl(), true);
+        List<String> parts = new ArrayList<>();
+        s.modes().forEach((mode, m) -> {
+            if (m.closes() > 0) parts.add(modeName(mode) + " " + money(day, m.realizedPnl(), true));
+        });
+        return String.join(separator, parts);
+    }
+
     static String modeLabel(TradeJournal.Day day) {
         boolean live = day.fills().stream().anyMatch(f -> f.mode().equals("LIVE"));
         boolean paper = day.fills().stream().anyMatch(f -> f.mode().equals("PAPER"));
@@ -83,7 +100,7 @@ public final class TradeTexts {
     static String draftTitle(TradeJournal.Day day) {
         TradeJournal.Summary s = day.summary();
         String head = "매매 일지 " + day.date() + " (" + modeLabel(day) + ")";
-        return s.closes() > 0 ? head + ": 실현 손익 " + money(day, s.realizedPnl(), true) : head + ": 체결 " + s.trades() + "건";
+        return s.closes() > 0 ? head + ": 실현 손익 " + pnl(day, s, " · ") : head + ": 체결 " + s.trades() + "건";
     }
 
     /** 하루 요약 임시글 본문 (Markdown). 체결 표·요약·메모·고지 */
@@ -95,9 +112,17 @@ public final class TradeTexts {
         md.append("## 요약\n\n");
         md.append("- 체결 ").append(s.trades()).append("건 (매수 ").append(s.buys()).append(" · 매도 ").append(s.sells()).append(")\n");
         if (s.closes() > 0) {
-            md.append("- 실현 손익: ").append(money(day, s.realizedPnl(), true))
+            md.append("- 실현 손익: ").append(pnl(day, s, " · "))
                     .append(" (이익 본 청산 ").append(s.wins()).append(" · 손해 본 청산 ").append(s.losses()).append(")\n");
         }
+        s.modes().forEach((mode, m) -> {
+            md.append("  - ").append(modeName(mode)).append(": 체결 ").append(m.trades()).append("건");
+            if (m.closes() > 0) {
+                md.append(", 실현 손익 ").append(money(day, m.realizedPnl(), true))
+                        .append(" (이익 본 청산 ").append(m.wins()).append(" · 손해 본 청산 ").append(m.losses()).append(")");
+            }
+            md.append('\n');
+        });
         md.append("- 수수료·세금: ").append(money(day, s.fees(), false)).append('\n');
         md.append("- 지금까지 실현 손익: ").append(money(day, day.cumulativePnl(), true)).append("\n\n");
         md.append("## 체결\n\n| 시각 | 종목 | 구분 | 수량 | 가격 | 실현 손익 | 이유 |\n|---|---|---|---:|---:|---:|---|\n");
@@ -122,7 +147,7 @@ public final class TradeTexts {
     static String shortsTitle(TradeJournal.Day day) {
         String t = day.date().getMonthValue() + "월 " + day.date().getDayOfMonth() + "일 매매 봇 일지";
         TradeJournal.Summary s = day.summary();
-        return s.closes() > 0 ? t + " " + money(day, s.realizedPnl(), true) : t;
+        return s.closes() > 0 ? t + " " + pnl(day, s, " · ") : t;
     }
 
     /**
@@ -140,9 +165,10 @@ public final class TradeTexts {
         String close = futures ? "청산" : "매도";
         String open = futures ? "진입" : "매수";
         String result = s.closes() > 0
-                ? "체결 " + s.trades() + "건 가운데 " + close + " " + s.closes() + "번에서 실현 손익은 " + money(day, s.realizedPnl(), true) + "이었어요."
+                ? "체결 " + s.trades() + "건 가운데 " + close + " " + s.closes() + "번에서 실현 손익은 " + pnl(day, s, ", ") + "이었어요."
                 : "체결은 " + s.trades() + "건이었고 모두 " + open + "라서 아직 확정된 손익은 없어요.";
-        head.add(new ShortsScript.Scene(s.closes() > 0 ? "실현 손익 " + money(day, s.realizedPnl(), true) : open + " " + s.trades() + "건", result, null));
+        String caption = s.closes() > 0 ? "실현 손익 " + pnl(day, s, " · ") : open + " " + s.trades() + "건";
+        head.add(new ShortsScript.Scene(clip(caption, ShortsScript.CAPTION_MAX), result, null));
 
         List<ShortsScript.Scene> fills = new ArrayList<>();
         Set<String> seen = new LinkedHashSet<>();
