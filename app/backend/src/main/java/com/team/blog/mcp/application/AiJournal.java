@@ -254,6 +254,11 @@ public class AiJournal {
     // ── 하루 메모와 AI 일기 ──────────────────────────────
 
     public NoteSaved addNote(long memberId, String rawTopic, String rawContent, List<String> tags) {
+        return addNote(memberId, rawTopic, rawContent, tags, List.of());
+    }
+
+    /** @param links 근거 링크 (#240). 일기로 묶을 때 주제 문단 아래 "근거:" 줄로 붙는다 */
+    NoteSaved addNote(long memberId, String rawTopic, String rawContent, List<String> tags, List<EvidenceLinks.Link> links) {
         String content = rawContent == null ? "" : rawContent.strip();
         String topic = oneLine(rawTopic);
         if (content.isEmpty() || content.length() > NOTE_MAX) throw ApiException.badRequest("NOTE_CONTENT", "메모(content)는 1~" + NOTE_MAX + CHARS_PLEASE);
@@ -270,8 +275,8 @@ public class AiJournal {
             if (n >= NOTES_PER_DAY) {
                 throw ApiException.conflict("NOTE_LIMIT", "메모는 하루 " + NOTES_PER_DAY + "개까지 남길 수 있어요. 오늘은 여기까지 모아 둘게요.");
             }
-            Long id = jdbc.queryForObject("INSERT INTO ai_note (member_id, topic, content, tags, created_at) VALUES (?, ?, ?, ?, ?) RETURNING id",
-                    Long.class, memberId, topic.isEmpty() ? null : topic, content, String.join(",", tags), Timestamp.from(now));
+            Long id = jdbc.queryForObject("INSERT INTO ai_note (member_id, topic, content, tags, links, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
+                    Long.class, memberId, topic.isEmpty() ? null : topic, content, String.join(",", tags), EvidenceLinks.toStored(links), Timestamp.from(now));
             return new NoteSaved(id, n + 1);
         });
     }
@@ -341,13 +346,13 @@ public class AiJournal {
         }
     }
 
-    record Note(String topic, String content, List<String> tags, Instant at) {}
+    record Note(String topic, String content, List<String> tags, List<EvidenceLinks.Link> links, Instant at) {}
 
     /** @return 만든 일기 글 번호 (날짜 순) */
     private List<Long> compile(long memberId, Instant before, int hour, Instant now) {
-        List<Note> notes = jdbc.query("DELETE FROM ai_note WHERE member_id = ? AND created_at < ? RETURNING topic, content, tags, created_at",
+        List<Note> notes = jdbc.query("DELETE FROM ai_note WHERE member_id = ? AND created_at < ? RETURNING topic, content, tags, links, created_at",
                 (rs, i) -> new Note(rs.getString("topic"), rs.getString("content"), split(rs.getString("tags")),
-                        rs.getTimestamp(CREATED_AT).toInstant()), memberId, Timestamp.from(before));
+                        EvidenceLinks.fromStored(rs.getString("links")), rs.getTimestamp(CREATED_AT).toInstant()), memberId, Timestamp.from(before));
         Map<LocalDate, List<Note>> byDay = new TreeMap<>();
         Instant oldest = now.minus(NOTE_KEEP);
         for (Note n : notes) {
@@ -395,6 +400,7 @@ public class AiJournal {
      * 주제가 처음 나온 차례대로 소제목을 달고, 그 아래에 그 주제의 메모를 시간 순으로 한 문단으로 잇는다 (071 다듬기, v1.51.3).
      * 시각 목록("- 14:05 …")은 작업 기록처럼 딱딱해서 뺐다. 메모가 일기 문장 그대로 되도록 AI에는 1인칭 일기 말투로 쓰라고 안내한다.
      * 주제 없는 메모는 맨 끝 "그 밖에"로, 주제 없는 메모만 있으면 소제목 없이 문단만 둔다.
+     * 메모에 근거 링크가 있으면 그 주제 문단 아래에 "근거: [PR #12](…) · [커밋 abc1234](…)" 한 줄을 둔다 (#240). 같은 주소는 한 번만.
      */
     static String diaryBody(List<Note> notes) {
         Map<String, List<Note>> byTopic = new LinkedHashMap<>();
@@ -412,6 +418,11 @@ public class AiJournal {
                 para.append(sentence(n.content()));
             }
             out.append(para).append('\n');
+            Map<String, EvidenceLinks.Link> links = new LinkedHashMap<>();
+            for (Note n : e.getValue()) for (EvidenceLinks.Link l : n.links()) links.putIfAbsent(l.url(), l);
+            if (!links.isEmpty()) {
+                out.append("\n근거: ").append(String.join(" · ", links.values().stream().map(EvidenceLinks.Link::markdown).toList())).append('\n');
+            }
         }
         return out.toString();
     }

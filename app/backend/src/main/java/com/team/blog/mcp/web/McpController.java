@@ -39,6 +39,7 @@ public class McpController {
             오늘 한 일을 정리해 임시글로 올려 주세요. 글은 공개되지 않고, 사용자가 devlog 화면에서 읽고 직접 발행해요. \
             다룬 주제가 여럿이면 주제마다 임시글을 나눠 쓰고(한 번에 최대 3편, 나머지는 propose_post로 남기기), 시리즈로 묶지는 마세요. \
             비밀번호·토큰·개인 정보·회사 내부 주소는 글에 넣지 마세요. \
+            작업의 커밋·PR·이슈 주소가 있으면 write_devlog·create_draft의 links로 함께 주세요. 글 끝 '## 근거'에 이름을 붙여 넣어요. \
             사용자가 예전 글을 이어 쓰거나 고치자고 하면 search_posts(mine=true)로 찾고 get_post로 읽은 뒤 update_draft로 고쳐 주세요. \
             발행한 글을 고치면 작업본에만 저장되고, 사용자가 다시 발행해야 공개돼요. \
             함께 하던 한 주제(기능 하나, 버그 하나, 조사 하나)가 끝났다고 판단되면 바로 글을 쓰지 말고, 블로그 글로 남길지 \
@@ -64,7 +65,12 @@ public class McpController {
             + "개발 일기처럼 1인칭 해요체(~했어요, ~였어요)로 무슨 일이 있었고 왜 막혔고 무엇을 알게 됐는지 풀어 쓰고, 버전 번호·코드 이름은 꼭 필요할 때만, "
             + "보고서 말투(구현함·변경함)는 피해 주세요. 주제(topic)는 같은 일이면 같은 표기로 적어 주세요. "
             + "메모는 매일 사용자가 고른 시각(한국 시간)에 일기로 묶여요. 일기는 발행될 수 있으니 비밀번호·토큰·개인 정보는 메모에 넣지 마세요. "
+            + "메모의 근거가 되는 커밋·PR·이슈 주소가 있으면 links로 함께 주세요. "
             + "메모를 남겼다고 매번 사용자에게 알릴 필요는 없어요.";
+
+    /** 쇼츠 스튜디오를 켠 서버일 때 덧붙인다 (#240) */
+    private static final String INSTRUCTIONS_SHORTS = " 글을 쓰거나 발행한 결과에 '쇼츠 후보'가 보이면 그 안내대로 사용자에게 한 번만 물어 주세요. "
+            + "사용자가 쇼츠 거리를 물으면 list_shorts_candidates로 후보를 보여 주고, 고른 글로만 create_shorts_script를 써 주세요.";
 
     /** 일기를 켜고 AI 발행도 허용한 회원 (071): 일기가 바로 발행된다 */
     private static final String INSTRUCTIONS_AI_DIARY_PUBLISH = " 이 사용자는 AI 발행도 허용해서 일기가 임시글을 거치지 않고 바로 발행돼요.";
@@ -144,14 +150,15 @@ public class McpController {
                 "instructions", instructions(caller));
     }
 
-    /** 사용자 설정(AI 발행·AI 일기·관리자)에 맞춰 안내문을 붙인다 */
-    private static String instructions(AccessTokens.Caller caller) {
+    /** 사용자 설정(AI 발행·AI 일기·관리자)과 서버 설정(쇼츠)에 맞춰 안내문을 붙인다 */
+    private String instructions(AccessTokens.Caller caller) {
         StringBuilder out = new StringBuilder(INSTRUCTIONS);
         if (caller.aiPublishAllowed()) out.append(INSTRUCTIONS_AI_PUBLISH);
         if (caller.aiDiaryEnabled()) {
             out.append(INSTRUCTIONS_AI_DIARY);
             if (caller.aiPublishAllowed()) out.append(INSTRUCTIONS_AI_DIARY_PUBLISH);
         }
+        if (tools.shortsEnabled()) out.append(INSTRUCTIONS_SHORTS);
         if (caller.admin()) out.append(INSTRUCTIONS_ADMIN);
         return out.toString();
     }

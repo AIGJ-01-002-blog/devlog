@@ -49,6 +49,12 @@ public class ViewStats {
                 """, (rs, i) -> Map.entry(rs.getLong("post_id"), rs.getLong("n")), postIds.toArray(Long[]::new), Timestamp.from(from), limit);
     }
 
+    /** 몇몇 글의 기간 안 조회수 (#240 쇼츠 후보). 본 적 없는 글은 빠진다 */
+    public Map<Long, Long> byPostsSince(List<Long> postIds, Instant from) {
+        return Counts.byKeys(jdbc, "SELECT post_id AS k, count(*) AS n FROM post_view WHERE post_id = ANY (?) AND viewed_at >= ? GROUP BY k",
+                postIds, Timestamp.from(from));
+    }
+
     public Map<Long, Long> byPosts(List<Long> postIds) {
         return Counts.byKeys(jdbc, "SELECT post_id AS k, count(*) AS n FROM post_view WHERE post_id = ANY (?) GROUP BY k", postIds);
     }

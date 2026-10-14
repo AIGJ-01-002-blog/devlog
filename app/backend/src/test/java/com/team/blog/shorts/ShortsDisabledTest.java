@@ -34,6 +34,6 @@ class ShortsDisabledTest extends IntegrationTest {
         body.put("method", "tools/list");
         var tools = read(mvc.perform(post("/api/mcp").contentType(MediaType.APPLICATION_JSON).header("Authorization", "Bearer " + token)
                 .content(json.writeValueAsString(body))).andReturn()).path("result").path("tools").findValuesAsString("name");
-        assertThat(tools).contains("write_devlog").doesNotContain("create_shorts_script", "list_shorts");
+        assertThat(tools).contains("write_devlog").doesNotContain("create_shorts_script", "list_shorts", "list_shorts_candidates");
     }
 }

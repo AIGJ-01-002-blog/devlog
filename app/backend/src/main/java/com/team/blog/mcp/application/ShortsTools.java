@@ -1,5 +1,7 @@
 package com.team.blog.mcp.application;
 
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,11 +32,17 @@ class ShortsTools {
             + "사용자가 직접 겪은 일과 결과(숫자)를 한 장면 이상 넣는다. 장면마다 새 정보(원인·시도·결과·배운 점)를 하나씩 넣고 같은 말로 시작하지 않는다. "
             + "글에 없는 경험이나 수치를 지어내지 않는다.";
 
+    static final int CANDIDATES_DEFAULT = 5;
+    static final int CANDIDATES_MAX = 10;
+    private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneId.of("Asia/Seoul"));
+
     private final ShortsService shorts;
+    private final ShortsCandidates candidates;
     private final String baseUrl;
 
-    ShortsTools(ShortsService shorts, BlogProperties props) {
+    ShortsTools(ShortsService shorts, ShortsCandidates candidates, BlogProperties props) {
         this.shorts = shorts;
+        this.candidates = candidates;
         this.baseUrl = props.site().baseUrl();
     }
 
@@ -83,6 +91,43 @@ class ShortsTools {
         }
         sb.append("오늘 영상 만들기 ").append(o.rendersToday()).append('/').append(o.dailyRenders()).append("번. 스튜디오: ").append(baseUrl).append("/studio");
         return McpTools.Result.ok(sb.toString());
+    }
+
+    /** 쇼츠 후보 목록 (#240). 아직 쇼츠가 없는 공개 글 가운데 문제·숫자·코드가 둘 이상 있는 글 */
+    McpTools.Result candidates(AccessTokens.Caller caller, JsonNode a) {
+        int limit = a.path("limit").canConvertToInt() ? Math.clamp(a.path("limit").asInt(), 1, CANDIDATES_MAX) : CANDIDATES_DEFAULT;
+        List<ShortsCandidates.Candidate> list = candidates.of(caller.memberId(), limit);
+        if (list.isEmpty()) {
+            return McpTools.Result.ok("지금은 쇼츠로 만들 만한 글이 없어요. 아직 쇼츠가 없는 공개 글 가운데 직접 겪은 문제·숫자로 된 결과·코드 중 "
+                    + "두 가지 이상이 들어간 글을 찾아요. 그런 글을 쓰면 다시 확인해 주세요.");
+        }
+        StringBuilder sb = new StringBuilder("쇼츠 후보 (아직 쇼츠가 없는 공개 글, 좋은 점이 많은 순):\n");
+        for (ShortsCandidates.Candidate c : list) {
+            sb.append("- 글 ").append(c.postId()).append(" · ").append(c.title()).append(" · ").append(DAY.format(c.publishedAt())).append(" 발행")
+                    .append(" · 최근 30일 조회 ").append(c.views()).append(" · 좋은 점: ").append(String.join(", ", c.reasons())).append('\n');
+        }
+        sb.append("사용자에게 목록을 보여 주고 고르게 해 주세요. 고르면 get_post로 글을 읽고 create_shorts_script(post_id)로 대본을 써요. ")
+                .append("영상은 사용자가 스튜디오에서 직접 만들어요.");
+        return McpTools.Result.ok(sb.toString());
+    }
+
+    /** 임시글을 만든 뒤 덧붙일 안내. 쇼츠를 켰고 글이 후보면 발행한 뒤에 물어보라고 알린다 */
+    String afterDraft(String content) {
+        if (!enabled()) return "";
+        ShortsCandidates.Fit f = ShortsCandidates.fit(content);
+        if (!f.fit()) return "";
+        return "\n쇼츠 후보: 이 글에는 " + String.join(", ", f.reasons()) + "이(가) 있어 60초 쇼츠로 만들 만해요. "
+                + "지금 묻지 말고, 사용자가 글을 공개로 발행한 뒤에 쇼츠 대본을 만들지 한 번만 물어봐 주세요.";
+    }
+
+    /** 공개로 발행한 뒤 덧붙일 안내. 이미 이 글로 만든 쇼츠가 있으면 묻지 않는다 */
+    String afterPublish(long postId, String content, boolean isPublic) {
+        if (!enabled() || !isPublic || candidates.hasShorts(postId)) return "";
+        ShortsCandidates.Fit f = ShortsCandidates.fit(content);
+        if (!f.fit()) return "";
+        return "\n쇼츠 후보: 이 글에는 " + String.join(", ", f.reasons()) + "이(가) 있어 60초 쇼츠로 만들 만해요. "
+                + "사용자에게 쇼츠 대본을 만들지 한 번 물어보고, 원하면 create_shorts_script에 post_id " + postId + "를 주어 만들어 주세요. "
+                + "사용자가 넘기면 다시 묻지 마세요.";
     }
 
     static String report(OriginalityCheck.Report r) {
