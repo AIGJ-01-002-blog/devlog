@@ -32,6 +32,7 @@ from pathlib import Path
 from typing import Callable
 
 from .broker import Fill, PaperBroker, Position
+from .futures import FuturesBroker, FuturesPosition
 
 KST = timezone(timedelta(hours=9))
 LEVERAGE_CAP = 3
@@ -70,6 +71,11 @@ class OrderResult:
     quantity: Decimal  # 체결 수량(수수료로 깎인 코인은 뺀 뒤)
     price: Decimal  # 평균 체결가
     fee: Decimal  # 계좌 통화로 환산한 수수료
+    executed_at: str = ""  # 거래소가 알려 준 실제 체결 시각(한국 시간 ISO). 봉이 닫힌 시각보다 늦다
+
+
+def _kst_ms(ms: object) -> str:
+    return datetime.fromtimestamp(int(ms) / 1000, timezone.utc).astimezone(KST).isoformat(timespec="seconds") if ms else ""
 
 
 def _step(v: Decimal, step: Decimal) -> Decimal:
@@ -88,7 +94,8 @@ def client_order_id(symbol: str, side: str, at: str) -> str:
 class Trader:
     """거래소 주문 한 종류. 하위 클래스가 서명·주소·응답 모양을 맞춘다"""
 
-    code = ""
+    code = ""  # record_trade의 exchange (BINANCE·UPBIT)
+    market = "spot"  # spot | futures
     currency = ""
     key_env: tuple[str, str] = ("", "")
 
@@ -120,7 +127,7 @@ class Trader:
         if leverage != 1:
             raise LiveRefused("레버리지는 선물에서만 써요.")
 
-    def market(self, symbol: str, side: str, quantity: Decimal, price: Decimal, cid: str, reduce_only: bool = False) -> OrderResult:
+    def market_order(self, symbol: str, side: str, quantity: Decimal, price: Decimal, cid: str, reduce_only: bool = False) -> OrderResult:
         """시장가 주문. 같은 cid로 이미 낸 주문이 있으면 새로 내지 않고 그 결과를 돌려준다"""
         found = self.find(symbol, cid)
         if found is not None:
@@ -248,13 +255,14 @@ class BinanceSpotTrader(_BinanceBase):
                 qty -= c
             else:  # BNB 할인 등 다른 코인으로 낸 수수료는 금액을 알 수 없어 기록에서 빠진다
                 print(f"수수료 {c:f} {t['commissionAsset']}는 {self.currency}로 바꾸지 못해 기록에서 빠져요.", file=sys.stderr)
-        return OrderResult(str(o["orderId"]), qty, price, fee.quantize(Decimal("0.00000001")))
+        return OrderResult(str(o["orderId"]), qty, price, fee.quantize(Decimal("0.00000001")), _kst_ms(o.get("updateTime") or o.get("time")))
 
 
 class BinanceFuturesTrader(_BinanceBase):
     """USDT-M 무기한 선물. 단방향 포지션 기준: BUY로 롱 진입, SELL(reduceOnly)로 청산"""
 
-    code = "BINANCE_FUTURES"
+    code = "BINANCE"
+    market = "futures"
     base_url = "https://fapi.binance.com"
     testnet_url = "https://testnet.binancefuture.com"
     testnet_key_env = ("BINANCE_FUTURES_TESTNET_API_KEY", "BINANCE_FUTURES_TESTNET_API_SECRET")
@@ -289,7 +297,8 @@ class BinanceFuturesTrader(_BinanceBase):
         status, trades = self._signed("GET", "/fapi/v1/userTrades", {"symbol": symbol, "orderId": o["orderId"]})
         fee = sum((Decimal(t["commission"]) for t in self._ok(status, trades, "체결 조회")
                    if t.get("commissionAsset") == self.currency), Decimal(0))
-        return OrderResult(str(o["orderId"]), Decimal(o["executedQty"]), Decimal(o["avgPrice"]), fee)
+        return OrderResult(str(o["orderId"]), Decimal(o["executedQty"]), Decimal(o["avgPrice"]), fee,
+                           _kst_ms(o.get("updateTime") or o.get("time")))
 
 
 def jwt_hs256(payload: dict, secret: str) -> str:
@@ -362,10 +371,15 @@ class UpbitTrader(Trader):
             return None
         qty = Decimal(o["executed_volume"])
         funds = sum((Decimal(t["funds"]) for t in o.get("trades", [])), Decimal(0))
-        return OrderResult(o["uuid"], qty, funds / qty, Decimal(o.get("paid_fee") or 0).quantize(Decimal(1)))
+        trades = o.get("trades") or []
+        done = trades[-1].get("created_at") if trades else o.get("created_at")
+        when = datetime.fromisoformat(done).astimezone(KST).isoformat(timespec="seconds") if done else ""
+        return OrderResult(o["uuid"], qty, funds / qty, Decimal(o.get("paid_fee") or 0).quantize(Decimal(1)), when)
 
 
 TRADERS: dict[str, type[Trader]] = {"binance": BinanceSpotTrader, "binance-futures": BinanceFuturesTrader, "upbit": UpbitTrader}
+LIVE_TRADERS: dict[tuple[str, str], type[Trader]] = {("binance", "spot"): BinanceSpotTrader, ("binance", "futures"): BinanceFuturesTrader,
+                                                     ("upbit", "spot"): UpbitTrader}
 
 
 @dataclass
@@ -384,45 +398,16 @@ class Limits:
 
 
 @dataclass
-class LiveBroker(PaperBroker):
-    """PaperBroker와 같은 모양(buy·sell·holding·save·load)으로 실계좌에 주문한다.
-    보유 수량·평균 단가·실현 손익은 실제 체결로 장부에 남기고, 현금은 실행할 때마다 거래소 잔고로 맞춘다."""
+class LiveState:
+    """현물·선물 실계좌 브로커가 함께 쓰는 켜짐 상태와 손실 상한 장부"""
 
     trader: Trader | None = None
     limits: Limits | None = None
     mode: str = "LIVE"
     day: str = ""  # 하루 손실을 세는 한국 날짜
     day_pnl: Decimal = Decimal(0)
-    halted: str = ""  # 비어 있지 않으면 새 매수를 멈춘 이유. python -m devlog_trade.live resume으로 푼다
+    halted: str = ""  # 비어 있지 않으면 새 진입을 멈춘 이유. python -m devlog_trade.live resume으로 푼다
     log: Callable[[str], None] = field(default=lambda m: print(m, file=sys.stderr))
-    shorts: dict[str, Position] = field(default_factory=dict)  # 선물 숏 포지션. 수량은 양수로 둔다
-
-    @property
-    def futures(self) -> bool:
-        return isinstance(self.trader, BinanceFuturesTrader)
-
-    def _fill(self, r: "OrderResult", symbol, name, side, pnl, reason, at, tag: str) -> Fill:
-        """선물은 #260 전까지 #257 모양으로 남긴다: 이름 '비트코인 선물', 이유 앞에 '[선물 숏 진입 3x]'"""
-        if self.futures:
-            name, reason = f"{name} 선물", f"[선물 {tag} {self.limits.leverage}x] {reason}".rstrip()
-        return Fill(f"live-{self.exchange}-{r.order_id}", symbol, name, side, r.quantity, r.price, r.fee, pnl, reason, at,
-                    self.exchange, self.currency)
-
-    def _spend(self, quantity: Decimal, price: Decimal, at: str) -> Decimal:
-        """새 진입에 쓸 금액. 멈춘 상태면 0"""
-        self._count(at, Decimal(0))  # 날이 바뀌었으면 하루 손실 멈춤을 푼다
-        if self.halted:
-            self.log(f"새 진입을 멈췄어요: {self.halted}")
-            return Decimal(0)
-        spend = min(quantity * price, self.limits.max_order, self.cash * self.limits.leverage)
-        if 0 < spend < quantity * price:
-            self.log(f"주문 금액을 상한에 맞춰 {_num(spend)} {self.currency}로 줄였어요.")
-        return max(spend, Decimal(0))
-
-    def _closed(self, pnl: Decimal, at: str) -> None:
-        self._count(at, pnl)
-        if -pnl >= self.limits.max_order_loss and not self.halted:
-            self.halted = f"한 번 청산 손실 {_num(-pnl)} {self.currency}가 상한 {_num(self.limits.max_order_loss)}에 닿았어요 ({at})"
 
     def sync(self) -> None:
         self.cash = self.trader.free_cash()
@@ -437,14 +422,63 @@ class LiveBroker(PaperBroker):
         if -self.day_pnl >= self.limits.max_daily_loss:
             self.halted = f"하루 손실 {_num(-self.day_pnl)} {self.currency}가 상한 {_num(self.limits.max_daily_loss)}에 닿았어요 ({day})"
 
-    def buy(self, symbol, name, quantity, price, reason, at) -> Fill | None:
-        spend = self._spend(quantity, price, at)
-        if spend <= 0:
-            return None
+    def _spend(self, notional: Decimal, at: str) -> Decimal:
+        """새 진입에 쓸 명목 금액. 멈춘 상태면 0"""
+        self._count(at, Decimal(0))  # 날이 바뀌었으면 하루 손실 멈춤을 푼다
+        if self.halted:
+            self.log(f"새 진입을 멈췄어요: {self.halted}")
+            return Decimal(0)
+        spend = min(notional, self.limits.max_order)
+        if 0 < spend < notional:
+            self.log(f"주문 금액을 상한에 맞춰 {_num(spend)} {self.currency}로 줄였어요.")
+        return max(spend, Decimal(0))
+
+    def _closed(self, pnl: Decimal, at: str) -> None:
+        self._count(at, pnl)
+        if -pnl >= self.limits.max_order_loss and not self.halted:
+            self.halted = f"한 번 청산 손실 {_num(-pnl)} {self.currency}가 상한 {_num(self.limits.max_order_loss)}에 닿았어요 ({at})"
+
+    def _order(self, symbol: str, side: str, quantity: Decimal, price: Decimal, at: str, reduce_only: bool = False) -> OrderResult | None:
         try:
-            r = self.trader.market(symbol, "BUY", spend / price, price, client_order_id(symbol, "BUY", at))
+            return self.trader.market_order(symbol, side, quantity, price, client_order_id(symbol, side, at), reduce_only)
         except LiveOrderError as e:
             self.log(str(e))
+            return None
+
+    def _live_fields(self) -> dict:
+        return {"mode": self.mode, "day": self.day, "day_pnl": str(self.day_pnl), "halted": self.halted}
+
+    def _restore(self, data: dict) -> None:
+        self.day, self.day_pnl, self.halted = data.get("day", ""), Decimal(data.get("day_pnl", "0")), data.get("halted", "")
+
+    @staticmethod
+    def _write(path: Path, data: dict) -> None:
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp.replace(path)
+
+    @staticmethod
+    def _read(path: Path, trader: Trader) -> dict | None:
+        """실계좌 상태 파일만 받는다. 모의 계좌 파일이나 다른 거래소·시장 파일이면 장부가 섞이지 않게 멈춘다"""
+        if not path.exists():
+            return None
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if data.get("mode") != "LIVE" or data.get("exchange") != trader.code or data.get("market", "spot") != trader.market:
+            raise LiveRefused(f"{path}은 실계좌 {trader.code} {trader.market} 상태 파일이 아니에요. --state로 다른 파일을 주세요.")
+        return data
+
+
+@dataclass
+class LiveBroker(LiveState, PaperBroker):
+    """현물 실계좌. PaperBroker와 같은 모양(buy·sell·holding·describe·save)으로 거래소에 시장가 주문을 낸다.
+    보유 수량·평균 단가·실현 손익은 실제 체결로 장부에 남기고, 현금은 주문할 때마다 거래소 잔고로 맞춘다."""
+
+    def buy(self, symbol, name, quantity, price, reason, at) -> Fill | None:
+        spend = min(self._spend(quantity * price, at), self.cash)
+        if spend <= 0:
+            return None
+        r = self._order(symbol, "BUY", spend / price, price, at)
+        if r is None:
             return None
         pos = self.positions.setdefault(symbol, Position())
         total = pos.quantity * pos.avg_price + r.quantity * r.price
@@ -452,20 +486,19 @@ class LiveBroker(PaperBroker):
         pos.avg_price = total / pos.quantity
         self._count(at, -r.fee)
         self.sync()
-        return self._fill(r, symbol, name, "BUY", None, reason, at, "롱 진입")
+        return Fill(f"live-{self.exchange}-{r.order_id}", symbol, name, "BUY", r.quantity, r.price, r.fee, None, reason,
+                    r.executed_at or at, self.exchange, self.currency)
 
     def sell(self, symbol, name, quantity, price, reason, at) -> Fill | None:
         pos = self.positions.get(symbol)
         if pos is None or quantity <= 0:
             return None
-        quantity = min(quantity, pos.quantity, max(self.trader.free_base(symbol), Decimal(0)))  # 수수료로 줄어든 자투리까지 맞춘다
+        quantity = min(quantity, pos.quantity, self.trader.free_base(symbol))  # 수수료로 줄어든 자투리까지 맞춘다
         if quantity <= 0:
             self.log(f"{symbol}을 거래소에서 찾지 못해 팔지 않았어요. 직접 정리했는지 거래소 화면을 확인해 주세요.")
             return None
-        try:
-            r = self.trader.market(symbol, "SELL", quantity, price, client_order_id(symbol, "SELL", at), reduce_only=True)
-        except LiveOrderError as e:
-            self.log(str(e))
+        r = self._order(symbol, "SELL", quantity, price, at)
+        if r is None:
             return None
         pnl = self._money(r.quantity * r.price - r.quantity * pos.avg_price - r.fee)
         pos.quantity -= r.quantity
@@ -473,77 +506,106 @@ class LiveBroker(PaperBroker):
             del self.positions[symbol]
         self._closed(pnl, at)
         self.sync()
-        return self._fill(r, symbol, name, "SELL", pnl, reason, at, "롱 청산")
+        return Fill(f"live-{self.exchange}-{r.order_id}", symbol, name, "SELL", r.quantity, r.price, r.fee, pnl, reason,
+                    r.executed_at or at, self.exchange, self.currency)
 
-    # 선물 숏: 진입은 SELL, 청산은 BUY(reduceOnly). 단방향 포지션 기준이라 같은 종목 롱과 숏을 함께 들지 않는다
-    def open_short(self, symbol, name, quantity, price, reason, at) -> Fill | None:
-        if not self.futures:
-            raise LiveRefused("숏은 binance-futures에서만 해요.")
-        if symbol in self.positions:
-            self.log(f"{symbol} 롱을 들고 있어 숏에 들어가지 않았어요.")
-            return None
-        spend = self._spend(quantity, price, at)
-        if spend <= 0:
-            return None
-        try:
-            r = self.trader.market(symbol, "SELL", spend / price, price, client_order_id(symbol, "SHORT", at))
-        except LiveOrderError as e:
-            self.log(str(e))
-            return None
-        pos = self.shorts.setdefault(symbol, Position())
-        total = pos.quantity * pos.avg_price + r.quantity * r.price
-        pos.quantity += r.quantity
-        pos.avg_price = total / pos.quantity
-        self._count(at, -r.fee)
-        self.sync()
-        return self._fill(r, symbol, name, "SELL", None, reason, at, "숏 진입")
-
-    def close_short(self, symbol, name, quantity, price, reason, at) -> Fill | None:
-        pos = self.shorts.get(symbol)
-        if pos is None or quantity <= 0:
-            return None
-        quantity = min(quantity, pos.quantity, max(-self.trader.free_base(symbol), Decimal(0)))
-        if quantity <= 0:
-            self.log(f"{symbol} 숏을 거래소에서 찾지 못해 청산하지 않았어요. 거래소 화면을 확인해 주세요.")
-            return None
-        try:
-            r = self.trader.market(symbol, "BUY", quantity, price, client_order_id(symbol, "COVER", at), reduce_only=True)
-        except LiveOrderError as e:
-            self.log(str(e))
-            return None
-        pnl = self._money(r.quantity * pos.avg_price - r.quantity * r.price - r.fee)
-        pos.quantity -= r.quantity
-        if pos.quantity <= 0 or pos.quantity * r.price < Decimal("0.01"):
-            del self.shorts[symbol]
-        self._closed(pnl, at)
-        self.sync()
-        return self._fill(r, symbol, name, "BUY", pnl, reason, at, "숏 청산")
-
-    def short_holding(self, symbol: str) -> Decimal:
-        pos = self.shorts.get(symbol)
-        return pos.quantity if pos else Decimal(0)
+    def describe(self) -> str:
+        return "[실계좌] " + PaperBroker.describe(self) + (f" · 멈춤: {self.halted}" if self.halted else "")
 
     def save(self, path: Path) -> None:
-        super().save(path)
-        data = json.loads(path.read_text(encoding="utf-8"))
-        data.update(mode=self.mode, day=self.day, day_pnl=str(self.day_pnl), halted=self.halted,
-                    shorts={s: {"quantity": str(p.quantity), "avg_price": str(p.avg_price)} for s, p in self.shorts.items()})
-        tmp = path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-        tmp.replace(path)
+        PaperBroker.save(self, path)
+        self._write(path, {**json.loads(path.read_text(encoding="utf-8")), **self._live_fields()})
 
     @classmethod
-    def open(cls, path: Path, trader: Trader, limits: Limits) -> "LiveBroker":
-        """실계좌 상태 파일을 열거나 새로 만든다. 모의 계좌 파일은 받지 않는다(장부가 섞이지 않게)"""
+    def open_state(cls, path: Path, trader: Trader, limits: Limits) -> "LiveBroker":
         b = cls(cash=Decimal(0), trader=trader, limits=limits, currency=trader.currency, exchange=trader.code)
-        if path.exists():
-            data = json.loads(path.read_text(encoding="utf-8"))
-            if data.get("mode") != "LIVE" or data.get("exchange") != trader.code:
-                raise LiveRefused(f"{path}은 실계좌 {trader.code} 상태 파일이 아니에요. --state로 다른 파일을 주세요.")
+        data = cls._read(path, trader)
+        if data is not None:
             paper = PaperBroker.load(path)
-            b.positions, b.last_date, b.fee_rate = paper.positions, paper.last_date, paper.fee_rate
-            b.day, b.day_pnl, b.halted = data.get("day", ""), Decimal(data.get("day_pnl", "0")), data.get("halted", "")
-            b.shorts = {s: Position(Decimal(p["quantity"]), Decimal(p["avg_price"])) for s, p in data.get("shorts", {}).items()}
+            b.positions, b.last_date, b.last_seen, b.fee_rate = paper.positions, paper.last_date, paper.last_seen, paper.fee_rate
+            b._restore(data)
+        trader.check_key()
+        return b
+
+
+@dataclass
+class LiveFuturesBroker(LiveState, FuturesBroker):
+    """USDT-M 선물 실계좌. FuturesBroker와 같은 모양(open·close·quantity_for·liquidation_due·describe·save).
+    롱 진입 BUY·정리 SELL, 숏 진입 SELL·정리 BUY(정리는 reduceOnly). 단방향 포지션 기준이다.
+    cash는 거래소의 주문 가능 잔고(availableBalance)라 증거금이 이미 빠져 있다. 강제 청산은 거래소가 한다."""
+
+    _leveraged: set = field(default_factory=set)  # 이번 실행에서 레버리지를 맞춘 종목
+
+    def available(self) -> Decimal:
+        return self.cash
+
+    def liquidation_due(self, symbol: str, price: Decimal) -> bool:
+        return False  # 거래소가 청산한다. 사라진 포지션은 close에서 장부만 정리한다
+
+    def _tag(self, side: str, what: str) -> str:
+        label = "롱" if side == "LONG" else "숏"
+        return f"[선물 {label} {what} {self.leverage:f}x]" if what == "진입" else f"[선물 {label} {what}]"
+
+    def open(self, symbol, name, side, quantity, price, reason, at) -> Fill | None:
+        if symbol in self.positions or quantity <= 0 or side not in ("LONG", "SHORT"):
+            return None
+        spend = self._spend(quantity * price, at)  # 상한은 명목 금액 기준
+        if spend <= 0:
+            return None
+        if symbol not in self._leveraged:  # 종목마다 처음 주문 전에 한 번
+            try:
+                self.trader.set_leverage(symbol, int(self.leverage))
+            except LiveOrderError as e:
+                self.log(str(e))
+                return None
+            self._leveraged.add(symbol)
+        r = self._order(symbol, "BUY" if side == "LONG" else "SELL", spend / price, price, at)
+        if r is None:
+            return None
+        self.positions[symbol] = FuturesPosition(side, r.quantity, r.price, self._money(r.quantity * r.price / self.leverage), name)
+        self._count(at, -r.fee)
+        self.sync()
+        return Fill(f"live-{self.exchange}-{r.order_id}", symbol, name, "BUY" if side == "LONG" else "SELL", r.quantity, r.price,
+                    r.fee, None, f"{self._tag(side, '진입')} {reason}".rstrip(), r.executed_at or at, self.exchange, self.currency)
+
+    def close(self, symbol, price, reason, at, liquidated=False) -> Fill | None:
+        pos = self.positions.get(symbol)
+        if pos is None:
+            return None
+        held = abs(self.trader.free_base(symbol))
+        if held <= 0:
+            self.log(f"{symbol} 포지션이 거래소에 없어요(강제 청산이나 직접 정리). 장부에서만 지워요.")
+            del self.positions[symbol]
+            return None
+        r = self._order(symbol, "SELL" if pos.side == "LONG" else "BUY", min(pos.quantity, held), price, at, reduce_only=True)
+        if r is None:
+            return None
+        pnl = self._money((r.price - pos.entry) * r.quantity * pos.direction - r.fee)
+        pos.quantity -= r.quantity
+        if pos.quantity <= 0 or pos.quantity * r.price < Decimal("0.01"):
+            del self.positions[symbol]
+        self._closed(pnl, at)
+        self.sync()
+        return Fill(f"live-{self.exchange}-{r.order_id}", symbol, pos.name, "SELL" if pos.side == "LONG" else "BUY", r.quantity,
+                    r.price, r.fee, pnl, f"{self._tag(pos.side, '정리')} {reason}".rstrip(), r.executed_at or at,
+                    self.exchange, self.currency)
+
+    def describe(self) -> str:
+        return "[실계좌] " + FuturesBroker.describe(self) + (f" · 멈춤: {self.halted}" if self.halted else "")
+
+    def save(self, path: Path) -> None:
+        FuturesBroker.save(self, path)
+        self._write(path, {**json.loads(path.read_text(encoding="utf-8")), **self._live_fields()})
+
+    @classmethod
+    def open_state(cls, path: Path, trader: Trader, limits: Limits) -> "LiveFuturesBroker":
+        b = cls(cash=Decimal(0), trader=trader, limits=limits, leverage=Decimal(limits.leverage), currency=trader.currency,
+                exchange=trader.code)
+        data = cls._read(path, trader)
+        if data is not None:
+            paper = FuturesBroker.load(path)
+            b.positions, b.last_seen, b.fee_rate = paper.positions, paper.last_seen, paper.fee_rate
+            b._restore(data)
         trader.check_key()
         return b
 
@@ -556,29 +618,40 @@ def require_live(args: argparse.Namespace) -> None:
         raise LiveRefused(f"실거래소 주문은 환경 변수 {LIVE_ENV}=1과 --live가 둘 다 있어야 해요. 먼저 --testnet으로 확인해 주세요.")
 
 
-def open_live(args: argparse.Namespace, market: str, state: Path, send: Send = http_send) -> LiveBroker:
-    """__main__의 coin 모드가 부르는 입구. 켜는 조건 → 키 → 출금 권한 → 레버리지 → 잔고 순으로 확인한다"""
+def live_state_name(exchange: str, market: str, interval: str) -> str:
+    """실계좌 상태 파일 기본 이름. 모의 계좌(trade-state-…)와 따로 둔다"""
+    return f"trade-live-{exchange}-{market}-{interval}.json"
+
+
+def open_live(args: argparse.Namespace, exchange: str, market: str, state: Path,
+              send: Send = http_send) -> LiveBroker | LiveFuturesBroker:
+    """__main__의 coin 모드가 부르는 입구. 켜는 조건 → 상한 → 키 → 출금 권한 → 잔고 순으로 확인한다.
+    선물 레버리지는 종목마다 처음 주문하기 직전에 거래소에 맞춘다"""
     require_live(args)
-    limits = Limits(Decimal(args.max_order or 0), Decimal(args.max_order_loss or 0), Decimal(args.max_daily_loss or 0),
-                    int(getattr(args, "leverage", 1) or 1))
-    trader = TRADERS[market].from_env(bool(getattr(args, "testnet", False)), send)
-    broker = LiveBroker.open(state, trader, limits)
-    if isinstance(trader, BinanceFuturesTrader):
-        trader.set_leverage(args.symbol, limits.leverage)
-    elif limits.leverage != 1:
-        raise LiveRefused("레버리지는 binance-futures에서만 써요.")
+    trader_cls = LIVE_TRADERS.get((exchange, market))
+    if trader_cls is None:
+        raise LiveRefused(f"{exchange} {market} 실계좌 주문은 아직 없어요. 바이낸스 현물·선물, 업비트 현물만 돼요.")
+    leverage = Decimal(getattr(args, "leverage", None) or 1)
+    if leverage != leverage.to_integral_value():
+        raise LiveRefused("실계좌 레버리지는 1·2·3배처럼 정수로 넣어 주세요.")
+    if market != "futures" and leverage != 1:
+        raise LiveRefused("레버리지는 선물에서만 써요.")
+    limits = Limits(Decimal(args.max_order or 0), Decimal(args.max_order_loss or 0), Decimal(args.max_daily_loss or 0), int(leverage))
+    trader = trader_cls.from_env(bool(getattr(args, "testnet", False)), send)
+    if market == "futures":
+        broker = LiveFuturesBroker.open_state(state, trader, limits)
+    else:
+        broker = LiveBroker.open_state(state, trader, limits)
     broker.sync()
     return broker
 
 
 def add_live_args(p: argparse.ArgumentParser) -> None:
-    """coin 명령에 붙일 실계좌 옵션. 기본값이 없어 상한을 직접 정해야 실계좌가 돈다"""
-    p.add_argument("--live", action="store_true", help=f"실계좌 주문 확인 플래그. 실거래소는 {LIVE_ENV}=1도 있어야 해요")
-    p.add_argument("--testnet", action="store_true", help="거래소 테스트넷에 주문해요 (바이낸스만)")
-    p.add_argument("--max-order", help="실계좌: 한 번 살 때 쓸 최대 금액 (계좌 통화)")
-    p.add_argument("--max-order-loss", help="실계좌: 한 번 청산 손실이 이만큼이면 새 매수를 멈춰요")
-    p.add_argument("--max-daily-loss", help="실계좌: 하루(한국 시간) 손실이 이만큼이면 그날 새 매수를 멈춰요")
-    p.add_argument("--leverage", type=int, default=1, help=f"실계좌 선물 레버리지 (1~{LEVERAGE_CAP})")
+    """coin 명령에 붙일 실계좌 옵션. --live와 --leverage는 coin 명령에 이미 있다. 상한은 기본값이 없어 직접 정해야 실계좌가 돈다"""
+    p.add_argument("--testnet", action="store_true", help="실계좌: 거래소 테스트넷에 주문해요 (바이낸스만)")
+    p.add_argument("--max-order", help="실계좌: 한 번 진입할 때 쓸 최대 금액 (계좌 통화, 선물은 명목 금액)")
+    p.add_argument("--max-order-loss", help="실계좌: 한 번 청산 손실이 이만큼이면 새 진입을 멈춰요")
+    p.add_argument("--max-daily-loss", help="실계좌: 하루(한국 시간) 손실이 이만큼이면 그날 새 진입을 멈춰요")
 
 
 def main(argv: list[str] | None = None) -> int:

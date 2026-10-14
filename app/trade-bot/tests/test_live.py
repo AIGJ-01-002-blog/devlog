@@ -114,7 +114,7 @@ class SwitchTest(unittest.TestCase):
         binance_spot(fx)
         env = {"BINANCE_TESTNET_API_KEY": "k", "BINANCE_TESTNET_API_SECRET": "s"}
         with mock.patch.dict(os.environ, env, clear=True), tempfile.TemporaryDirectory() as d:
-            b = open_live(self.args(live=True, testnet=True), "binance", Path(d) / "live.json", send=fx)
+            b = open_live(self.args(live=True, testnet=True), "binance", "spot", Path(d) / "live.json", send=fx)
         self.assertEqual((b.cash, b.mode, b.exchange), (Decimal(500), "LIVE", "BINANCE"))
         self.assertTrue(all(c[1] == "testnet.binance.vision" for c in fx.calls))
 
@@ -144,7 +144,7 @@ class KeyCheckTest(unittest.TestCase):
             path.write_text(json.dumps({"cash": "1000", "fee_rate": "0", "sell_tax_rate": "0", "positions": {},
                                         "exchange": "BINANCE", "currency": "USDT"}))
             with self.assertRaisesRegex(LiveRefused, "실계좌"):
-                LiveBroker.open(path, spot_trader(fx), LIMITS)
+                LiveBroker.open_state(path, spot_trader(fx), LIMITS)
 
 
 class SigningTest(unittest.TestCase):
@@ -267,7 +267,7 @@ class LiveBrokerTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / "live.json"
             b.save(path)
-            again = LiveBroker.open(path, spot_trader(fx, testnet=True), LIMITS)
+            again = LiveBroker.open_state(path, spot_trader(fx, testnet=True), LIMITS)
         self.assertEqual((again.halted, again.holding("BTCUSDT"), again.mode), ("테스트", Decimal("0.002"), "LIVE"))
 
 
@@ -280,7 +280,8 @@ class FuturesTest(unittest.TestCase):
 
         def order(q):
             fx.orders[q["newClientOrderId"]] = {"orderId": 7, "status": "FILLED", "executedQty": q["quantity"],
-                                                "avgPrice": "60000", "reduceOnly": q.get("reduceOnly")}
+                                                "avgPrice": "60000", "reduceOnly": q.get("reduceOnly"),
+                                                "updateTime": 1791972000000}
             return 200, {"orderId": 7}
 
         fx.routes[("POST", "/fapi/v1/order")] = order
@@ -298,7 +299,7 @@ class FuturesTest(unittest.TestCase):
     def test_close_is_reduce_only_and_quantity_follows_step(self):
         fx = self.fx()
         t = BinanceFuturesTrader("k", "s", True, fx)
-        r = t.market("BTCUSDT", "SELL", Decimal("0.0019"), Decimal(60000), "c1", reduce_only=True)
+        r = t.market_order("BTCUSDT", "SELL", Decimal("0.0019"), Decimal(60000), "c1", reduce_only=True)
         sent = next(c for c in fx.calls if c[0] == "POST")[3]
         self.assertEqual((sent["quantity"], sent["reduceOnly"]), ("0.001", "true"))
         self.assertEqual((r.price, r.fee), (Decimal(60000), Decimal("0.024")))
@@ -308,38 +309,58 @@ class FuturesTest(unittest.TestCase):
     def broker(self, fx, amt="-0.001"):
         fx.routes[("GET", "/fapi/v2/balance")] = lambda q: (200, [{"asset": "USDT", "availableBalance": "300"}])
         fx.routes[("GET", "/fapi/v2/positionRisk")] = lambda q: (200, [{"symbol": "BTCUSDT", "positionAmt": amt}])
-        return LiveBroker(cash=Decimal(300), trader=BinanceFuturesTrader("k", "s", True, fx),
-                          limits=Limits(Decimal(60), Decimal(20), Decimal(50), leverage=3), currency="USDT",
-                          exchange="BINANCE_FUTURES", log=lambda m: None)
+        return live.LiveFuturesBroker(cash=Decimal(300), trader=BinanceFuturesTrader("k", "s", True, fx),
+                                      limits=Limits(Decimal(60), Decimal(20), Decimal(50), leverage=3), leverage=Decimal(3),
+                                      log=lambda m: None)
 
     def test_short_entry_is_sell_and_close_is_reduce_only_buy(self):
         fx = self.fx()
         b = self.broker(fx)
-        entry = b.open_short("BTCUSDT", "비트코인", Decimal("0.001"), Decimal(60000), "하락 돌파", AT)
-        self.assertEqual((entry.side, entry.symbol_name), ("SELL", "비트코인 선물"))
+        qty = b.quantity_for(Decimal(100), Decimal(60000))  # 모의 선물과 같은 수량 계산
+        entry = b.open("BTCUSDT", "비트코인 선물", "SHORT", qty, Decimal(60000), "하락 돌파", AT)
+        self.assertEqual((entry.side, entry.exchange, entry.symbol_name), ("SELL", "BINANCE", "비트코인 선물"))
         self.assertEqual(entry.reason, "[선물 숏 진입 3x] 하락 돌파")
-        self.assertEqual(b.short_holding("BTCUSDT"), Decimal("0.001"))
-        fx.orders.clear()
-        close = b.close_short("BTCUSDT", "비트코인", Decimal("0.001"), Decimal(60000), "", "2026-10-14T11:00:00+09:00")
+        self.assertEqual(entry.quantity, Decimal("0.001"))  # 상한 60 USDT / 60000 → 스텝 0.001
+        lev = [c for c in fx.calls if c[2] == "/fapi/v1/leverage"]
+        self.assertEqual((lev[0][3]["symbol"], lev[0][3]["leverage"]), ("BTCUSDT", "3"))
+        self.assertEqual(b.positions["BTCUSDT"].side, "SHORT")
+        close = b.close("BTCUSDT", Decimal(60000), "", "2026-10-14T11:00:00+09:00")
         sent = [c for c in fx.calls if c[0] == "POST" and c[2] == "/fapi/v1/order"]
         self.assertEqual((sent[0][3]["side"], sent[1][3]["side"], sent[1][3].get("reduceOnly")), ("SELL", "BUY", "true"))
-        self.assertEqual((close.side, close.reason), ("BUY", "[선물 숏 청산 3x]"))
+        self.assertEqual((close.side, close.reason), ("BUY", "[선물 숏 정리]"))
         self.assertEqual(close.realized_pnl, Decimal("-0.024"))  # 같은 값에 사고팔아 수수료만큼 손해
-        self.assertEqual(b.short_holding("BTCUSDT"), 0)
+        self.assertNotIn("BTCUSDT", b.positions)
+        self.assertEqual(close.executed_at, "2026-10-14T19:00:00+09:00")  # 봉 시각이 아니라 거래소 체결 시각
 
-    def test_shorts_survive_save_and_spot_refuses_short(self):
+    def test_leverage_is_set_once_per_symbol(self):
+        fx = self.fx()
+        b = self.broker(fx, amt="0.001")
+        b.open("BTCUSDT", "비트코인 선물", "LONG", Decimal("0.001"), Decimal(60000), "", AT)
+        b.close("BTCUSDT", Decimal(60000), "", "2026-10-14T11:00:00+09:00")
+        b.open("BTCUSDT", "비트코인 선물", "LONG", Decimal("0.001"), Decimal(60000), "", "2026-10-14T12:00:00+09:00")
+        self.assertEqual(sum(1 for c in fx.calls if c[2] == "/fapi/v1/leverage"), 1)
+
+    def test_position_gone_on_exchange_is_dropped_without_order(self):
+        fx = self.fx()
+        b = self.broker(fx, amt="0")
+        b.positions["BTCUSDT"] = live.FuturesPosition("LONG", Decimal("0.001"), Decimal(60000), Decimal(20), "비트코인 선물")
+        self.assertIsNone(b.close("BTCUSDT", Decimal(50000), "", AT))
+        self.assertNotIn("BTCUSDT", b.positions)
+        self.assertFalse(any(c[0] == "POST" for c in fx.calls))
+
+    def test_futures_state_survives_and_keeps_last_seen(self):
         fx = self.fx()
         b = self.broker(fx)
-        b.open_short("BTCUSDT", "비트코인", Decimal("0.001"), Decimal(60000), "", AT)
+        b.open("BTCUSDT", "비트코인 선물", "SHORT", Decimal("0.001"), Decimal(60000), "", AT)
+        b.last_seen["BTCUSDT"] = "2026-10-14T00:00:00Z"
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / "f.json"
             b.save(path)
-            again = LiveBroker.open(path, BinanceFuturesTrader("k", "s", True, fx), b.limits)
-        self.assertEqual(again.short_holding("BTCUSDT"), Decimal("0.001"))
-        spot = FakeExchange()
-        binance_spot(spot)
-        with self.assertRaises(LiveRefused):
-            live_broker(spot).open_short("BTCUSDT", "비트코인", Decimal("0.001"), Decimal(50000), "", AT)
+            again = live.LiveFuturesBroker.open_state(path, BinanceFuturesTrader("k", "s", True, fx), b.limits)
+            with self.assertRaisesRegex(LiveRefused, "상태 파일이 아니에요"):  # 선물 파일을 현물 계좌로 열지 않는다
+                LiveBroker.open_state(path, spot_trader(fx, testnet=True), LIMITS)
+        self.assertEqual((again.positions["BTCUSDT"].side, again.last_seen["BTCUSDT"]), ("SHORT", "2026-10-14T00:00:00Z"))
+        self.assertEqual(again.leverage, Decimal(3))
 
 
 class UpbitTest(unittest.TestCase):
@@ -355,7 +376,7 @@ class UpbitTest(unittest.TestCase):
         fx.routes[("POST", "/v1/orders")] = place
         fx.routes[("GET", "/v1/order")] = lambda q: (200, orders[q["identifier"]]) if q["identifier"] in orders \
             else (404, {"error": {"name": "order_not_found"}})
-        r = UpbitTrader("a", "b", send=fx).market("KRW-BTC", "BUY", Decimal("0.001"), Decimal(95_000_000), "cid")
+        r = UpbitTrader("a", "b", send=fx).market_order("KRW-BTC", "BUY", Decimal("0.001"), Decimal(95_000_000), "cid")
         self.assertEqual((r.quantity, r.price, r.fee), (Decimal("0.001"), Decimal(95_000_000), Decimal(48)))
 
     def test_no_testnet(self):

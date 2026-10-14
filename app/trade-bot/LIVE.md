@@ -15,7 +15,7 @@
 | 주문당 금액 상한 | `--max-order`: 한 번 살 때 쓸 최대 금액. 넘으면 이 금액으로 줄여서 사요. |
 | 주문당 손실 상한 | `--max-order-loss`: 한 번 청산에서 이만큼 잃으면 **새 매수를 멈춰요**. `python -m devlog_trade.live resume <상태 파일>`로 직접 풀어요. |
 | 하루 손실 상한 | `--max-daily-loss`: 한국 시간 하루 동안 잃은 금액(실현 손익 + 매수 수수료)이 이만큼이면 그날 새 매수를 멈추고, 다음 날 풀려요. |
-| 레버리지 상한 | 선물은 `--leverage` 1~3배만 받아요. 4배 이상은 거래소에 묻기 전에 거절해요. |
+| 레버리지 상한 | 선물은 `--leverage` 1~3배(정수)만 받아요. 4배 이상은 거래소에 묻기 전에 거절해요. |
 | 키는 환경 변수로만 | 파일·저장소·로그에 쓰지 않아요. 테스트넷 키는 이름이 따로라 실계좌 키와 섞이지 않아요. |
 
 - 세 상한은 기본값이 없어요. 실계좌는 상한을 직접 정해야 돌아요.
@@ -42,14 +42,17 @@ UPBIT_ACCESS_KEY='…' UPBIT_SECRET_KEY='…' python3 -m devlog_trade.live check
 
 출금 권한이 켜진 키면 여기서 멈춰요.
 
-## 선물 방향과 기록 모양
+## 현물·선물 브로커와 기록 모양
 
-- 롱 진입 `buy` = BUY, 롱 청산 `sell` = SELL(reduceOnly). 숏 진입 `open_short` = SELL, 숏 청산 `close_short` = BUY(reduceOnly). 단방향 포지션 기준이라 같은 종목에 롱과 숏을 함께 들지 않아요.
-- devlog 기록은 지금(#260 전) 현물과 같은 모양이고, 이름은 `비트코인 선물`, 이유 앞에 `[선물 숏 진입 3x]`처럼 방향과 레버리지를 붙여요. 실계좌 체결은 `mode=LIVE`로 보내요.
+- 현물 `LiveBroker`는 모의 `PaperBroker`와 같은 `buy`·`sell`, 선물 `LiveFuturesBroker`는 모의 `FuturesBroker`와 같은 `open(symbol, name, side, …)`·`close(symbol, price, reason, at)`를 써요. 봇은 `broker.market`(spot·futures)으로 가르고, `broker.mode`가 `LIVE`예요.
+- 선물 방향: 롱 진입 BUY·정리 SELL, 숏 진입 SELL·정리 BUY(정리는 reduceOnly). 단방향 포지션 기준이라 같은 종목에 롱과 숏을 함께 들지 않아요. 레버리지는 종목마다 처음 주문하기 직전에 거래소에 맞춰요.
+- 선물 주문 상한(`--max-order`)은 명목 금액 기준이에요. 강제 청산은 거래소가 하고, 거래소에서 사라진 포지션은 다음 정리 때 장부에서만 지워요.
+- devlog 기록: 거래소는 `BINANCE`·`UPBIT`, 선물은 이유 앞에 `[선물 숏 진입 3x]`·`[선물 숏 정리]`처럼 모의와 같은 꼬리표를 붙여요. 체결 시각은 봉이 닫힌 시각이 아니라 거래소가 알려 준 실제 체결 시각이에요. 실계좌 체결은 `mode=LIVE`로 보내요.
+- 실계좌 상태 파일 기본 이름은 `trade-live-<거래소>-<시장>-<봉>.json`이에요(`live.live_state_name`). 처음 보는 종목은 받은 봉으로 전략만 데우고 다음 봉부터 주문해요.
 
 ## 봇에 붙이는 법
 
-`coin` 모드에 붙이는 입구는 `live.open_live(args, market, state)`와 `live.add_live_args(parser)`예요(봇 통합 브랜치에서 연결해요).
+`coin` 모드에 붙이는 입구는 `live.open_live(args, exchange, market, state)`와 `live.add_live_args(parser)`예요(봇 통합 브랜치에서 연결해요). `--live`와 `--leverage`는 `coin` 명령에 이미 있어요.
 실계좌 상태 파일은 모의 계좌 파일과 따로 써요. 모의 계좌 파일을 주면 장부가 섞이지 않게 멈춰요.
 
 ## 테스트
