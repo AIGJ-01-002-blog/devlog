@@ -34,7 +34,14 @@ export function PaperPage() {
 
   useEffect(() => { document.title = t('포인트 모의투자 - devlog') }, [])
 
-  const refresh = useCallback(() => loadPaper().then((s) => { setState(s); setError(false) }).catch(() => setError(true)), [])
+  // 늦게 온 새로고침 응답이 방금 받은 주문 결과를 덮지 않게, 가장 최근 요청의 응답만 쓴다
+  const seq = useRef(0)
+  const refresh = useCallback(() => {
+    const id = ++seq.current
+    return loadPaper()
+      .then((s) => { if (id === seq.current) { setState(s); setError(false) } })
+      .catch(() => { if (id === seq.current) setError(true) })
+  }, [])
   useEffect(() => {
     void refresh()
     const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void refresh() }, REFRESH_MS)
@@ -83,6 +90,7 @@ export function PaperPage() {
       const r = await placeOrder(side === 'BUY'
         ? { clientOrderId: orderId.current, symbol, side, amount: amountN, useShop, reason }
         : { clientOrderId: orderId.current, symbol, side, quantity: sellAll ? undefined : quantityN, all: sellAll, reason })
+      seq.current++
       setState(r.state)
       orderId.current = newOrderId()
       const name = quote?.name ?? symbol

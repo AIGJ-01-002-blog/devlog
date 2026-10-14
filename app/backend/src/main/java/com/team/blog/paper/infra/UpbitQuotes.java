@@ -41,6 +41,8 @@ class UpbitQuotes implements Quotes {
     private final JsonMapper json = JsonMapper.builder().build();
     private volatile Map<String, Quote> cached = Map.of();
     private volatile Instant cachedAt = Instant.EPOCH;
+    /** 마지막으로 업비트가 실패한 시각. 캐시 시간 동안은 다시 부르지 않고 바로 실패를 돌려준다(줄 서서 5초씩 기다리지 않게). */
+    private volatile Instant failedAt = Instant.EPOCH;
 
     UpbitQuotes(PaperProperties props, Clock clock) {
         this.props = props;
@@ -52,11 +54,19 @@ class UpbitQuotes implements Quotes {
         Instant now = Times.now(clock);
         if (!cached.isEmpty() && cachedAt.plus(props.cacheTtl()).isAfter(now)) return cached;
         synchronized (this) {
-            if (!cached.isEmpty() && cachedAt.plus(props.cacheTtl()).isAfter(Times.now(clock))) return cached;
-            Map<String, Quote> fresh = fetch(now);
-            cached = fresh;
-            cachedAt = now;
-            return fresh;
+            Instant attempt = Times.now(clock);
+            if (!cached.isEmpty() && cachedAt.plus(props.cacheTtl()).isAfter(attempt)) return cached;
+            if (failedAt.plus(props.cacheTtl()).isAfter(attempt)) throw new QuotesUnavailable("시세 서버가 잠시 응답하지 않습니다");
+            try {
+                Map<String, Quote> fresh = fetch(attempt);
+                cached = fresh;
+                cachedAt = attempt;
+                failedAt = Instant.EPOCH;
+                return fresh;
+            } catch (RuntimeException e) {
+                failedAt = Times.now(clock);
+                throw e;
+            }
         }
     }
 
