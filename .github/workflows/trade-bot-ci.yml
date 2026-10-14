@@ -39,3 +39,22 @@ jobs:
         env:
           PYTHONUTF8: "1"
         run: python -m unittest discover -s tests -t . -v
+
+  # 실제 거래소 공개 시세로 한 번 돌려 본다(키 없음, 화면에만). 거래소·네트워크 사정으로 실패할 수 있어 PR을 막지 않는다
+  public-candles:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: app/trade-bot
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 바이낸스 BTCUSDT 1시간봉
+        run: python -m devlog_trade coin --exchange binance --dry-run --state "$RUNNER_TEMP/binance.json"
+      - name: 업비트 KRW-BTC 1시간봉
+        if: always()
+        run: python -m devlog_trade coin --exchange upbit --dry-run --state "$RUNNER_TEMP/upbit.json"
