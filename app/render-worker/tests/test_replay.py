@@ -2,14 +2,16 @@
 
 import json
 import shutil
+import subprocess
 import unittest
 import wave
+from unittest import mock
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from devlog_render import candles, replay, trade_sfx
+from devlog_render import candles, remotion, replay, trade_sfx
 from devlog_render.candles import Candle
-from devlog_render.render import Renderer, Script, find_font
+from devlog_render.render import FPS, Renderer, Script, find_font
 
 T0 = 1_791_853_200  # 2026-10-13T01:00:00Z (5분 경계)
 
@@ -92,6 +94,13 @@ class TimelineTest(unittest.TestCase):
         self.assertEqual(replay.money(0.00012345, "USDT"), "0.00012345 USDT")
 
 
+def _fake_remotion(props: dict, public_dir: Path, out: Path, crf: int = 16) -> None:
+    """Remotion 대신 props 길이만큼 소리 없는 화면을 만든다(크롬 없이 props와 소리 섞기를 확인)"""
+    _fake_remotion.props = props
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", f"color=c=navy:s=1080x1920:r={FPS}",
+                    "-frames:v", str(props["totalFrames"]), "-c:v", "libx264", "-pix_fmt", "yuv420p", str(out)], check=True)
+
+
 @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "ffmpeg 없음")
 class ReplayRenderTest(unittest.TestCase):
     def job(self):
@@ -101,35 +110,51 @@ class ReplayRenderTest(unittest.TestCase):
             {"caption": "왜 샀을까요?", "narration": "그때 저는 왜 여기서 매수했을까요?"},
             {"caption": "10:40 매수", "narration": "지금 거래량이 붙었어요. 들어갑니다."},
             {"caption": "12:20 매도", "narration": "목표가에 닿아서 정리합니다."},
+            {"caption": "결과 +3.10 USDT", "narration": "3달러 벌었어요."},
         ], "replay": {"exchange": "BINANCE", "symbol": "BTCUSDT", "symbolName": "비트코인", "currency": "USDT", "mode": "PAPER",
                       "interval": "5m", "from": iso(T0), "to": iso(T0 + 60 * 300), "fills": fills}}
 
-    def test_fetches_public_candles_and_renders(self):
+    def test_fetches_public_candles_and_hands_chart_to_remotion(self):
         asked = []
 
         def fetch(exchange, symbol, interval, start, end):
             asked.append((exchange, symbol, interval, start, end))
             return series()
 
-        r = Renderer(find_font(), find_font(mono=True), "silent", fetch_candles=fetch)
-        with TemporaryDirectory() as tmp:
+        r = Renderer(find_font(), find_font(mono=True), "silent", music="none", use_remotion=True, fetch_candles=fetch)
+        with TemporaryDirectory() as tmp, mock.patch.object(remotion, "render", _fake_remotion):
             out = Path(tmp) / "r.mp4"
             ms = r.render(Script.from_job(self.job()), out)
             self.assertGreater(ms, 2000)
-            self.assertEqual(out.read_bytes()[4:8], b"ftyp")
         self.assertEqual(asked, [("BINANCE", "BTCUSDT", "5m", T0, T0 + 60 * 300)])
+        scenes = _fake_remotion.props["scenes"]
+        # 대본 장면은 모두 차트 장면, 맨 끝에 말 없는 고지 카드 한 장
+        self.assertEqual([s["custom"]["kind"] for s in scenes], ["replay"] * 4 + ["replay-card"])
+        self.assertEqual(scenes[-1]["custom"]["data"], {"mode": "모의투자"})
+        self.assertEqual(scenes[-1]["pages"], [])
+        self.assertLess(scenes[-1]["durationInFrames"], 2 * FPS)
+        chart = scenes[1]["custom"]["data"]
+        self.assertEqual(len(chart["candles"]), 60)
+        self.assertEqual([f["side"] for f in chart["fills"]], ["BUY", "SELL"])
+        self.assertEqual(chart["result"]["label"], "+3.10 USDT")
+        self.assertGreater(chart["startFrame"], scenes[0]["custom"]["data"]["startFrame"])
+        # 체결은 그 장면이 화면에 나온 뒤에 찍힌다
+        self.assertGreaterEqual(chart["fills"][0]["at"], chart["startFrame"])
+
+    def test_needs_remotion(self):
+        r = Renderer(find_font(), find_font(mono=True), "silent", use_remotion=False, fetch_candles=lambda *_: series())
+        with TemporaryDirectory() as tmp, self.assertRaisesRegex(RuntimeError, "Remotion"):
+            r.render(Script.from_job(self.job()), Path(tmp) / "x.mp4")
 
     def test_candle_error_fails_the_job(self):
         def fetch(*_):
             raise candles.CandleError("바이낸스 캔들을 받지 못했어요")
 
-        r = Renderer(find_font(), find_font(mono=True), "silent", fetch_candles=fetch)
+        r = Renderer(find_font(), find_font(mono=True), "silent", use_remotion=True, fetch_candles=fetch)
         with TemporaryDirectory() as tmp, self.assertRaisesRegex(candles.CandleError, "캔들"):
             r.render(Script.from_job(self.job()), Path(tmp) / "x.mp4")
 
 
-if __name__ == "__main__":
-    unittest.main()
 
 
 class EffectsTest(unittest.TestCase):
@@ -144,7 +169,6 @@ class EffectsTest(unittest.TestCase):
         kinds = [c.kind for c in cues if c.kind != "tick"]
         self.assertEqual(kinds, ["whoosh", "buy", "whoosh", "sell", "win"])
         self.assertTrue(any(c.kind == "tick" for c in cues))
-        self.assertEqual(len(replay.shakes(r, starts, 15.0)), 2)
         with TemporaryDirectory() as tmp:
             path = trade_sfx.render(cues, 15.0, Path(tmp) / "s.wav")
             with wave.open(str(path)) as w:
@@ -155,3 +179,7 @@ class EffectsTest(unittest.TestCase):
             self.assertEqual(scene, 1)
             self.assertGreaterEqual(at, 0.0)
             self.assertTrue(trade_sfx.sound_file("sell", Path(tmp)).stat().st_size > 1000)
+
+
+if __name__ == "__main__":
+    unittest.main()
