@@ -58,7 +58,7 @@ def run(args: argparse.Namespace) -> int:
 
     ok = send_all()
     for bar in read_bars(Path(args.prices)):
-        fresh = bar.date not in broker.seen_dates
+        fresh = bar.date > broker.last_date
         pos = broker.positions.get(bar.symbol)
         signal = strategy.on_bar(bar, pos is not None, pos.avg_price if pos else Decimal(0))
         if not fresh or signal is None:
@@ -71,8 +71,9 @@ def run(args: argparse.Namespace) -> int:
             fill = broker.sell(bar.symbol, bar.name, broker.holding(bar.symbol), bar.close, signal.reason, at)
         if fill:
             pending.append(fill)
-    dates = sorted({b.date for b in read_bars(Path(args.prices))})
-    broker.seen_dates = sorted(set(broker.seen_dates) | set(dates))[-400:]
+    bars = read_bars(Path(args.prices))
+    if bars:
+        broker.last_date = max(broker.last_date, bars[-1].date)
     ok = send_all() and ok
     save()
     print(f"현금 {broker.cash:,.0f}원 · 보유 {', '.join(f'{s} {p.quantity}주' for s, p in broker.positions.items()) or '없음'}")

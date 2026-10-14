@@ -39,7 +39,7 @@ class PaperBroker:
     fee_rate: Decimal = Decimal(0)
     sell_tax_rate: Decimal = Decimal(0)
     positions: dict[str, Position] = field(default_factory=dict)
-    seen_dates: list[str] = field(default_factory=list)
+    last_date: str = ""  # 이미 처리한 마지막 날짜. 이 날짜까지는 다시 체결하지 않는다
 
     @staticmethod
     def _won(v: Decimal) -> Decimal:
@@ -74,14 +74,14 @@ class PaperBroker:
         pos = self.positions.get(symbol)
         return pos.quantity if pos else Decimal(0)
 
-    # 상태 파일: 다음 실행이 이미 본 날짜를 건너뛰고 보유 종목을 이어 간다
+    # 상태 파일: 다음 실행이 처리한 마지막 날짜까지 건너뛰고 보유 종목을 이어 간다
     def save(self, path: Path) -> None:
         data = {
             "cash": str(self.cash),
             "fee_rate": str(self.fee_rate),
             "sell_tax_rate": str(self.sell_tax_rate),
             "positions": {s: {k: str(v) for k, v in asdict(p).items()} for s, p in self.positions.items()},
-            "seen_dates": self.seen_dates,
+            "last_date": self.last_date,
         }
         tmp = path.with_suffix(".tmp")
         tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -95,5 +95,5 @@ class PaperBroker:
             fee_rate=Decimal(data["fee_rate"]),
             sell_tax_rate=Decimal(data["sell_tax_rate"]),
             positions={s: Position(Decimal(p["quantity"]), Decimal(p["avg_price"])) for s, p in data["positions"].items()},
-            seen_dates=list(data["seen_dates"]),
+            last_date=data.get("last_date", ""),
         )

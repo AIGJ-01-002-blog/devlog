@@ -37,7 +37,7 @@ python -m devlog_trade run prices.csv --fee-rate 0.00015 --sell-tax-rate 0.002
 ```
 
 - 수수료율·매도 세율은 기본이 0이에요. 쓰는 증권사와 그해 세율을 확인해 넣어 주세요(위 숫자는 모양만 보여 주는 예).
-- 상태 파일(`--state`, 기본 `trade-state.json`)에 모의 현금·보유 종목·이미 처리한 날짜가 남아요. 같은 CSV로 다시 돌려도 새 날짜에서만 체결해요.
+- 상태 파일(`--state`, 기본 `trade-state.json`)에 모의 현금·보유 종목·처리한 마지막 날짜가 남아요. 같은 CSV로 다시 돌려도 그 날짜 뒤의 새 날짜에서만 체결해요.
 - devlog에 보내지 못한 체결은 `trade-state.pending.json`에 남았다가 다음 실행 때 다시 보내요. 체결 번호가 같아서 devlog에는 한 번만 남아요.
 - 기록은 하루 500건까지예요. 넘으면 devlog가 거절하니 봇을 멈추고 전략을 확인해 주세요.
 - 집에서 띄운 devlog(`app/compose.yaml`)에 남기려면 `--server http://localhost:8080`.

@@ -106,27 +106,36 @@ public class TradeJournal {
     public Recorded record(long memberId, Input in) {
         requireEnabled();
         Input v = validate(in);
-        Optional<Recorded> existing = findByExternal(memberId, v.externalId());
-        if (existing.isPresent()) return existing.get();
-        Instant dayStart = today().atStartOfDay(TradeTexts.KST).toInstant();
-        Integer today = jdbc.queryForObject("SELECT count(*) FROM trade WHERE member_id = ? AND created_at >= ?", Integer.class,
-                memberId, Timestamp.from(dayStart));
-        if (today != null && today >= props.dailyRecords()) {
-            throw ApiException.conflict("TRADE_DAILY_LIMIT", "체결 기록은 하루 " + props.dailyRecords() + "건까지예요. 봇이 같은 주문을 되풀이하고 있지 않은지 확인해 주세요.");
-        }
         try {
-            Long id = jdbc.queryForObject("""
-                    INSERT INTO trade (member_id, external_id, mode, symbol, symbol_name, side, quantity, price, fee, realized_pnl,
-                                       strategy, reason, executed_at, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
-                    """, Long.class, memberId, v.externalId(), v.mode().name(), v.symbol(), v.symbolName(), v.side().name(), v.quantity(),
-                    v.price(), v.fee(), v.realizedPnl(), v.strategy(), v.reason(), Timestamp.from(v.executedAt()),
-                    Timestamp.from(Times.now(clock)));
-            return new Recorded(id, false, LocalDate.ofInstant(v.executedAt(), TradeTexts.KST));
+            return tx.execute(st -> {
+                // 같은 회원의 기록은 한 줄로 세워 하루 상한을 넘기지 않게 한다 (봇을 여러 개 돌려도)
+                lockMember(memberId);
+                Optional<Recorded> existing = findByExternal(memberId, v.externalId());
+                if (existing.isPresent()) return existing.get();
+                Instant dayStart = today().atStartOfDay(TradeTexts.KST).toInstant();
+                Integer today = jdbc.queryForObject("SELECT count(*) FROM trade WHERE member_id = ? AND created_at >= ?", Integer.class,
+                        memberId, Timestamp.from(dayStart));
+                if (today != null && today >= props.dailyRecords()) {
+                    throw ApiException.conflict("TRADE_DAILY_LIMIT", "체결 기록은 하루 " + props.dailyRecords() + "건까지예요. 봇이 같은 주문을 되풀이하고 있지 않은지 확인해 주세요.");
+                }
+                Long id = jdbc.queryForObject("""
+                        INSERT INTO trade (member_id, external_id, mode, symbol, symbol_name, side, quantity, price, fee, realized_pnl,
+                                           strategy, reason, executed_at, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
+                        """, Long.class, memberId, v.externalId(), v.mode().name(), v.symbol(), v.symbolName(), v.side().name(), v.quantity(),
+                        v.price(), v.fee(), v.realizedPnl(), v.strategy(), v.reason(), Timestamp.from(v.executedAt()),
+                        Timestamp.from(Times.now(clock)));
+                return new Recorded(id, false, LocalDate.ofInstant(v.executedAt(), TradeTexts.KST));
+            });
         } catch (DuplicateKeyException e) {
-            // 같은 체결을 동시에 두 번 보냈다
+            // 잠금 밖(탈퇴 정리 등)에서 같은 번호가 먼저 들어온 드문 경우
             return findByExternal(memberId, v.externalId()).orElseThrow(() -> e);
         }
+    }
+
+    /** 이 회원의 매매 일지 쓰기를 트랜잭션이 끝날 때까지 한 줄로 세운다 */
+    private void lockMember(long memberId) {
+        jdbc.query("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", rs -> null, "trade:" + memberId);
     }
 
     private Optional<Recorded> findByExternal(long memberId, String externalId) {
@@ -228,7 +237,11 @@ public class TradeJournal {
         Day day = requireTrades(memberId, date);
         if (day.postId() != null && livePost(day.postId())) return day;
         return tx.execute(st -> {
-            long postId = posts.create(memberId, TradeTexts.draftTitle(day), TradeTexts.draftBody(day)).id();
+            // 버튼을 두 번 누르거나 탭을 여러 개 열어도 글은 하나만 만든다
+            lockMember(memberId);
+            Day current = day(memberId, date);
+            if (current.postId() != null && livePost(current.postId())) return current;
+            long postId = posts.create(memberId, TradeTexts.draftTitle(current), TradeTexts.draftBody(current)).id();
             upsertLink(memberId, date, "post_id", postId);
             return day(memberId, date);
         });
@@ -246,10 +259,15 @@ public class TradeJournal {
             throw ApiException.conflict("TRADE_MEMO_REQUIRED", "쇼츠를 만들기 전에 이날 메모를 남겨 주세요. 숫자만 읽는 영상은 날마다 거의 같아져 양산형으로 보여요.");
         }
         if (day.shortsId() != null && liveShorts(day.shortsId())) return day;
-        Long postId = day.postId() != null && livePost(day.postId()) ? day.postId() : null;
-        long shortsId = shorts.create(memberId, new ShortsService.Draft(postId, TradeTexts.shortsTitle(day), TradeTexts.shortsScenes(day))).id();
-        upsertLink(memberId, date, "shorts_id", shortsId);
-        return day(memberId, date);
+        return tx.execute(st -> {
+            lockMember(memberId);
+            Day current = day(memberId, date);
+            if (current.shortsId() != null && liveShorts(current.shortsId())) return current;
+            Long postId = current.postId() != null && livePost(current.postId()) ? current.postId() : null;
+            long shortsId = shorts.create(memberId, new ShortsService.Draft(postId, TradeTexts.shortsTitle(current), TradeTexts.shortsScenes(current))).id();
+            upsertLink(memberId, date, "shorts_id", shortsId);
+            return day(memberId, date);
+        });
     }
 
     public void purge(long memberId) {

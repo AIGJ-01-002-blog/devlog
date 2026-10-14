@@ -41,14 +41,14 @@ class BrokerTest(unittest.TestCase):
     def test_state_survives_save_and_load(self):
         b = PaperBroker(cash=Decimal(50_000), fee_rate=Decimal("0.00015"))
         b.buy("A", "가", Decimal(3), Decimal(10_000), "", "t")
-        b.seen_dates = ["2026-10-13"]
+        b.last_date = "2026-10-13"
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / "s.json"
             b.save(path)
             again = PaperBroker.load(path)
         self.assertEqual(again.cash, b.cash)
         self.assertEqual(again.positions["A"].quantity, Decimal(3))
-        self.assertEqual(again.seen_dates, ["2026-10-13"])
+        self.assertEqual(again.last_date, "2026-10-13")
 
 
 class StrategyTest(unittest.TestCase):
@@ -121,6 +121,29 @@ class JournalTest(unittest.TestCase):
     def test_needs_token(self):
         with self.assertRaises(JournalError):
             Journal("https://devlog.life", "")
+
+    def test_non_json_response_is_a_journal_error(self):
+        class Html(BaseHTTPRequestHandler):
+            def log_message(self, *args):
+                pass
+
+            def do_POST(self):
+                self.rfile.read(int(self.headers["Content-Length"]))
+                body = b"<html>proxy error</html>"
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Html)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            fill = PaperBroker(cash=Decimal(100)).buy("A", "가", Decimal(1), Decimal(10), "", "t")
+            with self.assertRaisesRegex(JournalError, "응답을 읽지 못했어요"):
+                Journal(f"http://127.0.0.1:{server.server_address[1]}", "secret").record(fill)
+        finally:
+            server.shutdown()
+            server.server_close()
 
     def test_tool_error_is_raised(self):
         fake = FakeDevlog(fail=True)

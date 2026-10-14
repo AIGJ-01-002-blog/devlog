@@ -46,7 +46,10 @@ class Journal:
         req = urllib.request.Request(self.url, data=body, method="POST", headers={
             "Content-Type": "application/json", "Accept": "application/json", "Authorization": "Bearer " + self.token})
         with urllib.request.urlopen(req, timeout=self.timeout) as res:  # noqa: S310 (devlog 주소만 부른다)
-            data = json.loads(res.read().decode("utf-8"))
+            try:
+                data = json.loads(res.read().decode("utf-8"))
+            except ValueError as e:  # 프록시 오류 화면처럼 JSON이 아닌 응답
+                raise JournalError(f"devlog 응답을 읽지 못했어요: {e}") from e
         result = data.get("result") or {}
         text = "".join(c.get("text", "") for c in result.get("content", []))
         if data.get("error") or result.get("isError"):

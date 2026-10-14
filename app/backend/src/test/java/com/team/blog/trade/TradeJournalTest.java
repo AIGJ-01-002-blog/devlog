@@ -8,23 +8,35 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 
 import tools.jackson.databind.JsonNode;
 
 import com.team.blog.support.IntegrationTest;
+import com.team.blog.trade.application.TradeJournal;
 
 /**
  * #243 매매 일지: 봇이 MCP record_trade로 체결을 남기고, 회원이 날별로 보고, 메모를 남겨 요약 임시글과 쇼츠 대본을 만든다.
  */
 class TradeJournalTest extends IntegrationTest {
     static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
+    @Autowired
+    TradeJournal journal;
 
     String token(Session s) throws Exception {
         return read(s.http().perform(asJson(post("/api/me/tokens"), Map.of("name", "trade-bot", "scope", "WRITE")))
@@ -165,5 +177,51 @@ class TradeJournalTest extends IntegrationTest {
         assertThat(text(over)).contains("하루 8건까지");
         // 이미 남긴 체결을 다시 보내는 것은 상한과 상관없이 알려 준다
         assertThat(text(trade(t, "cap-0", d, "10:00:00", "005930", "삼성전자", "BUY", 1, 70000, null, ""))).contains("이미 남긴 체결");
+    }
+
+    @Test
+    void 동시에_몰려도_하루_상한과_요약글_하나를_지킨다() throws Exception {
+        Session me = signup(uniqueLogin("tradeburst"));
+        LocalDate d = LocalDate.now(KST).minusDays(1);
+        ExecutorService pool = Executors.newFixedThreadPool(6);
+        try {
+            CountDownLatch start = new CountDownLatch(1);
+            List<Future<Boolean>> results = new ArrayList<>();
+            for (int i = 0; i < 12; i++) {
+                String id = "burst-" + i;
+                results.add(pool.submit(() -> {
+                    start.await();
+                    try {
+                        journal.record(me.memberId(), new TradeJournal.Input(id, TradeJournal.Mode.PAPER, "005930", "삼성전자",
+                                TradeJournal.Side.BUY, BigDecimal.ONE, BigDecimal.valueOf(70000), null, null, "", "",
+                                d.atTime(10, 0).atZone(KST).toInstant()));
+                        return true;
+                    } catch (RuntimeException e) {
+                        return false;
+                    }
+                }));
+            }
+            start.countDown();
+            int ok = 0;
+            for (Future<Boolean> f : results) if (f.get()) ok++;
+            assertThat(ok).isEqualTo(8);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM trade WHERE member_id = ?", Integer.class, me.memberId())).isEqualTo(8);
+
+            CountDownLatch again = new CountDownLatch(1);
+            List<Future<Long>> drafts = new ArrayList<>();
+            for (int i = 0; i < 4; i++) {
+                drafts.add(pool.submit(() -> {
+                    again.await();
+                    return journal.createDraft(me.memberId(), d).postId();
+                }));
+            }
+            again.countDown();
+            List<Long> ids = new ArrayList<>();
+            for (Future<Long> f : drafts) ids.add(f.get());
+            assertThat(ids).containsOnly(ids.get(0));
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM post WHERE author_id = ?", Integer.class, me.memberId())).isEqualTo(1);
+        } finally {
+            pool.shutdownNow();
+        }
     }
 }
