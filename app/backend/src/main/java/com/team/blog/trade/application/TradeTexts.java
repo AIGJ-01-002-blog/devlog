@@ -162,8 +162,9 @@ public final class TradeTexts {
         head.add(new ShortsScript.Scene(d.getMonthValue() + "/" + d.getDayOfMonth() + " 봇 성적은?",
                 d.getMonthValue() + "월 " + d.getDayOfMonth() + "일, 제 " + mode + " 봇은 돈을 벌었을까요?", null));
         boolean futures = day.fills().stream().anyMatch(f -> f.market().equals("FUTURES"));
-        String close = futures ? "청산" : "매도";
-        String open = futures ? "진입" : "매수";
+        boolean spot = day.fills().stream().anyMatch(f -> !f.market().equals("FUTURES"));
+        String close = futures ? spot ? "매도·청산" : "청산" : "매도";
+        String open = futures ? spot ? "매수·진입" : "진입" : "매수";
         String result = s.closes() > 0
                 ? "체결 " + s.trades() + "건 가운데 " + close + " " + s.closes() + "번에서 실현 손익은 " + pnl(day, s, ", ") + "이었어요."
                 : "체결은 " + s.trades() + "건이었고 모두 " + open + "라서 아직 확정된 손익은 없어요.";
