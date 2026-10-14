@@ -70,9 +70,16 @@ jobs:
       - name: Remotion 패키지·타입 검사
         working-directory: app/render-worker/remotion
         run: npm ci --no-audit --no-fund && npm run typecheck
-      - name: 움직이는 이모지 라이선스 확인(기록용)
+      - name: 쓰는 도구의 스타·최근 릴리스·라이선스(기록용, #277)
         continue-on-error: true
-        run: curl -sL https://googlefonts.github.io/noto-emoji-animation/ | grep -o -i -E "CC BY[^<\"]{0,40}|Creative Commons[^<\"]{0,60}" | sort -u | head -5
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for r in remotion-dev/remotion remotion-dev/skills airbnb/lottie-web googlefonts/noto-emoji-animation googlefonts/noto-emoji \
+                   rany2/edge-tts supertone-inc/supertonic myshell-ai/MeloTTS FunAudioLLM/CosyVoice pndurette/gTTS rive-app/rive-wasm; do
+            curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$r" | python -c "import json,sys; d=json.load(sys.stdin); print('$r', d.get('stargazers_count'), d.get('pushed_at'), (d.get('license') or {}).get('spdx_id'), d.get('archived'))"
+            curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$r/releases/latest" | python -c "import json,sys; d=json.load(sys.stdin); print('   latest release:', d.get('tag_name'), d.get('published_at'))"
+          done
       - name: 실제 렌더 테스트
         env:
           PYTHONUTF8: "1"
