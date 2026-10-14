@@ -10,6 +10,10 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
+### 고침
+
+- 소셜로 가입할 때 미리 채울 닉네임이 이미 쓰는 닉네임이면 빈칸 대신 `민서2`처럼 숫자를 붙인 빈 닉네임을 채운다. 이미 가입한 사람이 같은 별명의 다른 소셜 계정으로 오면 닉네임 칸이 비던 문제다 (목표 v1.72.0 [#223](https://github.com/AIGJ-01-002-blog/devlog/issues/223) · spec 096)
+
 ## [1.70.0] - 2026-10-14
 
 **목표: v1.70.0 하이브리드 검색 되살리기** ([목표 이슈 #211](https://github.com/AIGJ-01-002-blog/devlog/issues/211)) · 함께 실은 목표: v1.71.0 [#214](https://github.com/AIGJ-01-002-blog/devlog/issues/214), v1.72.0 [#223](https://github.com/AIGJ-01-002-blog/devlog/issues/223)
