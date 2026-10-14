@@ -1,5 +1,7 @@
-"""한국어 음성 만들기. 비용이 들지 않는 기기 안 음성만 쓴다.
+"""한국어 음성 만들기. 운영비 0원을 지킨다.
 
+- edge: 무료 신경망 음성(edge-tts, 기본 ko-KR-SunHiNeural). `pip install edge-tts`가 있으면 기본으로 쓰고,
+  단어마다 소리 나는 시각을 함께 받아 자막을 음성에 맞춘다. 인터넷이 막히거나 실패하면 Renderer가 기기 음성으로 내려간다.
 - macOS: `say` (한국어 목소리 Yuna 등)
 - Windows: System.Speech (PowerShell, 한국어 목소리 Heami 등)
 - Linux: espeak-ng (있으면)
@@ -15,6 +17,11 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from .captions import Word
+
+EDGE_VOICE = "ko-KR-SunHiNeural"
+#: 쇼츠는 조금 빠른 말이 덜 늘어진다
+EDGE_RATE = "+8%"
 CHARS_PER_SECOND = 6.5
 #: 음성 엔진 한 번이 멈췄을 때 기다리는 한도 (문장 하나는 200자까지)
 TTS_TIMEOUT = 120
@@ -24,9 +31,24 @@ def estimate_seconds(text: str) -> float:
     return max(1.5, len(text.replace(" ", "")) / CHARS_PER_SECOND)
 
 
+def edge_available() -> bool:
+    try:
+        import edge_tts  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
 def pick(engine: str = "auto") -> str:
     if engine != "auto":
         return engine
+    if edge_available():
+        return "edge"
+    return device()
+
+
+def device() -> str:
+    """기기 안 음성 엔진 (edge를 못 쓸 때 내려갈 곳)"""
     system = platform.system()
     if system == "Darwin" and shutil.which("say"):
         return "say"
@@ -37,13 +59,17 @@ def pick(engine: str = "auto") -> str:
     return "silent"
 
 
-def synthesize(text: str, out_wav: Path, engine: str, ffmpeg: str = "ffmpeg", voice: str | None = None) -> None:
-    """text를 읽은 음성을 out_wav(44.1kHz 스테레오)로 만든다."""
+def synthesize(text: str, out_wav: Path, engine: str, ffmpeg: str = "ffmpeg", voice: str | None = None) -> list[Word] | None:
+    """text를 읽은 음성을 out_wav(44.1kHz 스테레오)로 만든다. 엔진이 단어 시각을 주면 돌려준다."""
+    words = None
     with tempfile.TemporaryDirectory() as tmp:
         raw = Path(tmp) / "raw"
         text_file = Path(tmp) / "text.txt"
         text_file.write_text(text, encoding="utf-8")
-        if engine == "say":
+        if engine == "edge":
+            raw = raw.with_suffix(".mp3")
+            words = _edge(text, raw, voice or os.environ.get("DEVLOG_TTS_VOICE") or EDGE_VOICE)
+        elif engine == "say":
             raw = raw.with_suffix(".aiff")
             args = ["say", "-f", str(text_file), "-o", str(raw)]
             args[1:1] = ["-v", voice or os.environ.get("DEVLOG_TTS_VOICE", "Yuna")]
@@ -67,10 +93,41 @@ def synthesize(text: str, out_wav: Path, engine: str, ffmpeg: str = "ffmpeg", vo
             seconds = estimate_seconds(text)
             _run([ffmpeg, "-y", "-loglevel", "error", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
                   "-t", f"{seconds:.2f}", str(out_wav)])
-            return
+            return None
         else:
             raise ValueError(f"모르는 음성 엔진이에요: {engine}")
         _run([ffmpeg, "-y", "-loglevel", "error", "-i", str(raw), "-ar", "44100", "-ac", "2", str(out_wav)])
+    return words
+
+
+def _edge(text: str, out: Path, voice: str) -> list[Word]:
+    """edge-tts로 mp3를 받으며 단어 시각(100ns 단위)을 초로 모은다. aiohttp는 HTTPS_PROXY를 스스로 읽지 않아 넘겨 준다."""
+    import asyncio
+
+    import edge_tts
+
+    proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy") or None
+    rate = os.environ.get("DEVLOG_TTS_RATE", EDGE_RATE)
+
+    async def run() -> list[Word]:
+        words: list[Word] = []
+        communicate = edge_tts.Communicate(text, voice, rate=rate, boundary="WordBoundary", proxy=proxy)
+        with out.open("wb") as f:
+            async for chunk in communicate.stream():
+                if chunk["type"] == "audio":
+                    f.write(chunk["data"])
+                elif chunk["type"] == "WordBoundary":
+                    start = chunk["offset"] / 1e7
+                    words.append(Word(start, start + chunk["duration"] / 1e7, chunk["text"]))
+        return words
+
+    try:
+        words = asyncio.run(asyncio.wait_for(run(), TTS_TIMEOUT))
+    except asyncio.TimeoutError:
+        raise RuntimeError(f"edge-tts가 {TTS_TIMEOUT}초 안에 끝나지 않았어요.") from None
+    if not out.exists() or out.stat().st_size == 0:
+        raise RuntimeError("edge-tts가 소리를 돌려주지 않았어요.")
+    return words
 
 
 def _ps_quote(path: Path) -> str:
