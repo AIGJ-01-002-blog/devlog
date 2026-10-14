@@ -234,10 +234,11 @@ class ShortsTools {
         return out;
     }
 
-    /** 설명 도식은 모양 검사(ShortsScript)만 하고 그대로 워커에 넘긴다 */
+    /** 설명 도식은 모양 검사(ShortsScript)만 하고 그대로 워커에 넘긴다. 객체가 아닌 값은 빈 도식으로 넘겨 검사에서 거절되게 한다 */
     @SuppressWarnings("unchecked")
     private static java.util.Map<String, Object> diagram(JsonNode n) {
-        return n.isObject() ? DIAGRAM_JSON.convertValue(n, java.util.Map.class) : null;
+        if (n.isMissingNode() || n.isNull()) return null;
+        return n.isObject() ? DIAGRAM_JSON.convertValue(n, java.util.Map.class) : java.util.Map.of();
     }
 
     private static final tools.jackson.databind.json.JsonMapper DIAGRAM_JSON = tools.jackson.databind.json.JsonMapper.builder().build();
