@@ -76,6 +76,9 @@ class TradeTools {
         TradeJournal.PositionSide position = enumOf(TradeJournal.PositionSide.class, positionRaw);
         if (!positionRaw.isBlank() && position == null) return McpTools.Result.fail("position_side는 LONG이나 SHORT예요.");
         BigDecimal leverageRaw = number(a, "leverage");
+        if (a.hasNonNull("leverage") && leverageRaw == null) {
+            return McpTools.Result.fail("leverage는 1~" + TradeJournal.LEVERAGE_MAX + " 사이 정수예요.");
+        }
         Integer leverage;
         try {
             leverage = leverageRaw == null ? null : leverageRaw.intValueExact();

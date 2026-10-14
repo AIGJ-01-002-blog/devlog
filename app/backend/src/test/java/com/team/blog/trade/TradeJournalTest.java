@@ -243,6 +243,11 @@ class TradeJournalTest extends IntegrationTest {
         JsonNode tooHigh = call(t, "record_trade", futures("f-bad", d, "13:00:00", "LONG", "BUY", 8, null));
         assertThat(tooHigh.path("isError").asBoolean()).isTrue();
         assertThat(text(tooHigh)).contains("1~7배");
+        Map<String, Object> notNumber = futures("f-bad5", d, "13:00:00", "LONG", "BUY", 2, null);
+        notNumber.put("leverage", "abc");
+        JsonNode badLeverage = call(t, "record_trade", notNumber);
+        assertThat(badLeverage.path("isError").asBoolean()).isTrue();
+        assertThat(text(badLeverage)).contains("leverage는 1~7 사이 정수");
         JsonNode openWithPnl = call(t, "record_trade", futures("f-bad2", d, "13:00:00", "SHORT", "SELL", 2, "1"));
         assertThat(text(openWithPnl)).contains("청산에만");
         JsonNode noSide = call(t, "record_trade", Map.of("external_id", "f-bad3", "market", "FUTURES", "symbol", "BTCUSDT", "side", "BUY",
