@@ -18,6 +18,7 @@ export function Toc({ bodyRef, html }: { bodyRef: RefObject<HTMLElement | null>;
 
   useEffect(() => {
     setItems(extractToc(bodyRef.current))
+    setActive(null) // 글이 바뀌면 이전 글의 위치를 버린다
   }, [bodyRef, html])
 
   useEffect(() => {
@@ -63,7 +64,7 @@ export function Toc({ bodyRef, html }: { bodyRef: RefObject<HTMLElement | null>;
       <details className="toc-mobile" ref={mobileRef}>
         <summary data-tip={t('제목 목록을 펼쳐 원하는 곳으로 바로 가요')}>
           {t('목차')} <span className="muted">{t('{0}개', { 0: items.length })}</span>
-          {active != null && <span className="toc-mobile-now">{items[active].text}</span>}
+          {active != null && items[active] && <span className="toc-mobile-now">{items[active].text}</span>}
         </summary>
         <ul>{list(() => { if (mobileRef.current) mobileRef.current.open = false })}</ul>
       </details>

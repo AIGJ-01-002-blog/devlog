@@ -1,7 +1,7 @@
 package com.team.blog.shared.markdown;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 import org.commonmark.node.AbstractVisitor;
 import org.commonmark.node.Code;
@@ -25,11 +25,12 @@ final class CjkEmphasis {
     }
 
     static void fix(Node doc) {
-        List<Node> parents = new ArrayList<>();
+        // Node는 equals를 재정의하지 않으므로 같은 객체로 거른다. 순서는 문서 순서를 지킨다
+        Set<Node> parents = new LinkedHashSet<>();
         doc.accept(new AbstractVisitor() {
             @Override
             public void visit(Text text) {
-                if (text.getLiteral().contains(MARK) && !parents.contains(text.getParent())) parents.add(text.getParent());
+                if (text.getLiteral().contains(MARK)) parents.add(text.getParent());
             }
 
             @Override
@@ -40,35 +41,43 @@ final class CjkEmphasis {
         for (Node parent : parents) fixChildren(parent);
     }
 
-    /** 부모 안에서 왼쪽부터 짝을 지어 바꾼다. 한 번 바꾸면 자식 목록이 달라지므로 처음부터 다시 찾는다. */
+    /**
+     * 부모 안에서 왼쪽부터 짝을 지어 바꾼다. 앞쪽 여는 표시는 이미 짝이 없다고 확인했으니
+     * 바꾼 뒤에는 새 굵게 노드 다음부터 이어서 찾는다 (처음부터 다시 훑지 않는다).
+     */
     private static void fixChildren(Node parent) {
-        for (int guard = 0; guard < 100 && fixOnce(parent); guard++) {
-            // 바꿀 짝이 없을 때까지 되풀이한다
+        Node start = parent.getFirstChild();
+        while (start != null) {
+            // 렌더 시간 제한(ContentRenderer)이 스레드를 끊으면 바로 멈춘다
+            if (Thread.currentThread().isInterrupted()) throw new ContentTooComplexException();
+            start = fixFrom(start);
         }
     }
 
-    private static boolean fixOnce(Node parent) {
-        for (Node open = parent.getFirstChild(); open != null; open = open.getNext()) {
+    /** start부터 첫 짝을 찾아 바꾸고, 이어서 찾을 노드를 돌려준다. 더 바꿀 짝이 없으면 null. */
+    private static Node fixFrom(Node start) {
+        for (Node open = start; open != null; open = open.getNext()) {
             if (!(open instanceof Text openText)) continue;
             int from = 0;
             while (true) {
                 int o = openText.getLiteral().indexOf(MARK, from);
                 if (o < 0) break;
                 from = o + MARK.length();
-                if (tryClose(openText, o)) return true;
+                StrongEmphasis strong = tryClose(openText, o);
+                if (strong != null) return strong.getNext();
             }
         }
-        return false;
+        return null;
     }
 
     /** openText의 at 자리 **를 여는 표시로 보고, 같은 부모 안 뒤쪽에서 닫는 **를 찾는다. */
-    private static boolean tryClose(Text openText, int at) {
+    private static StrongEmphasis tryClose(Text openText, int at) {
         String lit = openText.getLiteral();
         int innerStart = at + MARK.length();
         char before = at > 0 ? lit.charAt(at - 1) : charBefore(openText);
         // 여는 쪽 안쪽은 공백이 아니어야 한다
-        if (innerStart < lit.length() && Character.isWhitespace(lit.charAt(innerStart))) return false;
-        if (innerStart < lit.length() && lit.charAt(innerStart) == '*') return false;
+        if (innerStart < lit.length() && Character.isWhitespace(lit.charAt(innerStart))) return null;
+        if (innerStart < lit.length() && lit.charAt(innerStart) == '*') return null;
         for (Node n = openText; n != null; n = n.getNext()) {
             if (!(n instanceof Text t)) continue;
             String s = t.getLiteral();
@@ -80,17 +89,16 @@ final class CjkEmphasis {
                 boolean innerOk = insideEnd != 0 && !Character.isWhitespace(insideEnd) && insideEnd != '*';
                 boolean cjk = isCjk(before) || isCjk(after);
                 if (innerOk && cjk && (n != openText || c > innerStart)) {
-                    wrap(openText, at, t, c);
-                    return true;
+                    return wrap(openText, at, t, c);
                 }
                 c = s.indexOf(MARK, c + 1);
             }
         }
-        return false;
+        return null;
     }
 
     /** openText[at]의 **부터 closeText[c]의 **까지를 StrongEmphasis 하나로 묶는다. */
-    private static void wrap(Text openText, int at, Text closeText, int c) {
+    private static StrongEmphasis wrap(Text openText, int at, Text closeText, int c) {
         StrongEmphasis strong = new StrongEmphasis(MARK);
         if (openText == closeText) {
             String s = openText.getLiteral();
@@ -120,6 +128,7 @@ final class CjkEmphasis {
             closeText.unlink();
         }
         if (openText.getLiteral().isEmpty()) openText.unlink();
+        return strong;
     }
 
     private static char charBefore(Node n) {

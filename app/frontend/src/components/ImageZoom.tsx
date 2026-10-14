@@ -21,6 +21,8 @@ export function ImageZoom({ bodyRef, html }: { bodyRef: RefObject<HTMLElement | 
       img.tabIndex = 0
       img.setAttribute('role', 'button')
       img.dataset.tip = t('사진 크게 보기')
+      // 대체글이 없는 사진도 이름 있는 버튼이 되게 한다
+      if (!img.alt.trim()) img.setAttribute('aria-label', t('사진 크게 보기'))
     })
     const open = (img: HTMLImageElement) => setShown({ src: img.currentSrc || img.src, alt: img.alt })
     const onClick = (e: MouseEvent) => {

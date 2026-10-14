@@ -61,6 +61,7 @@ function toolButton(icon: string, text: string, tip: string): HTMLButtonElement 
   b.type = 'button'
   b.className = 'code-tool'
   b.dataset.tip = tip
+  b.setAttribute('aria-label', text) // 좁은 화면은 글자를 숨기므로 이름을 따로 단다
   b.innerHTML = icon // 고정 문자열 아이콘만 넣는다
   const span = document.createElement('span')
   span.textContent = text

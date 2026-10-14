@@ -85,10 +85,11 @@ class ReadShareTest extends IntegrationTest {
                 .contains("\"page\":\"notFound\"");
         mvc.perform(get("/this-does-not-exist").header("Accept", "application/json")).andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("NOT_FOUND"));
-        // /api 아래는 브라우저가 text/html을 달라고 해도 화면을 그리지 않는다
-        String api = html(mvc.perform(get("/api/no-such-endpoint").header("Accept", "text/html")).andExpect(status().isNotFound()).andReturn());
-        assertThat(api).doesNotContain("<h1>");
-        mvc.perform(get("/api/no-such-endpoint")).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("NOT_FOUND"));
+        // /api 아래와 파일 주소는 브라우저가 text/html을 달라고 해도 화면이 아니라 JSON 404다
+        mvc.perform(get("/api/no-such-endpoint").header("Accept", "text/html")).andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+        mvc.perform(get("/missing.css").header("Accept", "text/html,*/*")).andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
 
     @Test

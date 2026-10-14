@@ -53,7 +53,7 @@ export function PostPage({ handle, id }: { handle: string; id: string }) {
   useEffect(() => { if (post?.status === 'PUBLISHED') markRead(post.id) }, [post?.id, post?.status])
   // 최근 읽은 글(097): 남의 공개 발행 글만 이 기기에 남긴다
   useEffect(() => {
-    if (!post || post.status !== 'PUBLISHED' || post.mine) return
+    if (!post || post.status !== 'PUBLISHED' || post.visibility !== 'PUBLIC' || post.mine) return
     rememberRead({ id: post.id, url: post.url, title: post.title, author: post.author.nickname, thumbnailUrl: post.thumbnailUrl ?? null })
   }, [post?.id, post?.status])
 
