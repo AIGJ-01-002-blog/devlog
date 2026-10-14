@@ -32,6 +32,29 @@ public class ViewStats {
                 """, from);
     }
 
+    /** 몇몇 글(회원 한 명의 글)만 날짜별 조회수 (#239) */
+    public Map<LocalDate, Long> byDayOfPosts(List<Long> postIds, Instant from) {
+        return Counts.byDayOfKeys(jdbc, """
+                SELECT (viewed_at AT TIME ZONE 'Asia/Seoul')::date AS d, count(*) AS n
+                FROM post_view WHERE post_id = ANY (?) AND viewed_at >= ? GROUP BY d
+                """, postIds, from);
+    }
+
+    /** 몇몇 글 가운데 기간 안에 많이 본 글 번호 → 조회수 (#239) */
+    public List<Map.Entry<Long, Long>> topOfPosts(List<Long> postIds, Instant from, int limit) {
+        if (postIds.isEmpty()) return List.of();
+        return jdbc.query("""
+                SELECT post_id, count(*) AS n FROM post_view WHERE post_id = ANY (?) AND viewed_at >= ?
+                GROUP BY post_id ORDER BY n DESC, post_id DESC LIMIT ?
+                """, (rs, i) -> Map.entry(rs.getLong("post_id"), rs.getLong("n")), postIds.toArray(Long[]::new), Timestamp.from(from), limit);
+    }
+
+    /** 몇몇 글의 기간 안 조회수 (#240 쇼츠 후보). 본 적 없는 글은 빠진다 */
+    public Map<Long, Long> byPostsSince(List<Long> postIds, Instant from) {
+        return Counts.byKeys(jdbc, "SELECT post_id AS k, count(*) AS n FROM post_view WHERE post_id = ANY (?) AND viewed_at >= ? GROUP BY k",
+                postIds, Timestamp.from(from));
+    }
+
     public Map<Long, Long> byPosts(List<Long> postIds) {
         return Counts.byKeys(jdbc, "SELECT post_id AS k, count(*) AS n FROM post_view WHERE post_id = ANY (?) GROUP BY k", postIds);
     }

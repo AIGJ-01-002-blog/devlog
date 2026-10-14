@@ -42,6 +42,53 @@ export interface PostLine {
   link: string
 }
 
+/** 렌더 워커 상태 (#241) */
+export interface WorkerStatus {
+  /** 워커 토큰을 넣었는가. 없으면 워커 API가 꺼져 있다 */
+  tokenSet: boolean
+  /** 워커가 마지막으로 부른 때 (없거나 모르면 null) */
+  lastSeen: string | null
+  /** 하루 안에 옛 토큰으로 들어온 워커가 있다 */
+  previousToken: boolean
+  queued: number
+  rendering: number
+  failedToday: number
+  oldestQueuedAt: string | null
+}
+
+/** 워커가 이만큼 부르지 않으면 안 보이는 것으로 본다. 워커는 몇 초마다 일감을 묻는다 */
+export const WORKER_STALE_MINUTES = 5
+
+export type WorkerHealth =
+  | { state: 'no-token' }
+  | { state: 'never' }
+  | { state: 'ok'; minutes: number }
+  | { state: 'stale'; minutes: number }
+
+export function workerHealth(w: WorkerStatus, now: number = Date.now()): WorkerHealth {
+  if (!w.tokenSet) return { state: 'no-token' }
+  if (!w.lastSeen) return { state: 'never' }
+  const minutes = Math.max(0, Math.floor((now - Date.parse(w.lastSeen)) / 60_000))
+  return minutes < WORKER_STALE_MINUTES ? { state: 'ok', minutes } : { state: 'stale', minutes }
+}
+
+/** "3분 전", "2시간 전", "4일 전" */
+export function ago(minutes: number): string {
+  if (minutes < 1) return '방금'
+  if (minutes < 60) return `${minutes}분 전`
+  if (minutes < 60 * 24) return `${Math.floor(minutes / 60)}시간 전`
+  return `${Math.floor(minutes / 60 / 24)}일 전`
+}
+
+export function workerLabel(h: WorkerHealth): string {
+  switch (h.state) {
+    case 'no-token': return '토큰 없음'
+    case 'never': return '아직 연결 없음'
+    case 'ok': return `연결됨 · ${ago(h.minutes)}`
+    case 'stale': return `안 보임 · 마지막 ${ago(h.minutes)}`
+  }
+}
+
 export interface Dashboard {
   days: Period
   from: string
@@ -59,6 +106,8 @@ export interface Dashboard {
   sources: { source: string; host: string; visits: number }[]
   /** 많이 본 화면 (070). title은 공개 글 화면일 때만 */
   topPages: { path: string; views: number; title: string | null }[]
+  /** 쇼츠 렌더 워커 상태 (#241). 쇼츠가 꺼져 있으면 null */
+  worker: WorkerStatus | null
 }
 
 export interface MemberRow {

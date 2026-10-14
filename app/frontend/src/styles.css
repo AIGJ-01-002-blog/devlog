@@ -1267,6 +1267,7 @@ input[type="checkbox"], input[type="radio"] { width: auto; flex-shrink: 0; margi
 .admin-todo { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
 .admin-todo-item { padding: 8px 14px; border-radius: var(--radius); background: var(--color-warn-bg); color: var(--color-warn-text); }
 .admin-todo-item strong { font-size: 1.125rem; margin: 0 2px; }
+.admin-card .warn-text { color: var(--color-warn-text); font-weight: 600; }
 /* 대시보드 지표 칸 (073): 방문 / 회원·글 / 반응 세 묶음. 숫자를 크게, 이전 기간 대비는 기호+색, 아래에 날짜별 흐름 */
 .kpi-board { display: grid; grid-template-columns: 3fr 4fr; gap: 12px 16px; margin-bottom: 16px; }
 .kpi-group { min-width: 0; }
@@ -2311,4 +2312,110 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
   .ai-onboarding-footer { flex-wrap: wrap-reverse; }
   .ai-onboarding-nav { width: 100%; }
   .ai-onboarding-nav > * { flex: 1; justify-content: center; }
+}
+
+/* 쇼츠 스튜디오 (099) */
+.studio-page { padding-top: 24px; padding-bottom: 48px; }
+.studio-lead { max-width: 70ch; }
+.studio-worker { display: flex; align-items: center; gap: 8px; font-size: 0.875rem; flex-wrap: wrap; }
+.studio-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-text-muted); }
+.studio-worker.on .studio-dot { background: var(--color-ok-text); }
+.studio-worker.off { color: var(--color-warn-text); }
+.studio-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 24px; margin-top: 16px; align-items: start; }
+.studio-list ul { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.studio-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px; border-radius: var(--radius); color: inherit; text-decoration: none; border: 1px solid transparent; }
+.studio-item:hover { background: var(--color-hover); }
+.studio-item.active { border-color: var(--color-border); background: var(--color-surface-2); }
+.studio-item-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.studio-status { flex: none; }
+.studio-status-ready { color: var(--color-ok-text); }
+.studio-status-queued, .studio-status-rendering { color: var(--color-brand); }
+.studio-status-failed { color: var(--color-danger); }
+.studio-head { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.studio-form fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.studio-form fieldset > .btn { align-self: flex-start; }
+.studio-scenes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.studio-scene { border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.studio-scene-head { display: flex; justify-content: space-between; align-items: center; }
+.studio-scene-tools { display: flex; gap: 2px; }
+.studio-scene-tools .btn { min-width: 36px; min-height: 36px; }
+.studio-form textarea.mono { font-family: var(--mono); font-size: 0.875rem; }
+.studio-length { margin: 12px 0 0; font-size: 0.875rem; color: var(--color-text-muted); }
+.studio-length.over { color: var(--color-danger); font-weight: 600; }
+.studio-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.studio-bar { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--color-border); }
+.studio-delete { margin-left: auto; color: var(--color-danger); }
+.studio-video { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.studio-video video { width: 100%; max-width: 270px; aspect-ratio: 9 / 16; background: black; border-radius: var(--radius-lg); }
+.studio-note { padding: 10px 12px; border-radius: var(--radius); background: var(--color-surface-2); }
+.studio-report { margin-top: 12px; padding: 12px 14px; border-radius: var(--radius); border: 1px solid var(--color-border); }
+.studio-report.blocked { border-color: var(--color-danger); }
+.studio-report p { margin: 0; }
+.studio-report ul { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.badge-danger { background: color-mix(in srgb, var(--color-danger) 14%, transparent); color: var(--color-danger); }
+.studio-new { display: flex; flex-direction: column; gap: 14px; max-width: 520px; }
+.studio-new select { width: 100%; }
+/* 직접 올리기 안내 (이슈 238). 붙여 넣을 문구는 줄바꿈을 그대로 보여 주고 휴대폰에서 가로로 넘치지 않게 감싼다 */
+.studio-guide { margin: 8px 0 24px; padding: 16px 0 24px; border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); display: flex; flex-direction: column; gap: 12px; }
+.studio-guide h2 { margin: 0; font-size: 1.125rem; }
+.studio-guide [role="tabpanel"] { display: flex; flex-direction: column; gap: 12px; }
+.studio-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.studio-guide .field .label { font-weight: 600; font-size: 0.9375rem; }
+.studio-guide .copy-code pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.875rem; }
+.studio-guide .copy-code pre, .studio-guide .copy-code code { font-family: inherit; }
+.studio-checks { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.875rem; }
+.studio-checks .ok { color: var(--color-ok-text); }
+.studio-checks .over { color: var(--color-danger); font-weight: 600; }
+.studio-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.studio-upload-row { display: flex; gap: 8px; align-items: center; }
+.studio-upload-row input { flex: 1; min-width: 0; }
+@media (max-width: 760px) {
+  .studio-layout { grid-template-columns: 1fr; }
+  .studio-video video { max-width: 100%; max-height: 70vh; }
+}
+
+/* 내 대시보드 (이슈 239). 관리자 통계의 칸·막대그래프를 그대로 쓰고, 글 목록과 쇼츠 칸만 더한다 */
+.dashboard-page { padding-top: 24px; padding-bottom: 48px; }
+.dashboard-kpis { margin-bottom: 6px; }
+.dashboard-totals { margin: 0 0 16px; }
+.dashboard-top { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
+.dashboard-top li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.dashboard-top-title { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.dashboard-top-nums { flex-basis: 100%; }
+.dashboard-shorts { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin: 0 0 12px; }
+.dashboard-shorts div { padding: 8px 10px; border: 1px solid var(--color-border); border-radius: var(--radius); }
+.dashboard-shorts dt { font-size: 0.75rem; color: var(--color-text-muted); }
+.dashboard-shorts dd { margin: 2px 0 0; font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.dashboard-uploads { margin: 0 0 12px; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+/* 매매 일지 (이슈 243): 날짜 목록과 고른 날 자세히. 손익은 +/- 기호와 함께 색을 쓴다 */
+.trades-notice { margin: -4px 0 12px; }
+.pnl.good { color: var(--color-ok-text); }
+.pnl.bad { color: var(--color-danger); }
+.trades-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 16px; align-items: start; margin-top: 16px; }
+.trades-day-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.trades-day { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; padding: 8px 10px; border-radius: var(--radius); color: inherit; text-decoration: none; border: 1px solid transparent; }
+.trades-day:hover { background: var(--color-hover); }
+.trades-day.active { border-color: var(--color-border); background: var(--color-surface-2); }
+.trades-day-date { font-weight: 600; }
+.trades-day-pnl { font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+.trades-day-meta { grid-column: 1; }
+.trades-bar { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: var(--color-surface-2); overflow: hidden; }
+.trades-bar-fill { display: block; height: 100%; border-radius: 2px; }
+.trades-bar-fill.pos { background: var(--color-ok-text); }
+.trades-bar-fill.neg { background: var(--color-danger); }
+.trades-detail h2 { margin-top: 0; }
+.trades-totals { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); margin-bottom: 16px; }
+.trades-fills { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.trades-fills li { padding: 8px 10px; border: 1px solid var(--color-border); border-radius: var(--radius); overflow-wrap: anywhere; }
+.trades-fill-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.trades-fill-delete { margin-left: auto; }
+.trades-buy { color: var(--color-danger); }
+.trades-sell { color: var(--color-brand); }
+.trades-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+@media (max-width: 760px) {
+  .trades-layout { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .dashboard-kpis .kpi { padding: 10px; }
+  .dashboard-kpis .kpi-value { font-size: 1.25rem; }
 }

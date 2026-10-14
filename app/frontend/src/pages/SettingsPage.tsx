@@ -12,7 +12,7 @@ import { fieldErrors } from '../lib/fieldErrors'
 import { friendsApi, lastActiveLabel } from '../lib/friends'
 import { clock, fullDate, monthDay } from '../lib/format'
 import { checkSourceFile, decodeFile, renderSquare, uploadProfileImage, type Crop } from '../lib/image'
-import { useNicknameCheck } from '../lib/nickname'
+import { normalizeNickname, useNicknameCheck } from '../lib/nickname'
 import { passwordOk } from '../lib/password'
 import { MUTABLE_TYPES, notificationsApi, type MutableType } from '../lib/notifications'
 import { formatBytes, storageUsage, type StorageUsage } from '../lib/postImages'
@@ -212,7 +212,7 @@ function ProfileSection({ settings, onSaved }: { settings: Settings; onSaved: (p
     setErrors({})
     setSaved(false)
     const body: Record<string, unknown> = {}
-    if (nicknameChanged) body.nickname = nickname
+    if (nicknameChanged) body.nickname = normalizeNickname(nickname)
     if (bio !== (settings.bio ?? '')) body.bio = bio
     if (image.kind === 'new') body.profileImageId = image.id
     if (image.kind === 'default') body.profileImageId = null

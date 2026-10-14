@@ -38,6 +38,15 @@ public class CommentStats {
     }
 
     /** 글마다 보이는 댓글 수 (글 화면의 댓글 수와 같다) */
+    /** 몇몇 글(회원 한 명의 글)이 날짜별로 받은 댓글. 글쓴이가 단 댓글(답글)은 빼고, 숨긴 댓글도 뺀다 (#239) */
+    public Map<LocalDate, Long> byDayOfPosts(List<Long> postIds, Instant from, long exceptAuthorId) {
+        return Counts.byDayOfKeys(jdbc, """
+                SELECT (created_at AT TIME ZONE 'Asia/Seoul')::date AS d, count(*) AS n
+                FROM comment WHERE post_id = ANY (?) AND created_at >= ? AND author_id <> ? AND deleted_at IS NULL AND hidden_at IS NULL
+                GROUP BY d
+                """, postIds, from, exceptAuthorId);
+    }
+
     public Map<Long, Long> byPosts(List<Long> postIds) {
         return Counts.byKeys(jdbc, """
                 SELECT post_id AS k, count(*) AS n FROM comment WHERE post_id = ANY (?) AND deleted_at IS NULL AND hidden_at IS NULL GROUP BY k

@@ -203,6 +203,20 @@ blog:
   series:
     max-per-member: 100
     max-posts: 200
+  # 쇼츠 스튜디오 (spec 099, 목표 v2.0.0): 2.0.0 릴리스 전까지 꺼 둔다. 워커 토큰은 실행 환경 비밀값으로만 넣는다
+  shorts:
+    enabled: ${SHORTS_ENABLED:false}
+    worker-token: ${SHORTS_WORKER_TOKEN:}
+    # 토큰을 바꿀 때: 새 값을 SHORTS_WORKER_TOKEN에, 옛 값을 여기에 두고 워커를 새 값으로 바꾼 뒤 비운다 (#241)
+    previous-worker-token: ${SHORTS_WORKER_TOKEN_PREVIOUS:}
+    max-video: 20MB
+    daily-renders: 10
+    render-timeout: 15m
+    max-attempts: 3
+  # 매매 일지 (#243, 목표 v2.0.0): 2.0.0 릴리스 전까지 꺼 둔다. 봇은 개인 쓰기 토큰으로 MCP record_trade를 부른다
+  trades:
+    enabled: ${TRADES_ENABLED:false}
+    daily-records: 500
   # AI (spec 018·052): 집 PC Ollama가 설정돼 있고 켜져 있으면 먼저, 꺼졌거나 바쁘면 외부 AI(Gemini 무료 등급).
   # AI_PREFER=gemini면 예전처럼 Gemini 먼저, 한도면 Ollama. 둘 다 비어 있으면 기능이 꺼진다
   ai:

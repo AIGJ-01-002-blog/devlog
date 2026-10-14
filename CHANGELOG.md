@@ -10,6 +10,65 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-14
+
+**목표: v2.0.0 숏폼 스튜디오** ([목표 이슈 #236](https://github.com/AIGJ-01-002-blog/devlog/issues/236))
+
+글을 60초 쇼츠로 만들고, 플랫폼마다 직접 올리는 안내를 받고, 내 글·쇼츠 성과를 한 화면에서 본다. 영상은 내 컴퓨터의 렌더 워커가 만들고 자동 업로드는 없다. 영상 만들기 전에 양산형 검사로 다른 대본과 겹치거나 글을 그대로 옮긴 대본을 막는다. 자동 매매 봇의 체결을 매매 일지로 남겨 글·쇼츠 대본으로 이어 주고, 학교 서버가 끝나도 집 컴퓨터에서 같은 블로그를 되살리는 백업·복원 스크립트를 넣었다. 쇼츠(`SHORTS_ENABLED`)와 매매 일지(`TRADES_ENABLED`)는 기본 꺼짐이라 서버 환경 변수로 켜야 보인다. DB에 `shorts`·`shorts_render_request`·`shorts_upload`·`trade`·`trade_day` 표와 `ai_note.links` 열이 생긴다(V36~V39).
+
+### 화면
+| 쇼츠 스튜디오 (PC) | 양산형 검사 (PC) |
+|---|---|
+| ![쇼츠 스튜디오 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/shorts-studio-pc.webp) | ![양산형 검사 결과](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/shorts-studio-check-pc.webp) |
+
+| 휴대폰 | 휴대폰 · 다크 | 렌더 워커가 만든 영상 한 장면 |
+|---|---|---|
+| ![쇼츠 스튜디오 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/shorts-studio-m.webp) | ![장면 편집 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/shorts-studio-m-dark.webp) | ![9:16 영상 장면](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/shorts-video-frame.webp) |
+
+| 올리기 안내 (PC) | 휴대폰 · Instagram | 휴대폰 · 다크 · 올린 주소 남김 |
+|---|---|---|
+| ![올리기 안내 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/shorts-upload-guide-pc.webp) | ![올리기 안내 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/shorts-upload-guide-m.webp) | ![올린 주소 남김 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/shorts-upload-guide-m-dark.webp) |
+
+| 내 대시보드 (PC) | 휴대폰 | 휴대폰 · 다크 · 쇼츠 |
+|---|---|---|
+| ![내 대시보드 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/my-dash-pc.webp) | ![내 대시보드 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/my-dash-m.webp) | ![쇼츠 칸 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/my-dash-m-dark.webp) |
+
+| 매매 일지 (PC) | 휴대폰 | 휴대폰 · 다크 |
+|---|---|---|
+| ![매매 일지 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/trades-pc.webp) | ![매매 일지 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/trades-m.webp) | ![매매 일지 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/trades-m-dark.webp) |
+
+| 렌더 워커 상태 (PC) | 처리할 일 알림 (PC) | 휴대폰 | 휴대폰 · 다크 |
+|---|---|---|---|
+| ![렌더 워커 칸 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/worker-pc.webp) | ![워커 알림 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/worker-alert-pc.webp) | ![렌더 워커 칸 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/worker-m.webp) | ![렌더 워커 칸 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/worker-m-dark.webp) |
+
+### 추가
+- 매매 일지(`/trades`, 기본 꺼짐 `TRADES_ENABLED=false`): 집 컴퓨터의 매매 봇이 쓰기 토큰으로 MCP `record_trade`를 부르면 체결(모의투자·실계좌, 종목, 수량·가격·수수료, 실현 손익, 신호)이 남고, 7·30·90일 실현 손익·누적 손익·날별 막대와 그날 체결을 본다. 그날 메모를 남기면 체결 표·고지가 들어간 요약 임시글과 쇼츠 대본을 한 번에 만든다(메모 없는 쇼츠는 만들지 않음). devlog는 주문을 내지 않는다. 표준 라이브러리만 쓰는 모의 체결 봇 예제 [app/trade-bot](app/trade-bot/README.md)을 함께 넣었다. DB에 `trade`·`trade_day` 표가 생긴다 (목표 v2.0.0 [#236](https://github.com/AIGJ-01-002-blog/devlog/issues/236) · spec 099, #243)
+- 관리자 대시보드에 쇼츠 렌더 워커 칸: 쇼츠를 켠 서버에서 워커가 마지막으로 온 시각, 대기·만드는 중·오늘 실패 수, 가장 오래 기다린 영상을 보이고, 기다리는 영상이 있는데 워커가 5분 넘게 안 오면 "처리할 일"에 띄운다. 워커 토큰은 `SHORTS_WORKER_TOKEN_PREVIOUS`에 옛 값을 두면 둘 다 받아서 워커를 멈추지 않고 바꿀 수 있고, 옛 토큰을 쓰는 워커가 있으면 대시보드가 알려 준다. 순서는 [app/render-worker/README.md](app/render-worker/README.md). DB 변경은 없다 (목표 v2.0.0 [#236](https://github.com/AIGJ-01-002-blog/devlog/issues/236) · spec 099, #241)
+- 집 컴퓨터로 옮기기(`deploy/home/`): 학교 서버의 DB(pg_dump)와 파일 저장소(사진·첨부·쇼츠 영상)를 폴더 하나로 받는 `fetch-backup.sh`·`backup.sh`와, 그 폴더로 Windows·맥에서 Docker로 다시 띄우는 `restore.ps1`·`restore.sh`·`compose.yaml`. 되살릴 때 `https://devlog.life` 주소를 이 컴퓨터 주소로 바꾸고, 소셜 로그인 대신 주인 계정 이메일·비밀번호 로그인을 만든다. 순서는 [deploy/home/README.md](deploy/home/README.md) (목표 v2.0.0 [#236](https://github.com/AIGJ-01-002-blog/devlog/issues/236), #241)
+- MCP 기록 자동화: AI가 개발 일지(`write_devlog`·`create_draft`)와 일기 메모(`add_note`)에 커밋·PR·이슈 주소를 `links`로 함께 남기면, 일지는 본문 끝 `## 근거`에, 일기는 주제 문단 아래 `근거:` 줄에 "PR #246 (devlog)"처럼 이름 붙은 링크로 들어간다. 글을 쓰거나 공개로 발행했을 때 겪은 문제·숫자로 된 결과·코드 가운데 둘 이상이 있으면 AI에게 쇼츠로 만들지 사용자에게 한 번 물어보라고 알리고, 새 도구 `list_shorts_candidates`로 아직 쇼츠가 없는 공개 글 가운데 후보를 본다. DB에 `ai_note.links` 열이 생긴다 (목표 v2.0.0 [#236](https://github.com/AIGJ-01-002-blog/devlog/issues/236) · spec 099, #240)
+- 내 대시보드(`/dashboard`, 내 메뉴): 내 글(비공개 포함)이 받은 조회수·좋아요·받은 댓글을 7·30·90일로 보고 이전 같은 기간과 견준다. 날짜별 막대그래프, 기간 안에 많이 읽힌 글, 쇼츠(대본·완성 영상·플랫폼별로 올린 수·최근에 올린 영상 주소)를 한 화면에 모은다. 받은 댓글에서 내가 단 답글은 뺀다. 플랫폼 조회수는 각 앱에서 본다(API 연동 없음). DB 변경은 없다 (목표 v2.0.0 [#236](https://github.com/AIGJ-01-002-blog/devlog/issues/236), #239)
+- 쇼츠 올리기 안내: 완성된 쇼츠에서 YouTube Shorts·Instagram Reels·TikTok을 고르면 그 플랫폼에 맞춘 제목·설명(캡션)·고정 댓글을 복사 버튼과 함께 보여 주고, 앱 화면 기준 올리는 순서와 길이·비율·글자 수·해시태그 한도 확인을 띄운다. 휴대폰에서는 [앱으로 보내기]로 영상을 바로 SNS 앱에 넘긴다. 올린 뒤 영상 주소를 남기면(플랫폼 도메인의 https 주소만) 계정별 대시보드에서 쓴다. 자동 업로드는 여전히 없다. DB에 `shorts_upload` 표가 생긴다 (목표 v2.0.0 [#236](https://github.com/AIGJ-01-002-blog/devlog/issues/236) · spec 099, #238)
+- 쇼츠 스튜디오 1단계(`/studio`, 기본 꺼짐 `SHORTS_ENABLED=false`): 내 AI가 MCP(`create_shorts_script`·`update_shorts_script`·`list_shorts`)로 쓴 쇼츠 대본을 장면(자막·읽을 문장·코드)별로 다듬고, [영상 만들기]를 누르면 내 컴퓨터의 렌더 워커(`app/render-worker`, 맥 `say`·Windows 기본 음성)가 9:16 MP4로 만들어 올린다. 영상은 받아서 SNS에 직접 올리며 자동 업로드는 없다. 영상 만들기 전에 양산형 검사로 다른 대본과 겹침·글 그대로 옮김·장면 반복·같은 첫마디를 막는다. DB에 `shorts`·`shorts_render_request` 표가 생긴다 (목표 v2.0.0 [#236](https://github.com/AIGJ-01-002-blog/devlog/issues/236) · spec 099, #237, #242)
+
+### 고침
+- 소셜로 가입할 때 미리 채울 닉네임이 이미 쓰는 닉네임이면 빈칸 대신 `민서2`처럼 숫자를 붙인 빈 닉네임을 채운다. 이미 가입한 사람이 같은 별명의 다른 소셜 계정으로 오면 닉네임 칸이 비던 문제다 (목표 v1.72.0 [#223](https://github.com/AIGJ-01-002-blog/devlog/issues/223) · spec 096)
+- 닉네임 끝에 NBSP 같은 특수 공백이 붙으면 화면 확인은 "쓸 수 있어요"인데 가입·저장에서 형식 오류로 거절되던 문제. 이제 확인한 값 그대로(앞뒤 공백을 뗀 값) 보낸다 (#226 후속, #233)
+
+### 포함된 작업
+| 이슈 | 브랜치 | PR |
+|---|---|---|
+| #237 쇼츠 스튜디오 1단계 (spec 099) | - | #244 |
+| #242 양산형 방지 검사 | - | #244 |
+| #238 플랫폼별 직접 올리기 안내 | - | #245 |
+| #239 회원별 대시보드 | - | #246 |
+| #240 MCP 기록 자동화 확장 | `claude/project-thread-5xa88u` | #247 |
+| #241 2.0 보안·장애 대응 (집 컴퓨터로 옮기기, 워커 감시) | `claude/project-thread-5xa88u` | #248, #249 |
+| #243 매매 일지 | `claude/project-thread-5xa88u` | #250 |
+| #223 소셜 가입 닉네임 겹침 (spec 096) | - | #232 |
+| #226 후속 닉네임 특수 공백 | - | #233 |
+
+**비교:** [v1.70.0...v2.0.0](https://github.com/AIGJ-01-002-blog/devlog/compare/v1.70.0...v2.0.0)
+
 ## [1.70.0] - 2026-10-14
 
 **목표: v1.70.0 하이브리드 검색 되살리기** ([목표 이슈 #211](https://github.com/AIGJ-01-002-blog/devlog/issues/211)) · 함께 실은 목표: v1.71.0 [#214](https://github.com/AIGJ-01-002-blog/devlog/issues/214), v1.72.0 [#223](https://github.com/AIGJ-01-002-blog/devlog/issues/223)
@@ -47,6 +106,7 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ### 고침
 - 네이버로 가입할 때 `@naver.com` 이메일은 다시 묻지 않고, 네이버 프로필 사진도 고를 수 있다. 네이버 이메일을 모두 버리던 탓에 이메일 칸이 비고 사진 가져오기가 숨겨졌다. 다른 도메인 연락처 이메일은 지금처럼 가입 때 인증한다 (목표 v1.72.0 [#223](https://github.com/AIGJ-01-002-blog/devlog/issues/223) · spec 096, #230, 민서님 요청 "네이버Oauth도 주소 가져올수있게 해줘")
+- 소셜로 가입할 때 미리 채울 닉네임이 이미 쓰는 닉네임이면 빈칸 대신 `민서2`처럼 숫자를 붙인 빈 닉네임을 채운다. 이미 가입한 사람이 같은 별명의 다른 소셜 계정으로 오면 닉네임 칸이 비던 문제다 (목표 v1.72.0 [#223](https://github.com/AIGJ-01-002-blog/devlog/issues/223) · spec 096)
 - 프로필 사진 자르기 화면에서 실제로 프로필에 보일 원의 경계가 보이지 않던 문제. 흰 바탕 사진이면 어디까지가 원 안인지 알 수 없었다. 이제 원 바깥을 어둡게 덮고 둘레에 흰 선과 얇은 어두운 테를 그리며, 원에 마우스를 올리면 툴팁이 뜬다 (#217, #218)
 - 하이브리드 검색에서 의미 검색 결과가 거의 섞이지 않던 문제. 글 색인이 20개를 한 요청에 묶어 CPU 임베딩 서버의 30초 제한을 넘기고, 그 실패가 검색어 임베딩까지 1분씩 꺼 버리고 있었다. 이제 글을 하나씩 보내 끝난 만큼 저장하고, 색인 실패는 색인만 쉬게 한다 (#212)
 - 답글이 4~5개뿐인데도 처음 3개만 보이고 [답글 1개 더 보기]·[답글 2개 더 보기]를 눌러야 나머지가 나오던 문제. 이제 답글이 5개 이하면 모두 바로 보이고, 6개 이상일 때만 처음 3개 + [답글 N개 더 보기]로 접는다 (#219, #220)

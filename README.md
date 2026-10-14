@@ -152,7 +152,7 @@ flowchart LR
     T[텔레그램] -->|봇 API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>파드 여러 개]
     I -->|/blog-images| M[(MinIO / S3<br/>사진·첨부)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V35)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V39)]
     A --> R[(Redis<br/>세션·요청 제한·조회수·캐시)]
     A --> M
     A -.선택.-> G[Google Gemini]
@@ -244,7 +244,7 @@ GitHub Actions로 테스트하고 이미지를 만들어 GHCR에 올린 뒤, kus
 
 | 경로 | 설명 |
 | --- | --- |
-| [app/backend](app/backend) | 백엔드 — Spring Boot 4.1, Java 21. 기능 모듈, Flyway 마이그레이션(V1~V35), 테스트 |
+| [app/backend](app/backend) | 백엔드 — Spring Boot 4.1, Java 21. 기능 모듈, Flyway 마이그레이션(V1~V39), 테스트 |
 | [app/frontend](app/frontend) | 프론트엔드 — React 19 SPA, TypeScript, Vite. 화면, 자동 저장(IndexedDB), 다크 모드 |
 | [deploy](deploy) | 배포 — Dockerfile, 쿠버네티스 매니페스트(base·selfhosted·nhn·local), 배포·롤백·비밀값 검사 스크립트 |
 | [.github](.github) | CI/CD — 백엔드·화면 테스트, 이미지 빌드·배포, 릴리스, Discord·텔레그램 알림 |
@@ -324,7 +324,7 @@ npm run dev        # http://localhost:5173
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub·Google·카카오·네이버·Facebook 로그인, 세션, CSRF, 경로별 권한 |
 | Spring Data JPA (Hibernate) | Boot 4.1 | 도메인 전체 | 회원·글·댓글 등 도메인 저장 |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | 세션, 요청 제한, 조회수, 캐시 | 파드 여러 개가 같은 세션을 보고, 동시 요청도 Redis 스크립트 하나로 판정합니다 |
-| Flyway | Boot 4.1 | DB | 스키마를 V1~V35 마이그레이션으로 관리하고 앱 시작 때 적용합니다 |
+| Flyway | Boot 4.1 | DB | 스키마를 V1~V39 마이그레이션으로 관리하고 앱 시작 때 적용합니다 |
 | commonmark-java (+ GFM 확장) | 0.30.0 | 본문 렌더링 | Markdown → HTML. 표·취소선·체크 목록·자동 링크·제목 앵커 |
 | OWASP Java HTML Sanitizer | 20260924.2 | 본문 정화 | 렌더링한 HTML을 허용 목록으로 정화해 XSS를 막습니다 |
 | AWS SDK for Java (S3) | 2.55.12 | media | MinIO·S3에 사진과 첨부를 올립니다 |
@@ -370,6 +370,7 @@ npm run dev        # http://localhost:5173
 
 | 버전 | 날짜 | 주요 내용 | 릴리스 노트 |
 | --- | --- | --- | --- |
+| v2.0.0 | 2026-10-14 | 숏폼 스튜디오: 글을 쇼츠 대본으로 다듬고 내 컴퓨터의 렌더 워커로 MP4 만들기, 영상 만들기 전 양산형 검사, YouTube·Instagram·TikTok 직접 올리기 안내, 내 대시보드, MCP 근거 링크와 쇼츠 후보, 자동 매매 봇의 매매 일지, 집 컴퓨터로 옮기는 백업·복원 (쇼츠·매매 일지는 기본 꺼짐) | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.0.0) |
 | v1.70.0 | 2026-10-14 | 하이브리드 검색 되살리기와 가입·글 관리 다듬기: 의미 검색이 다시 섞여 나오게 검색 색인 고침, 첫 로그인 AI 연결 안내, 닉네임 실시간 확인, 내 글 관리는 발행 글 탭부터, 프로필 사진 자르기 원 경계, 답글 5개 이하 모두 보이기, 네이버 이메일·프로필 사진 받기 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.70.0) |
 | v1.69.0 | 2026-10-14 | 글 읽기 경험 다듬기: 없는 주소에 앱 404 화면, 한글 조사가 붙은 굵게 고침, 코드 블록 복사·줄바꿈, 휴대폰 접는 목차, 사진 크게 보기, 최근 읽은 글, 검색 시작 화면 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.69.0) |
 | v1.68.0 | 2026-10-14 | develop을 운영과 나눈 시험 환경(dev.devlog.life)에 배포하는 길을 만들어 두기(지금은 꺼 둠), 검색 임베딩 모델을 쓸 때만 올려 학교 서버 메모리 아끼기, 학교 서버 SSH 키 고정 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.68.0) |

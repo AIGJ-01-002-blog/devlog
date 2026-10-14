@@ -5,7 +5,7 @@ import { api, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { setFlash } from '../lib/flash'
 import { attachProfileImage, prepareSocialAvatar, socialAvatarSource } from '../lib/image'
-import { useNicknameCheck } from '../lib/nickname'
+import { normalizeNickname, useNicknameCheck } from '../lib/nickname'
 import { navigate } from '../lib/router'
 import { t } from '../lib/i18n'
 
@@ -80,7 +80,7 @@ export function SignupSocialPage() {
     const blob = wantPhoto ? await preparedPhoto.current : null
     try {
       const r = await api<{ handle: string; redirect: string }>('/api/auth/signup', {
-        method: 'POST', body: { handleBody: body, nickname, agreeTerms: agreed.terms, agreePrivacy: agreed.privacy, agreeAi: agreed.ai, email: draft.emailRequired ? email : undefined },
+        method: 'POST', body: { handleBody: body, nickname: normalizeNickname(nickname), agreeTerms: agreed.terms, agreePrivacy: agreed.privacy, agreeAi: agreed.ai, email: draft.emailRequired ? email : undefined },
       })
       if (wantPhoto && !(blob && (await attachProfileImage(blob)))) {
         setFlash(t('소셜 사진을 가져오지 못했어요. 설정에서 직접 올릴 수 있어요.'))

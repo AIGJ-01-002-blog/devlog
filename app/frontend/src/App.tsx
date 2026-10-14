@@ -64,6 +64,9 @@ const AdminInquiriesPage = lazyPage(() => import('./pages/AdminInquiriesPage'), 
 const RssGuidePage = lazyPage(() => import('./pages/RssGuidePage'), 'RssGuidePage')
 const AdminInquiryPage = lazyPage(() => import('./pages/AdminInquiryPage'), 'AdminInquiryPage')
 const AboutPage = lazyPage(() => import('./pages/AboutPage'), 'AboutPage')
+const StudioPage = lazyPage(() => import('./pages/StudioPage'), 'StudioPage')
+const DashboardPage = lazyPage(() => import('./pages/DashboardPage'), 'DashboardPage')
+const TradesPage = lazyPage(() => import('./pages/TradesPage'), 'TradesPage')
 // 첫 로그인 회원만 보는 팝업이라 첫 묶음에 넣지 않는다 (spec 098)
 const AiOnboarding = lazy(() => import('./components/AiOnboarding').then((m) => ({ default: m.AiOnboarding })))
 
@@ -145,6 +148,9 @@ function route(path: string): ReactNode {
   if (path === '/write') return <RequireLogin><NewPostPage /></RequireLogin>
   if ((p = match('/write/:id', path))) return <RequireLogin><WritePage key={p.id} id={p.id} /></RequireLogin>
   if (path === '/manage/posts') return <RequireLogin><ManagePage /></RequireLogin>
+  if (path === '/dashboard') return <RequireLogin><DashboardPage /></RequireLogin>
+  if (path === '/studio') return <RequireLogin><RequireShorts><StudioPage /></RequireShorts></RequireLogin>
+  if (path === '/trades') return <RequireLogin><RequireTrades><TradesPage /></RequireTrades></RequireLogin>
   if (path === '/feed') return <RequireLogin><FeedPage /></RequireLogin>
   if (path === '/lists/liked') return <RequireLogin><LikedPage /></RequireLogin>
   if (path === '/lists/read') return <RecentReadsPage />
@@ -167,6 +173,19 @@ function route(path: string): ReactNode {
 function Loading() {
   // 페이지 자리(#main)의 유일한 <main>이다. 안에 다른 <main>을 품지 않는다
   return <main className="container" aria-busy="true"><p className="muted center" role="status">{t('불러오는 중…')}</p></main>
+}
+
+/** 쇼츠 스튜디오(099)는 서버에서 켠 뒤에만 보인다. 꺼져 있으면 없는 주소처럼 */
+function RequireShorts({ children }: { children: ReactNode }) {
+  const { me } = useAuth()
+  if (!me?.features?.shorts) return <NotFoundPage />
+  return <>{children}</>
+}
+
+function RequireTrades({ children }: { children: ReactNode }) {
+  const { me } = useAuth()
+  if (!me?.features?.trades) return <NotFoundPage />
+  return <>{children}</>
 }
 
 function RequireLogin({ children }: { children: ReactNode }) {

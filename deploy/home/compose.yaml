@@ -1,0 +1,54 @@
+# 집 컴퓨터(Windows·맥)에서 백업한 devlog를 혼자 쓰는 구성 (#241).
+# restore.sh / restore.ps1이 이 폴더에 .env(백업 폴더 위치)를 만들고 띄운다. 직접 띄울 때:
+#   docker compose -f deploy/home/compose.yaml up -d --build      → http://localhost:8080
+# 이 컴퓨터에서만 열린다(127.0.0.1). 사진·첨부·쇼츠 영상은 백업 폴더의 media/를 그대로 쓰므로 외장하드를 연결해 두고 띄운다.
+# 메일·소셜 로그인·AI 연결 열쇠는 넣지 않는다. 로그인은 restore 스크립트가 만든 주인 계정 비밀번호로 한다.
+name: devlog-home
+services:
+  postgres:
+    # 운영과 같은 PostgreSQL 17 + pgvector (백업 파일이 17 형식)
+    image: pgvector/pgvector:0.8.7-pg17-bookworm
+    environment:
+      POSTGRES_DB: blog
+      POSTGRES_USER: blog
+      POSTGRES_PASSWORD: blog
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U blog -d blog"]
+      interval: 5s
+      retries: 20
+    restart: unless-stopped
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+  app:
+    image: ${DEVLOG_IMAGE:-devlog-home:latest}
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_started}
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/blog
+      DB_USERNAME: blog
+      DB_PASSWORD: blog
+      REDIS_HOST: redis
+      SITE_BASE_URL: ${SITE_BASE_URL:-http://localhost:8080}
+      COOKIE_SECURE: "false"
+      # 사진은 로컬 폴더에서 앱이 /media로 내준다. 옛 주소로 남은 사진도 우리 사진으로 알아본다
+      MEDIA_LOCAL_DIR: /data/media
+      IMAGE_PUBLIC_BASE_URL: ${SITE_BASE_URL:-http://localhost:8080}/media
+      BLOG_IMAGE_LEGACY_BASE_URLS: ${OLD_IMAGE_BASE_URL:-https://devlog.life/blog-images}
+      OWNER_HANDLE: ${OWNER_HANDLE:-}
+      # 클러스터 안 임베딩 모델이 없으니 키워드 검색만 쓴다
+      SEARCH_SEMANTIC_ENABLED: "false"
+      SHORTS_ENABLED: ${SHORTS_ENABLED:-false}
+      SHORTS_WORKER_TOKEN: ${SHORTS_WORKER_TOKEN:-}
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=60
+    volumes:
+      - ${DEVLOG_MEDIA:?백업 폴더의 media 경로(DEVLOG_MEDIA)가 필요해요. restore 스크립트를 먼저 실행해 주세요}:/data/media
+    ports: ["127.0.0.1:8080:8080"]
+    restart: unless-stopped
+volumes:
+  pgdata:

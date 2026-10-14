@@ -65,7 +65,7 @@ public class McpTools {
      * REPORT는 읽기 토큰으로도 부르는 신고 도구다(글을 쓰지 않으므로). 자체 요청 제한을 따른다.
      * DIARY는 회원이 "AI 일기 쓰기"를 켰을 때만(061) 보인다.
      */
-    enum Gate { NONE, AI_PUBLISH, REPORT, ADMIN, DIARY }
+    enum Gate { NONE, AI_PUBLISH, REPORT, ADMIN, DIARY, SHORTS, TRADES }
 
     /** 도구 하나. write면 WRITE 토큰과 메일 인증이 필요하다. */
     record Tool(String name, String title, String description, boolean write, String inputSchema, Gate gate, boolean destructive) {
@@ -78,7 +78,8 @@ public class McpTools {
                 case AI_PUBLISH -> caller.aiPublishAllowed();
                 case ADMIN -> caller.admin();
                 case DIARY -> caller.aiDiaryEnabled();
-                case NONE, REPORT -> true;
+                // 서버 설정(SHORTS_ENABLED·TRADES_ENABLED)은 McpTools가 따로 본다
+                case NONE, REPORT, SHORTS, TRADES -> true;
             };
         }
 
@@ -107,8 +108,13 @@ public class McpTools {
               "title":{"type":"string","description":"글 제목 (100자까지)"},
               "content_md":{"type":"string","description":"본문 Markdown"},
               "tags":{"type":"array","items":{"type":"string"},"description":"태그 제안 (10개까지). 발행 창에 미리 채워진다"},
-              "proposal_id":{"type":"integer","description":"propose_post로 남긴 제안대로 쓴 글이면 그 제안 번호"}},
+              "proposal_id":{"type":"integer","description":"propose_post로 남긴 제안대로 쓴 글이면 그 제안 번호"},
+              "links":{"type":"array","maxItems":5,"items":{"type":"string"},"description":"근거 링크: 이 작업의 커밋·PR·이슈 https 주소 (5개까지). 본문 끝 '## 근거'에 이름을 붙여 넣는다"}},
              "required":["title","content_md"]}""";
+
+    /** 쇼츠를 켠 서버에서만 도구 설명에 남기는 문장 (#240) */
+    static final String SHORTS_NOTE_DRAFT = "결과에 '쇼츠 후보'가 보이면 그 안내를 따른다.";
+    static final String SHORTS_NOTE_PUBLISH = "결과에 '쇼츠 후보'가 보이면 사용자에게 쇼츠 대본을 만들지 한 번 물어본다. ";
 
     static final List<Tool> TOOLS = List.of(
             new Tool("write_devlog", "개발 일지 쓰기",
@@ -117,7 +123,9 @@ public class McpTools {
                             + "다룬 주제(기능·버그·조사)가 여럿이면 주제마다 따로 불러 임시글을 나눠 쓰고 주제에 맞는 태그를 붙인다. 한 번에 최대 3편까지 쓰고, "
                             + "더 많으면 중요한 3개를 쓰고 나머지는 propose_post로 남긴다. 시리즈로 묶지 않는다. "
                             + "구조도·흐름도는 ```mermaid 코드 블록으로 넣으면 devlog 글 화면에서 그림으로 그려진다. "
-                            + "비밀번호·토큰·개인 정보·회사 내부 주소는 넣지 않는다. 공개되지 않으며, 사용자가 devlog에서 읽고 직접 발행한다.",
+                            + "작업의 근거가 되는 커밋·PR·이슈 주소가 있으면 links로 함께 준다(공개 저장소 주소만, 사내 주소는 빼고). "
+                            + "비밀번호·토큰·개인 정보·회사 내부 주소는 넣지 않는다. 공개되지 않으며, 사용자가 devlog에서 읽고 직접 발행한다. "
+                            + SHORTS_NOTE_DRAFT,
                     true, DRAFT_SCHEMA),
             new Tool("create_draft", "임시글 만들기",
                     "사용자의 devlog에 새 임시글을 만든다. 공개되지 않으며 사용자가 화면에서 직접 발행한다.", true, DRAFT_SCHEMA),
@@ -138,6 +146,7 @@ public class McpTools {
                             + "사용자가 발행하라고 분명히 말했을 때만 부른다. "
                             + "공개 범위(visibility)를 주지 않으면 그 글에 정해진 공개 범위(보통 회원 기본값)로 발행한다. "
                             + "tags를 주지 않으면 글에 있던 태그나 AI가 제안한 태그를 쓴다. 발행한 글에 고친 내용이 없으면 다시 발행하지 않는다. "
+                            + SHORTS_NOTE_PUBLISH
                             + "사용자가 설정 › AI 연결에서 'AI가 발행·삭제하도록 허용'을 켰을 때만 쓸 수 있다.", true, """
                     {"type":"object","properties":{
                       "post_id":{"type":"integer"},
@@ -210,7 +219,8 @@ public class McpTools {
                     {"type":"object","properties":{
                       "content":{"type":"string","description":"일기에 그대로 들어갈 한두 문장. 1인칭 해요체로, 무엇을 왜 했고 무엇을 알게 됐는지 (1,000자까지). 예: 자정 고정이면 밤샘 작업이 이틀로 쪼개져서 일기 시각을 고를 수 있게 했어요."},
                       "topic":{"type":"string","description":"주제 (일기의 소제목이 된다, 50자까지). 같은 주제는 같은 표기로"},
-                      "tags":{"type":"array","items":{"type":"string"},"description":"태그 제안"}},
+                      "tags":{"type":"array","items":{"type":"string"},"description":"태그 제안"},
+                      "links":{"type":"array","maxItems":3,"items":{"type":"string"},"description":"근거 링크: 이 메모의 커밋·PR·이슈 https 주소 (3개까지). 일기의 주제 문단 아래 '근거:' 줄로 붙는다"}},
                      "required":["content"]}""", Gate.DIARY, false),
             new Tool("list_series", "내 시리즈 보기",
                     "사용자의 시리즈 목록(번호, 이름, 글 수, 포트폴리오 프로젝트인지)과 적어 둔 프로젝트 칸(기간·한 줄 설명·쓴 기술·우리 팀이 한 일·제 역할)을 본다. "
@@ -242,6 +252,41 @@ public class McpTools {
                       "team_work":{"type":"string","description":"우리 팀이 한 일 (2,000자까지)"},
                       "my_role":{"type":"string","description":"제 역할: 사용자가 맡은 부분만 (2,000자까지)"}},
                      "required":["series_id"]}""", Gate.AI_PUBLISH, false),
+            new Tool("create_shorts_script", "쇼츠 대본 만들기",
+                    "사용자의 devlog 글(post_id, 선택)을 YouTube Shorts·Instagram Reels·TikTok용 세로 영상 대본으로 저장한다. "
+                            + "장면마다 화면 자막(caption)과 읽을 문장(narration)을 쓴다. 저장하면 양산형 방지 검사 결과와 고칠 점을 돌려준다. "
+                            + ShortsTools.GUIDE + " 영상은 만들지 않는다: 사용자가 devlog 스튜디오에서 확인하고 직접 [영상 만들기]를 누른다.", true, """
+                    {"type":"object","properties":{
+                      "post_id":{"type":"integer","description":"원본 devlog 글 번호 (내 글만). 있으면 영상 설명에 근거로 이어진다"},
+                      "title":{"type":"string","description":"쇼츠 제목 (60자까지)"},
+                    """ + ShortsTools.SCENES_SCHEMA + """
+                    },
+                     "required":["title","scenes"]}""", Gate.SHORTS, false),
+            new Tool("update_shorts_script", "쇼츠 대본 고치기",
+                    "쇼츠 대본의 제목이나 장면을 고친다. 장면을 주면 통째로 바꾼다. 만들어 둔 영상이 있으면 지워지고 대본 상태로 돌아간다. "
+                            + "고친 뒤 양산형 방지 검사 결과를 돌려준다. " + ShortsTools.GUIDE, true, """
+                    {"type":"object","properties":{
+                      "shorts_id":{"type":"integer"},
+                      "title":{"type":"string","description":"쇼츠 제목 (60자까지)"},
+                    """ + ShortsTools.SCENES_SCHEMA + """
+                    },
+                     "required":["shorts_id"]}""", Gate.SHORTS, false),
+            new Tool("list_shorts", "내 쇼츠 보기",
+                    "사용자의 쇼츠 목록(번호·제목·상태·장면 수·예상 길이·원본 글)과 오늘 영상 만들기 횟수를 돌려준다.", false, NO_ARGS_SCHEMA, Gate.SHORTS, false),
+            new Tool("list_shorts_candidates", "쇼츠 후보 보기",
+                    "아직 쇼츠가 없는 사용자의 공개 글 가운데 쇼츠로 만들 만한 글(직접 겪은 문제·숫자로 된 결과·코드 중 둘 이상)을 좋은 점이 많은 순으로 돌려준다. "
+                            + "최근 30일 조회수와 좋은 점을 함께 준다. 사용자가 쇼츠 거리를 물을 때 쓰고, 사용자가 고른 글로만 대본을 만든다.", false, """
+                    {"type":"object","properties":{
+                      "limit":{"type":"integer","minimum":1,"maximum":10,"default":5,"description":"돌려줄 글 수"}}}""", Gate.SHORTS, false),
+            new Tool("record_trade", "매매 체결 남기기",
+                    "매매 봇이 체결할 때마다 체결 기록(종목·매수/매도·수량·가격·수수료·실현 손익·이유)을 사용자의 devlog 매매 일지에 남긴다. "
+                            + "주문을 내지 않고 기록만 한다. 같은 external_id로 다시 보내면 한 번만 남는다. 증권사 계좌·접속 정보는 보내지 않는다.",
+                    true, TradeTools.RECORD_SCHEMA, Gate.TRADES, false),
+            new Tool("get_trade_day", "매매 일지 하루 보기",
+                    "사용자의 하루(한국 날짜) 매매 기록(체결·실현 손익·누적 손익·사용자 메모)을 돌려준다. 사용자가 그날 매매를 돌아보거나 글로 남길 때 쓴다. "
+                            + "투자 권유로 읽히는 표현은 쓰지 않는다.", false, """
+                    {"type":"object","properties":{
+                      "date":{"type":"string","description":"날짜 (예: 2026-10-14). 없으면 오늘"}}}""", Gate.TRADES, false),
             new Tool("list_tags", "태그 보기",
                     "사용자가 자주 쓴 태그와 devlog 인기 태그를 돌려준다. 태그를 제안할 때 이 목록의 표기를 따르면 좋다.", false, NO_ARGS_SCHEMA),
             new Tool("report_bug", "devlog 버그 신고",
@@ -293,6 +338,8 @@ public class McpTools {
     private final SeriesService series;
     private final SeriesProjects projects;
     private final TopicSuggester topics;
+    private final ShortsTools shorts;
+    private final TradeTools trades;
     private final JdbcTemplate jdbc;
     private final Clock clock;
     private final String baseUrl;
@@ -300,7 +347,7 @@ public class McpTools {
 
     public McpTools(PostCommandService commands, PostEditorQuery editor, MyPostsQuery myPosts, SearchQuery search,
                     PostDetailQuery details, TagQuery tags, AiDraftHints hints, PostTrashService trash, InquiryService inquiries,
-                    McpImages images, AiJournal journal, SeriesService series, SeriesProjects projects, TopicSuggester topics, RateLimiter rateLimiter,
+                    McpImages images, AiJournal journal, SeriesService series, SeriesProjects projects, TopicSuggester topics, ShortsTools shorts, TradeTools trades, RateLimiter rateLimiter,
                     JdbcTemplate jdbc, Clock clock, BlogProperties props) {
         this.commands = commands;
         this.editor = editor;
@@ -316,6 +363,8 @@ public class McpTools {
         this.series = series;
         this.projects = projects;
         this.topics = topics;
+        this.shorts = shorts;
+        this.trades = trades;
         this.rateLimiter = rateLimiter;
         this.jdbc = jdbc;
         this.clock = clock;
@@ -327,8 +376,10 @@ public class McpTools {
     public List<Map<String, Object>> definitions(AccessTokens.Caller caller) {
         List<Map<String, Object>> out = new ArrayList<>();
         for (Tool t : TOOLS) {
-            if (!t.visibleTo(caller)) continue;
-            out.add(Map.of("name", t.name(), TITLE, t.title(), "description", t.description(),
+            if (!t.visibleTo(caller) || off(t.gate())) continue;
+            String description = shorts.enabled() ? t.description()
+                    : t.description().replace(" " + SHORTS_NOTE_DRAFT, "").replace(SHORTS_NOTE_PUBLISH, "");
+            out.add(Map.of("name", t.name(), TITLE, t.title(), "description", description,
                     "inputSchema", json.readTree(t.inputSchema()),
                     "annotations", Map.of("readOnlyHint", t.readOnly(), "destructiveHint", t.destructive(), "openWorldHint", false)));
         }
@@ -338,7 +389,7 @@ public class McpTools {
     public Result call(AccessTokens.Caller caller, String name, JsonNode args) {
         Optional<Tool> tool = TOOLS.stream().filter(t -> t.name().equals(name)).findFirst();
         // 관리자 도구는 관리자가 아니면 없는 도구와 같다 (있는지도 알리지 않는다)
-        if (tool.isEmpty() || tool.get().gate() == Gate.ADMIN && !caller.admin()) return Result.fail("없는 도구예요: " + name);
+        if (tool.isEmpty() || tool.get().gate() == Gate.ADMIN && !caller.admin() || off(tool.get().gate())) return Result.fail("없는 도구예요: " + name);
         if (!rateLimiter.tryAcquire("mcp:" + caller.memberId(), CALLS_PER_MINUTE, Duration.ofMinutes(1))) {
             return Result.fail("요청이 너무 많아요. 1분 뒤에 다시 시도해 주세요.");
         }
@@ -348,8 +399,8 @@ public class McpTools {
             if (tool.get().gate() == Gate.AI_PUBLISH && !caller.aiPublishAllowed()) return Result.fail(AI_PUBLISH_OFF);
             if (tool.get().gate() == Gate.DIARY && !caller.aiDiaryEnabled()) return Result.fail(AiJournal.AI_DIARY_OFF);
             if (!caller.emailVerified()) return Result.fail("이메일 인증을 마친 뒤 글을 쓸 수 있어요. devlog에서 인증 메일을 확인해 주세요.");
-            // 일기 메모는 하루 상한(60개)이 따로 있어 글쓰기 한도를 쓰지 않는다
-            if (tool.get().gate() != Gate.DIARY
+            // 일기 메모(하루 60개)와 체결 기록(하루 상한, #243)은 상한이 따로 있어 글쓰기 한도를 쓰지 않는다
+            if (tool.get().gate() != Gate.DIARY && tool.get().gate() != Gate.TRADES
                     && !rateLimiter.tryAcquire("mcp-write:" + caller.memberId(), WRITES_PER_HOUR, Duration.ofHours(1))) {
                 return Result.fail("글쓰기 요청은 한 시간에 " + WRITES_PER_HOUR + "번까지예요. 잠시 뒤 다시 시도해 주세요.");
             }
@@ -380,6 +431,12 @@ public class McpTools {
                 case "list_inquiries" -> listInquiries(a);
                 case "get_inquiry" -> getInquiry(a);
                 case "update_inquiry" -> updateInquiry(caller, a);
+                case "create_shorts_script" -> shorts.create(caller, a);
+                case "update_shorts_script" -> shorts.update(caller, a);
+                case "list_shorts" -> shorts.list(caller);
+                case "list_shorts_candidates" -> shorts.candidates(caller, a);
+                case "record_trade" -> trades.record(caller, a);
+                case "get_trade_day" -> trades.day(caller, a);
                 default -> Result.fail("없는 도구예요: " + name);
             };
         } catch (ApiException e) {
@@ -387,11 +444,23 @@ public class McpTools {
         }
     }
 
+    /** 서버 설정으로 꺼진 도구 묶음인가 (SHORTS_ENABLED·TRADES_ENABLED) */
+    private boolean off(Gate gate) {
+        return gate == Gate.SHORTS && !shorts.enabled() || gate == Gate.TRADES && !trades.enabled();
+    }
+
+    /** 서버에서 쇼츠 스튜디오를 켰는가 (SHORTS_ENABLED) */
+    public boolean shortsEnabled() {
+        return shorts.enabled();
+    }
+
     private Result createDraft(AccessTokens.Caller caller, JsonNode a) {
         String title = text(a, TITLE);
         String content = text(a, CONTENT_MD);
         if (title.isBlank() || content.isBlank()) return Result.fail("제목(title)과 본문(content_md)이 필요해요.");
         List<String> suggested = tags(a);
+        EvidenceLinks.Parsed links = EvidenceLinks.parse(a.path("links"), EvidenceLinks.DRAFT_MAX);
+        content = withEvidence(content, links.links());
         long id;
         if (a.path("proposal_id").canConvertToLong()) {
             id = journal.draftWith(caller.memberId(), a.path("proposal_id").asLong(), title, content, suggested);
@@ -402,7 +471,24 @@ public class McpTools {
         return Result.ok("devlog에 임시글을 만들었어요 (글 번호 " + id + ").\n"
                 + "아직 공개되지 않았어요. 사용자에게 이 링크에서 읽어 보고 발행하라고 알려 주세요: " + editUrl(id)
                 + (suggested.isEmpty() ? "" : "\n제안한 태그: " + String.join(", ", suggested))
-                + secretNotice(title, content));
+                + linksNotice(links)
+                + secretNotice(title, content)
+                + shorts.afterDraft(content));
+    }
+
+    /** 근거 링크를 본문 끝 "## 근거"에 붙인다 (#240). 본문에 이미 있는 주소는 다시 넣지 않는다 */
+    static String withEvidence(String content, List<EvidenceLinks.Link> links) {
+        List<EvidenceLinks.Link> missing = links.stream().filter(l -> !content.contains(l.url())).toList();
+        if (missing.isEmpty()) return content;
+        StringBuilder out = new StringBuilder(content.stripTrailing()).append("\n\n## 근거\n\n");
+        for (EvidenceLinks.Link l : missing) out.append("- ").append(l.markdown()).append('\n');
+        return out.toString();
+    }
+
+    private static String linksNotice(EvidenceLinks.Parsed links) {
+        String s = links.links().isEmpty() ? "" : "\n근거 링크 " + links.links().size() + "개를 남겼어요.";
+        if (links.dropped() > 0) s += "\n근거 링크 " + links.dropped() + "개는 https 주소가 아니거나 개수를 넘어 뺐어요.";
+        return s;
     }
 
     /**
@@ -482,7 +568,8 @@ public class McpTools {
         List<String> saved = editor.open(caller.memberId(), caller.handle(), id).tags();
         return Result.ok("'" + view.title() + "'을(를) " + visibilityLabel(r.visibility()) + (republish ? "로 다시 발행했어요: " : "로 발행했어요: ")
                 + baseUrl + r.url()
-                + (saved.isEmpty() ? "" : "\n태그: " + String.join(", ", saved)));
+                + (saved.isEmpty() ? "" : "\n태그: " + String.join(", ", saved))
+                + shorts.afterPublish(id, view.contentMd(), r.visibility() == Visibility.PUBLIC));
     }
 
     /** 웹의 [삭제]와 같다 (053): 휴지통으로 옮기고 30일 뒤 완전 삭제. 빈 임시글은 바로 지운다. */
@@ -737,10 +824,12 @@ public class McpTools {
         // 메모는 그대로 일기 문장이 되고 일기는 바로 발행될 수 있으니 비밀값이 보이면 받지 않는다 (086)
         List<String> secrets = SecretScanner.find(text(a, "topic"), text(a, CONTENT));
         if (!secrets.isEmpty()) return Result.fail(SecretScanner.warning(secrets) + " 메모를 남기지 않았어요. 그 부분을 빼고 다시 남겨 주세요.");
-        AiJournal.NoteSaved n = journal.addNote(caller.memberId(), text(a, "topic"), text(a, CONTENT), tags(a));
+        EvidenceLinks.Parsed links = EvidenceLinks.parse(a.path("links"), EvidenceLinks.NOTE_MAX);
+        AiJournal.NoteSaved n = journal.addNote(caller.memberId(), text(a, "topic"), text(a, CONTENT), tags(a), links.links());
         String when = AiJournal.hourLabel(journal.diary(caller.memberId()).hour());
         return Result.ok("메모를 남겼어요 (오늘 " + n.todayCount() + "개). 다음 " + when + "(한국 시간)에 일기로 묶여요"
-                + (caller.aiPublishAllowed() && "ACTIVE".equals(caller.status()) ? ". AI 발행을 허용해서 일기는 바로 발행돼요." : ". 일기는 임시글로 만들어져요."));
+                + (caller.aiPublishAllowed() && "ACTIVE".equals(caller.status()) ? ". AI 발행을 허용해서 일기는 바로 발행돼요." : ". 일기는 임시글로 만들어져요.")
+                + linksNotice(links));
     }
 
     /** 버그 신고 (054). 웹 문의와 같은 서비스·요청 제한(한 시간 10번, 하루 30번)을 쓴다. 신고자는 토큰 주인이다 */

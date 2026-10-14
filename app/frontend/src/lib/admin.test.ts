@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { change, isStaff, pageCount, roleLabel } from './admin'
+import { ago, change, isStaff, pageCount, roleLabel, workerHealth, workerLabel, type WorkerStatus } from './admin'
 
 describe('관리자 페이지 (062)', () => {
   it('관리자와 매니저만 관리자 페이지를 쓴다', () => {
@@ -27,5 +27,18 @@ describe('관리자 페이지 (062)', () => {
   it('쪽 수는 최소 1쪽', () => {
     expect(pageCount(0, 20)).toBe(1)
     expect(pageCount(41, 20)).toBe(3)
+  })
+
+  it('렌더 워커가 5분 넘게 안 부르면 안 보이는 것으로 본다 (#241)', () => {
+    const now = Date.parse('2026-10-14T12:00:00Z')
+    const w: WorkerStatus = { tokenSet: true, lastSeen: '2026-10-14T11:58:30Z', previousToken: false, queued: 0, rendering: 0, failedToday: 0, oldestQueuedAt: null }
+    expect(workerHealth(w, now)).toEqual({ state: 'ok', minutes: 1 })
+    expect(workerLabel(workerHealth(w, now))).toBe('연결됨 · 1분 전')
+    expect(workerHealth({ ...w, lastSeen: '2026-10-14T11:55:00Z' }, now)).toEqual({ state: 'stale', minutes: 5 })
+    expect(workerLabel(workerHealth({ ...w, lastSeen: '2026-10-12T09:00:00Z' }, now))).toBe('안 보임 · 마지막 2일 전')
+    expect(workerHealth({ ...w, lastSeen: null }, now)).toEqual({ state: 'never' })
+    expect(workerHealth({ ...w, tokenSet: false }, now)).toEqual({ state: 'no-token' })
+    expect(ago(0)).toBe('방금')
+    expect(ago(90)).toBe('1시간 전')
   })
 })
