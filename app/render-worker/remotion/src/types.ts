@@ -21,6 +21,16 @@ export type ActionParams = {
   shell: boolean;
 };
 
+/** 도식 칸 하나. atMs: 목소리 시작 기준으로 이 칸이 나타나는 때(워커가 내레이션에서 이름표가 나오는 때로 정한다) */
+export type DiagramItem = {label: string; icon: string | null; note: string | null; atMs: number};
+
+/** CS 설명용 도식(#277). flow: 왼쪽→오른쪽 흐름, stack: 위→아래 층, steps: 순서, compare: 왼쪽(전·나쁨) 대 오른쪽(후·좋음) */
+export type Diagram =
+  | {type: 'flow'; items: DiagramItem[]}
+  | {type: 'stack'; items: DiagramItem[]; highlight: number | null}
+  | {type: 'steps'; items: DiagramItem[]}
+  | {type: 'compare'; left: {title: string; atMs: number; items: DiagramItem[]}; right: {title: string; atMs: number; items: DiagramItem[]}};
+
 export type SceneData = {
   caption: string;
   code: string[];
@@ -34,6 +44,8 @@ export type SceneData = {
   image: string | null; // public 폴더(작업 폴더) 안 파일 이름
   /** 캐릭터 대신 다른 장면 컴포넌트를 쓸 때(예: 매매 재현 #265). custom.tsx의 CUSTOM_SCENES[kind]가 data를 받아 무대를 그린다 */
   custom: {kind: string; data: unknown} | null;
+  /** 있으면 고양이 연기 대신 도식을 그리고, 고양이는 왼쪽 아래에서 도식을 가리키며 설명한다 */
+  diagram: Diagram | null;
 };
 
 export type ShortsProps = {

@@ -26,10 +26,14 @@ import catKiss from './emoji/1f63d.json';
 import catShock from './emoji/1f640.json';
 import catCry from './emoji/1f63f.json';
 import catPout from './emoji/1f63e.json';
+import pointR from './emoji/1f449.json';
+import pointL from './emoji/1f448.json';
+import wave from './emoji/1f44b.json';
+import thumbs from './emoji/1f44d.json';
 
 const DATA = {
   bulb, party, rocket, hourglass, fire, sparkles, check, siren, trash, thinking, boom, hundred, sleepy,
-  catGrin, catSmile, catJoy, catLove, catWry, catKiss, catShock, catCry, catPout,
+  catGrin, catSmile, catJoy, catLove, catWry, catKiss, catShock, catCry, catPout, pointR, pointL, wave, thumbs,
 } as unknown as Record<string, LottieAnimationData>;
 
 export type EmojiName = keyof typeof DATA;

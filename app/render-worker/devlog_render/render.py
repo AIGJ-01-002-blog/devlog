@@ -26,7 +26,7 @@ import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import acting, bgm, captions, draw, layout, remotion, sfx, tts
+from . import acting, bgm, captions, diagram, draw, layout, remotion, sfx, tts
 
 try:  # 캐릭터 무대는 Pillow가 있을 때만. 없으면 글자 화면으로 만든다
     from . import stage
@@ -99,6 +99,8 @@ class Scene:
     visual: str | dict | None = None
     #: 캐릭터 대신 쓸 Remotion 장면(remotion/src/custom.tsx에 등록한 kind)과 그 데이터. 예: 매매 재현 {"kind": "replay", "data": {...}}
     custom: dict | None = None
+    #: CS 설명 도식(diagram.parse로 다듬은 것). 있으면 고양이 연기 대신 도식을 그리고 고양이는 옆에서 가리킨다
+    diagram: dict | None = None
 
 
 @dataclass
@@ -123,7 +125,8 @@ class Script:
                 custom = None
             else:
                 custom = {"kind": custom["kind"], "data": custom.get("data")}
-            scenes.append(Scene(s.get("caption") or "", s.get("narration") or "", s.get("code"), image, s.get("visual"), custom))
+            scenes.append(Scene(s.get("caption") or "", s.get("narration") or "", s.get("code"), image, s.get("visual"), custom,
+                                diagram.parse(s.get("diagram"))))
         post_url = job.get("postUrl")
         handle = job.get("handle")
         if post_url:  # 바탕 글이 있으면 그 글 주소(서버는 사이트 안 경로를 준다)
@@ -218,11 +221,15 @@ class Renderer:
                 # 화면은 Remotion이 한 번에(전환 포함) 그리고, 소리는 아래 _join이 섞는다
                 visuals = self._visuals(script)
                 video = work / "screen.mp4"
-                remotion.render(self._props(script, timings, total, audios, words, images, visuals), work, video)
+                props = self._props(script, timings, total, audios, words, images, visuals)
+                remotion.render(props, work, video)
                 effects = list(script.effects) + [
                     sfx.Effect(i, at, name, volume)
-                    for i, v in enumerate(visuals) if script.scenes[i].custom is None
+                    for i, v in enumerate(visuals) if script.scenes[i].custom is None and script.scenes[i].diagram is None
                     for name, at, volume in acting.effects(v, timings[i].lead, timings[i].speech, timings[i].length)]
+                # 도식 칸이 나타날 때마다 톡
+                effects += [sfx.Effect(i, timings[i].lead + at / 1000, "pop", 0.35)
+                            for i, sc in enumerate(props["scenes"]) if sc["diagram"] for at in diagram.reveal_times(sc["diagram"])]
                 # 장면이 넘어갈 때마다 휙 소리(전환과 같은 때)
                 effects += [sfx.Effect(i, 0.0, "whip", 0.3) for i in range(1, len(script.scenes))]
                 self._join(work, [video], audios, timings, total, joined, effects, joined_video=True)
@@ -252,6 +259,7 @@ class Renderer:
         scenes = []
         for i, scene in enumerate(script.scenes):
             t, v = timings[i], visuals[i]
+            pages = captions.pages(scene.narration, t.speech, words[i], tail=SCENE_PADDING)
             scenes.append({
                 "caption": scene.caption,
                 "code": layout.code_lines(scene.code, 40, 8) if scene.code else [],
@@ -261,10 +269,11 @@ class Renderer:
                 "durationInFrames": round(t.length * FPS),
                 "leadFrames": round(t.lead * FPS),
                 "speechFrames": round(t.speech * FPS),
-                "pages": captions.pages(scene.narration, t.speech, words[i], tail=SCENE_PADDING),
+                "pages": pages,
                 "mouth": [round(m, 3) for m in acting.mouth_envelope(audios[i], FPS)],
                 "image": images[i].name if images[i] is not None else None,
                 "custom": scene.custom,
+                "diagram": diagram.timed(scene.diagram, pages, t.speech) if scene.diagram and scene.custom is None else None,
             })
         return {"title": script.title, "footer": script.footer, "transitionFrames": round(TRANSITION * FPS),
                 "totalFrames": round(total * FPS), "scenes": scenes}
