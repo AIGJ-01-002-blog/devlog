@@ -268,15 +268,21 @@ class Renderer:
                 "totalFrames": round(total * FPS), "scenes": scenes}
 
     def _voices(self, work: Path, script: Script) -> tuple[list[Path], list[list[captions.Word] | None]]:
-        """장면마다 음성. 신경망 음성이 한 장면이라도 실패하면 기기 음성으로 처음부터 다시 만든다."""
-        try:
-            return self._synthesize(work, script, self.engine, self.voice)
-        except Exception as e:
-            if self.engine != "edge":
-                raise
-            fallback = tts.device()
-            log.warning("신경망 음성 실패, 기기 음성(%s)으로 만들어요: %s", fallback, e)
-            return self._synthesize(work, script, fallback, None)
+        """장면마다 음성. 한 장면이라도 실패하면 다음 엔진으로 처음부터 다시 만든다(목소리가 섞이지 않게).
+        edge(인터넷 신경망) → supertonic(컴퓨터 안 신경망) → 기기 음성 순서다."""
+        chain = [self.engine]
+        if self.engine == "edge":
+            chain.append(tts.offline())
+        if chain[-1] == "supertonic":
+            chain.append(tts.device())
+        for k, engine in enumerate(chain):
+            try:
+                return self._synthesize(work, script, engine, self.voice if k == 0 else None)
+            except Exception as e:
+                if k == len(chain) - 1:
+                    raise
+                log.warning("음성(%s) 실패, %s로 다시 만들어요: %s", engine, chain[k + 1], e)
+        raise AssertionError("unreachable")
 
     def _synthesize(self, work: Path, script: Script, engine: str, voice: str | None):
         audios, words = [], []

@@ -98,16 +98,38 @@ class VoiceFallbackTest(unittest.TestCase):
         r = Renderer.__new__(Renderer)
         r.engine, r.voice, r.ffmpeg = "edge", "ko-KR-SunHiNeural", "ffmpeg"
         script = Script("t", [render.Scene("a", "가"), render.Scene("b", "나")])
-        with TemporaryDirectory() as tmp, mock.patch.object(tts, "synthesize", fake), mock.patch.object(tts, "device", return_value="silent"):
+        with TemporaryDirectory() as tmp, mock.patch.object(tts, "synthesize", fake), mock.patch.object(tts, "device", return_value="silent"), \
+                mock.patch.object(tts, "supertonic_available", return_value=False):
             audios, _ = r._voices(Path(tmp), script)
         self.assertEqual(len(audios), 2)
         self.assertEqual(calls[-2:], [("silent", None), ("silent", None)])  # 목소리가 섞이지 않게 처음부터
 
+    def test_offline_neural_voice_comes_before_device_voice(self):
+        calls = []
+
+        def fake(text, out, engine, ffmpeg="ffmpeg", voice=None):
+            calls.append(engine)
+            if engine in ("edge", "supertonic") and calls.count(engine) == 1:
+                raise RuntimeError(f"{engine} 실패")
+            Path(out).write_bytes(b"")
+            return None
+
+        r = Renderer.__new__(Renderer)
+        r.engine, r.voice, r.ffmpeg = "edge", None, "ffmpeg"
+        script = Script("t", [render.Scene("a", "가")])
+        with TemporaryDirectory() as tmp, mock.patch.object(tts, "synthesize", fake), mock.patch.object(tts, "device", return_value="silent"), \
+                mock.patch.object(tts, "supertonic_available", return_value=True):
+            r._voices(Path(tmp), script)
+        self.assertEqual(calls, ["edge", "supertonic", "silent"])
+
     def test_auto_prefers_edge_when_installed(self):
         with mock.patch.object(tts, "edge_available", return_value=True):
             self.assertEqual(tts.pick("auto"), "edge")
-        with mock.patch.object(tts, "edge_available", return_value=False), mock.patch.object(tts, "device", return_value="espeak"):
+        with mock.patch.object(tts, "edge_available", return_value=False), mock.patch.object(tts, "device", return_value="espeak"), \
+                mock.patch.object(tts, "supertonic_available", return_value=False):
             self.assertEqual(tts.pick("auto"), "espeak")
+        with mock.patch.object(tts, "edge_available", return_value=False), mock.patch.object(tts, "supertonic_available", return_value=True):
+            self.assertEqual(tts.pick("auto"), "supertonic")
 
 
 class MusicTest(unittest.TestCase):

@@ -110,49 +110,10 @@ jobs:
         run: |
           mkdir -p out
           for f in samples/*.json; do python -m devlog_render render "$f" "out/$(basename "$f" .json).mp4"; done
+          # 인터넷 음성이 막혔을 때 나오는 컴퓨터 안 신경망 음성(supertonic) 견본
+          python -m devlog_render --tts supertonic render samples/docker-volume.json out/docker-volume-offline-voice.mp4
       - uses: actions/upload-artifact@v4
         with:
           name: shorts-samples
           path: app/render-worker/out/*.mp4
           retention-days: 14
-
-  # 무료 한국어 음성 후보 비교(#277): 같은 문장을 후보마다 읽혀 voices-* 아티팩트로 올린다. 후보 하나가 실패해도 PR을 막지 않는다
-  voices:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    continue-on-error: true
-    strategy:
-      fail-fast: false
-      matrix:
-        engine: [edge, melo, supertonic, gtts]
-    defaults:
-      run:
-        working-directory: app/render-worker
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.engine == 'melo' && '3.10' || '3.12' }}
-      - name: ffmpeg
-        run: sudo apt-get update -q && sudo apt-get install -yq ffmpeg
-      - name: 후보 설치
-        run: |
-          case "${{ matrix.engine }}" in
-            edge) python -m pip install -q "edge-tts>=7.0" ;;
-            melo) python -m pip install -q "git+https://github.com/myshell-ai/MeloTTS.git" && python -m unidic download ;;
-            supertonic) python -m pip install -q supertonic ;;
-            gtts) python -m pip install -q gTTS ;;
-          esac
-      - name: 읽히기
-        env:
-          PYTHONUTF8: "1"
-        run: python tools/compare_voices.py ${{ matrix.engine }} out/voices
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: voices-${{ matrix.engine }}
-          path: app/render-worker/out/voices/*.mp3
-          if-no-files-found: ignore
-          retention-days: 14
-

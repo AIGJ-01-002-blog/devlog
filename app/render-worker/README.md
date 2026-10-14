@@ -4,7 +4,8 @@ devlog 쇼츠 스튜디오(spec 099)에서 [영상 만들기]를 누른 대본�
 맥·Windows·리눅스 어디서든 돌고, 서버로 **나가는 요청만** 하니 집 공유기 뒤에서도 동작해요. 영상을 SNS에 자동으로 올리지는 않아요.
 
 - 음성: 무료 신경망 한국어 음성(edge-tts `ko-KR-SunHiNeural`)이 기본이에요. `--voice ko-KR-InJoonNeural`처럼 바꿀 수 있어요.
-  인터넷이 막혔거나 실패하면 영상 전체를 기기 음성으로 다시 만들어요: 맥 `say`(Yuna), Windows 기본 한국어 음성(Heami), 리눅스 `espeak-ng`, 없으면 무음
+  인터넷이 막혔거나 실패하면 영상 전체를 컴퓨터 안에서 도는 신경망 음성 [Supertonic-3](https://github.com/supertone-inc/supertonic)(코드 MIT, 모델 OpenRAIL-M, 처음 한 번 모델을 내려받아요)으로 다시 만들어요.
+  그것도 안 되면 기기 음성으로 내려가요: 맥 `say`(Yuna), Windows 기본 한국어 음성(Heami), 리눅스 `espeak-ng`, 없으면 무음
 - 자막: 내레이션을 1~2줄 구절로 나눠 음성에 맞춰 한 구절씩 띄우고, 지금 읽는 단어를 노랗게 키워요(신경망 음성은 단어마다 소리 나는 시각을 받아 맞춰요). 요점 자막은 단어마다 튀어 오르고 형광펜이 그어져요
 - 화면 도구: [Remotion](https://www.remotion.dev)(React로 영상을 만드는 도구)으로 그려요. `remotion/` 폴더가 화면(캐릭터·자막·전환)을, 파이썬 워커가 음성·시간·소리 섞기를 맡아요.
   Node가 없으면 예전처럼 Pillow로 그린 무대로, Pillow도 없으면 글자 화면으로 내려가요
