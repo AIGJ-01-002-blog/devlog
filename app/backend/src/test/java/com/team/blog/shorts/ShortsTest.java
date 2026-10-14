@@ -167,6 +167,8 @@ class ShortsTest extends IntegrationTest {
                 "effects", List.of(Map.of("sound", "pop", "at", 0.4, "volume", 0.6))));
         withImage.set(1, Map.of("caption", "범인은 직렬화", "narration", GOOD.get(1).get("narration"), "image", "/media/" + key,
                 "visual", "typing", "effects", List.of(Map.of("sound", "typing", "at", 1.0))));
+        withImage.set(2, Map.of("caption", GOOD.get(2).get("caption"), "narration", GOOD.get(2).get("narration"), "code", GOOD.get(2).get("code"),
+                "diagram", Map.of("type", "stack", "items", List.of("세션", Map.of("label", "직렬화", "icon", "code"), "Redis"), "highlight", 1)));
         JsonNode item = create(me, postId, "그림 있는 쇼츠", withImage);
         assertThat(item.path("scenes").get(1).path("image").asString()).isEqualTo("/media/" + key);
         long id = item.path("id").asLong();
@@ -180,6 +182,10 @@ class ShortsTest extends IntegrationTest {
         assertThat(job.path("scenes").get(0).path("visual").asString()).isEqualTo("think");
         assertThat(job.path("scenes").get(1).path("visual").asString()).isEqualTo("typing");
         assertThat(job.path("scenes").get(2).path("visual").isNull()).isTrue();
+        assertThat(job.path("scenes").get(2).path("diagram").path("type").asString()).isEqualTo("stack");
+        assertThat(job.path("scenes").get(2).path("diagram").path("items").get(1).path("icon").asString()).isEqualTo("code");
+        assertThat(job.path("scenes").get(2).path("diagram").path("highlight").asInt()).isEqualTo(1);
+        assertThat(job.path("scenes").get(0).path("diagram").isNull()).isTrue();
         assertThat(job.path("scenes").get(0).has("effects")).as("효과음은 작업 단위로만 보낸다").isFalse();
         JsonNode effects = job.path("effects");
         assertThat(effects).hasSize(2);
