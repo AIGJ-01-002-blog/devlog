@@ -169,6 +169,48 @@ class ShortsTest extends IntegrationTest {
     }
 
     @Test
+    void 완성된_영상에만_직접_올린_주소를_플랫폼마다_남기고_글_태그를_함께_돌려준다() throws Exception {
+        Session me = signup(uniqueLogin("shupload"));
+        Session other = signup(uniqueLogin("shupother"));
+        long postId = writePost(me, POST_BODY);
+        jdbc.update("INSERT INTO tag (name) VALUES ('spring'), ('세션') ON CONFLICT (name) DO NOTHING");
+        jdbc.update("INSERT INTO post_tag (post_id, tag_id, position) SELECT ?, id, CASE name WHEN 'spring' THEN 0 ELSE 1 END FROM tag WHERE name IN ('spring', '세션')", postId);
+        long id = create(me, postId, "배포하면 왜 로그아웃될까", GOOD).path("id").asLong();
+        String yt = "/api/me/shorts/" + id + "/uploads/youtube";
+
+        // 영상이 없으면 남길 수 없다
+        me.http().perform(asJson(put(yt), Map.of("url", "https://youtube.com/shorts/abc"))).andExpect(status().isConflict());
+        jdbc.update("UPDATE shorts SET status = 'READY', video_key = 'shorts/2026/10/x.mp4' WHERE id = ?", id);
+
+        // 다른 플랫폼 주소·모르는 플랫폼·남의 쇼츠는 막는다
+        JsonNode bad = read(me.http().perform(asJson(put(yt), Map.of("url", "https://www.tiktok.com/@me/video/1"))).andExpect(status().isBadRequest()).andReturn());
+        assertThat(bad.path("errors").findValuesAsString("field")).contains("url");
+        me.http().perform(asJson(put("/api/me/shorts/" + id + "/uploads/facebook"), Map.of("url", "https://facebook.com/x"))).andExpect(status().isNotFound());
+        other.http().perform(asJson(put(yt), Map.of("url", "https://youtube.com/shorts/abc"))).andExpect(status().isNotFound());
+
+        me.http().perform(asJson(put(yt), Map.of("url", "https://youtube.com/shorts/abc"))).andExpect(status().isOk());
+        JsonNode item = read(me.http().perform(asJson(put(yt), Map.of("url", "https://youtube.com/shorts/def"))).andExpect(status().isOk()).andReturn());
+        assertThat(item.path("uploads")).as("플랫폼마다 하나, 다시 붙여 넣으면 바뀐다").hasSize(1);
+        assertThat(item.path("uploads").get(0).path("platform").asString()).isEqualTo("YOUTUBE");
+        assertThat(item.path("uploads").get(0).path("url").asString()).isEqualTo("https://youtube.com/shorts/def");
+        assertThat(item.path("postTags").get(0).asString()).isEqualTo("spring");
+        assertThat(item.path("postTags").get(1).asString()).isEqualTo("세션");
+
+        me.http().perform(asJson(put("/api/me/shorts/" + id + "/uploads/tiktok"), Map.of("url", "https://www.tiktok.com/@me/video/1"))).andExpect(status().isOk());
+        JsonNode list = read(me.http().perform(get("/api/me/shorts")).andExpect(status().isOk()).andReturn());
+        assertThat(list.path("items").get(0).path("uploads")).hasSize(2);
+
+        JsonNode removed = read(me.http().perform(delete(yt).with(csrf())).andExpect(status().isOk()).andReturn());
+        assertThat(removed.path("uploads")).hasSize(1);
+        assertThat(removed.path("uploads").get(0).path("platform").asString()).isEqualTo("TIKTOK");
+
+        // 쇼츠를 지우면 기록도 함께 지워진다
+        jdbc.update("UPDATE shorts SET video_key = NULL, status = 'DRAFT' WHERE id = ?", id);
+        me.http().perform(delete("/api/me/shorts/" + id).with(csrf())).andExpect(status().isNoContent());
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM shorts_upload WHERE shorts_id = ?", Integer.class, id)).isZero();
+    }
+
+    @Test
     void 하루_한도를_넘으면_만들지_못한다() throws Exception {
         Session me = signup(uniqueLogin("shlimit"));
         long id = create(me, null, "한도 시험", GOOD).path("id").asLong();

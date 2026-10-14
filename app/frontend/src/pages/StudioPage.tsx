@@ -9,6 +9,7 @@ import {
   type OriginalityReport, type Scene, type ShortsItem, type ShortsOverview,
 } from '../lib/shorts'
 import type { ManagePage } from '../lib/types'
+import { StudioUploadGuide } from './StudioUploadGuide'
 
 const POLL_MS = 5000
 
@@ -230,6 +231,7 @@ function Editor({ item, onChange, onReload, onDeleted }: {
           <p className="muted small">{t('대본을 고치면 영상은 지워지고 다시 만들어야 해요.')}</p>
         </div>
       )}
+      {item.status === 'READY' && item.videoUrl && <StudioUploadGuide item={item} onChange={onChange} />}
       {busy && <p className="studio-note" role="status">{item.status === 'QUEUED' ? t('영상 만들기를 기다리고 있어요. 렌더 워커가 켜져 있으면 곧 시작해요.') : t('렌더 워커가 영상을 만들고 있어요.')}</p>}
       {item.status === 'FAILED' && <p className="error" role="alert">{t('영상을 만들지 못했어요: {0}', { 0: item.error ?? '' })}</p>}
 

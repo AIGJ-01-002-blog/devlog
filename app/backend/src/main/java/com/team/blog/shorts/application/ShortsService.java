@@ -7,7 +7,11 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import org.slf4j.Logger;
@@ -26,6 +30,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 import com.team.blog.media.storage.ObjectStorage;
 import com.team.blog.shared.error.ApiException;
+import com.team.blog.shared.error.FieldErrorItem;
 import com.team.blog.shared.error.NotFoundException;
 import com.team.blog.shared.markdown.ImageUrls;
 import com.team.blog.shared.stats.Counts;
@@ -45,7 +50,18 @@ public class ShortsService {
 
     public record Item(long id, Long postId, String postTitle, String postUrl, String title, List<Scene> scenes, Status status,
                        int attempts, String videoUrl, Integer durationMs, Long videoBytes, String error, double estimatedSeconds,
-                       Instant queuedAt, Instant renderedAt, Instant createdAt, Instant updatedAt, int version) {}
+                       Instant queuedAt, Instant renderedAt, Instant createdAt, Instant updatedAt, int version,
+                       List<String> postTags, List<Upload> uploads) {
+        Item with(List<String> tags, List<Upload> ups) {
+            return new Item(id, postId, postTitle, postUrl, title, scenes, status, attempts, videoUrl, durationMs, videoBytes, error,
+                    estimatedSeconds, queuedAt, renderedAt, createdAt, updatedAt, version, tags, ups);
+        }
+    }
+
+    /** 회원이 SNS에 직접 올린 뒤 붙여 넣은 영상 주소 (#238) */
+    public record Upload(UploadLink.Platform platform, String url, Instant uploadedAt) {}
+
+    public record UploadBody(String url) {}
 
     /** @param workerSeenAt 렌더 워커가 마지막으로 일을 받으러 온 시각. 없으면 아직 한 번도 오지 않았거나 오래 전 */
     public record Overview(List<Item> items, Instant workerSeenAt, int rendersToday, int dailyRenders) {}
@@ -95,8 +111,8 @@ public class ShortsService {
 
     public Overview overview(long memberId) {
         requireEnabled();
-        List<Item> items = jdbc.query(SELECT + " WHERE s.member_id = ? ORDER BY s.updated_at DESC, s.id DESC LIMIT " + LIST_MAX,
-                this::map, memberId);
+        List<Item> items = enrich(jdbc.query(SELECT + " WHERE s.member_id = ? ORDER BY s.updated_at DESC, s.id DESC LIMIT " + LIST_MAX,
+                this::map, memberId));
         return new Overview(items, workerSeenAt().orElse(null), rendersToday(memberId), props.dailyRenders());
     }
 
@@ -188,6 +204,36 @@ public class ShortsService {
 
     public record ReportDetails(OriginalityCheck.Report report) {}
 
+    /**
+     * 직접 올린 영상 주소를 남긴다 (#238). 완성된 영상이 있을 때만, 플랫폼마다 하나(다시 붙여 넣으면 바꾼다).
+     * devlog는 SNS에 아무것도 보내지 않는다. 주소가 그 플랫폼 도메인의 https 주소인지만 본다.
+     */
+    public Item recordUpload(long memberId, long id, String platformRaw, UploadBody body) {
+        requireEnabled();
+        UploadLink.Platform platform = UploadLink.Platform.parse(platformRaw).orElseThrow(NotFoundException::new);
+        String url = UploadLink.clean(platform, body == null ? null : body.url()).orElseThrow(() -> ApiException.validation(List.of(
+                new FieldErrorItem("url", "INVALID", "올린 영상의 https 주소를 붙여 넣어 주세요. 고른 플랫폼의 주소여야 해요."))));
+        tx.executeWithoutResult(s -> {
+            Item cur = lock(memberId, id);
+            if (cur.status() != Status.READY) throw ApiException.conflict("SHORTS_NOT_READY", "영상을 다 만든 뒤에 올린 주소를 남길 수 있어요.");
+            jdbc.update("""
+                    INSERT INTO shorts_upload (shorts_id, platform, url, uploaded_at) VALUES (?, ?, ?, ?)
+                    ON CONFLICT (shorts_id, platform) DO UPDATE SET url = EXCLUDED.url, uploaded_at = EXCLUDED.uploaded_at
+                    """, id, platform.name(), url, Timestamp.from(Times.now(clock)));
+        });
+        return get(memberId, id);
+    }
+
+    public Item deleteUpload(long memberId, long id, String platformRaw) {
+        requireEnabled();
+        UploadLink.Platform platform = UploadLink.Platform.parse(platformRaw).orElseThrow(NotFoundException::new);
+        tx.executeWithoutResult(s -> {
+            lock(memberId, id);
+            jdbc.update("DELETE FROM shorts_upload WHERE shorts_id = ? AND platform = ?", id, platform.name());
+        });
+        return get(memberId, id);
+    }
+
     public void delete(long memberId, long id) {
         requireEnabled();
         String video = tx.execute(s -> {
@@ -259,7 +305,33 @@ public class ShortsService {
     }
 
     private Optional<Item> find(long memberId, long id) {
-        return jdbc.query(SELECT + " WHERE s.id = ? AND s.member_id = ?", this::map, id, memberId).stream().findFirst();
+        return enrich(jdbc.query(SELECT + " WHERE s.id = ? AND s.member_id = ?", this::map, id, memberId)).stream().findFirst();
+    }
+
+    /** 바탕 글의 태그(올리기 안내의 해시태그)와 직접 올린 기록을 붙인다. 목록은 많아야 LIST_MAX개라 두 번에 나눠 읽는다 */
+    private List<Item> enrich(List<Item> items) {
+        if (items.isEmpty()) return items;
+        Map<Long, List<String>> tags = new HashMap<>();
+        List<Long> postIds = items.stream().map(Item::postId).filter(Objects::nonNull).distinct().toList();
+        if (!postIds.isEmpty()) {
+            jdbc.query("SELECT pt.post_id, t.name FROM post_tag pt JOIN tag t ON t.id = pt.tag_id WHERE pt.post_id IN (" + marks(postIds.size())
+                            + ") ORDER BY pt.post_id, pt.position",
+                    rs -> { tags.computeIfAbsent(rs.getLong(1), k -> new ArrayList<>()).add(rs.getString(2)); }, postIds.toArray());
+        }
+        Map<Long, List<Upload>> uploads = new HashMap<>();
+        List<Long> ids = items.stream().map(Item::id).toList();
+        jdbc.query("SELECT shorts_id, platform, url, uploaded_at FROM shorts_upload WHERE shorts_id IN (" + marks(ids.size()) + ") ORDER BY platform",
+                rs -> {
+                    uploads.computeIfAbsent(rs.getLong(1), k -> new ArrayList<>()).add(new Upload(
+                            UploadLink.Platform.valueOf(rs.getString(2)), rs.getString(3), rs.getTimestamp(4).toInstant()));
+                }, ids.toArray());
+        return items.stream().map(it -> it.with(
+                it.postId() == null ? List.of() : List.copyOf(tags.getOrDefault(it.postId(), List.of())),
+                List.copyOf(uploads.getOrDefault(it.id(), List.of())))).toList();
+    }
+
+    private static String marks(int n) {
+        return String.join(", ", Collections.nCopies(n, "?"));
     }
 
     private Item lock(long memberId, long id) {
@@ -280,7 +352,7 @@ public class ShortsService {
         return raw.stream().map(s -> s == null ? new Scene("", "", null) : new Scene(s.caption(), s.narration(), s.code())).toList();
     }
 
-    private static void reject(List<com.team.blog.shared.error.FieldErrorItem> errors) {
+    private static void reject(List<FieldErrorItem> errors) {
         if (!errors.isEmpty()) throw ApiException.validation(errors);
     }
 
@@ -304,7 +376,7 @@ public class ShortsService {
                 urls.urlOf(rs.getString("video_key")), durationMs, videoBytes, rs.getString("error"),
                 Math.round(ShortsScript.estimateSeconds(scenes) * 10) / 10.0,
                 instant(rs, "queued_at"), instant(rs, "rendered_at"), instant(rs, "created_at"), instant(rs, "updated_at"),
-                rs.getInt("version"));
+                rs.getInt("version"), List.of(), List.of());
     }
 
     private static Instant instant(ResultSet rs, String column) throws SQLException {
