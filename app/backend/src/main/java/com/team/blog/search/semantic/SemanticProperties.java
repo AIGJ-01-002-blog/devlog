@@ -24,7 +24,9 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param maxChars       임베딩에 넣을 글자 수 (제목 + 태그 + 본문 앞부분)
  * @param queryTimeout   검색어 임베딩 시간 제한. 넘으면 이번 검색은 키워드만 쓴다
  * @param indexTimeout   글 임베딩 시간 제한
- * @param indexBatch     한 번에 임베딩할 글 수
+ * @param indexBatch     한 번 실행에서 임베딩할 글 수
+ * @param indexChunk     한 요청에 묶을 글 수. CPU Ollama는 글 하나에 10초쯤 걸려 1개씩 보낸다(묶으면 indexTimeout을 넘긴다).
+ *                       요청이 작으면 Ollama의 다른 자리가 비어 검색어 임베딩도 기다리지 않는다
  * @param indexInterval  글 임베딩 작업 간격
  * @param downFor        공급자 연결 실패 뒤 건너뛰는 시간 (집 PC가 꺼졌을 때 검색마다 기다리지 않게)
  * @param queryCacheTtl  같은 검색어 임베딩 보관 기간
@@ -48,6 +50,7 @@ public record SemanticProperties(@DefaultValue("true") boolean enabled,
                                  @DefaultValue("3s") Duration queryTimeout,
                                  @DefaultValue("30s") Duration indexTimeout,
                                  @DefaultValue("20") int indexBatch,
+                                 @DefaultValue("1") int indexChunk,
                                  @DefaultValue("60s") Duration indexInterval,
                                  @DefaultValue("60s") Duration downFor,
                                  @DefaultValue("1d") Duration queryCacheTtl,

@@ -18,8 +18,11 @@ import com.team.blog.shared.scheduling.JobLock;
 
 /**
  * 글 임베딩 채우기 (spec 054). 따로 대기열을 두지 않고, 간격마다 "임베딩이 없거나 그 뒤로 고쳐진 공개 글"을 최신 글부터
- * indexBatch개씩 찾아 한 번의 요청으로 묶어 임베딩한다. 발행·수정한 글도, 처음 켰을 때의 기존 글도 같은 길로 채워지고,
+ * indexBatch개씩 찾아 indexChunk개씩 나눠 임베딩한다. 발행·수정한 글도, 처음 켰을 때의 기존 글도 같은 길로 채워지고,
  * 공급자가 꺼져 있던 동안 밀린 글은 켜진 뒤 이어서 채워진다. 같은 글을 두 번 처리해도 덮어쓰기라 결과가 같다.
+ * <p>
+ * CPU로 도는 서버 안 Ollama는 글 하나에 10초쯤 걸려서, 20개를 한 요청에 묶으면 시간 제한을 넘겨 한 개도 저장하지 못했다.
+ * 그래서 작은 요청으로 나눠 끝난 만큼 바로 저장하고, 색인이 실패해도 검색어 임베딩(의미 검색)은 끄지 않는다.
  * <p>
  * 공개 글만 임베딩한다(비공개·친구 공개 글 내용은 공급자에게 보내지 않는다). 공개였다가 바뀐 글의 벡터는 남아도 검색에서
  * 공개 조건으로 걸러지고, 글을 영구 삭제하면 함께 지워진다.
@@ -27,9 +30,6 @@ import com.team.blog.shared.scheduling.JobLock;
 @Component
 public class EmbeddingIndexJob {
     private static final Logger log = LoggerFactory.getLogger(EmbeddingIndexJob.class);
-    /** 한 번 실행에서 처리할 최대 묶음 수 (기존 글이 많아도 한 차례가 너무 길지 않게) */
-    static final int MAX_BATCHES_PER_RUN = 10;
-
     private final JdbcTemplate jdbc;
     private final EmbeddingClient client;
     private final SemanticSearch semantic;
@@ -49,41 +49,43 @@ public class EmbeddingIndexJob {
 
     @Scheduled(fixedDelayString = "${blog.search.semantic.index-interval:60s}", initialDelayString = "${blog.search.semantic.index-interval:60s}")
     public void scheduled() {
-        if (!semantic.enabled() || semantic.isDown()) return;
-        lock.runExclusively("search-embedding", props.indexTimeout().multipliedBy(MAX_BATCHES_PER_RUN + 1L), this::runOnce);
+        if (!semantic.enabled() || semantic.isDown() || semantic.isIndexDown()) return;
+        lock.runExclusively("search-embedding", props.indexTimeout().multipliedBy(requestsPerRun() + 1L), this::runOnce);
     }
 
     private record Source(long id, long version, String title, String contentMd, String tags) {}
 
-    /** @return 이번에 임베딩한 글 수 */
+    /** 한 번 실행에서 보낼 최대 요청 수 (잠금 시간을 이만큼 잡는다) */
+    private int requestsPerRun() {
+        int chunk = Math.max(1, props.indexChunk());
+        return (Math.max(1, props.indexBatch()) + chunk - 1) / chunk;
+    }
+
+    /** @return 이번에 임베딩한 글 수. 실패하면 그때까지 저장한 수 */
     public int runOnce() {
         if (!semantic.enabled()) return 0;
+        List<Source> batch = pending();
+        int chunk = Math.max(1, props.indexChunk());
         int done = 0;
-        boolean more = true;
-        for (int i = 0; more && i < MAX_BATCHES_PER_RUN; i++) {
-            List<Source> batch = pending();
-            Optional<List<float[]>> vectors = batch.isEmpty() ? Optional.empty() : embed(batch);
-            if (vectors.isPresent()) {
-                for (int j = 0; j < batch.size(); j++) save(batch.get(j), vectors.get().get(j));
-                done += batch.size();
-                // 한 묶음을 다 채우지 못했으면 남은 글이 없다
-                more = batch.size() >= props.indexBatch();
-            } else {
-                more = false;
-            }
+        for (int from = 0; from < batch.size(); from += chunk) {
+            List<Source> part = batch.subList(from, Math.min(from + chunk, batch.size()));
+            Optional<List<float[]>> vectors = embed(part);
+            if (vectors.isEmpty()) break;
+            for (int j = 0; j < part.size(); j++) save(part.get(j), vectors.get().get(j));
+            done += part.size();
         }
         if (done > 0 && log.isInfoEnabled()) log.info("글 {}개를 임베딩했습니다 ({})", done, client.model());
         return done;
     }
 
-    /** @return 임베딩 서버가 실패하면 비어 있다 (내려간 것으로 표시한다) */
+    /** @return 임베딩 서버가 실패하면 비어 있다 (색인만 잠시 쉰다. 검색어 임베딩은 따로 판단한다) */
     private Optional<List<float[]>> embed(List<Source> batch) {
         List<String> texts = new ArrayList<>(batch.size());
         for (Source s : batch) texts.add(text(s));
         try {
             return Optional.of(client.embed(texts, Purpose.DOCUMENT, props.indexTimeout()));
         } catch (EmbedException e) {
-            semantic.markDown(e);
+            semantic.markIndexDown(e);
             return Optional.empty();
         }
     }
