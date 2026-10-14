@@ -41,6 +41,7 @@ public class TradeReplays {
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm").withZone(TradeTexts.KST);
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("M월 d일").withZone(TradeTexts.KST);
     static final int REASON_SPOKEN_MAX = 90;
+    static final int REASON_SPOKEN_MIN = 30;
     static final int MEMO_SPOKEN_MAX = 150;
     static final int MEMO_SPOKEN_MIN = 40;
 
@@ -177,27 +178,35 @@ public class TradeReplays {
      */
     static List<Scene> scenes(TradeReplay r, String memo) {
         String spokenMemo = memo.replaceAll("\\s+", " ").strip();
-        // 60초 안에 들 때까지 줄인다: 체결 이유 빼기 → 메모 줄이기 → 체결 장면의 손익 문장 빼기(결과 장면에 합이 남는다)
-        List<Scene> out = draft(r, spokenMemo, MEMO_SPOKEN_MAX, false, false);
+        // 60초 안에 들 때까지 줄인다. 체결 이유는 이 영상의 핵심이라 가장 늦게 줄인다:
+        // 도입·메모 문장 짧게 → 메모 줄이기 → 체결 이유 줄이기 → 체결 장면의 손익 문장 빼기(결과 장면에 합이 남는다) → 체결 이유 빼기
+        List<Scene> out = draft(r, spokenMemo, MEMO_SPOKEN_MAX, REASON_SPOKEN_MAX, false, false);
         if (fits(out)) return out;
-        out = draft(r, spokenMemo, MEMO_SPOKEN_MAX, true, false);
-        for (int max = MEMO_SPOKEN_MAX; !fits(out) && max > MEMO_SPOKEN_MIN; max -= 10) out = draft(r, spokenMemo, max - 10, true, false);
-        if (!fits(out)) out = draft(r, spokenMemo, MEMO_SPOKEN_MIN, true, true);
-        return out;
+        for (int max = MEMO_SPOKEN_MAX; max >= MEMO_SPOKEN_MIN; max -= 10) {
+            out = draft(r, spokenMemo, max, REASON_SPOKEN_MAX, true, false);
+            if (fits(out)) return out;
+        }
+        for (int reasonMax = REASON_SPOKEN_MAX - 20; reasonMax >= REASON_SPOKEN_MIN; reasonMax -= 20) {
+            out = draft(r, spokenMemo, MEMO_SPOKEN_MIN, reasonMax, true, false);
+            if (fits(out)) return out;
+        }
+        out = draft(r, spokenMemo, MEMO_SPOKEN_MIN, REASON_SPOKEN_MIN, true, true);
+        if (fits(out)) return out;
+        return draft(r, spokenMemo, MEMO_SPOKEN_MIN, 0, true, true);
     }
 
     private static boolean fits(List<Scene> scenes) {
         return ShortsScript.estimateSeconds(scenes) <= ShortsScript.SECONDS_MAX - 1;
     }
 
-    private static List<Scene> draft(TradeReplay r, String memo, int memoMax, boolean brief, boolean noPnl) {
+    private static List<Scene> draft(TradeReplay r, String memo, int memoMax, int reasonMax, boolean brief, boolean noPnl) {
         TradeReplay.Interval interval = TradeReplay.Interval.parse(r.interval()).orElse(TradeReplay.Interval.M15);
         String coin = coin(r);
         String modeWord = "LIVE".equals(r.mode()) ? "실계좌" : "모의투자";
         List<Scene> out = new ArrayList<>();
         out.add(new Scene(coin + " " + interval.label + " 다시 보기", "그때 저는 왜 여기서 " + side(r.fills().getFirst().side()) + "했을까요? "
                 + (brief ? "그 시각으로 돌려 볼게요." : DATE.format(r.fills().getFirst().executedAt()) + " " + coin + " 차트를 그 시각으로 돌려 볼게요."), null));
-        for (TradeReplay.Fill f : r.fills()) out.add(fillScene(r, f, brief, noPnl));
+        for (TradeReplay.Fill f : r.fills()) out.add(fillScene(r, f, reasonMax, noPnl));
         out.add(resultScene(r));
         out.add(new Scene("제가 배운 점", (brief ? "제 메모예요. " : "제가 그날 남긴 메모는 이래요. ") + clip(memo, memoMax), null));
         out.add(new Scene("투자 권유가 아니에요", brief ? modeWord + " 기록이고, 투자 권유가 아니에요."
@@ -205,13 +214,13 @@ public class TradeReplays {
         return out;
     }
 
-    private static Scene fillScene(TradeReplay r, TradeReplay.Fill f, boolean brief, boolean noPnl) {
+    private static Scene fillScene(TradeReplay r, TradeReplay.Fill f, int reasonMax, boolean noPnl) {
         String side = side(f.side());
         String price = Money.format(f.price(), r.currency(), false);
         String caption = TIME.format(f.executedAt()) + " " + side + " " + price;
         StringBuilder n = new StringBuilder(spokenTime(f.executedAt())).append(", ");
         String reason = f.reason() == null ? "" : f.reason().strip();
-        if (!brief && !reason.isEmpty()) n.append(clip(reason, REASON_SPOKEN_MAX)).append(" 그래서 ");
+        if (reasonMax > 0 && !reason.isEmpty()) n.append(clip(reason, reasonMax)).append(" 그래서 ");
         n.append(price).append("에 ").append(side).append("했어요.");
         if (f.realizedPnl() != null && !noPnl) n.append(" 이 매도로 ").append(Money.format(f.realizedPnl(), r.currency(), true)).append("이 확정됐어요.");
         return new Scene(clip(caption, ShortsScript.CAPTION_MAX), clip(n.toString(), ShortsScript.NARRATION_MAX), null);

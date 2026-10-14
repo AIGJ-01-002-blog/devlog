@@ -51,6 +51,22 @@ class TradeReplayScriptTest {
     }
 
     @Test
+    void 줄일_때도_체결_이유는_가장_늦게_뺀다() {
+        // 체결 세 개에 이유가 있으면 도입·메모 문장을 먼저 줄이고 이유는 남긴다
+        Instant t = Instant.parse("2026-10-13T01:15:00Z");
+        List<TradeReplay.Fill> fills = List.of(
+                new TradeReplay.Fill(1, "BUY", new BigDecimal("92100.5"), new BigDecimal("0.01"), null, t, "15분봉 20일선 위로 거래량 두 배"),
+                new TradeReplay.Fill(2, "BUY", new BigDecimal("92300"), new BigDecimal("0.005"), null, t.plusSeconds(2700), "눌림에서 지지 확인"),
+                new TradeReplay.Fill(3, "SELL", new BigDecimal("93050"), new BigDecimal("0.015"), new BigDecimal("13.2"), t.plusSeconds(11_700), "목표가 1% 도달"));
+        TradeReplay r = new TradeReplay("BINANCE", "BTCUSDT", "비트코인", "USDT", "PAPER", "5m", t.minusSeconds(6000), t.plusSeconds(15_000), fills);
+        List<ShortsScript.Scene> scenes = TradeReplays.scenes(r, "거래량이 붙은 돌파는 따라가도 됐지만, 두 번째 매수는 너무 서둘렀어요.");
+        assertThat(ShortsScript.estimateSeconds(scenes)).isLessThanOrEqualTo(ShortsScript.SECONDS_MAX - 1);
+        assertThat(scenes.get(1).narration()).contains("거래량 두 배", "92,100.50 USDT에 매수했어요");
+        assertThat(scenes.get(2).narration()).contains("눌림에서 지지 확인");
+        assertThat(scenes.get(3).narration()).contains("목표가 1% 도달", "+13.20 USDT");
+    }
+
+    @Test
     void 체결_줄은_AI가_읽을_수_있게_시각_수량_가격_이유를_담는다() {
         assertThat(TradeReplays.fillLines(replay(2, "돌파"))).containsExactly(
                 "10월 13일 10:15 매수 0.01 BTC @ 92,100.00 USDT · 이유: 돌파 0",
