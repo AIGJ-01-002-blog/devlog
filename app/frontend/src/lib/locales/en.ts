@@ -1666,7 +1666,6 @@ export const en: Record<string, string> = {
   "재현 영상 만들기": "Make replay",
   "매매 재현 정보": "Trade replay details",
   "매매 재현": "Trade replay",
-  "모의투자": "Paper trading",
   "차트 {0} ~ {1}": "Chart {0} – {1}",
   "1번 장면에서 체결 전 흐름을 보여 주고, 2번 장면부터 체결 하나에 장면 하나씩 그 시각에 표시가 찍혀요. 남은 장면은 결과·배운 점이고, 투자 권유 고지는 맨 끝에 짧게 붙어요.": "Scene 1 shows the move before the first fill. From scene 2, each fill gets one scene and its marker appears then. The remaining scenes are the result and lessons, and a short disclaimer closes the video.",
   "내 AI에게 대본 부탁하기": "Ask my AI for a script",
@@ -1684,5 +1683,4 @@ export const en: Record<string, string> = {
   "선물 포지션 방향과 레버리지예요. 손익은 레버리지만큼 커져요": "Futures position side and leverage. P&L scales with leverage",
   "봇이 이 봉을 보고 판단했어요": "The bot decided on this candle interval",
   "이날 체결을 골라 실시간으로 매매하는 것처럼 캔들 위에 다시 그리는 영상을 스튜디오에서 만들어요": "Pick this day's fills and make a video in the studio that replays them on candles as if trading live",
-  "재현 영상 만들기": "Make replay video",
 }
