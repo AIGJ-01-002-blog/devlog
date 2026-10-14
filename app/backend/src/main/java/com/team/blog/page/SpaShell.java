@@ -144,7 +144,12 @@ public class SpaShell {
         if (meta.publishedTime() != null) ld.put("datePublished", meta.publishedTime().toString());
         Instant modified = meta.modifiedTime() != null ? meta.modifiedTime() : meta.publishedTime();
         if (modified != null) ld.put("dateModified", modified.toString());
-        if (meta.author() != null) ld.put("author", Map.of("@type", "Person", "name", meta.author()));
+        if (meta.author() != null) {
+            Map<String, Object> author = new LinkedHashMap<>(); // Map.of는 순서가 실행마다 달라 출력이 흔들린다
+            author.put("@type", "Person");
+            author.put("name", meta.author());
+            ld.put("author", author);
+        }
         String data = json.writeValueAsString(ld).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026");
         return "<script type=\"application/ld+json\">" + data + "</script>\n";
     }
