@@ -10,30 +10,36 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-14
+
+**목표: v2.0.0 숏폼 스튜디오** ([목표 이슈 #236](https://github.com/AIGJ-01-002-blog/devlog/issues/236))
+
+글을 60초 쇼츠로 만들고, 플랫폼마다 직접 올리는 안내를 받고, 내 글·쇼츠 성과를 한 화면에서 본다. 영상은 내 컴퓨터의 렌더 워커가 만들고 자동 업로드는 없다. 영상 만들기 전에 양산형 검사로 다른 대본과 겹치거나 글을 그대로 옮긴 대본을 막는다. 자동 매매 봇의 체결을 매매 일지로 남겨 글·쇼츠 대본으로 이어 주고, 학교 서버가 끝나도 집 컴퓨터에서 같은 블로그를 되살리는 백업·복원 스크립트를 넣었다. 쇼츠(`SHORTS_ENABLED`)와 매매 일지(`TRADES_ENABLED`)는 기본 꺼짐이라 서버 환경 변수로 켜야 보인다. DB에 `shorts`·`shorts_render_request`·`shorts_upload`·`trade`·`trade_day` 표와 `ai_note.links` 열이 생긴다(V36~V39).
+
 ### 화면
 | 쇼츠 스튜디오 (PC) | 양산형 검사 (PC) |
 |---|---|
-| ![쇼츠 스튜디오 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shorts-studio-pc.webp) | ![양산형 검사 결과](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shorts-studio-check-pc.webp) |
+| ![쇼츠 스튜디오 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/shorts-studio-pc.webp) | ![양산형 검사 결과](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/shorts-studio-check-pc.webp) |
 
 | 휴대폰 | 휴대폰 · 다크 | 렌더 워커가 만든 영상 한 장면 |
 |---|---|---|
-| ![쇼츠 스튜디오 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shorts-studio-m.webp) | ![장면 편집 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shorts-studio-m-dark.webp) | ![9:16 영상 장면](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shorts-video-frame.webp) |
+| ![쇼츠 스튜디오 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/shorts-studio-m.webp) | ![장면 편집 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/shorts-studio-m-dark.webp) | ![9:16 영상 장면](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/shorts-video-frame.webp) |
 
 | 올리기 안내 (PC) | 휴대폰 · Instagram | 휴대폰 · 다크 · 올린 주소 남김 |
 |---|---|---|
-| ![올리기 안내 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shorts-upload-guide-pc.webp) | ![올리기 안내 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shorts-upload-guide-m.webp) | ![올린 주소 남김 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shorts-upload-guide-m-dark.webp) |
+| ![올리기 안내 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/shorts-upload-guide-pc.webp) | ![올리기 안내 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/shorts-upload-guide-m.webp) | ![올린 주소 남김 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/shorts-upload-guide-m-dark.webp) |
 
 | 내 대시보드 (PC) | 휴대폰 | 휴대폰 · 다크 · 쇼츠 |
 |---|---|---|
-| ![내 대시보드 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/my-dash-pc.webp) | ![내 대시보드 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/my-dash-m.webp) | ![쇼츠 칸 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/my-dash-m-dark.webp) |
+| ![내 대시보드 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/my-dash-pc.webp) | ![내 대시보드 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/my-dash-m.webp) | ![쇼츠 칸 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/my-dash-m-dark.webp) |
 
 | 매매 일지 (PC) | 휴대폰 | 휴대폰 · 다크 |
 |---|---|---|
-| ![매매 일지 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/trades-pc.webp) | ![매매 일지 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/trades-m.webp) | ![매매 일지 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/trades-m-dark.webp) |
+| ![매매 일지 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/trades-pc.webp) | ![매매 일지 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/trades-m.webp) | ![매매 일지 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/trades-m-dark.webp) |
 
 | 렌더 워커 상태 (PC) | 처리할 일 알림 (PC) | 휴대폰 | 휴대폰 · 다크 |
 |---|---|---|---|
-| ![렌더 워커 칸 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/worker-pc.webp) | ![워커 알림 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/worker-alert-pc.webp) | ![렌더 워커 칸 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/worker-m.webp) | ![렌더 워커 칸 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/worker-m-dark.webp) |
+| ![렌더 워커 칸 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/worker-pc.webp) | ![워커 알림 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/worker-alert-pc.webp) | ![렌더 워커 칸 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/worker-m.webp) | ![렌더 워커 칸 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/worker-m-dark.webp) |
 
 ### 추가
 - 매매 일지(`/trades`, 기본 꺼짐 `TRADES_ENABLED=false`): 집 컴퓨터의 매매 봇이 쓰기 토큰으로 MCP `record_trade`를 부르면 체결(모의투자·실계좌, 종목, 수량·가격·수수료, 실현 손익, 신호)이 남고, 7·30·90일 실현 손익·누적 손익·날별 막대와 그날 체결을 본다. 그날 메모를 남기면 체결 표·고지가 들어간 요약 임시글과 쇼츠 대본을 한 번에 만든다(메모 없는 쇼츠는 만들지 않음). devlog는 주문을 내지 않는다. 표준 라이브러리만 쓰는 모의 체결 봇 예제 [app/trade-bot](app/trade-bot/README.md)을 함께 넣었다. DB에 `trade`·`trade_day` 표가 생긴다 (목표 v2.0.0 [#236](https://github.com/AIGJ-01-002-blog/devlog/issues/236) · spec 099, #243)
@@ -47,6 +53,21 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 ### 고침
 - 소셜로 가입할 때 미리 채울 닉네임이 이미 쓰는 닉네임이면 빈칸 대신 `민서2`처럼 숫자를 붙인 빈 닉네임을 채운다. 이미 가입한 사람이 같은 별명의 다른 소셜 계정으로 오면 닉네임 칸이 비던 문제다 (목표 v1.72.0 [#223](https://github.com/AIGJ-01-002-blog/devlog/issues/223) · spec 096)
 - 닉네임 끝에 NBSP 같은 특수 공백이 붙으면 화면 확인은 "쓸 수 있어요"인데 가입·저장에서 형식 오류로 거절되던 문제. 이제 확인한 값 그대로(앞뒤 공백을 뗀 값) 보낸다 (#226 후속, #233)
+
+### 포함된 작업
+| 이슈 | 브랜치 | PR |
+|---|---|---|
+| #237 쇼츠 스튜디오 1단계 (spec 099) | - | #244 |
+| #242 양산형 방지 검사 | - | #244 |
+| #238 플랫폼별 직접 올리기 안내 | - | #245 |
+| #239 회원별 대시보드 | - | #246 |
+| #240 MCP 기록 자동화 확장 | `claude/project-thread-5xa88u` | #247 |
+| #241 2.0 보안·장애 대응 (집 컴퓨터로 옮기기, 워커 감시) | `claude/project-thread-5xa88u` | #248, #249 |
+| #243 매매 일지 | `claude/project-thread-5xa88u` | #250 |
+| #223 소셜 가입 닉네임 겹침 (spec 096) | - | #232 |
+| #226 후속 닉네임 특수 공백 | - | #233 |
+
+**비교:** [v1.70.0...v2.0.0](https://github.com/AIGJ-01-002-blog/devlog/compare/v1.70.0...v2.0.0)
 
 ## [1.70.0] - 2026-10-14
 
