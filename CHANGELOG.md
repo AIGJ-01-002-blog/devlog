@@ -19,6 +19,8 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 - 매매 일지의 날마다 [재현 영상 만들기]로 그날 체결을 스튜디오의 매매 재현 영상으로 넘긴다(`/studio?replay=날짜`). (#265)
 - 블로그 포인트 1단계: 포인트 원장(지갑 두 개: 투자 전용·상점), 가입 첫 지급 10,000,000P(모의투자 전용), 출석 보상(100 × 연속 출석 일수², 365일에 하루 13,322,500크레딧으로 멈춤)과 출석 알림(오늘 출석 전이면 화면 위에 한 줄), 연속 출석 휘장(20일 동·50일 은·100일 금·150일 비취·200일 청옥·300일 자수정 메달과 365일 햇살 별 특별 휘장, 블로그 이름 옆에 보임), 활동으로 번 포인트를 "크레딧"으로 표시, 처음 전체 공개한 글 적립(하루 3편·300자 이상), 모의투자 수익 적립 규칙, 내 포인트 화면(`/points`, 내 설정처럼 왼쪽 탭: 출석·휘장·크레딧 얻는 법·내역), 관리자 포인트 규칙 화면(`/admin/points`). `POINTS_ENABLED`로 켠다(기본 꺼짐). DB에 `point_ledger`·`point_attendance`·`point_rule`·`point_badge`가 생긴다(V42). ([#266](https://github.com/AIGJ-01-002-blog/devlog/issues/266), 목표 [#253](https://github.com/AIGJ-01-002-blog/devlog/issues/253))
 - 포인트 상점과 블로그 꾸미기: 상점 포인트로 테마 색·프로필 테두리·블로그 표지를 사서 내 블로그에 적용한다(가입 첫 지급 포인트로는 못 산다). 관리자는 아이템을 추가·가격 변경·내리기 한다. DB에 `shop_item`·`member_item`·`member_decoration`이 생긴다(V43). ([#268](https://github.com/AIGJ-01-002-blog/devlog/issues/268), 목표 [#253](https://github.com/AIGJ-01-002-blog/devlog/issues/253))
+- 크레딧 상점과 블로그 꾸미기: 아이언·브론즈·실버·골드·플래티넘·다이아·마스터·그랜드마스터·챌린저 9티어의 테마 색·프로필 테두리·블로그 표지와 빛·반짝임 효과를 크레딧으로 사서 내 블로그에 적용한다. 가격은 아이언 100에서 티어마다 10배(챌린저 100억)이고, 아래 티어를 사야 윗 티어가 열린다. 다이아부터 빛나고 챌린저는 반짝인다. 가입 첫 지급 포인트로는 못 산다. 관리자는 아이템을 티어와 함께 추가·가격 변경·내리기 한다. DB에 `shop_item`·`member_item`·`member_decoration`이 생긴다(V43). ([#268](https://github.com/AIGJ-01-002-blog/devlog/issues/268), 목표 [#253](https://github.com/AIGJ-01-002-blog/devlog/issues/253))
+- 포인트 모의투자: 업비트 원화 시세로 비트코인·이더리움·리플·솔라나·도지코인을 포인트로 사고판다(시장가·현물, 수수료 0.05%, 최소 5,000P). 투자 전용 포인트를 먼저 쓰고 고르면 상점 포인트도 쓰며, 판 돈은 낸 지갑으로·수익은 투자 전용으로 돌아가고 수익의 1%(하루 3,000P까지)가 상점 포인트로 쌓인다. 체결은 매매 일지에 모의투자(PAPER)로 남는다. 오름·이익은 초록, 내림·손실은 빨강. 화면은 `/paper`, 포인트와 매매 일지가 둘 다 켜져야 보인다. DB에 `paper_position`·`paper_order`가 생긴다(V44). ([#267](https://github.com/AIGJ-01-002-blog/devlog/issues/267), 목표 [#253](https://github.com/AIGJ-01-002-blog/devlog/issues/253))
 
 ### 바꿈
 - 운영(devlog.life)에서 숏폼 스튜디오와 매매 일지를 켰다(`SHORTS_ENABLED`, `TRADES_ENABLED`). 렌더 워커 토큰은 GitHub Secret `SHORTS_WORKER_TOKEN`으로 넣고, 없으면 대본까지만 만들고 영상은 만들지 않는다. (#256)
@@ -33,13 +35,14 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 | 출석 알림 (PC) | 출석 알림 (휴대폰) | 1년 휘장을 단 블로그 |
 |---|---|---|
 | ![출석 알림 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/nudge-pc.webp) | ![출석 알림 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/nudge-m.webp) | ![1년 휘장 블로그](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/blog-1year-pc.webp) |
-| 포인트 상점 (PC) | 꾸민 블로그 (PC) | 꾸민 블로그 (휴대폰 · 다크) |
-|---|---|---|
-| ![포인트 상점](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shop-pc.webp) | ![꾸민 블로그](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/blog-deco-pc.webp) | ![꾸민 블로그 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/blog-deco-m-dark.webp) |
 
-| 관리자 상점 아이템 (PC) | 상점 (휴대폰 · 다크) |
-|---|---|
-| ![관리자 상점](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/admin-shop-pc.webp) | ![상점 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shop-m-dark.webp) |
+| 크레딧 상점 · 테두리 탭 (PC) | 챌린저로 꾸민 블로그 (PC) | 챌린저 블로그 (휴대폰 · 다크) |
+|---|---|---|
+| ![크레딧 상점](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shop-frame-pc.webp) | ![챌린저 블로그](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/blog-challenger-pc.webp) | ![챌린저 블로그 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/blog-challenger-m-dark.webp) |
+
+| 효과 탭 (PC) | 표지 탭 (휴대폰 · 다크) | 관리자 상점 아이템 (PC) |
+|---|---|---|
+| ![효과 탭](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shop-effect-pc.webp) | ![표지 탭 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shop-banner-m-dark.webp) | ![관리자 상점](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/admin-shop-pc.webp) |
 
 | 연속 출석 휘장 탭 (PC) | 휘장 탭 (휴대폰 · 다크) |
 |---|---|

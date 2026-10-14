@@ -101,25 +101,27 @@
   --grad-4a: #f59e0b;
   --grad-4b: #ef4444;
   /* 블로그 꾸미기 아이템 (이슈 268): 표지·테두리 모양. 다크 모드에서도 같은 색을 쓴다(표지 그림이라서) */
-  --deco-gold-a: #fde68a;
-  --deco-gold-b: #b8860b;
-  --deco-aurora-a: #34d399;
-  --deco-aurora-b: #8b5cf6;
-  --deco-r1: #ef4444;
-  --deco-r2: #f59e0b;
-  --deco-r3: #eab308;
-  --deco-r4: #22c55e;
-  --deco-r5: #3b82f6;
-  --deco-r6: #8b5cf6;
-  --deco-sunset-a: #ff8a3d;
-  --deco-sunset-b: #f0508c;
-  --deco-ocean-a: #1e3a8a;
-  --deco-ocean-b: #14b8a6;
-  --deco-night-a: #0b1026;
-  --deco-night-b: #3b2a6b;
-  --deco-star: rgba(255, 255, 255, 0.85);
-  --deco-forest-a: #a3e635;
-  --deco-forest-b: #166534;
+  --tier-iron-a: #9a9ea6;
+  --tier-iron-b: #44474d;
+  --tier-bronze-a: #d9a274;
+  --tier-bronze-b: #6b3f1f;
+  --tier-silver-a: #e3e9f0;
+  --tier-silver-b: #7b8a9a;
+  --tier-gold-a: #ffe08a;
+  --tier-gold-b: #b07d10;
+  --tier-platinum-a: #a6f2e3;
+  --tier-platinum-b: #1f8a7f;
+  --tier-diamond-a: #a9c9ff;
+  --tier-diamond-b: #3b4fd8;
+  --tier-master-a: #e6adff;
+  --tier-master-b: #7b2cbf;
+  --tier-grandmaster-a: #ff9e8f;
+  --tier-grandmaster-b: #a4161a;
+  --tier-challenger-a: #fff1a8;
+  --tier-challenger-b: #2f7fd6;
+  --tier-challenger-c: #e0a91a;
+  --tier-spark: rgba(255, 255, 255, 0.95);
+  --tier-spark-soft: rgba(255, 255, 255, 0.35);
   --color-cover-text: #ffffff;
   --color-cover-shade: rgba(9, 9, 11, 0.18);
   --color-cover-chip: rgba(9, 9, 11, 0.5);
@@ -2609,22 +2611,101 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
   :root:not([data-theme="light"]) .blog-themed { --color-brand: color-mix(in srgb, var(--blog-theme) 60%, white); }
 }
 .blog-themed .blog-tabs a[aria-current="page"] { color: var(--color-brand); }
-.deco-frame { padding: 4px; border-radius: 50%; background: var(--frame-bg, var(--color-surface)); }
+.deco-frame { position: relative; padding: 4px; border-radius: 50%; background: var(--frame-bg, var(--color-surface)); }
 .deco-frame[data-frame="color"] { --frame-bg: var(--frame-color); }
-.deco-frame[data-frame="gold"] { --frame-bg: conic-gradient(from 210deg, var(--deco-gold-a), var(--deco-gold-b), var(--deco-gold-a), var(--deco-gold-b), var(--deco-gold-a)); }
-.deco-frame[data-frame="rainbow"] { --frame-bg: conic-gradient(var(--deco-r1), var(--deco-r2), var(--deco-r3), var(--deco-r4), var(--deco-r5), var(--deco-r6), var(--deco-r1)); }
-.deco-frame[data-frame="aurora"] { --frame-bg: conic-gradient(from 90deg, var(--deco-aurora-a), var(--deco-aurora-b), var(--deco-aurora-a)); }
 .blog-avatar.deco-frame { padding: 7px; }
 .blog-avatar.deco-frame .avatar { box-shadow: 0 0 0 3px var(--color-surface); }
-.deco-banner[data-banner="sunset"] { --cover-a: var(--deco-sunset-a); --cover-b: var(--deco-sunset-b); }
-.deco-banner[data-banner="ocean"] { --cover-a: var(--deco-ocean-a); --cover-b: var(--deco-ocean-b); }
-.deco-banner[data-banner="forest"] { --cover-a: var(--deco-forest-a); --cover-b: var(--deco-forest-b); }
-.deco-banner[data-banner="night"] {
-  background: radial-gradient(1.5px 1.5px at 12% 30%, var(--deco-star), transparent), radial-gradient(1px 1px at 28% 70%, var(--deco-star), transparent),
-    radial-gradient(1.5px 1.5px at 46% 22%, var(--deco-star), transparent), radial-gradient(1px 1px at 63% 58%, var(--deco-star), transparent),
-    radial-gradient(2px 2px at 78% 32%, var(--deco-star), transparent), radial-gradient(1px 1px at 90% 75%, var(--deco-star), transparent),
-    linear-gradient(160deg, var(--deco-night-a), var(--deco-night-b));
+
+/* 티어 색 (아이언~챌린저). 테두리·표지·문장이 같은 --ta·--tb를 쓴다 */
+:is(.tier-iron, [data-frame="iron"], [data-banner="iron"]) { --ta: var(--tier-iron-a); --tb: var(--tier-iron-b); }
+:is(.tier-bronze, [data-frame="bronze"], [data-banner="bronze"]) { --ta: var(--tier-bronze-a); --tb: var(--tier-bronze-b); }
+:is(.tier-silver, [data-frame="silver"], [data-banner="silver"]) { --ta: var(--tier-silver-a); --tb: var(--tier-silver-b); }
+:is(.tier-gold, [data-frame="gold"], [data-banner="gold"]) { --ta: var(--tier-gold-a); --tb: var(--tier-gold-b); }
+:is(.tier-platinum, [data-frame="platinum"], [data-banner="platinum"]) { --ta: var(--tier-platinum-a); --tb: var(--tier-platinum-b); }
+:is(.tier-diamond, [data-frame="diamond"], [data-banner="diamond"]) { --ta: var(--tier-diamond-a); --tb: var(--tier-diamond-b); }
+:is(.tier-master, [data-frame="master"], [data-banner="master"]) { --ta: var(--tier-master-a); --tb: var(--tier-master-b); }
+:is(.tier-grandmaster, [data-frame="grandmaster"], [data-banner="grandmaster"]) { --ta: var(--tier-grandmaster-a); --tb: var(--tier-grandmaster-b); }
+:is(.tier-challenger, [data-frame="challenger"], [data-banner="challenger"]) { --ta: var(--tier-challenger-a); --tb: var(--tier-challenger-b); }
+
+/* 테두리: 아래 티어는 금속 결, 다이아부터 빛나고, 마스터부터 빛이 숨 쉬고, 챌린저는 빛줄기가 돈다 */
+.deco-frame[data-frame]:not([data-frame="color"]) { --frame-bg: conic-gradient(from 210deg, var(--ta), var(--tb), var(--ta), var(--tb), var(--ta)); }
+.deco-frame:is([data-frame="diamond"], [data-frame="master"], [data-frame="grandmaster"], [data-frame="challenger"]) { box-shadow: 0 0 12px 1px var(--ta); }
+.deco-frame:is([data-frame="master"], [data-frame="grandmaster"], [data-frame="challenger"]) { animation: tier-breathe 2.8s ease-in-out infinite; }
+.deco-frame[data-frame="challenger"] {
+  --frame-bg: conic-gradient(from 0deg, var(--tier-challenger-c), var(--ta), var(--tb), var(--ta), var(--tier-challenger-c), var(--tb), var(--tier-challenger-c));
 }
+.deco-frame[data-frame="challenger"]::after, :is(.blog-hero, .deco-effect-preview)[data-effect="radiance"] :is(.blog-avatar, .deco-effect-avatar)::after {
+  content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+  background: conic-gradient(from 0deg, transparent 0 70%, var(--tier-spark) 80%, transparent 90%);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), black calc(100% - 6px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 7px), black calc(100% - 6px));
+  animation: tier-spin 2.4s linear infinite;
+}
+@keyframes tier-spin { to { transform: rotate(360deg); } }
+@keyframes tier-breathe { 50% { box-shadow: 0 0 22px 4px var(--ta); } }
+@keyframes tier-twinkle { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+@keyframes tier-sweep { from { background-position: 160% 0; } to { background-position: -60% 0; } }
+
+/* 표지: 티어 색 그러데이션. 다이아부터 빛이 번지고, 챌린저는 금빛 줄이 지나간다 */
+.deco-banner[data-banner] { --cover-a: var(--ta); --cover-b: var(--tb); }
+.deco-banner:is([data-banner="diamond"], [data-banner="master"], [data-banner="grandmaster"], [data-banner="challenger"]) {
+  background: radial-gradient(60% 90% at 78% 20%, var(--tier-spark-soft), transparent 70%), radial-gradient(120% 140% at 0% 0%, var(--cover-a) 0%, transparent 60%),
+    linear-gradient(120deg, var(--cover-a), var(--cover-b));
+}
+.deco-banner[data-banner="challenger"] {
+  background: linear-gradient(105deg, transparent 40%, var(--tier-spark-soft) 50%, transparent 60%), radial-gradient(60% 90% at 78% 20%, var(--tier-spark-soft), transparent 70%),
+    linear-gradient(120deg, var(--tier-challenger-c), var(--ta) 35%, var(--tb));
+  background-size: 250% 100%, 100% 100%, 100% 100%;
+  animation: tier-sweep 4s ease-in-out infinite;
+}
+
+/* 빛·반짝임 효과 (EFFECT): 블로그 머리말에 data-effect로 건다. 상점 미리보기도 같은 규칙 */
+:is(.blog-hero, .deco-effect-preview)[data-effect] :is(.blog-avatar, .deco-effect-avatar) { position: relative; }
+:is(.blog-hero, .deco-effect-preview)[data-effect] :is(.blog-cover, .deco-effect-cover) { position: relative; }
+:is(.blog-hero, .deco-effect-preview)[data-effect="glow"] :is(.blog-avatar, .deco-effect-avatar) { filter: drop-shadow(0 0 10px var(--tier-spark)); animation: tier-twinkle 3s ease-in-out infinite; }
+:is(.blog-hero, .deco-effect-preview)[data-effect] :is(.blog-cover, .deco-effect-cover)::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+}
+:is(.blog-hero, .deco-effect-preview)[data-effect="glow"] :is(.blog-cover, .deco-effect-cover)::before { box-shadow: inset 0 0 48px var(--tier-spark-soft); }
+:is(.blog-hero, .deco-effect-preview):is([data-effect="stardust"], [data-effect="radiance"]) :is(.blog-cover, .deco-effect-cover)::before {
+  background: radial-gradient(2px 2px at 8% 30%, var(--tier-spark), transparent), radial-gradient(1.5px 1.5px at 22% 72%, var(--tier-spark), transparent),
+    radial-gradient(2.5px 2.5px at 37% 18%, var(--tier-spark), transparent), radial-gradient(1.5px 1.5px at 51% 60%, var(--tier-spark), transparent),
+    radial-gradient(2px 2px at 64% 28%, var(--tier-spark), transparent), radial-gradient(3px 3px at 79% 66%, var(--tier-spark), transparent),
+    radial-gradient(1.5px 1.5px at 90% 22%, var(--tier-spark), transparent), radial-gradient(2px 2px at 96% 80%, var(--tier-spark), transparent);
+  animation: tier-twinkle 1.8s ease-in-out infinite;
+}
+:is(.blog-hero, .deco-effect-preview)[data-effect="radiance"] :is(.blog-cover, .deco-effect-cover)::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(105deg, transparent 38%, var(--tier-spark-soft) 50%, transparent 62%); background-size: 250% 100%;
+  animation: tier-sweep 3s ease-in-out infinite;
+}
+:is(.blog-hero, .deco-effect-preview)[data-effect="radiance"] :is(.blog-avatar, .deco-effect-avatar) { filter: drop-shadow(0 0 14px var(--tier-challenger-c)); }
+.deco-effect-preview { overflow: hidden; }
+.deco-effect-cover { position: absolute; inset: 0 0 38%; background: linear-gradient(120deg, var(--cover-a), var(--cover-b)); }
+.deco-effect-avatar { position: relative; margin-top: 30px; z-index: 2; }
+
+/* 티어 문장 */
+.tier-emblem { display: inline-flex; align-items: center; gap: 4px; font-size: 0.75rem; font-weight: 700; color: var(--color-text-muted); line-height: 1; }
+.tier-emblem svg { display: block; overflow: visible; flex: none; }
+.tier-emblem .s-a { stop-color: var(--ta); }
+.tier-emblem .s-m { stop-color: color-mix(in srgb, var(--ta) 45%, var(--tb)); }
+.tier-emblem .s-b { stop-color: var(--tb); }
+.tier-emblem svg { filter: drop-shadow(0 1px 1px var(--badge-shadow)); }
+.tier-emblem .shield { stroke: var(--tb); stroke-width: 0.8; }
+.tier-emblem .groove { fill: none; stroke: var(--tb); stroke-width: 0.7; opacity: 0.65; }
+.tier-emblem .gem-hi { fill: var(--ta); }
+.tier-emblem .gem-lo { fill: var(--tb); }
+.tier-emblem .gem-top { fill: var(--tier-spark); opacity: 0.55; }
+.tier-emblem .gem-edge { fill: none; stroke: var(--tb); stroke-width: 0.6; }
+.tier-emblem .wing, .tier-emblem .flank { stroke: var(--tb); stroke-width: 0.6; }
+.tier-emblem .crown path { stroke: var(--tb); stroke-width: 0.6; }
+.tier-emblem .jewel { fill: var(--tier-challenger-c); stroke: var(--tb); stroke-width: 0.4; }
+.tier-emblem.t9 .crown path { fill: var(--tier-challenger-c); }
+.tier-emblem.t9 .jewel { fill: var(--badge-gem); }
+.tier-emblem .shine { fill: var(--tier-spark); opacity: 0.5; }
+.tier-emblem:is(.t6, .t7, .t8, .t9) svg { filter: drop-shadow(0 0 3px var(--ta)) drop-shadow(0 1px 1px var(--badge-shadow)); }
+.tier-emblem.t9 svg { animation: tier-twinkle 2s ease-in-out infinite; }
+
 .deco-banner.has-image { background-size: cover; background-position: center; }
 
 /* 상점 (이슈 268) */
@@ -2634,8 +2715,29 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 .shop-card { display: flex; flex-direction: column; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); overflow: hidden; }
 .shop-card.applied { border-color: var(--color-brand); box-shadow: inset 0 0 0 1px var(--color-brand); }
 .shop-preview { position: relative; height: 104px; display: grid; place-items: center; background: var(--color-surface-2); }
-.shop-preview.deco-banner:not([data-banner="night"]) { background: radial-gradient(120% 140% at 0% 0%, var(--cover-a) 0%, transparent 60%), linear-gradient(120deg, var(--cover-a), var(--cover-b)); }
-.shop-preview.deco-banner[data-banner="night"], .shop-preview.deco-banner.has-image { background-color: var(--color-surface-2); }
+.shop-preview.deco-banner:not(:is([data-banner="diamond"], [data-banner="master"], [data-banner="grandmaster"], [data-banner="challenger"])) { background: radial-gradient(120% 140% at 0% 0%, var(--cover-a) 0%, transparent 60%), linear-gradient(120deg, var(--cover-a), var(--cover-b)); }
+.shop-preview.deco-banner.has-image { background-color: var(--color-surface-2); }
+.shop-card.locked .shop-preview { filter: grayscale(0.7); opacity: 0.55; }
+.shop-card.tier-card:is(.t6, .t7, .t8, .t9):not(.locked) { border-color: color-mix(in srgb, var(--ta) 55%, var(--color-border)); }
+.shop-card.tier-card { --ta: var(--color-border); }
+.shop-card.tier-card.t6 { --ta: var(--tier-diamond-b); }
+.shop-card.tier-card.t7 { --ta: var(--tier-master-b); }
+.shop-card.tier-card.t8 { --ta: var(--tier-grandmaster-b); }
+.shop-card.tier-card.t9 { --ta: var(--tier-challenger-c); }
+.shop-card.tier-card.t9:not(.locked) { box-shadow: 0 0 0 1px var(--ta), 0 0 16px -4px var(--ta); }
+.shop-need { margin-top: 2px; }
+.shop-tabs .shop-preview { height: 120px; }
+.shop-preview > .deco-frame { padding: 6px; }
+.shop-actions .btn svg { margin-right: 4px; }
+.shop-ladder ol { list-style: none; margin: 16px 0; padding: 12px; display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 8px;
+  border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); }
+.shop-ladder li { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; min-width: 0; }
+.shop-ladder-name { font-size: 0.75rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.shop-ladder-price { font-size: 0.75rem; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.shop-tabs { margin: 16px 0; }
+.shop-tabs .settings-panel { padding: 16px 20px 20px; }
+.shop-tabs .shop-head h2 { margin: 0; font-size: 1.1rem; }
+.shop-tabs .shop-grid { margin-bottom: 0; }
 .shop-preview-theme { display: flex; align-items: center; gap: 8px; }
 .shop-swatch { width: 40px; height: 40px; border-radius: 50%; background: var(--swatch); box-shadow: inset 0 0 0 1px var(--color-border); }
 .shop-preview-theme .btn { pointer-events: none; }
@@ -2650,6 +2752,8 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 .shop-admin-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px 16px; }
 @media (max-width: 640px) {
   .shop-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .shop-ladder ol { grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 10px 8px; }
+  .shop-tabs .settings-panel { padding: 12px; }
   .shop-preview { height: 80px; }
   .shop-actions .btn { flex-basis: 100%; }
   .shop-admin-list li { grid-template-columns: 44px minmax(0, 1fr); }

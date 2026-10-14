@@ -119,7 +119,7 @@ export function PointsPage() {
     <main className="container dashboard-page points-page">
       <div className="points-title">
         <h1 className="page-title">{t('내 포인트')}</h1>
-        <Link to="/shop" className="btn btn-primary btn-small" data-tip={t('상점 포인트로 블로그 꾸미기 아이템 사기')}>{t('포인트 상점')}</Link>
+        <Link to="/shop" className="btn btn-primary btn-small" data-tip={t('크레딧으로 블로그 꾸미기 아이템 사기')}>{t('크레딧 상점')}</Link>
       </div>
       <p className="muted small points-notice">{t('포인트는 devlog 안에서만 써요. 현금이나 코인으로 바꾸거나 다른 사람에게 줄 수 없어요.')}</p>
       {error && <p className="error" role="alert">{t('포인트를 불러오지 못했어요.')}</p>}

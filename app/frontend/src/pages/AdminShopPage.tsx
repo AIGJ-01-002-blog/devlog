@@ -3,14 +3,20 @@ import { AdminNav } from '../components/AdminNav'
 import { ApiError } from '../lib/api'
 import { num } from '../lib/dashboard'
 import {
-  adminShopItems, BANNER_PRESETS, createShopItem, FRAME_PRESETS, ITEM_KINDS, kindLabel, updateShopItem, type ItemKind, type ShopItem,
+  adminShopItems, createShopItem, EFFECT_PRESETS, ITEM_KINDS, kindLabel, TIER_PRESETS, tierKey, tierPrice, TIERS, updateShopItem, type ItemKind, type ShopItem,
 } from '../lib/shop'
+import { TierEmblem } from '../components/TierEmblem'
 import { Preview } from './ShopPage'
 
-const EMPTY = { kind: 'THEME' as ItemKind, name: '', description: '', price: '3000', value: '#', imageUrl: '' }
+const EMPTY = { kind: 'THEME' as ItemKind, tier: '1', name: '', description: '', price: '100', value: '#', imageUrl: '' }
+
+/** 종류·티어를 바꾸면 모양 칸의 기본값: 테마는 색을 직접, 테두리·표지는 그 티어 모양, 효과는 빛무리 */
+function defaultValue(kind: ItemKind, tier: number): string {
+  return kind === 'THEME' ? '#' : kind === 'EFFECT' ? 'glow' : tierKey(tier)
+}
 
 /**
- * 관리자 상점 아이템 (#268). 아이템을 추가하고 가격·이름·올림/내림을 바꾼다. 지우지는 않는다(산 사람이 계속 쓰게 내리기만).
+ * 관리자 상점 아이템 (#268). 아이템을 티어와 함께 추가하고 가격·이름·올림/내림을 바꾼다. 가격은 티어 기본값(100 × 10^(티어-1))으로 채워 준다. 지우지는 않는다(산 사람이 계속 쓰게 내리기만).
  * 표지 사진은 글쓰기에서 사진을 올려 받은 주소를 붙인다(기존 사진 저장소). 관리자 화면은 한국어만 쓴다.
  */
 export function AdminShopPage() {
@@ -36,7 +42,7 @@ export function AdminShopPage() {
     setErrors({})
     setMessage(null)
     try {
-      await createShopItem({ kind: form.kind, name: form.name, description: form.description, price: Number(form.price),
+      await createShopItem({ kind: form.kind, tier: Number(form.tier), name: form.name, description: form.description, price: Number(form.price),
         value: form.value === '#' ? '' : form.value, imageUrl: form.imageUrl || undefined })
       setForm(EMPTY)
       setMessage({ ok: true, text: '아이템을 올렸어요.' })
@@ -53,7 +59,7 @@ export function AdminShopPage() {
     } catch (e) { fail(e) }
   }
 
-  const presets = form.kind === 'FRAME' ? FRAME_PRESETS : form.kind === 'BANNER' ? BANNER_PRESETS : []
+  const presets: readonly string[] = form.kind === 'FRAME' || form.kind === 'BANNER' ? TIER_PRESETS : form.kind === 'EFFECT' ? EFFECT_PRESETS : []
   return (
     <main className="container narrow admin">
       <h1 className="page-title">상점 아이템</h1>
@@ -65,10 +71,20 @@ export function AdminShopPage() {
             <label htmlFor="shop-kind">종류</label>
             <select id="shop-kind" value={form.kind} onChange={(e) => {
               const kind = e.target.value as ItemKind
-              setForm((f) => ({ ...f, kind, value: kind === 'THEME' ? '#' : kind === 'FRAME' ? 'gold' : 'sunset', price: kind === 'BANNER' ? '5000' : kind === 'FRAME' ? '2000' : '3000' }))
+              setForm((f) => ({ ...f, kind, value: defaultValue(kind, Number(f.tier)) }))
             }}>
               {ITEM_KINDS.map((k) => <option key={k} value={k}>{kindLabel(k)}</option>)}
             </select>
+          </div>
+          <div className="field">
+            <label htmlFor="shop-tier" data-tip="윗 티어는 바로 아래 티어를 가진 회원만 살 수 있어요. 바꾸면 가격이 티어 기본값으로 바뀌어요">티어</label>
+            <select id="shop-tier" value={form.tier} onChange={(e) => {
+              const tier = Number(e.target.value)
+              setForm((f) => ({ ...f, tier: e.target.value, price: String(tierPrice(tier)), value: f.kind === 'THEME' || f.kind === 'EFFECT' ? f.value : tierKey(tier) }))
+            }} aria-invalid={errors.tier ? true : undefined}>
+              {TIERS.map((x) => <option key={x.tier} value={x.tier}>{x.tier}. {x.name}</option>)}
+            </select>
+            {errors.tier && <span className="error small">{errors.tier}</span>}
           </div>
           <div className="field">
             <label htmlFor="shop-name">이름</label>
@@ -76,12 +92,12 @@ export function AdminShopPage() {
             {errors.name && <span className="error small">{errors.name}</span>}
           </div>
           <div className="field">
-            <label htmlFor="shop-price">가격 (P)</label>
+            <label htmlFor="shop-price">가격 (크레딧)</label>
             <input id="shop-price" type="number" min={1} value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} aria-invalid={errors.price ? true : undefined} />
             {errors.price && <span className="error small">{errors.price}</span>}
           </div>
           <div className="field">
-            <label htmlFor="shop-value" data-tip={form.kind === 'THEME' ? '#2f9e44처럼 여섯 자리 색' : form.kind === 'FRAME' ? '정해 둔 모양을 고르거나 #RRGGBB 색' : '정해 둔 그러데이션. 사진을 붙이면 사진 뒤 바탕'}>
+            <label htmlFor="shop-value" data-tip={form.kind === 'THEME' ? '#2f9e44처럼 여섯 자리 색' : form.kind === 'FRAME' ? '티어 모양(iron~challenger)을 고르거나 #RRGGBB 색' : form.kind === 'EFFECT' ? 'glow(빛무리)·stardust(별가루)·radiance(광휘)' : '티어 표지(iron~challenger). 사진을 붙이면 사진 뒤 바탕'}>
               {form.kind === 'THEME' ? '색' : '모양'}
             </label>
             <input id="shop-value" list="shop-presets" value={form.value} onChange={(e) => setForm((f) => ({ ...f, value: e.target.value }))} aria-invalid={errors.value ? true : undefined} />
@@ -117,11 +133,11 @@ export function AdminShopPage() {
               <li key={it.id}>
                 <Preview item={it} kind={it.kind} seed="preview" name="미" image={null} />
                 <span>
-                  <b>{it.name}</b> <span className="muted small">{kindLabel(it.kind)} · {num(it.price)}P{it.active ? '' : ' · 내림'}</span>
+                  <TierEmblem tier={it.tier} /> <b>{it.name}</b> <span className="muted small">{kindLabel(it.kind)} · {num(it.price)}크레딧{it.active ? '' : ' · 내림'}</span>
                 </span>
                 <span className="shop-actions">
                   <button type="button" className="btn btn-outline btn-small" data-tip="가격을 바꿔요. 이미 산 사람에게는 영향이 없어요" onClick={() => {
-                    const v = prompt(`${it.name}의 새 가격 (P)`, String(it.price))
+                    const v = prompt(`${it.name}의 새 가격 (크레딧)`, String(it.price))
                     if (v !== null && v.trim()) void patch(it, { price: Number(v) }, '가격을 바꿨어요.')
                   }}>가격</button>
                   <button type="button" className="btn btn-outline btn-small" data-tip={it.active ? '상점에서 내려요. 이미 산 사람은 계속 써요' : '상점에 다시 올려요'}

@@ -22,10 +22,10 @@ import com.team.blog.shared.security.MemberPrincipal;
 import com.team.blog.shop.application.ShopService;
 
 /**
- * 포인트 상점과 블로그 꾸미기 API (#268). 포인트가 꺼져 있으면 모두 404다.
+ * 크레딧 상점과 블로그 꾸미기 API (#268). 포인트가 꺼져 있으면 모두 404다.
  * <ul>
- *   <li>GET /api/shop: 아이템 목록, 내가 산 것·적용한 것, 상점 포인트 잔액</li>
- *   <li>POST /api/shop/items/{id}/purchase: 상점 포인트로 사기</li>
+ *   <li>GET /api/shop: 아이템 목록, 내가 산 것·적용한 것, 크레딧 잔액</li>
+ *   <li>POST /api/shop/items/{id}/purchase: 크레딧으로 사기 (아래 티어가 없으면 409)</li>
  *   <li>PUT /api/me/decorations/{itemId}: 산 아이템 적용 (같은 종류는 바뀐다), DELETE /api/me/decorations/{kind}: 해제</li>
  *   <li>GET /api/members/{handle}/decorations: 누구나. 그 블로그에 적용된 꾸미기</li>
  *   <li>GET·POST /api/admin/shop/items, PUT /api/admin/shop/items/{id}: 관리자만(매니저 403)</li>
@@ -61,7 +61,7 @@ public class ShopController {
         try {
             return shop.remove(me.id(), ShopService.Kind.valueOf(kind.toUpperCase(Locale.ROOT)));
         } catch (IllegalArgumentException e) {
-            throw ApiException.badRequest("INVALID_KIND", "종류는 THEME·FRAME·BANNER 가운데 하나예요.");
+            throw ApiException.badRequest("INVALID_KIND", "종류는 THEME·FRAME·BANNER·EFFECT 가운데 하나예요.");
         }
     }
 

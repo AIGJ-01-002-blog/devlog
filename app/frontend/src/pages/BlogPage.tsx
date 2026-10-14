@@ -22,7 +22,7 @@ import { compactNumber } from '../lib/format'
 import { t } from '../lib/i18n'
 import { loadBadges, type StreakBadge } from '../lib/points'
 import { StreakBadgeIcon } from '../components/StreakBadge'
-import { bannerProps, frameProps, loadDecorations, themeStyle, type Decorations } from '../lib/shop'
+import { bannerProps, effectName, frameProps, loadDecorations, themeStyle, type Decorations } from '../lib/shop'
 
 /** 블로그 표지 색(0~3). 같은 블로그는 언제나 같은 색이다. */
 export function blogTone(handle: string): number {
@@ -78,7 +78,7 @@ export function BlogPage({ handle, tab = 'posts' }: { handle: string; tab?: 'pos
   const theme = themeStyle(deco?.theme)
   return (
     <main className={`container${theme ? ' blog-themed' : ''}`} style={theme}>
-      <header className="blog-hero">
+      <header className="blog-hero" data-effect={effectName(deco?.effect)}>
         <div className={`blog-cover${deco?.banner ? ' deco-banner' : ''}${banner.image ? ' has-image' : ''}`} data-tone={blogTone(profile.handle)}
           data-banner={banner['data-banner']} style={banner.style} aria-hidden="true" />
         <div className="blog-hero-body">
@@ -91,7 +91,7 @@ export function BlogPage({ handle, tab = 'posts' }: { handle: string; tab?: 'pos
               {profile.mine ? <>
                 <Link to="/settings#profile" className="btn btn-outline" data-tip={t('사진·닉네임·소개 바꾸기')}>{t('프로필 편집')}</Link>
                 <Link to="/manage/posts" className="btn btn-outline" data-tip={t('임시글·발행 글·휴지통 관리')}>{t('글 관리')}</Link>
-                {pointsOn && <Link to="/shop" className="btn btn-outline" data-tip={t('상점 포인트로 테마 색·프로필 테두리·표지를 사서 블로그 꾸미기')}>{t('꾸미기')}</Link>}
+                {pointsOn && <Link to="/shop" className="btn btn-outline" data-tip={t('크레딧으로 테마 색·프로필 테두리·표지·빛 효과를 사서 블로그 꾸미기')}>{t('꾸미기')}</Link>}
                 <Link to="/write" className="btn btn-primary" data-tip={t('새 글 쓰기')}><NavIcon name="pen" size={16} />{t('새 글')}</Link>
               </> : <>
                 <FriendButton profile={profile} onChange={(f) => {
