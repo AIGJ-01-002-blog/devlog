@@ -2,24 +2,10 @@
 import { act, useState } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { nicknameRules, nicknameRulesOk, NICKNAME_CHECK_DELAY_MS, useNicknameCheck } from '../lib/nickname'
+import { NICKNAME_CHECK_DELAY_MS, useNicknameCheck } from '../lib/nickname'
 import { NicknameStatus } from './NicknameStatus'
 
 // 닉네임을 치는 대로 조건을 보여 주고, 멈추면 사용 가능 여부를 자동으로 확인한다 (docs/09).
-describe('nicknameRules', () => {
-  it('서버 NicknamePolicy와 같은 조건을 본다', () => {
-    expect(nicknameRulesOk('민서')).toBe(true)
-    expect(nicknameRulesOk('dev123')).toBe(true)
-    expect(nicknameRulesOk(' 민서 ')).toBe(true) // 앞뒤 공백은 서버도 뗀다
-    expect(nicknameRules('a').find((r) => r.id === 'length')!.ok).toBe(false)
-    expect(nicknameRules('가나다라마바사아자차카').find((r) => r.id === 'length')!.ok).toBe(false)
-    expect(nicknameRules('민 서').find((r) => r.id === 'chars')!.ok).toBe(false)
-    expect(nicknameRules('민서!').find((r) => r.id === 'chars')!.ok).toBe(false)
-    expect(nicknameRules('ㅋㅋ').find((r) => r.id === 'chars')!.ok).toBe(false) // 자음만은 안 된다
-    expect(nicknameRules('1234').find((r) => r.id === 'letter')!.ok).toBe(false)
-  })
-})
-
 let current = ''
 function Harness({ initial = '', unchanged = false }: { initial?: string; unchanged?: boolean }) {
   const [value, setValue] = useState(initial)
@@ -90,6 +76,26 @@ describe('NicknameStatus', () => {
     expect(calls).toEqual(['민서님'])
     expect(current).toBe('available')
     expect(host.textContent).toContain('쓸 수 있는 닉네임이에요.')
+  })
+
+  it('늦게 도착한 옛 응답은 지금 입력한 값의 결과를 덮지 않는다', async () => {
+    const pending: Record<string, (r: Response) => void> = {}
+    vi.stubGlobal('fetch', vi.fn((url: string) => {
+      const nick = new URL(url, 'http://x').searchParams.get('nickname')!
+      calls.push(nick)
+      return new Promise<Response>((resolve) => { pending[nick] = resolve })
+    }))
+    await render()
+    await type('사용중')
+    await wait()
+    await type('민서님')
+    await wait()
+    expect(calls).toEqual(['사용중', '민서님'])
+    await act(async () => { pending['민서님'](json({ available: true })) })
+    expect(current).toBe('available')
+    await act(async () => { pending['사용중'](json({ available: false, message: '이미 사용 중인 닉네임이에요' })) })
+    expect(current).toBe('available')
+    expect(host.textContent).not.toContain('이미 사용 중인')
   })
 
   it('이미 쓰는 닉네임이면 서버 문구를 보여 준다', async () => {

@@ -13,7 +13,10 @@ export interface NicknameRule {
   ok: boolean
 }
 
-/** 서버 NicknamePolicy.normalize와 같다: 앞뒤 공백을 떼고 NFC로 맞춘다. */
+/**
+ * 앞뒤 공백을 떼고 NFC로 맞춘다. JS trim은 NBSP 같은 유니코드 공백까지 떼어 서버 strip보다 넓으므로,
+ * 확인한 값과 저장하는 값이 어긋나지 않게 가입·저장 요청에도 이 값을 보낸다.
+ */
 export function normalizeNickname(raw: string): string {
   return raw.trim().normalize('NFC')
 }
