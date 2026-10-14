@@ -70,6 +70,9 @@ jobs:
       - name: Remotion 패키지·타입 검사
         working-directory: app/render-worker/remotion
         run: npm ci --no-audit --no-fund && npm run typecheck
+      - name: 움직이는 이모지 라이선스 확인(기록용)
+        continue-on-error: true
+        run: curl -sL https://googlefonts.github.io/noto-emoji-animation/ | grep -o -i -E "CC BY[^<\"]{0,40}|Creative Commons[^<\"]{0,60}" | sort -u | head -5
       - name: 실제 렌더 테스트
         env:
           PYTHONUTF8: "1"

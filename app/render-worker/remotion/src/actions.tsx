@@ -1,9 +1,10 @@
 // 장면의 상황을 고양이가 연기한다. 무대 크기는 STAGE_W×STAGE_H, 시각은 장면 안 프레임.
 import React from 'react';
 import {Easing, interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
-import {basePose, Cat, type Pose} from './Cat';
+import {basePose, type Pose} from './Cat';
+import {Emoji, Mascot} from './Emoji';
 import {FONT} from './fonts';
-import {Badge, Bulb, C, CodeLine, Database, Mark, Paper, Pill, Server, Shield, Star, Trash} from './props';
+import {Badge, C, CodeLine, Database, Mark, Paper, Pill, Server, Shield, Star} from './props';
 import type {SceneData} from './types';
 
 export const STAGE_W = 1080;
@@ -54,7 +55,7 @@ type ActProps = {scene: SceneData; life: Life};
 const Explain: React.FC<ActProps> = ({life}) => {
   const {t, live} = life;
   const wave = t < 1.6 ? Math.sin(t * 9) * 18 : 0;
-  return <Cat p={live({x: 540, armR: 150 + wave, armL: 10, bodyTilt: Math.sin(t * 1.5) * 2, y: FEET - Math.abs(Math.sin(t * 3)) * 8})} />;
+  return <Mascot face="grin" p={live({x: 540, bodyTilt: Math.sin(t * 1.5) * 3 + wave * 0.2, y: FEET - Math.abs(Math.sin(t * 3)) * 12})} />;
 };
 
 const Shock: React.FC<ActProps> = ({scene, life}) => {
@@ -77,16 +78,15 @@ const Shock: React.FC<ActProps> = ({scene, life}) => {
   const crying = t > 2.0;
   return (
     <>
-      <Trash x={880} y={560} lid={lid} />
+      <Emoji name="trash" x={880} y={540} size={280} scale={1 + 0.12 * lid} rotate={-6 * lid} />
       {papers}
-      <Cat p={live({
+      <Mascot face={crying ? 'cry' : shocked ? 'shock' : 'smile'} p={live({
         x: 330, y: FEET - jump, eyes: crying ? 'sad' : shocked ? 'shock' : 'open',
         mouth: shocked && !crying ? 'o' : crying ? 'frown' : 'smile', brows: shocked ? 'worried' : '',
         armL: shocked ? 165 : 12, armR: shocked ? 165 : 12, sweat: shocked ? 1 : 0, tears: crying ? (t * 1.2) % 1 : 0,
         look: [1, 0], squash: shocked ? interpolate(t, [hit, hit + 0.1, hit + 0.3], [0.85, 1.12, 1], clamp) : 1,
       })} />
-      {shocked ? <Mark x={560} y={110} text="!" color={C.red} size={170} scale={pop(hit, 8)} rotate={12} /> : null}
-      {shocked ? <Mark x={620} y={150} text="!" color={C.red} size={110} scale={pop(hit + 0.1, 8)} rotate={22} /> : null}
+      {shocked ? <Emoji name="boom" x={600} y={140} size={230} scale={pop(hit, 8)} rotate={12} /> : null}
       {void fps}
     </>
   );
@@ -131,19 +131,19 @@ const Typing: React.FC<ActProps> = ({scene, life}) => {
           })}
         </div>
       </div>
-      <Cat p={live({x: 230, size: 400, armL: typed < 1 ? 60 + tap * 12 : 12, armR: typed < 1 ? 60 - tap * 12 : done && params.good ? 160 : 12,
+      <Mascot face={done && params.good ? 'joy' : done && params.focus !== null ? 'shock' : 'wry'} p={live({x: 230, size: 400, armL: typed < 1 ? 60 + tap * 12 : 12, armR: typed < 1 ? 60 - tap * 12 : done && params.good ? 160 : 12,
         eyes: done && params.good ? 'happy' : typed < 1 ? 'focus' : 'open', look: [0.6, -0.8],
         sweat: done && !params.good && params.focus !== null ? 1 : 0, brows: done && !params.good && params.focus !== null ? 'worried' : ''})} />
       {done && params.focus !== null ? (
         params.good ? <Badge x={880} y={560} good scale={pop(typeEnd + 0.15, 9)} /> :
-          <Mark x={420} y={500} text="?" color={C.yellow} size={150} scale={pop(typeEnd + 0.15, 9)} rotate={-10} />
+          <Emoji name="thinking" x={470} y={470} size={200} scale={pop(typeEnd + 0.15, 9)} rotate={-10} />
       ) : null}
     </>
   );
 };
 
 const Panic: React.FC<ActProps> = ({scene, life}) => {
-  const {t, live, frame, fps} = life;
+  const {t, live, frame, fps, pop} = life;
   const target = scene.params.count ?? 100;
   const alert = interpolate(t, [0.9, 1.3], [0, 1], clamp);
   const n = Math.round(target * interpolate(t, [0.3, 0.3 + Math.max(0.6, (scene.speechFrames / fps) * 0.7)], [0, 1], {...clamp, easing: Easing.out(Easing.cubic)}));
@@ -159,7 +159,9 @@ const Panic: React.FC<ActProps> = ({scene, life}) => {
       <Server x={880} y={400} alert={alert} rotate={Math.sin(frame * 2.7) * 3 * alert} />
       {pills}
       <Pill x={880} y={190} text={`${n.toLocaleString()}번`} bg={alert > 0.5 ? C.red : '#fff'} color={alert > 0.5 ? '#fff' : '#0f172a'} size={60} />
-      <Cat p={live({x: 340 + shake, eyes: alert > 0.5 ? 'shock' : 'open', mouth: alert > 0.5 && life.talk < 0.06 ? 'o' : 'smile',
+      {alert > 0.5 ? <Emoji name="siren" x={600} y={110} size={190} scale={pop(0.9, 8)} /> : null}
+      {alert > 0.5 ? <Emoji name="fire" x={880} y={620} size={170} /> : null}
+      <Mascot face={alert > 0.5 ? 'shock' : 'smile'} p={live({x: 340 + shake, eyes: alert > 0.5 ? 'shock' : 'open', mouth: alert > 0.5 && life.talk < 0.06 ? 'o' : 'smile',
         armL: alert > 0.5 ? 168 : 12, armR: alert > 0.5 ? 168 : 12, sweat: alert, brows: alert > 0.5 ? 'worried' : '', look: [1, 0]})} />
     </>
   );
@@ -181,8 +183,9 @@ const Restore: React.FC<ActProps> = ({scene, life}) => {
         borderRadius: 18, display: 'grid', placeItems: 'center', font: `800 46px ${FONT}`, color: '#fff'}}>백업</div>
       <Database x={860} y={420} fill={fill} color={done ? C.green : C.blue} />
       {flying}
-      {done ? <Badge x={860} y={170} good scale={pop(fillEnd, 9)} /> : null}
-      <Cat p={live({x: 250, eyes: done ? 'happy' : 'open', mouth: done ? 'grin' : 'smile', armL: done ? 165 : 20,
+      {done ? <Emoji name="check" x={860} y={150} size={190} scale={pop(fillEnd, 9)} /> : null}
+      {done ? <Emoji name="sparkles" x={640} y={250} size={170} scale={pop(fillEnd + 0.1, 9)} /> : null}
+      <Mascot face={done ? 'joy' : 'smile'} p={live({x: 250, eyes: done ? 'happy' : 'open', mouth: done ? 'grin' : 'smile', armL: done ? 165 : 20,
         armR: done ? 165 : 70 + Math.sin(t * 8) * 25, y: FEET - (done ? Math.abs(Math.sin(t * 8)) * 34 : 0), look: [1, 0]})} />
     </>
   );
@@ -199,13 +202,10 @@ const Wait: React.FC<ActProps> = ({scene, life}) => {
         borderRadius: 28, padding: 36, display: 'flex', flexDirection: 'column', gap: 26}}>
         {[1, 0.8, 0.6].map((w, k) => <div key={k} style={{height: 46, width: `${w * 100}%`, background: '#1e293b', borderRadius: 14,
           opacity: 0.6 + 0.4 * Math.sin(t * 4 + k)}} />)}
-        <svg width={110} height={110} viewBox="0 0 110 110" style={{alignSelf: 'center', rotate: `${t * 360}deg`}}>
-          <circle cx={55} cy={55} r={42} stroke="#334155" strokeWidth={14} fill="none" />
-          <path d="M 55 13 A 42 42 0 0 1 97 55" stroke={C.blue} strokeWidth={14} fill="none" strokeLinecap="round" />
-        </svg>
       </div>
+      <Emoji name="hourglass" x={750} y={330} size={190} />
       <Pill x={750} y={40} text={`${shown.toFixed(1)}초`} bg={C.red} color="#fff" size={58} />
-      <Cat p={live({x: 260, eyes: sleepy ? 'bored' : 'open', mouth: sleepy && life.talk < 0.06 ? 'flat' : 'smile', headTilt: sleepy ? -10 : 0,
+      <Mascot face={sleepy ? 'pout' : 'smile'} p={live({x: 260, eyes: sleepy ? 'bored' : 'open', mouth: sleepy && life.talk < 0.06 ? 'flat' : 'smile', headTilt: sleepy ? -10 : 0,
         armL: sleepy ? 130 : 12, look: [1, -0.3]})} />
       {sleepy ? [0, 1, 2].map((k) => {
         const ph = ((t - 1.2) * 0.7 + k / 3) % 1;
@@ -242,7 +242,8 @@ const Fast: React.FC<ActProps> = ({scene, life}) => {
         const ang = k * 1.3 + t * 2;
         return <Star key={k} x={540 + 380 * Math.cos(ang)} y={470 + 150 * Math.sin(ang)} scale={0.8 + 0.3 * Math.sin(t * 6 + k)} />;
       }) : null}
-      <Cat p={live({x: 300, size: 430, eyes: cheer ? 'happy' : 'open', mouth: cheer ? 'grin' : 'smile', armL: cheer ? 160 : 12, armR: cheer ? 160 : 12,
+      {cheer ? <Emoji name="rocket" x={interpolate(t, [1.0, 2.2], [620, 1000], clamp)} y={interpolate(t, [1.0, 2.2], [620, 300], clamp)} size={210} /> : null}
+      <Mascot face={cheer ? 'love' : 'smile'} p={live({x: 300, size: 430, eyes: cheer ? 'happy' : 'open', mouth: cheer ? 'grin' : 'smile', armL: cheer ? 160 : 12, armR: cheer ? 160 : 12,
         y: FEET - (cheer ? Math.abs(Math.sin(t * 7)) * 46 : 0)})} />
     </>
   );
@@ -253,8 +254,8 @@ const Idea: React.FC<ActProps> = ({life}) => {
   const on = t > 0.5;
   return (
     <>
-      {on ? <Bulb x={760} y={170} glow={(t - 0.5) * 2} scale={pop(0.5, 8)} /> : null}
-      <Cat p={live({x: 470, eyes: t > 0.7 ? 'happy' : 'open', brows: on ? 'up' : '', armR: on ? 150 : 12, look: [0.6, -1],
+      {on ? <Emoji name="bulb" x={770} y={180} size={300} scale={pop(0.5, 8)} /> : null}
+      <Mascot face={t > 0.7 ? 'grin' : 'smile'} p={live({x: 450, eyes: t > 0.7 ? 'happy' : 'open', brows: on ? 'up' : '', armR: on ? 150 : 12, look: [0.6, -1],
         y: FEET - interpolate(t, [0.5, 0.65, 0.85], [0, 40, 0], clamp)})} />
     </>
   );
@@ -270,7 +271,7 @@ const Protect: React.FC<ActProps> = ({life}) => {
         const ang = k * 1.57 + t * 1.6;
         return <Star key={k} x={760 + 210 * Math.cos(ang)} y={360 + 190 * Math.sin(ang)} />;
       }) : null}
-      <Cat p={live({x: 330, eyes: t > 0.6 ? 'happy' : 'open', brows: t > 0.6 ? 'angry' : '', armR: on ? 120 : 12, mouth: t > 0.6 ? 'grin' : 'smile'})} />
+      <Mascot face={t > 0.6 ? 'wry' : 'smile'} p={live({x: 330, eyes: t > 0.6 ? 'happy' : 'open', brows: t > 0.6 ? 'angry' : '', armR: on ? 120 : 12, mouth: t > 0.6 ? 'grin' : 'smile'})} />
     </>
   );
 };
@@ -279,9 +280,10 @@ const Think: React.FC<ActProps> = ({life}) => {
   const {t, live, pop} = life;
   return (
     <>
-      <Cat p={live({x: 460, armR: 150, headTilt: 8 * Math.sin(t * 1.3), look: [0.8, -0.8], eyes: 'open', mouth: life.talk > 0.06 ? 'talk' : 'flat'})} />
-      {[[790, 140, 120], [900, 70, 90], [700, 60, 80]].map(([x, y, s], k) => (
-        <Mark key={k} x={x} y={y + Math.sin(t * 3 + k) * 10} text="?" color={C.yellow} size={s} scale={pop(0.3 + k * 0.25, 8)} rotate={-10 + k * 12} />
+      <Mascot face="kiss" p={live({x: 420, armR: 150, headTilt: 8 * Math.sin(t * 1.3), look: [0.8, -0.8], eyes: 'open', mouth: life.talk > 0.06 ? 'talk' : 'flat'})} />
+      <Emoji name="thinking" x={800} y={170} size={240} scale={pop(0.3, 8)} />
+      {[[960, 80, 90], [660, 70, 80]].map(([x, y, s], k) => (
+        <Mark key={k} x={x} y={y + Math.sin(t * 3 + k) * 10} text="?" color={C.yellow} size={s} scale={pop(0.55 + k * 0.25, 8)} rotate={-10 + k * 20} />
       ))}
     </>
   );
@@ -295,7 +297,9 @@ const Celebrate: React.FC<ActProps> = ({life}) => {
         const ph = (t * 0.6 + k / 14) % 1;
         return <Star key={k} x={80 + ((k * 0.37) % 1) * 920} y={-20 + ph * 700} color={[C.yellow, C.pink, C.blue, C.green][k % 4]} rotate={ph * 360} />;
       })}
-      <Cat p={live({x: 540, eyes: 'happy', mouth: 'grin', armL: 160, armR: 160, y: FEET - Math.abs(Math.sin(t * 7)) * 56})} />
+      <Emoji name="party" x={170} y={150} size={220} rotate={-15} />
+      <Emoji name="party" x={910} y={150} size={220} rotate={15} />
+      <Mascot face="joy" p={live({x: 540, eyes: 'happy', mouth: 'grin', armL: 160, armR: 160, y: FEET - Math.abs(Math.sin(t * 7)) * 56})} />
     </>
   );
 };
