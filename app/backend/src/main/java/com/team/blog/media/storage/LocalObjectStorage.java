@@ -68,6 +68,7 @@ class LocalObjectStorage implements ObjectStorage {
     static String contentTypeOf(String key) {
         String k = key.toLowerCase(java.util.Locale.ROOT);
         if (k.endsWith(".webp")) return "image/webp";
+        if (k.endsWith(".mp4")) return "video/mp4"; // 쇼츠 영상 (099)
         if (k.endsWith(".png")) return "image/png";
         if (k.endsWith(".gif")) return "image/gif";
         if (k.endsWith(".jpg") || k.endsWith(".jpeg")) return "image/jpeg";

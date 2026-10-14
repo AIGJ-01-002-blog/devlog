@@ -20,6 +20,8 @@ export interface Me {
   pendingSignup: boolean
   /** 메일 인증 전이면 글쓰기 같은 쓰기 행동이 막힌다 (004) */
   emailVerified: boolean
+  /** 서버에서 켠 기능. 쇼츠 스튜디오(099)는 2.0.0 전까지 꺼져 있다 */
+  features?: { shorts: boolean }
 }
 
 export interface CardAuthor {

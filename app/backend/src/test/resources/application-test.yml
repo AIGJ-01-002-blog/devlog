@@ -1,4 +1,9 @@
 blog:
+  # 쇼츠 스튜디오(099)는 시험에서 켠다. 꺼졌을 때는 ShortsDisabledTest가 본다. 응답 없는 렌더 되돌리기는 시험이 직접 부른다
+  shorts:
+    enabled: true
+    worker-token: test-render-token
+    timeout-check-interval: 1h
   dev-login:
     enabled: true
   cursor:

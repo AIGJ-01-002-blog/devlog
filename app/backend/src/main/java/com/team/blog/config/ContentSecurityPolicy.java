@@ -41,7 +41,7 @@ public class ContentSecurityPolicy implements HeaderWriter {
         String storage = storageOrigin.isEmpty() ? "" : " " + storageOrigin;
         return "default-src 'self'; script-src 'nonce-" + nonce + "' 'strict-dynamic' 'unsafe-inline' 'unsafe-eval' https: http:"
                 + "; connect-src 'self'" + storage + " https:; img-src 'self'" + storage + " https: data: blob:"
-                + "; frame-src https:; style-src 'self' 'unsafe-inline'; font-src 'self' data: https:; object-src 'none'"
+                + "; media-src 'self'" + storage + " blob:; frame-src https:; style-src 'self' 'unsafe-inline'; font-src 'self' data: https:; object-src 'none'"
                 + "; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
     }
 
@@ -50,7 +50,7 @@ public class ContentSecurityPolicy implements HeaderWriter {
         String imgExtra = "/signup/social".equals(path) ? " " + SOCIAL_AVATAR_HOSTS : "";
         return "default-src 'self'; script-src 'self'; connect-src 'self'" + storage
                 + "; img-src 'self'" + storage + imgExtra + " data: blob:"
-                + "; style-src 'self' 'unsafe-inline'; font-src 'self' data:; object-src 'none'; frame-ancestors 'none'"
+                + "; media-src 'self'" + storage + " blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; object-src 'none'; frame-ancestors 'none'"
                 + "; base-uri 'none'; form-action 'self'";
     }
 
