@@ -1634,4 +1634,9 @@ export const en: Record<string, string> = {
   "체결": "Fills",
   "하루 성적·눈에 띄는 체결·메모로 60초 대본을 만들어요. 영상은 스튜디오에서 확인하고 만들어요": "Makes a 60-second script from the day's result, notable fills, and your note. You review and render the video in the studio",
   "확정 손익 없음": "No realized P&L",
+  "바이낸스": "Binance",
+  "업비트": "Upbit",
+  "바이비트": "Bybit",
+  "빗썸": "Bithumb",
+  "한국투자증권": "Korea Investment & Securities",
 }

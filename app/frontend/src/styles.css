@@ -16,6 +16,9 @@
   --color-branch-3: #d9480f;
   --color-brand-fill: #3f3bd1;
   --color-danger: #c92a2a;
+  /* 시세·손익: 거래소 차트처럼 오름·이익·매수 초록, 내림·손실·매도 빨강 (이슈 254) */
+  --color-up: #0a7d64;
+  --color-down: #d6293a;
   --thumb-empty: #e3e7ee;
   --color-code-bg: #f7f7f9;
   --color-focus: #2563eb;
@@ -106,6 +109,8 @@
   --color-branch-3: #ffa94d;
   --color-brand-fill: #4f46e5;
   --color-danger: #ff6b6b;
+  --color-up: #26a69a;
+  --color-down: #ef5350;
   --thumb-empty: #242833;
   --color-code-bg: #171a20;
   --color-focus: #93c5fd;
@@ -175,6 +180,8 @@
     --color-branch-3: #ffa94d;
     --color-brand-fill: #4f46e5;
     --color-danger: #ff6b6b;
+    --color-up: #26a69a;
+    --color-down: #ef5350;
     --thumb-empty: #242833;
     --color-code-bg: #171a20;
     --color-focus: #93c5fd;
@@ -2387,10 +2394,10 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 .dashboard-shorts dt { font-size: 0.75rem; color: var(--color-text-muted); }
 .dashboard-shorts dd { margin: 2px 0 0; font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .dashboard-uploads { margin: 0 0 12px; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
-/* 매매 일지 (이슈 243): 날짜 목록과 고른 날 자세히. 손익은 +/- 기호와 함께 색을 쓴다 */
+/* 매매 일지 (이슈 243): 날짜 목록과 고른 날 자세히. 손익은 +/- 기호와 함께 색을 쓴다. 색은 거래소 차트처럼 이익 초록·손실 빨강 (이슈 254) */
 .trades-notice { margin: -4px 0 12px; }
-.pnl.good { color: var(--color-ok-text); }
-.pnl.bad { color: var(--color-danger); }
+.pnl.good { color: var(--color-up); }
+.pnl.bad { color: var(--color-down); }
 .trades-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 16px; align-items: start; margin-top: 16px; }
 .trades-day-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .trades-day { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; padding: 8px 10px; border-radius: var(--radius); color: inherit; text-decoration: none; border: 1px solid transparent; }
@@ -2400,17 +2407,23 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 .trades-day-pnl { font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
 .trades-day-meta { grid-column: 1; }
 .trades-bar { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: var(--color-surface-2); overflow: hidden; }
+.trades-bar + .trades-bar { margin-top: 2px; }
+.trades-exchange { font-size: 0.75rem; }
+.trades-amounts > span { white-space: nowrap; }
+.trades-amounts > span + span::before { content: " · "; color: var(--color-text-muted); font-weight: 400; }
+.trades-amounts.stack > span { display: block; }
+.trades-amounts.stack > span + span::before { content: none; }
 .trades-bar-fill { display: block; height: 100%; border-radius: 2px; }
-.trades-bar-fill.pos { background: var(--color-ok-text); }
-.trades-bar-fill.neg { background: var(--color-danger); }
+.trades-bar-fill.pos { background: var(--color-up); }
+.trades-bar-fill.neg { background: var(--color-down); }
 .trades-detail h2 { margin-top: 0; }
 .trades-totals { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); margin-bottom: 16px; }
 .trades-fills { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .trades-fills li { padding: 8px 10px; border: 1px solid var(--color-border); border-radius: var(--radius); overflow-wrap: anywhere; }
 .trades-fill-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .trades-fill-delete { margin-left: auto; }
-.trades-buy { color: var(--color-danger); }
-.trades-sell { color: var(--color-brand); }
+.trades-buy { color: var(--color-up); }
+.trades-sell { color: var(--color-down); }
 .trades-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 @media (max-width: 760px) {
   .trades-layout { grid-template-columns: 1fr; }

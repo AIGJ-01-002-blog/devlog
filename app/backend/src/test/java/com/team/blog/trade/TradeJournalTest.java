@@ -105,8 +105,8 @@ class TradeJournalTest extends IntegrationTest {
         JsonNode latest = overview.path("days").get(0);
         assertThat(latest.path("date").asString()).isEqualTo(d2.toString());
         assertThat(latest.path("summary").path("trades").asInt()).isEqualTo(3);
-        assertThat(latest.path("summary").path("realizedPnl").decimalValue()).isEqualByComparingTo("-14100");
-        assertThat(latest.path("cumulativePnl").decimalValue()).isEqualByComparingTo("500");
+        assertThat(latest.path("summary").path("realizedPnl").path("KRW").decimalValue()).isEqualByComparingTo("-14100");
+        assertThat(latest.path("cumulativePnl").path("KRW").decimalValue()).isEqualByComparingTo("500");
         assertThat(overview.path("total").path("wins").asInt()).isEqualTo(2);
         assertThat(overview.path("total").path("losses").asInt()).isEqualTo(1);
         assertThat(overview.path("live").asBoolean()).isFalse();
@@ -164,6 +164,57 @@ class TradeJournalTest extends IntegrationTest {
     }
 
     @Test
+    void 코인_거래소_체결은_소수_수량과_통화를_그대로_남기고_합계를_통화별로_낸다() throws Exception {
+        Session me = signup(uniqueLogin("tradecoin"));
+        String t = token(me);
+        LocalDate d = LocalDate.now(KST).minusDays(1);
+        Map<String, Object> buy = new HashMap<>(Map.of("external_id", "bn-1", "exchange", "binance", "symbol", "BTCUSDT", "symbol_name", "비트코인",
+                "side", "BUY", "quantity", "0.0012", "price", "83752.3", "currency", "usdt", "fee", "0.1005"));
+        buy.put("executed_at", at(d, "09:00:00"));
+        buy.put("reason", "1시간봉 20개 평균 위로");
+        JsonNode r = call(t, "record_trade", buy);
+        assertThat(r.path("isError").asBoolean()).as(text(r)).isFalse();
+        Map<String, Object> sell = new HashMap<>(Map.of("external_id", "bn-2", "exchange", "BINANCE", "symbol", "BTCUSDT", "symbol_name", "비트코인",
+                "side", "SELL", "quantity", "0.0012", "price", "84800", "currency", "USDT", "fee", "0.1018"));
+        sell.put("executed_at", at(d, "15:00:00"));
+        sell.put("realized_pnl", "1.0549");
+        assertThat(call(t, "record_trade", sell).path("isError").asBoolean()).isFalse();
+        Map<String, Object> eth = new HashMap<>(Map.of("external_id", "up-1", "exchange", "UPBIT", "symbol", "KRW-ETH", "symbol_name", "이더리움",
+                "side", "SELL", "quantity", "0.05", "price", 5200000, "currency", "KRW", "fee", 130));
+        eth.put("realized_pnl", -4200);
+        eth.put("executed_at", at(d, "16:00:00"));
+        assertThat(call(t, "record_trade", eth).path("isError").asBoolean()).isFalse();
+        JsonNode badCurrency = call(t, "record_trade", Map.of("external_id", "bad-c", "symbol", "BTCUSDT", "side", "BUY", "quantity", 1,
+                "price", 1, "currency", "US DOLLAR"));
+        assertThat(text(badCurrency)).contains("통화(currency)");
+
+        // 원화와 USDT를 더하지 않고 통화별로 낸다 (원화 먼저)
+        JsonNode day = read(me.http().perform(get("/api/me/trades/" + d)).andExpect(status().isOk()).andReturn());
+        assertThat(day.path("summary").path("realizedPnl").properties()).extracting(Map.Entry::getKey).containsExactly("KRW", "USDT");
+        assertThat(day.path("summary").path("realizedPnl").path("USDT").decimalValue()).isEqualByComparingTo("1.0549");
+        assertThat(day.path("summary").path("realizedPnl").path("KRW").decimalValue()).isEqualByComparingTo("-4200");
+        assertThat(day.path("summary").path("fees").path("USDT").decimalValue()).isEqualByComparingTo("0.2023");
+        JsonNode first = day.path("fills").get(0);
+        assertThat(first.path("exchange").asString()).isEqualTo("BINANCE");
+        assertThat(first.path("currency").asString()).isEqualTo("USDT");
+        assertThat(first.path("quantity").decimalValue()).isEqualByComparingTo("0.0012");
+        assertThat(first.path("price").decimalValue()).isEqualByComparingTo("83752.3");
+
+        // 요약 글은 통화마다 따로 적고 코인은 수량 뒤에 코인 이름을 붙인다
+        long postId = read(me.http().perform(post("/api/me/trades/" + d + "/draft").with(csrf())).andExpect(status().isOk()).andReturn())
+                .path("postId").asLong();
+        Map<String, Object> post = jdbc.queryForMap("SELECT title, content_md FROM post WHERE id = ?", postId);
+        assertThat((String) post.get("title")).isEqualTo("매매 일지 " + d + " (모의투자): 실현 손익 -4,200원 · +1.05 USDT");
+        assertThat((String) post.get("content_md")).contains(
+                "| 09:00 | 비트코인 · 바이낸스 | 매수 | 0.0012 BTC | 83,752.30 USDT |  | 1시간봉 20개 평균 위로 |",
+                "| 16:00 | 이더리움 · 업비트 | 매도 | 0.05 ETH | 5,200,000원 | -4,200원 |",
+                "- 수수료·세금: 130원 · 0.2023 USDT");
+
+        String forAi = text(call(t, "get_trade_day", Map.of("date", d.toString())));
+        assertThat(forAi).contains("[BINANCE] 비트코인(BTCUSDT) 매수 0.0012 BTC @ 83752.3 USDT", "손익 1.0549 USDT", "실현 손익 -4200원 · 1.0549 USDT");
+    }
+
+    @Test
     void 하루_기록_상한을_넘으면_봇을_멈추라고_알린다() throws Exception {
         Session me = signup(uniqueLogin("tradecap"));
         String t = token(me);
@@ -194,7 +245,7 @@ class TradeJournalTest extends IntegrationTest {
                     try {
                         journal.record(me.memberId(), new TradeJournal.Input(id, TradeJournal.Mode.PAPER, "005930", "삼성전자",
                                 TradeJournal.Side.BUY, BigDecimal.ONE, BigDecimal.valueOf(70000), null, null, "", "",
-                                d.atTime(10, 0).atZone(KST).toInstant()));
+                                d.atTime(10, 0).atZone(KST).toInstant(), "", ""));
                         return true;
                     } catch (RuntimeException e) {
                         return false;

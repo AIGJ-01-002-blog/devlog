@@ -5,8 +5,9 @@ import { dayLabels, num } from '../lib/dashboard'
 import { t } from '../lib/i18n'
 import { Link, navigate, useLocation } from '../lib/router'
 import {
-  createTradeDraft, createTradeShorts, deleteTradeFill, fillTime, isDate, loadTradeDay, loadTrades, MEMO_MAX, pnlClass, qty,
-  saveTradeMemo, TRADE_PERIODS, tradePeriodOf, winRate, won, type TradeDay, type TradeOverview, type TradePeriod,
+  coinUnit, createTradeDraft, createTradeShorts, deleteTradeFill, exchangeName, fillTime, isDate, loadTradeDay, loadTrades, mainCurrency,
+  MEMO_MAX, money, moneys, pnlClass, qty, saveTradeMemo, TRADE_PERIODS, tradePeriodOf, winRate, type Money, type TradeDay,
+  type TradeFill, type TradeOverview, type TradePeriod,
 } from '../lib/trades'
 
 /**
@@ -43,6 +44,7 @@ export function TradesPage() {
   }
 
   const rate = data ? winRate(data.total) : null
+  const main = data ? mainCurrency(data.total) : 'KRW'
   return (
     <main className="container dashboard-page trades-page">
       <h1 className="page-title">{t('매매 일지')}</h1>
@@ -63,11 +65,11 @@ export function TradesPage() {
           <div className="kpi-grid dashboard-kpis" style={{ '--kpi-cols': 4 } as CSSProperties}>
             <div className="kpi" data-tip={t('기간 안에 매도로 확정된 손익이에요. 수수료·세금을 뺀 값이에요')}>
               <span className="kpi-label">{t('기간 실현 손익')}</span>
-              <span className={`kpi-value pnl ${pnlClass(data.total.realizedPnl)}`}>{won(data.total.realizedPnl, true)}</span>
+              <span className="kpi-value"><Amounts m={data.total.realizedPnl} main={main} pnl stack /></span>
             </div>
             <div className="kpi" data-tip={t('봇이 처음 기록을 보낸 날부터 지금까지 확정된 손익이에요')}>
               <span className="kpi-label">{t('누적 실현 손익')}</span>
-              <span className={`kpi-value pnl ${pnlClass(data.cumulativePnl)}`}>{won(data.cumulativePnl, true)}</span>
+              <span className="kpi-value"><Amounts m={data.cumulativePnl} main={main} pnl stack /></span>
             </div>
             <div className="kpi" data-tip={t('기간 안의 체결 수예요')}>
               <span className="kpi-label">{t('체결')}</span>
@@ -96,18 +98,24 @@ export function TradesPage() {
   )
 }
 
-/** 날마다 실현 손익을 0을 가운데 둔 가로 막대로. 숫자와 +/- 기호를 함께 써서 색만으로 구분하지 않는다 */
+/**
+ * 날마다 실현 손익을 가로 막대로. 숫자와 +/- 기호를 함께 써서 색만으로 구분하지 않는다.
+ * 원화와 USDT는 크기를 견줄 수 없어서 통화마다 막대를 따로 그리고, 길이는 기간 안의 같은 통화 가운데 가장 큰 손익에 맞춘다.
+ */
 function DayBars({ data, selected, href }: { data: TradeOverview; selected: string | null; href: (date: string) => string }) {
-  const max = Math.max(1, ...data.days.map((d) => Math.abs(d.summary.realizedPnl)))
+  const max: Record<string, number> = {}
+  for (const d of data.days) {
+    for (const [c, v] of Object.entries(d.summary.realizedPnl)) max[c] = Math.max(max[c] ?? 0, Math.abs(v))
+  }
+  const main = mainCurrency(data.total)
   return (
     <ol className="trades-day-list">
       {data.days.map((d) => {
         const pnl = d.summary.realizedPnl
-        const width = `${Math.round((Math.abs(pnl) / max) * 100)}%`
         return (
           <li key={d.date}>
             <Link to={href(d.date)} className={`trades-day${d.date === selected ? ' active' : ''}`} aria-current={d.date === selected ? 'true' : undefined}
-              data-tip={t('누적 {0}', { 0: won(d.cumulativePnl, true) })}>
+              data-tip={t('누적 {0}', { 0: moneys(d.cumulativePnl, main, true) })}>
               <span className="trades-day-date">{dayLabels(d.date).fullLabel}</span>
               <span className="trades-day-meta muted small">
                 {t('체결 {0}건', { 0: num(d.summary.trades) })}
@@ -115,10 +123,14 @@ function DayBars({ data, selected, href }: { data: TradeOverview; selected: stri
                 {d.postId && <span title={t('요약 글 있음')}> · {t('글')}</span>}
                 {d.shortsId && <span title={t('쇼츠 대본 있음')}> · {t('쇼츠')}</span>}
               </span>
-              <span className={`trades-day-pnl pnl ${pnlClass(pnl)}`}>{d.summary.sells > 0 ? won(pnl, true) : t('확정 손익 없음')}</span>
-              <span className="trades-bar" aria-hidden="true">
-                <span className={`trades-bar-fill ${pnl < 0 ? 'neg' : 'pos'}`} style={{ width }} />
-              </span>
+              <span className="trades-day-pnl">{d.summary.sells > 0 ? <Amounts m={pnl} main={main} pnl /> : t('확정 손익 없음')}</span>
+              {Object.keys(pnl).length === 0
+                ? <span className="trades-bar" aria-hidden="true" />
+                : Object.entries(pnl).map(([c, v]) => (
+                  <span key={c} className="trades-bar" aria-hidden="true">
+                    <span className={`trades-bar-fill ${v < 0 ? 'neg' : 'pos'}`} style={{ width: `${max[c] ? Math.round((Math.abs(v) / max[c]) * 100) : 0}%` }} />
+                  </span>
+                ))}
             </Link>
           </li>
         )
@@ -167,15 +179,16 @@ function DayCard({ date, onChanged }: { date: string; onChanged: () => void }) {
 
   if (!day) return <section className="admin-card trades-detail">{message ? <p className="error" role="alert">{message.text}</p> : <p className="muted">{t('불러오는 중…')}</p>}</section>
   const s = day.summary
+  const main = mainCurrency(s)
   const memoChanged = memo.trim() !== day.memo.trim()
   return (
     <section className="admin-card trades-detail" aria-label={dayLabels(date).fullLabel}>
       <h2>{dayLabels(date).fullLabel}</h2>
       <dl className="totals trades-totals">
-        <div><dt>{t('실현 손익')}</dt><dd className={`pnl ${pnlClass(s.realizedPnl)}`}>{won(s.realizedPnl, true)}</dd></div>
-        <div><dt>{t('누적')}</dt><dd className={`pnl ${pnlClass(day.cumulativePnl)}`}>{won(day.cumulativePnl, true)}</dd></div>
+        <div><dt>{t('실현 손익')}</dt><dd><Amounts m={s.realizedPnl} main={main} pnl stack /></dd></div>
+        <div><dt>{t('누적')}</dt><dd><Amounts m={day.cumulativePnl} main={main} pnl stack /></dd></div>
         <div><dt>{t('체결')}</dt><dd>{t('매수 {0} · 매도 {1}', { 0: num(s.buys), 1: num(s.sells) })}</dd></div>
-        <div><dt data-tip={t('봇이 보낸 수수료와 세금을 더한 값이에요')}>{t('수수료·세금')}</dt><dd>{won(s.fees)}</dd></div>
+        <div><dt data-tip={t('봇이 보낸 수수료와 세금을 더한 값이에요')}>{t('수수료·세금')}</dt><dd><Amounts m={s.fees} main={main} stack /></dd></div>
       </dl>
 
       {day.fills.length === 0 ? <p className="muted small">{t('이날은 체결 기록이 없어요.')}</p> : (
@@ -186,13 +199,14 @@ function DayCard({ date, onChanged }: { date: string; onChanged: () => void }) {
                 <span className="muted small">{fillTime(f.executedAt)}</span>
                 <span className={`badge ${f.side === 'BUY' ? 'trades-buy' : 'trades-sell'}`}>{f.side === 'BUY' ? t('매수') : t('매도')}</span>
                 <strong>{f.symbolName || f.symbol}</strong>
+                {f.exchange && <span className="muted trades-exchange">{exchangeName(f.exchange)}</span>}
                 {f.mode === 'LIVE' && <span className="badge" data-tip={t('실계좌 주문으로 남긴 체결이에요')}>{t('실계좌')}</span>}
                 <button type="button" className="btn btn-text btn-small trades-fill-delete" onClick={() => void remove(f.id)}
                   aria-label={t('{0} 체결 기록 지우기', { 0: f.symbolName || f.symbol })} data-tip={t('봇이 잘못 보낸 기록을 지워요')}>{t('지우기')}</button>
               </div>
               <div className="small">
-                {t('{0}주 · {1}', { 0: qty(f.quantity), 1: won(f.price) })}
-                {f.realizedPnl !== null && <> · <span className={`pnl ${pnlClass(f.realizedPnl)}`}>{won(f.realizedPnl, true)}</span></>}
+                {fillAmount(f)}
+                {f.realizedPnl !== null && <> · <span className={`pnl ${pnlClass(f.realizedPnl, f.currency)}`}>{money(f.realizedPnl, f.currency, true)}</span></>}
               </div>
               {(f.reason || f.strategy) && <div className="muted small">{f.reason || f.strategy}</div>}
             </li>
@@ -222,6 +236,29 @@ function DayCard({ date, onChanged }: { date: string; onChanged: () => void }) {
       {message && <p className={message.ok ? 'ok small' : 'error small'} role={message.ok ? 'status' : 'alert'}>{message.text}</p>}
     </section>
   )
+}
+
+/**
+ * 통화별 금액. 통화마다 따로 색을 칠하고(원화 손실·USDT 이익이 섞여도 각자 빨강·초록), 금액 하나는 줄바꿈하지 않는다.
+ * pnl이면 손익이라 +를 붙이고 색을 칠한다. stack이면 통화마다 한 줄씩 쌓는다(좁은 카드에서 줄 머리에 · 가 오지 않게)
+ */
+function Amounts({ m, main, pnl = false, stack = false }: { m: Money; main: string; pnl?: boolean; stack?: boolean }) {
+  const entries = Object.entries(m)
+  const list = entries.length > 0 ? entries : [[main, 0] as [string, number]]
+  return (
+    <span className={`trades-amounts${stack ? ' stack' : ''}`}>
+      {list.map(([c, v]) => (
+        <span key={c} className={pnl ? `pnl ${pnlClass(v, c)}` : undefined}>{money(v, c, pnl)}</span>
+      ))}
+    </span>
+  )
+}
+
+/** 수량과 가격: 주식 "10주 · 71,000원", 코인 "0.0012 BTC · 83,752.30 USDT" */
+function fillAmount(f: TradeFill): string {
+  const unit = coinUnit(f)
+  const price = money(f.price, f.currency)
+  return unit ? `${qty(f.quantity)} ${unit} · ${price}` : t('{0}주 · {1}', { 0: qty(f.quantity), 1: price })
 }
 
 function EmptyTrades() {
