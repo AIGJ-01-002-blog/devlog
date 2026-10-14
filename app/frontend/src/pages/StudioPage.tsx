@@ -33,12 +33,14 @@ export function StudioPage() {
   const [creating, setCreating] = useState(false)
 
   const load = useCallback(async () => {
-    try {
-      const [overview, batchList] = await Promise.all([listShorts(), listBatches()])
-      setData(overview)
-      setBatches(batchList)
+    // 묶음 목록이 실패해도 대본 목록과 편집기는 보여 준다 (묶음은 지난 값을 유지)
+    const [overview, batchList] = await Promise.allSettled([listShorts(), listBatches()])
+    if (batchList.status === 'fulfilled') setBatches(batchList.value)
+    if (overview.status === 'fulfilled') {
+      setData(overview.value)
       setError(null)
-    } catch (e) {
+    } else {
+      const e = overview.reason
       setError(e instanceof ApiError ? e.message : t('잠시 후 다시 시도해 주세요.'))
     }
   }, [])
