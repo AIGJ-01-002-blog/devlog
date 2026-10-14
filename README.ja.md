@@ -372,6 +372,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | バージョン | 日付 | 主な内容 | リリースノート |
 | --- | --- | --- | --- |
+| v1.68.0 | 2026-10-14 | 本番と分けたテスト環境（dev.devlog.life）へ develop をデプロイする仕組み（現在はオフ）、検索用埋め込みモデルを使うときだけ読み込んで学校サーバーのメモリを節約、学校サーバーのSSHキー固定 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.68.0) |
 | v1.67.0 | 2026-10-13 | 初の目標単位リリース（デプロイの信頼性とリリース記録）：NAVERログイン、トップ画面とフッターのGitHubリンク、返信をGitブランチのように線でつなぐ表示、画面の動き、画像付きリリースノート | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.67.0) |
 | v1.66.2 | 2026-10-12 | 何も書かずにエディタを出ると、空の下書きをゴミ箱を通さずすぐ削除 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.66.2) |
 | v1.66.1 | 2026-10-12 | 記事のないタグのURLは404に(検索エンジンのソフト404を防止)、サイトマップにAI接続案内とリリースノートを追加 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.66.1) |
