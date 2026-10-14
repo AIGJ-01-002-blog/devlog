@@ -6,6 +6,10 @@ blog:
     # 토큰을 바꾸는 동안 받는 옛 토큰 (#241)
     previous-worker-token: test-render-token-old
     timeout-check-interval: 1h
+  # 매매 일지(#243)도 시험에서 켠다. 하루 기록 상한은 작게 두고 시험이 넘겨 본다
+  trades:
+    enabled: true
+    daily-records: 8
   dev-login:
     enabled: true
   cursor:

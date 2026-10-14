@@ -65,7 +65,7 @@ public class McpTools {
      * REPORT는 읽기 토큰으로도 부르는 신고 도구다(글을 쓰지 않으므로). 자체 요청 제한을 따른다.
      * DIARY는 회원이 "AI 일기 쓰기"를 켰을 때만(061) 보인다.
      */
-    enum Gate { NONE, AI_PUBLISH, REPORT, ADMIN, DIARY, SHORTS }
+    enum Gate { NONE, AI_PUBLISH, REPORT, ADMIN, DIARY, SHORTS, TRADES }
 
     /** 도구 하나. write면 WRITE 토큰과 메일 인증이 필요하다. */
     record Tool(String name, String title, String description, boolean write, String inputSchema, Gate gate, boolean destructive) {
@@ -78,8 +78,8 @@ public class McpTools {
                 case AI_PUBLISH -> caller.aiPublishAllowed();
                 case ADMIN -> caller.admin();
                 case DIARY -> caller.aiDiaryEnabled();
-                // 서버 설정(SHORTS_ENABLED)은 McpTools가 따로 본다
-                case NONE, REPORT, SHORTS -> true;
+                // 서버 설정(SHORTS_ENABLED·TRADES_ENABLED)은 McpTools가 따로 본다
+                case NONE, REPORT, SHORTS, TRADES -> true;
             };
         }
 
@@ -278,6 +278,15 @@ public class McpTools {
                             + "최근 30일 조회수와 좋은 점을 함께 준다. 사용자가 쇼츠 거리를 물을 때 쓰고, 사용자가 고른 글로만 대본을 만든다.", false, """
                     {"type":"object","properties":{
                       "limit":{"type":"integer","minimum":1,"maximum":10,"default":5,"description":"돌려줄 글 수"}}}""", Gate.SHORTS, false),
+            new Tool("record_trade", "매매 체결 남기기",
+                    "매매 봇이 체결할 때마다 체결 기록(종목·매수/매도·수량·가격·수수료·실현 손익·이유)을 사용자의 devlog 매매 일지에 남긴다. "
+                            + "주문을 내지 않고 기록만 한다. 같은 external_id로 다시 보내면 한 번만 남는다. 증권사 계좌·접속 정보는 보내지 않는다.",
+                    true, TradeTools.RECORD_SCHEMA, Gate.TRADES, false),
+            new Tool("get_trade_day", "매매 일지 하루 보기",
+                    "사용자의 하루(한국 날짜) 매매 기록(체결·실현 손익·누적 손익·사용자 메모)을 돌려준다. 사용자가 그날 매매를 돌아보거나 글로 남길 때 쓴다. "
+                            + "투자 권유로 읽히는 표현은 쓰지 않는다.", false, """
+                    {"type":"object","properties":{
+                      "date":{"type":"string","description":"날짜 (예: 2026-10-14). 없으면 오늘"}}}""", Gate.TRADES, false),
             new Tool("list_tags", "태그 보기",
                     "사용자가 자주 쓴 태그와 devlog 인기 태그를 돌려준다. 태그를 제안할 때 이 목록의 표기를 따르면 좋다.", false, NO_ARGS_SCHEMA),
             new Tool("report_bug", "devlog 버그 신고",
@@ -330,6 +339,7 @@ public class McpTools {
     private final SeriesProjects projects;
     private final TopicSuggester topics;
     private final ShortsTools shorts;
+    private final TradeTools trades;
     private final JdbcTemplate jdbc;
     private final Clock clock;
     private final String baseUrl;
@@ -337,7 +347,7 @@ public class McpTools {
 
     public McpTools(PostCommandService commands, PostEditorQuery editor, MyPostsQuery myPosts, SearchQuery search,
                     PostDetailQuery details, TagQuery tags, AiDraftHints hints, PostTrashService trash, InquiryService inquiries,
-                    McpImages images, AiJournal journal, SeriesService series, SeriesProjects projects, TopicSuggester topics, ShortsTools shorts, RateLimiter rateLimiter,
+                    McpImages images, AiJournal journal, SeriesService series, SeriesProjects projects, TopicSuggester topics, ShortsTools shorts, TradeTools trades, RateLimiter rateLimiter,
                     JdbcTemplate jdbc, Clock clock, BlogProperties props) {
         this.commands = commands;
         this.editor = editor;
@@ -354,6 +364,7 @@ public class McpTools {
         this.projects = projects;
         this.topics = topics;
         this.shorts = shorts;
+        this.trades = trades;
         this.rateLimiter = rateLimiter;
         this.jdbc = jdbc;
         this.clock = clock;
@@ -365,7 +376,7 @@ public class McpTools {
     public List<Map<String, Object>> definitions(AccessTokens.Caller caller) {
         List<Map<String, Object>> out = new ArrayList<>();
         for (Tool t : TOOLS) {
-            if (!t.visibleTo(caller) || t.gate() == Gate.SHORTS && !shorts.enabled()) continue;
+            if (!t.visibleTo(caller) || off(t.gate())) continue;
             String description = shorts.enabled() ? t.description()
                     : t.description().replace(" " + SHORTS_NOTE_DRAFT, "").replace(SHORTS_NOTE_PUBLISH, "");
             out.add(Map.of("name", t.name(), TITLE, t.title(), "description", description,
@@ -378,8 +389,7 @@ public class McpTools {
     public Result call(AccessTokens.Caller caller, String name, JsonNode args) {
         Optional<Tool> tool = TOOLS.stream().filter(t -> t.name().equals(name)).findFirst();
         // 관리자 도구는 관리자가 아니면 없는 도구와 같다 (있는지도 알리지 않는다)
-        if (tool.isEmpty() || tool.get().gate() == Gate.ADMIN && !caller.admin()
-                || tool.get().gate() == Gate.SHORTS && !shorts.enabled()) return Result.fail("없는 도구예요: " + name);
+        if (tool.isEmpty() || tool.get().gate() == Gate.ADMIN && !caller.admin() || off(tool.get().gate())) return Result.fail("없는 도구예요: " + name);
         if (!rateLimiter.tryAcquire("mcp:" + caller.memberId(), CALLS_PER_MINUTE, Duration.ofMinutes(1))) {
             return Result.fail("요청이 너무 많아요. 1분 뒤에 다시 시도해 주세요.");
         }
@@ -389,8 +399,8 @@ public class McpTools {
             if (tool.get().gate() == Gate.AI_PUBLISH && !caller.aiPublishAllowed()) return Result.fail(AI_PUBLISH_OFF);
             if (tool.get().gate() == Gate.DIARY && !caller.aiDiaryEnabled()) return Result.fail(AiJournal.AI_DIARY_OFF);
             if (!caller.emailVerified()) return Result.fail("이메일 인증을 마친 뒤 글을 쓸 수 있어요. devlog에서 인증 메일을 확인해 주세요.");
-            // 일기 메모는 하루 상한(60개)이 따로 있어 글쓰기 한도를 쓰지 않는다
-            if (tool.get().gate() != Gate.DIARY
+            // 일기 메모(하루 60개)와 체결 기록(하루 상한, #243)은 상한이 따로 있어 글쓰기 한도를 쓰지 않는다
+            if (tool.get().gate() != Gate.DIARY && tool.get().gate() != Gate.TRADES
                     && !rateLimiter.tryAcquire("mcp-write:" + caller.memberId(), WRITES_PER_HOUR, Duration.ofHours(1))) {
                 return Result.fail("글쓰기 요청은 한 시간에 " + WRITES_PER_HOUR + "번까지예요. 잠시 뒤 다시 시도해 주세요.");
             }
@@ -425,11 +435,18 @@ public class McpTools {
                 case "update_shorts_script" -> shorts.update(caller, a);
                 case "list_shorts" -> shorts.list(caller);
                 case "list_shorts_candidates" -> shorts.candidates(caller, a);
+                case "record_trade" -> trades.record(caller, a);
+                case "get_trade_day" -> trades.day(caller, a);
                 default -> Result.fail("없는 도구예요: " + name);
             };
         } catch (ApiException e) {
             return Result.fail(message(e));
         }
+    }
+
+    /** 서버 설정으로 꺼진 도구 묶음인가 (SHORTS_ENABLED·TRADES_ENABLED) */
+    private boolean off(Gate gate) {
+        return gate == Gate.SHORTS && !shorts.enabled() || gate == Gate.TRADES && !trades.enabled();
     }
 
     /** 서버에서 쇼츠 스튜디오를 켰는가 (SHORTS_ENABLED) */

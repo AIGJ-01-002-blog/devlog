@@ -33,6 +33,7 @@ const PATHS = {
   download: <><path d="M12 3v12M7 10l5 5 5-5" /><path d="M5 21h14" /></>,
   copy: <><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" /></>,
   chart: <><path d="M4 20V11M10 20V5M16 20v-6M2 20h20" /></>,
+  trend: <><path d="m3 17 6-6 4 4 8-8" /><path d="M15 7h6v6" /></>,
   eye: <><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></>,
   comment: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />,
   trash: <><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" /></>,
