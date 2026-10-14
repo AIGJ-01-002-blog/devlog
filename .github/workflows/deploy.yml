@@ -116,7 +116,7 @@ jobs:
     needs: [image, backend-test, frontend-test]
     # main에 머지되면 학교 서버(selfhosted)에 자동 배포한다. 끄려면 저장소 변수 AUTO_DEPLOY=false
     if: >-
-      (github.event_name == 'workflow_dispatch' && inputs.deploy) ||
+      (github.event_name == 'workflow_dispatch' && inputs.deploy && !inputs.staging) ||
       (github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.AUTO_DEPLOY != 'false')
     runs-on: ubuntu-latest
     environment: ${{ inputs.overlay || 'selfhosted' }}   # 보호 규칙(승인자)을 걸 수 있다
@@ -309,6 +309,11 @@ jobs:
           if kubectl -n "$NAMESPACE" get secret blog-dev-seed >/dev/null 2>&1; then
             kubectl -n "$NAMESPACE" get secret blog-dev-seed -o jsonpath='{.data.secret\.env}' | base64 -d > "$f"
           else
+            # 씨앗 없이 DB 볼륨만 남았으면 새 비밀번호로는 붙지 못한다. 덮어쓰지 말고 멈춘다
+            if kubectl -n "$NAMESPACE" get pvc data-postgres-0 >/dev/null 2>&1; then
+              echo "::error::blog-dev-seed가 없는데 DB 볼륨(data-postgres-0)이 남아 있습니다. 네임스페이스 blog-dev를 지우고 다시 실행하세요"
+              exit 1
+            fi
             deploy/scripts/gen-secret-env.sh "$OVERLAY"
             kubectl -n "$NAMESPACE" create secret generic blog-dev-seed --from-file=secret.env="$f"
           fi

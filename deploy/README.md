@@ -261,7 +261,12 @@ develop에 머지된 코드를 운영과 같은 학교 서버 클러스터의 �
 3. GitHub 저장소 → Settings → Secrets and variables → Actions → Variables에 `STAGING_ENABLED` = `true`.
 4. develop에 머지하거나 Actions → 블로그 배포 → Run workflow(branch `develop`, "시험 환경에 배포" 체크). 끝나면 https://dev.devlog.life 에서 그 커밋이 보인다.
 
-끄려면 `STAGING_ENABLED`를 지우고, 자원까지 돌려받으려면 학교 서버에서 네임스페이스 `blog-dev`를 지운다(시험 데이터도 함께 사라진다).
+Access를 만들기 전에 배포되지 않게 하려면 저장소 Settings → Environments → `staging`에 Required reviewers를 두고, Access가 있는 것을 확인한 뒤에만 승인한다(권장). 이 시험 환경은 개발용 로그인(`/api/dev/login`)이 켜져 있어서 Access 없이 열리면 안 된다.
+
+끄기:
+- `STAGING_ENABLED`를 지우면 **새 배포만** 멈춘다. 이미 떠 있는 시험 환경은 그대로 돈다.
+- 잠시 내리려면 학교 서버에서 `kubectl -n blog-dev scale deploy,statefulset --all --replicas=0`.
+- 자원까지 돌려받으려면 네임스페이스 `blog-dev`를 지운다(시험 데이터와 blog-dev-seed도 함께 사라진다).
 
 ## 로컬에서 검증
 
