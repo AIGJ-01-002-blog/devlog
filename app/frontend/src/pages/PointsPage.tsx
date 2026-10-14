@@ -5,6 +5,7 @@ import { compactNumber } from '../lib/format'
 import { t } from '../lib/i18n'
 import { NavIcon, type IconName } from '../components/NavIcons'
 import { StreakBadgeIcon } from '../components/StreakBadge'
+import { Link } from '../lib/router'
 import {
   amountOf, attend, attendanceDots, attendanceReward, badgeName, BADGE_DAYS, credits, entryTime, loadPointHistory, loadPoints, points, reasonLabel, ruleValue, walletLabel,
   type PointEntry, type PointSummary, type Wallet,
@@ -116,7 +117,10 @@ export function PointsPage() {
 
   return (
     <main className="container dashboard-page points-page">
-      <h1 className="page-title">{t('내 포인트')}</h1>
+      <div className="points-title">
+        <h1 className="page-title">{t('내 포인트')}</h1>
+        <Link to="/shop" className="btn btn-primary btn-small" data-tip={t('크레딧으로 블로그 꾸미기 아이템 사기')}>{t('크레딧 상점')}</Link>
+      </div>
       <p className="muted small points-notice">{t('포인트는 devlog 안에서만 써요. 현금이나 코인으로 바꾸거나 다른 사람에게 줄 수 없어요.')}</p>
       {error && <p className="error" role="alert">{t('포인트를 불러오지 못했어요.')}</p>}
       {!data && !error && <p className="muted center">{t('불러오는 중…')}</p>}

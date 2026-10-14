@@ -70,6 +70,8 @@ const DashboardPage = lazyPage(() => import('./pages/DashboardPage'), 'Dashboard
 const TradesPage = lazyPage(() => import('./pages/TradesPage'), 'TradesPage')
 const PointsPage = lazyPage(() => import('./pages/PointsPage'), 'PointsPage')
 const AdminPointsPage = lazyPage(() => import('./pages/AdminPointsPage'), 'AdminPointsPage')
+const ShopPage = lazyPage(() => import('./pages/ShopPage'), 'ShopPage')
+const AdminShopPage = lazyPage(() => import('./pages/AdminShopPage'), 'AdminShopPage')
 // 첫 로그인 회원만 보는 팝업이라 첫 묶음에 넣지 않는다 (spec 098)
 const AiOnboarding = lazy(() => import('./components/AiOnboarding').then((m) => ({ default: m.AiOnboarding })))
 
@@ -156,6 +158,7 @@ function route(path: string): ReactNode {
   if (path === '/studio') return <RequireLogin><RequireShorts><StudioPage /></RequireShorts></RequireLogin>
   if (path === '/trades') return <RequireLogin><RequireTrades><TradesPage /></RequireTrades></RequireLogin>
   if (path === '/points') return <RequireLogin><RequirePoints><PointsPage /></RequirePoints></RequireLogin>
+  if (path === '/shop') return <RequireLogin><RequirePoints><ShopPage /></RequirePoints></RequireLogin>
   if (path === '/feed') return <RequireLogin><FeedPage /></RequireLogin>
   if (path === '/lists/liked') return <RequireLogin><LikedPage /></RequireLogin>
   if (path === '/lists/read') return <RecentReadsPage />
@@ -170,6 +173,7 @@ function route(path: string): ReactNode {
   if (path === '/admin/reports') return <RequireAdmin><AdminReportsPage /></RequireAdmin>
   if ((p = match('/admin/reports/:id', path))) return <RequireAdmin><AdminReportPage key={p.id} id={p.id} /></RequireAdmin>
   if (path === '/admin/points') return <RequireAdmin><RequirePoints><AdminPointsPage /></RequirePoints></RequireAdmin>
+  if (path === '/admin/shop') return <RequireAdmin><RequirePoints><AdminShopPage /></RequirePoints></RequireAdmin>
   if (path === '/admin/inquiries') return <RequireAdmin><AdminInquiriesPage /></RequireAdmin>
   if ((p = match('/admin/inquiries/:id', path))) return <RequireAdmin><AdminInquiryPage key={p.id} id={p.id} /></RequireAdmin>
   if ((p = match('/admin/members/:handle', path))) return <RequireAdmin><AdminMemberPage key={p.handle} handle={p.handle} /></RequireAdmin>
