@@ -14,6 +14,7 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 - 매매 일지가 코인 거래소 체결을 받는다. `record_trade`에 거래소(`exchange`)와 통화(`currency`)를 적고, 0.00012345 BTC 같은 소수 수량·가격을 그대로 남긴다. 원화와 USDT는 더하지 않고 손익·수수료를 통화별로 따로 보여 준다. DB `trade`에 `exchange`·`currency` 열이 생기고 금액 자릿수가 넓어진다(V40). (#254)
 
 ### 바꿈
+- 운영(devlog.life)에서 숏폼 스튜디오와 매매 일지를 켰다(`SHORTS_ENABLED`, `TRADES_ENABLED`). 렌더 워커 토큰은 GitHub Secret `SHORTS_WORKER_TOKEN`으로 넣고, 없으면 대본까지만 만들고 영상은 만들지 않는다. (#256)
 - 매매 일지 손익 색을 거래소 차트처럼 바꿨다: 이익·매수 초록, 손실·매도 빨강. (#254)
 
 ### 화면
