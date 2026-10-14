@@ -42,6 +42,7 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 ![쇼츠 품질 전후: useEffect](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shorts-quality-react-effect.webp)
 ![쇼츠 품질 전후: 인덱스](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shorts-quality-pg-index.webp)
 ![고양이 연기 11가지](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shorts-character-actions.webp)
+![CS 설명 도식: 캐시는 왜 빠를까](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shorts-cs-diagram.webp)
 
 ## [2.0.0] - 2026-10-14
 

@@ -5,6 +5,6 @@
 import type React from 'react';
 import type {SceneData} from './types';
 
-export type CustomSceneProps = {scene: SceneData; data: unknown};
+export type CustomSceneProps = {scene: SceneData; data: unknown; index?: number};
 
 export const CUSTOM_SCENES: Record<string, React.FC<CustomSceneProps>> = {};

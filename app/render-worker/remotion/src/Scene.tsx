@@ -53,7 +53,7 @@ export const Scene: React.FC<{scene: SceneData; index: number; title: string; fo
       ) : null}
       <div style={{position: 'absolute', top: layout.stageTop, left: 0, width: layout.stageWidth, height: layout.stageHeight, transformOrigin: '50% 60%',
         scale: String(punch)}}>
-        {Custom ? <Custom scene={scene} data={scene.custom?.data} /> : scene.diagram ? <DiagramStage scene={scene} tint={tint} /> :
+        {Custom ? <Custom scene={scene} data={scene.custom?.data} index={index} /> : scene.diagram ? <DiagramStage scene={scene} tint={tint} /> :
           <Act scene={scene} first={index === 0} />}
       </div>
       <Captions pages={scene.pages} leadFrames={scene.leadFrames} top={layout.captionTop} color={tint} />
