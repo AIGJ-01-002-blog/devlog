@@ -56,6 +56,7 @@ def _fake_remotion(props: dict, public_dir: Path, out: Path, crf: int = 16) -> N
                     "-frames:v", str(props["totalFrames"]), "-c:v", "libx264", "-pix_fmt", "yuv420p", str(out)], check=True)
 
 
+@unittest.skipUnless(shutil.which("ffmpeg"), "ffmpeg 없음")
 class RemotionPathTest(unittest.TestCase):
     def test_props_match_types_and_audio_is_mixed_onto_one_video(self):
         job = {"title": "도커 볼륨", "postUrl": "/@minseo/posts/12", "effects": [{"scene": 1, "at": 0.2, "sound": "ding"}],
