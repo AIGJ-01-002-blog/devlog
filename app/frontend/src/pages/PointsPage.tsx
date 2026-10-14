@@ -3,11 +3,29 @@ import { ApiError } from '../lib/api'
 import { num } from '../lib/dashboard'
 import { compactNumber } from '../lib/format'
 import { t } from '../lib/i18n'
+import { NavIcon, type IconName } from '../components/NavIcons'
 import { StreakBadgeIcon } from '../components/StreakBadge'
 import {
   amountOf, attend, attendanceDots, attendanceReward, badgeName, BADGE_DAYS, credits, entryTime, loadPointHistory, loadPoints, points, reasonLabel, ruleValue, walletLabel,
   type PointEntry, type PointSummary, type Wallet,
 } from '../lib/points'
+
+/** 내 포인트 탭: 내 설정처럼 왼쪽 목록에서 고르고, 휴대폰에서는 위에서 옆으로 밀린다. 주소 뒤 #이름으로 바로 열린다(/points#badges) */
+export const POINTS_TABS = [
+  { id: 'attend', label: t('출석'), hint: t('오늘 출석하고 연속 출석 보상 보기'), icon: 'check' },
+  { id: 'badges', label: t('휘장'), hint: t('연속 출석으로 받는 휘장'), icon: 'shield' },
+  { id: 'earn', label: t('크레딧 얻는 법'), hint: t('출석·글 발행·모의투자 수익 적립 규칙'), icon: 'coin' },
+  { id: 'history', label: t('내역'), hint: t('적립·사용 내역'), icon: 'posts' },
+] as const satisfies readonly { id: string; label: string; hint: string; icon: IconName }[]
+export type PointsTab = (typeof POINTS_TABS)[number]['id']
+
+export function pointsTabFromHash(hash: string): PointsTab {
+  const key = hash.replace(/^#/, '')
+  return POINTS_TABS.find((x) => x.id === key)?.id ?? 'attend'
+}
+
+/** 휘장을 받은 날(한국 시간): 2026.10.14 */
+const kstDate = (iso: string) => new Date(Date.parse(iso) + 9 * 3600_000).toISOString().slice(0, 10).replace(/-/g, '.')
 
 type Filter = 'ALL' | Wallet
 const filters = (): { key: Filter; label: string; tip: string }[] => [
@@ -28,8 +46,20 @@ export function PointsPage() {
   const [next, setNext] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
+  const [tab, setTab] = useState<PointsTab>(() => pointsTabFromHash(location.hash))
 
   useEffect(() => { document.title = t('내 포인트 - devlog') }, [])
+  useEffect(() => {
+    const sync = () => setTab(pointsTabFromHash(location.hash))
+    window.addEventListener('hashchange', sync)
+    window.addEventListener('popstate', sync)
+    return () => { window.removeEventListener('hashchange', sync); window.removeEventListener('popstate', sync) }
+  }, [])
+  const open = (id: PointsTab) => {
+    if (id === tab) return
+    history.replaceState(null, '', `/points#${id}`)
+    setTab(id)
+  }
   useEffect(() => {
     loadPoints().then((d) => { setData(d); setItems(d.history.items); setNext(d.history.nextBefore) }).catch(() => setError(true))
   }, [])
@@ -110,7 +140,17 @@ export function PointsPage() {
             </div>
           </div>
 
-          <div className="points-layout">
+          <div className="settings-layout points-tabs">
+            <nav className="settings-nav" aria-label={t('포인트 메뉴')}>
+              {POINTS_TABS.map((x) => (
+                <a key={x.id} href={`/points#${x.id}`} aria-current={x.id === tab ? 'page' : undefined} data-tip={x.hint}
+                  onClick={(e) => { e.preventDefault(); open(x.id) }}>
+                  <NavIcon name={x.icon} /><span>{x.label}</span>
+                </a>
+              ))}
+            </nav>
+            <div className="settings-panel" role="region" aria-label={POINTS_TABS.find((x) => x.id === tab)!.label}>
+              {tab === 'attend' && (
             <section className="admin-card points-attend" aria-label={t('출석')}>
               <h2>{t('오늘 출석')}</h2>
               <ol className="points-dots" aria-label={t('최근 7일 출석')}>
@@ -143,14 +183,19 @@ export function PointsPage() {
                 {data.attendance.attendedToday ? t('오늘 출석 완료') : busy ? t('출석하는 중…') : t('출석하기')}
               </button>
               {message && <p className={message.ok ? 'ok small' : 'error small'} role={message.ok ? 'status' : 'alert'}>{message.text}</p>}
-              <h3 className="points-badges-title">{t('연속 출석 휘장')}</h3>
+            </section>
+              )}
+              {tab === 'badges' && (
+            <section className="admin-card points-badges-card" aria-label={t('휘장')}>
+              <h2>{t('연속 출석 휘장')}</h2>
               <ul className="points-badges">
                 {BADGE_DAYS.map((d) => {
                   const got = data.badges.find((b) => b.days === d)
                   return (
                     <li key={d} className={got ? 'got' : ''}>
-                      <StreakBadgeIcon days={d} size={40} locked={!got} />
+                      <StreakBadgeIcon days={d} size={56} locked={!got} />
                       <span className="small">{d >= 365 ? t('1년') : t('{0}일', { 0: d })}</span>
+                      <span className="muted small points-badge-date">{got ? kstDate(got.earnedAt) : t('{0}일 남음', { 0: num(Math.max(0, d - data.attendance.streak)) })}</span>
                     </li>
                   )
                 })}
@@ -163,7 +208,8 @@ export function PointsPage() {
                   : t('모든 휘장을 받았어요.')}
               </p>
             </section>
-
+              )}
+              {tab === 'earn' && (
             <section className="admin-card points-ways" aria-label={t('크레딧 얻는 법')}>
               <h2>{t('크레딧 얻는 법')}</h2>
               <ul className="points-rules">
@@ -186,8 +232,8 @@ export function PointsPage() {
                 </li>
               </ul>
             </section>
-          </div>
-
+              )}
+              {tab === 'history' && (
           <section className="admin-card points-history" aria-label={t('포인트 내역')}>
             <div className="points-history-head">
               <h2>{t('포인트 내역')}</h2>
@@ -214,6 +260,9 @@ export function PointsPage() {
             )}
             {next !== null && <button type="button" className="btn btn-outline btn-small" onClick={() => void more()} data-tip={t('이전 내역을 더 불러와요')}>{t('더 보기')}</button>}
           </section>
+              )}
+            </div>
+          </div>
         </>
       )}
     </main>

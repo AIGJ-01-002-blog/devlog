@@ -25,15 +25,45 @@
   /* 개인 토큰 (docs/45 §3 밖, 이름만 이 서비스에서 씀) */
   --color-surface-2: #eef0f4;
   /* 연속 출석 휘장 (이슈 266): 20·50·100·150·200·300일, 365일 특별 */
-  --badge-20: #8d6e63;
-  --badge-50: #78909c;
-  --badge-100: #c9a227;
-  --badge-150: #1f9e8f;
-  --badge-200: #4f63c9;
-  --badge-300: #9c3fc0;
-  --badge-365: #e3b23c;
-  --badge-365-hi: #fff4c2;
-  --badge-ink: #ffffff;
+  --badge-20-hi: #f6cfa6;
+  --badge-20: #b87333;
+  --badge-20-lo: #6b3914;
+  --badge-20-rib: #8b1e2d;
+  --badge-20-stripe: #ecc27c;
+  --badge-50-hi: #ffffff;
+  --badge-50: #b9c3cd;
+  --badge-50-lo: #5f6b78;
+  --badge-50-rib: #1f3a6e;
+  --badge-50-stripe: #eef1f5;
+  --badge-100-hi: #fff4bd;
+  --badge-100: #d6a62a;
+  --badge-100-lo: #86600c;
+  --badge-100-rib: #a4161a;
+  --badge-100-stripe: #f6d873;
+  --badge-150-hi: #cff7e9;
+  --badge-150: #2fae8c;
+  --badge-150-lo: #0f5a47;
+  --badge-150-rib: #0b4f3f;
+  --badge-150-stripe: #d9f0e7;
+  --badge-200-hi: #d3e0ff;
+  --badge-200: #4668da;
+  --badge-200-lo: #1b2c76;
+  --badge-200-rib: #16234f;
+  --badge-200-stripe: #aec6ff;
+  --badge-300-hi: #f2d8ff;
+  --badge-300: #9b47d0;
+  --badge-300-lo: #4b176d;
+  --badge-300-rib: #3a0f56;
+  --badge-300-stripe: #e8c8ff;
+  --badge-365-hi: #fff9da;
+  --badge-365: #e6b63b;
+  --badge-365-lo: #86590a;
+  --badge-365-rib: #7a0d1e;
+  --badge-365-stripe: #f8d977;
+  --badge-gem: #b3122e;
+  --badge-gem-hi: #ff9aa8;
+  --badge-shine: rgba(255, 255, 255, 0.55);
+  --badge-shadow: rgba(0, 0, 0, 0.28);
   --color-text-2: #3e4553;
   --color-input-border: #8a8a93;
   --color-brand-fill-hover: #2b27a8;
@@ -2487,31 +2517,52 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 }
 
 /* 연속 출석 휘장과 출석 알림 (이슈 266) */
-.streak-badge { display: inline-grid; place-items: center; vertical-align: middle; position: relative; flex: none; --b: var(--badge-20); }
-.streak-badge.d50 { --b: var(--badge-50); }
-.streak-badge.d100 { --b: var(--badge-100); }
-.streak-badge.d150 { --b: var(--badge-150); }
-.streak-badge.d200 { --b: var(--badge-200); }
-.streak-badge.d300 { --b: var(--badge-300); }
-.streak-badge.d365 { --b: var(--badge-365); }
-.streak-badge svg { display: block; overflow: visible; }
-.streak-badge .ribbon { fill: var(--b); opacity: 0.75; }
-.streak-badge .medal { fill: var(--b); }
-.streak-badge .rim { fill: none; stroke: var(--badge-ink); stroke-opacity: 0.55; stroke-width: 1.2; }
-.streak-badge .num { fill: var(--badge-ink); font-size: 8px; font-weight: 800; font-family: inherit; }
-.streak-badge.locked .ribbon, .streak-badge.locked .medal { fill: var(--color-border); opacity: 1; }
-.streak-badge.locked .num { fill: var(--color-text-muted); }
-.streak-badge.special .rim { stroke: var(--badge-365-hi); stroke-opacity: 1; stroke-width: 1.6; }
-.streak-badge.special:not(.locked) { filter: drop-shadow(0 0 4px var(--badge-365)); }
-.streak-badge.special:not(.locked)::after { content: ""; position: absolute; inset: 30% 18% 0; border-radius: 50%; pointer-events: none;
+.streak-badge { display: inline-grid; place-items: center; vertical-align: middle; position: relative; flex: none;
+  --hi: var(--badge-20-hi); --b: var(--badge-20); --lo: var(--badge-20-lo); --rib: var(--badge-20-rib); --stripe: var(--badge-20-stripe); }
+.streak-badge.d50 { --hi: var(--badge-50-hi); --b: var(--badge-50); --lo: var(--badge-50-lo); --rib: var(--badge-50-rib); --stripe: var(--badge-50-stripe); }
+.streak-badge.d100 { --hi: var(--badge-100-hi); --b: var(--badge-100); --lo: var(--badge-100-lo); --rib: var(--badge-100-rib); --stripe: var(--badge-100-stripe); }
+.streak-badge.d150 { --hi: var(--badge-150-hi); --b: var(--badge-150); --lo: var(--badge-150-lo); --rib: var(--badge-150-rib); --stripe: var(--badge-150-stripe); }
+.streak-badge.d200 { --hi: var(--badge-200-hi); --b: var(--badge-200); --lo: var(--badge-200-lo); --rib: var(--badge-200-rib); --stripe: var(--badge-200-stripe); }
+.streak-badge.d300 { --hi: var(--badge-300-hi); --b: var(--badge-300); --lo: var(--badge-300-lo); --rib: var(--badge-300-rib); --stripe: var(--badge-300-stripe); }
+.streak-badge.d365 { --hi: var(--badge-365-hi); --b: var(--badge-365); --lo: var(--badge-365-lo); --rib: var(--badge-365-rib); --stripe: var(--badge-365-stripe); }
+.streak-badge svg { display: block; overflow: visible; filter: drop-shadow(0 1px 1.5px var(--badge-shadow)); }
+.streak-badge .s-hi { stop-color: var(--hi); }
+.streak-badge .s-base { stop-color: var(--b); }
+.streak-badge .s-lo { stop-color: var(--lo); }
+.streak-badge .s-gem { stop-color: var(--badge-gem); }
+.streak-badge .s-gem-hi { stop-color: var(--badge-gem-hi); }
+.streak-badge .rib { fill: var(--rib); }
+.streak-badge .rib-stripe { fill: var(--stripe); }
+.streak-badge .rib-edge { fill: var(--stripe); opacity: 0.6; }
+.streak-badge .rib-fold { fill: var(--badge-shadow); }
+.streak-badge .ring { stroke: var(--lo); stroke-width: 0.5; }
+.streak-badge .medal-edge { stroke: var(--lo); stroke-width: 0.6; }
+.streak-badge .reeding { fill: none; stroke: var(--lo); stroke-width: 1.2; stroke-dasharray: 0.6 0.9; opacity: 0.55; }
+.streak-badge .bevel { fill: none; stroke: var(--lo); stroke-width: 0.8; opacity: 0.7; }
+.streak-badge .leaf { fill: var(--lo); opacity: 0.55; }
+.streak-badge .num { fill: var(--lo); font-size: 9px; font-weight: 900; font-family: inherit; letter-spacing: -0.3px; }
+.streak-badge.d100 .num, .streak-badge.d150 .num, .streak-badge.d200 .num, .streak-badge.d300 .num { font-size: 8px; }
+.streak-badge .num-shadow { fill: var(--hi); opacity: 0.8; }
+.streak-badge .gem { stroke: var(--lo); stroke-width: 0.6; }
+.streak-badge .gem-glint { fill: var(--badge-shine); }
+.streak-badge .shine { fill: var(--badge-shine); opacity: 0.6; }
+.streak-badge.locked svg { filter: grayscale(1); opacity: 0.38; }
+.streak-badge.special:not(.locked) svg { filter: drop-shadow(0 0 4px var(--badge-365)) drop-shadow(0 1px 1.5px var(--badge-shadow)); }
+.streak-badge.special:not(.locked)::after { content: ""; position: absolute; inset: 38% 6% 4%; border-radius: 50%; pointer-events: none;
   background: linear-gradient(115deg, transparent 35%, var(--badge-365-hi) 50%, transparent 65%); background-size: 250% 100%; mix-blend-mode: screen;
   animation: badge-shine 2.6s ease-in-out infinite; }
 @keyframes badge-shine { from { background-position: 120% 0; } to { background-position: -120% 0; } }
 .blog-name .streak-badge { margin-left: 8px; }
 .points-badges-title { margin: 20px 0 8px; font-size: 1rem; }
-.points-badges { list-style: none; margin: 0 0 8px; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
-.points-badges li { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--color-text-muted); }
+.points-badges { list-style: none; margin: 8px 0 16px; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 12px; }
+.points-badges li { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 6px 12px; border-radius: var(--radius-lg);
+  background: var(--color-surface-2); color: var(--color-text-muted); text-align: center; }
 .points-badges li.got { color: var(--color-text); font-weight: 600; }
-@media (max-width: 480px) { .points-badges { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.points-badges li .streak-badge { margin-bottom: 4px; }
+.points-badge-date { font-weight: 400; font-variant-numeric: tabular-nums; }
+@media (max-width: 480px) { .points-badges { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } }
+.points-tabs { margin: 16px 0; }
+.points-tabs .settings-panel > .admin-card { border: 0; border-radius: 0; background: none; box-shadow: none; padding: 16px 0; margin: 0; }
+.points-tabs .settings-panel h2 { margin-top: 0; }
 .attend-nudge { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 12px 0 0; }
 .attend-nudge-actions { display: flex; align-items: center; gap: 4px; }

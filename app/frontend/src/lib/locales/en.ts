@@ -1722,4 +1722,12 @@ export const en: Record<string, string> = {
   "오늘은 닫기": "Close for today",
   "오늘은 이 알림을 띄우지 않아요": "Hide this reminder for today",
   "출석 알림": "Check-in reminder",
+  "{0}일 남음": "{0} days to go",
+  "내역": "History",
+  "연속 출석으로 받는 휘장": "Badges earned from streaks",
+  "오늘 출석하고 연속 출석 보상 보기": "Check in today and see streak rewards",
+  "적립·사용 내역": "Earned and spent history",
+  "출석·글 발행·모의투자 수익 적립 규칙": "Rules for check-ins, posts and paper-trading profit",
+  "포인트 메뉴": "Points menu",
+  "휘장": "Badges",
 }

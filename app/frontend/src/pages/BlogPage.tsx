@@ -91,7 +91,7 @@ export function BlogPage({ handle, tab = 'posts' }: { handle: string; tab?: 'pos
             </div>
           </div>
           <h1 className="blog-name">{profile.nickname}
-            {topBadge && <StreakBadgeIcon days={topBadge.days} size={36} />}
+            {topBadge && <StreakBadgeIcon days={topBadge.days} size={30} />}
           </h1>
           <p className="blog-handle muted">@{profile.handle}
             {lastActiveLabel(profile.lastActiveDaysAgo) && <span className="blog-active">  {t('· 최근 활동')} {lastActiveLabel(profile.lastActiveDaysAgo)}</span>}
