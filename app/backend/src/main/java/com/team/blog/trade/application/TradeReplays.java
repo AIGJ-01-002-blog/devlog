@@ -42,8 +42,6 @@ public class TradeReplays {
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("M월 d일").withZone(TradeTexts.KST);
     static final int REASON_SPOKEN_MAX = 90;
     static final int REASON_SPOKEN_MIN = 30;
-    /** 마지막 장면 끝에 붙이는 짧은 고지 */
-    static final String CLOSING = "투자 권유는 아니에요.";
     static final int MEMO_SPOKEN_MAX = 150;
     static final int MEMO_SPOKEN_MIN = 40;
 
@@ -149,13 +147,14 @@ public class TradeReplays {
         args.addAll(ids);
         return jdbc.query("""
                 SELECT id, external_id, mode, exchange, symbol, symbol_name, side, quantity, price, currency, fee, realized_pnl, strategy,
-                       reason, executed_at
+                       reason, executed_at, market, position_side, leverage, timeframe
                 FROM trade WHERE member_id = ? AND id IN (""" + marks + ") ORDER BY executed_at, id",
                 (rs, i) -> new TradeJournal.Fill(rs.getLong("id"), rs.getString("external_id"), rs.getString("mode"), rs.getString("exchange"),
                         rs.getString("symbol"), rs.getString("symbol_name"), rs.getString("side"), plain(rs.getBigDecimal("quantity")),
                         plain(rs.getBigDecimal("price")), rs.getString("currency"), plain(rs.getBigDecimal("fee")),
                         plain(rs.getBigDecimal("realized_pnl")), rs.getString("strategy"), rs.getString("reason"),
-                        rs.getTimestamp("executed_at").toInstant()), args.toArray());
+                        rs.getTimestamp("executed_at").toInstant(), rs.getString("market"), rs.getString("position_side"),
+                        rs.getObject("leverage", Integer.class), rs.getString("timeframe")), args.toArray());
     }
 
     private static BigDecimal plain(BigDecimal v) {
@@ -209,8 +208,8 @@ public class TradeReplays {
                 + (brief ? "그 시각으로 돌려 볼게요." : DATE.format(r.fills().getFirst().executedAt()) + " " + coin + " 차트를 그 시각으로 돌려 볼게요."), null));
         for (TradeReplay.Fill f : r.fills()) out.add(fillScene(r, f, reasonMax, noPnl));
         out.add(resultScene(r));
-        // 투자 권유 고지는 맨 끝에 한마디만 붙인다. 화면에는 워커가 마지막 장면에 "모의투자 기록 · 투자 권유 아님"을 작게 적는다
-        out.add(new Scene("제가 배운 점", (brief ? "제 메모예요. " : "제가 그날 남긴 메모는 이래요. ") + clip(memo, memoMax) + " " + CLOSING, null));
+        // 투자 권유 고지는 대본에 넣지 않는다. 워커가 영상 맨 끝에 짧은 카드 한 장("모의투자 기록 · 투자 권유 아님")을 붙인다
+        out.add(new Scene("제가 배운 점", (brief ? "제 메모예요. " : "제가 그날 남긴 메모는 이래요. ") + clip(memo, memoMax), null));
         return out;
     }
 

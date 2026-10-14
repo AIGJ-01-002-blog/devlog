@@ -33,6 +33,14 @@ PLOT_Y0, PLOT_Y1 = Y0 + 80, Y1 - 30
 FIRST_VISIBLE = 0.4
 FILL_DELAY = 0.6
 BANNER_SECONDS = 1.8
+#: 체결 효과 길이(초): 번쩍임, 퍼지는 고리, 띠가 밀려 들어오는 시간
+FLASH_SECONDS = 0.18
+RING_SECONDS = 0.6
+SLIDE_SECONDS = 0.28
+#: 캔들 틱 소리는 이 간격보다 촘촘하면 건너뛴다
+TICK_GAP = 0.09
+#: 영상 맨 끝 고지 카드 길이(초)
+CARD_SECONDS = 1.3
 
 EXCHANGE_NAMES = {"BINANCE": "바이낸스", "UPBIT": "업비트", "BYBIT": "바이비트"}
 INTERVAL_LABELS = {"1m": "1분봉", "5m": "5분봉", "15m": "15분봉", "1h": "1시간봉", "4h": "4시간봉", "1d": "일봉"}
@@ -48,13 +56,15 @@ class Fill:
 
 @dataclass(frozen=True)
 class Box:
-    x: int
-    y: int
-    w: int
-    h: int
+    """x·y·w·h는 숫자 또는 ffmpeg 식. 식 안의 {T}는 렌더러가 이 요소가 나타나는 장면 안 시각으로 바꾼다"""
+    x: int | str
+    y: int | str
+    w: int | str
+    h: int | str
     color: str
     start: float = 0.0  # 영상 전체에서 나타나는 시각(초)
     end: float | None = None
+    thickness: str = "fill"
 
 
 @dataclass(frozen=True)
@@ -67,6 +77,23 @@ class Text:
     start: float = 0.0
     end: float | None = None
     box: str | None = None  # 글자 뒤 바탕색
+    alpha: str | None = None  # ffmpeg 식 ({T} 사용 가능)
+    fontsize: str | None = None  # 크기가 바뀌면 ffmpeg 식, 아니면 size
+
+
+@dataclass(frozen=True)
+class Cue:
+    """효과음 한 번. kind: tick(캔들) · whoosh(띠) · buy · sell · win · loss · card(고지)"""
+    at: float
+    kind: str
+
+
+@dataclass(frozen=True)
+class Shake:
+    """화면 흔들림 (체결 순간)"""
+    at: float
+    seconds: float = 0.35
+    amp: int = 9
 
 
 @dataclass
@@ -209,6 +236,10 @@ def scene_layers(r: Replay, starts: list[float], total: float) -> list[Box | Tex
         color = UP if buy else DOWN
         py = y(f.price)
         word = "매수" if buy else "매도"
+        # 체결 순간: 차트가 그 색으로 번쩍이고, 체결 자리에서 고리가 퍼진다
+        out.append(Box(X0, Y0, X1 - X0, Y1 - Y0, color + "@0.28", t, t + FLASH_SECONDS))
+        grow = f"(40+260*clip((t-{{T}})/{RING_SECONDS},0,1))"
+        out.append(Box(f"'{cx(i)}-{grow}/2'", f"'{py}-{grow}/2'", f"'{grow}'", f"'{grow}'", color + "@0.8", t, t + RING_SECONDS, "5"))
         # 매수 가격 선은 다음 매도까지 이어 그려 얼마에 들고 있었는지 보인다
         if buy:
             close = next((candle_index(candles, g.at, sec) for g in r.fills[k + 1:] if g.side == "SELL"), None)
@@ -217,12 +248,64 @@ def scene_layers(r: Replay, starts: list[float], total: float) -> list[Box | Tex
         label_y = min(y(candles[i].l) + 18, PLOT_Y1 - 4) if buy else max(y(candles[i].h) - 66, PLOT_Y0 - 40)
         out.append(Box(cx(i) - 3, min(py, label_y + 24), 6, abs(label_y + 24 - py), color, t))
         out.append(Text(word, 30, "white", f"{cx(i)}-text_w/2", label_y + 8, t, box=color))
-        # 체결 순간 크게 알리는 띠
+        # 체결 띠: 오른쪽에서 밀려 들어와 1.8초 머문다
         banner = f"{word} {money(f.price, r.currency)}"
         if f.pnl is not None:
             banner += f"  {money(f.pnl, r.currency, sign=True)}"
-        out.append(Text(banner, 50, "white", "(w-text_w)/2", PLOT_Y0 + 6, t, t + BANNER_SECONDS, box=color + "@0.92"))
+        slide = f"'(w-text_w)/2+{layout.WIDTH}*pow(1-clip((t-{{T}})/{SLIDE_SECONDS},0,1),3)'"
+        out.append(Text(banner, 50, "white", slide, PLOT_Y0 + 6, t, t + BANNER_SECONDS, box=color + "@0.92"))
+
+    # 결과 장면: 실현 손익 합계가 차트 가운데에 크게 튀어나온다
+    result_at = result_time(r, starts)
+    pnl = total_pnl(r)
+    if result_at is not None and pnl is not None:
+        color = UP if pnl >= 0 else DOWN
+        # 0.22초 동안 커지며 살짝 넘쳤다가 제자리로 (튀어나오는 느낌)
+        pop = f"'120*(0.4+0.6*clip((t-{{T}})/0.22,0,1))+22*sin(PI*clip((t-{{T}})/0.22,0,1))'"
+        k = len(r.fills) + 2
+        until = starts[k] if k < len(starts) else None  # 결과 장면에서만 보인다
+        out.append(Box(X0, Y0, X1 - X0, Y1 - Y0, "black@0.45", result_at, until))
+        out.append(Text(money(pnl, r.currency, sign=True), 120, color, "(w-text_w)/2", "(h-text_h)/2-60", result_at, until,
+                        fontsize=pop))
+    # 차트 위 깜빡이는 점: 지금 시세가 흐르는 중이라는 표시
+    out.append(Text("● REPLAY", 26, DOWN, f"{X1 - 30}-text_w", Y0 + 66, 0.0, alpha="'if(lt(mod(t,1),0.6),1,0.25)'"))
     return out
+
+
+def total_pnl(r: Replay) -> float | None:
+    values = [f.pnl for f in r.fills if f.pnl is not None]
+    return sum(values) if values else None
+
+
+def result_time(r: Replay, starts: list[float]) -> float | None:
+    """결과 장면(체결 장면 바로 다음)이 시작하고 조금 뒤. 대본에 그 장면이 없으면 None"""
+    k = len(r.fills) + 1
+    return starts[k] + 0.35 if k < len(starts) else None
+
+
+def cues(r: Replay, starts: list[float], total: float) -> list[Cue]:
+    """효과음 순서표. 화면 효과와 같은 시각을 쓴다(렌더러가 바뀌어도 그대로 쓸 수 있게 데이터로만 낸다)."""
+    sec = INTERVAL_SECONDS.get(r.interval, 900)
+    times, fill_times = reveal_times(r.candles, r.fills, sec, starts, total)
+    out: list[Cue] = []
+    last = -1.0
+    for t in times:
+        if t > 0 and t - last >= TICK_GAP:
+            out.append(Cue(t, "tick"))
+            last = t
+    for f, t in zip(r.fills, fill_times):
+        out.append(Cue(max(0.0, t - 0.12), "whoosh"))
+        out.append(Cue(t, "buy" if f.side == "BUY" else "sell"))
+    at, pnl = result_time(r, starts), total_pnl(r)
+    if at is not None and pnl is not None:
+        out.append(Cue(at, "win" if pnl >= 0 else "loss"))
+    return sorted(out, key=lambda c: c.at)
+
+
+def shakes(r: Replay, starts: list[float], total: float) -> list[Shake]:
+    sec = INTERVAL_SECONDS.get(r.interval, 900)
+    _, fill_times = reveal_times(r.candles, r.fills, sec, starts, total)
+    return [Shake(t) for t in fill_times]
 
 
 def _clock(epoch: int, sec: int) -> str:

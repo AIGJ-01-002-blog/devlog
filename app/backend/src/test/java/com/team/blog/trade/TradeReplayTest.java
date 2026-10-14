@@ -100,7 +100,8 @@ class TradeReplayTest extends IntegrationTest {
         assertThat(narrations.get(0)).endsWith("돌려 볼게요.").contains("왜");
         assertThat(narrations.get(1)).startsWith("10시 15분,").contains("거래량 두 배", "92,100.50 USDT에 매수했어요");
         assertThat(narrations.get(3)).contains("+13.20 USDT");
-        assertThat(narrations.getLast()).contains("두 번째 매수는 너무 서둘렀어요").endsWith("투자 권유는 아니에요.");
+        assertThat(narrations.getLast()).contains("두 번째 매수는 너무 서둘렀어요");
+        assertThat(narrations).noneMatch(n -> n.contains("투자 권유"));
         assertThat(item.path("estimatedSeconds").asDouble()).isLessThanOrEqualTo(60);
 
         // AI는 get_shorts로 고른 체결·메모·다시 쓰기 규칙을 읽는다

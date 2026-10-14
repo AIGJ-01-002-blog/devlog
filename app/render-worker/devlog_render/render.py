@@ -16,7 +16,7 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import candles, layout, replay, tts
+from . import candles, layout, replay, trade_sfx, tts
 
 FPS = 30
 SCENE_PADDING = 0.4
@@ -115,16 +115,23 @@ class Renderer:
             if chart is not None:
                 # 캔들은 영상 전체에 걸쳐 흘러가므로 장면 길이를 모두 안 뒤에 언제 나올지 정한다
                 starts = [sum(seconds[:i]) for i in range(len(seconds))]
-                layers = replay.scene_layers(chart, starts, sum(seconds))
-                filters = [self._replay_filters(work, script, i, scene, layers, starts[i], seconds[i])
+                total = sum(seconds)
+                layers = replay.scene_layers(chart, starts, total)
+                moves = replay.shakes(chart, starts, total)
+                filters = [self._replay_filters(work, script, i, scene, layers, starts[i], seconds[i], moves)
                            for i, scene in enumerate(script.scenes)]
             else:
                 filters = [self._filters(work, script, i, scene) for i, scene in enumerate(script.scenes)]
             segments = [self._encode(work, i, audios[i], seconds[i], filters[i]) for i in range(len(script.scenes))]
+            if chart is not None:
+                card, card_seconds = self._card(work, script)
+                segments.append(card)
             listing = work / "segments.txt"
             listing.write_text("".join(f"file '{s.name}'\n" for s in segments), encoding="utf-8")
             joined = work / "out.mp4"
             self._ffmpeg(work, ["-f", "concat", "-safe", "0", "-i", listing.name, "-c", "copy", "-movflags", "+faststart", joined.name])
+            if chart is not None:
+                joined = self._with_sfx(work, joined, replay.cues(chart, starts, total), total + card_seconds)
             out.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(joined), str(out))
         return probe_ms(out, self.ffmpeg)
@@ -199,11 +206,13 @@ class Renderer:
         parts.append(f"drawbox=x=0:y={layout.HEIGHT - 10}:w={progress}:h=10:color={ACCENT}:t=fill")
         return ",".join(parts)
 
-    def _replay_filters(self, work: Path, script: Script, i: int, scene: Scene, layers: list, start: float, seconds: float) -> str:
+    def _replay_filters(self, work: Path, script: Script, i: int, scene: Scene, layers: list, start: float, seconds: float,
+                        shakes: list | None = None) -> str:
         """매매 재현 장면: 위에 제목·자막, 가운데 캔들 차트, 아래 내레이션. 차트 요소는 영상 전체 시각을 이 장면 안 시각으로 바꿔 켠다."""
         font = "font" + Path(self.font).suffix
         parts: list[str] = []
         n = 0
+        shakes = shakes or []
 
         def enable(at: float, until: float | None) -> str | None:
             """이 장면에서 안 보이면 "skip", 늘 보이면 None, 아니면 ffmpeg enable 식"""
@@ -216,14 +225,17 @@ class Renderer:
                 return f"gte(t\\,{local:.3f})"
             return f"between(t\\,{max(local, 0):.3f}\\,{end:.3f})"
 
-        def text(value: str, size: int, color: str, y: int, x: str = "(w-text_w)/2", when: str | None = None, box: str | None = None) -> None:
+        def text(value: str, size: int, color: str, y, x: str = "(w-text_w)/2", when: str | None = None, box: str | None = None,
+                 alpha: str | None = None, fontsize: str | None = None) -> None:
             nonlocal n
             name = f"t{i}_{n}.txt"
             n += 1
             (work / name).write_text(value, encoding="utf-8")
-            f = f"drawtext=fontfile={font}:textfile={name}:expansion=none:fontsize={size}:fontcolor={color}:x={x}:y={y}"
+            f = f"drawtext=fontfile={font}:textfile={name}:expansion=none:fontsize={fontsize or size}:fontcolor={color}:x={x}:y={y}"
             if box:
                 f += f":box=1:boxcolor={box}:boxborderw=12"
+            if alpha:
+                f += f":alpha={alpha}"
             if when:
                 f += f":enable={when}"
             parts.append(f)
@@ -237,22 +249,56 @@ class Renderer:
             when = enable(layer.start, layer.end)
             if when == "skip":
                 continue
+            local = f"{layer.start - start:.3f}"
+
+            def ex(v):  # 움직이는 효과의 {T}를 이 장면 안에서 나타나는 시각으로
+                return v.replace("{T}", local) if isinstance(v, str) else v
+
             if isinstance(layer, replay.Box):
-                f = f"drawbox=x={layer.x}:y={layer.y}:w={layer.w}:h={layer.h}:color={layer.color}:t=fill"
+                f = (f"drawbox=x={ex(layer.x)}:y={ex(layer.y)}:w={ex(layer.w)}:h={ex(layer.h)}"
+                     f":color={layer.color}:t={layer.thickness}")
                 parts.append(f + (f":enable={when}" if when else ""))
             else:
-                text(layer.value, layer.size, layer.color, layer.y, layer.x, when, layer.box)
-
-        if i == len(script.scenes) - 1:
-            # 투자 권유 고지는 영상 맨 끝 장면에만 작게 적는다
-            mode = "실계좌" if (script.replay or {}).get("mode") == "LIVE" else "모의투자"
-            text(f"{mode} 기록 · 투자 권유 아님", 28, MUTED, 1290)
+                text(layer.value, layer.size, layer.color, ex(layer.y), ex(layer.x), when, layer.box, ex(layer.alpha), ex(layer.fontsize))
         for k, line in enumerate(layout.wrap(scene.narration, 19, 5)):
             text(line, 48, "white", 1370 + k * 66)
         text(script.footer, 36, MUTED, 1790)
         progress = round(layout.WIDTH * (i + 1) / len(script.scenes))
         parts.append(f"drawbox=x=0:y={layout.HEIGHT - 10}:w={progress}:h=10:color={ACCENT}:t=fill")
+        # 체결 순간 화면이 짧게 흔들린다: 테두리를 조금 붙여 두고 잘라 내는 자리를 흔든다
+        moves = [k for k in shakes if 0 <= k.at - start < seconds]
+        if moves:
+            pad = max(k.amp for k in moves) + 2
+            dx = "+".join(f"if(between(t,{k.at - start:.3f},{k.at - start + k.seconds:.3f}),"
+                          f"{k.amp}*sin(t*95)*(1-(t-{k.at - start:.3f})/{k.seconds}),0)" for k in moves)
+            dy = dx.replace("sin(t*95)", "cos(t*77)")
+            parts.append(f"pad={layout.WIDTH + 2 * pad}:{layout.HEIGHT + 2 * pad}:{pad}:{pad}:color={BG}")
+            parts.append(f"crop={layout.WIDTH}:{layout.HEIGHT}:x='{pad}+{dx}':y='{pad}+{dy}'")
         return ",".join(parts)
+
+    def _with_sfx(self, work: Path, video: Path, cues: list, seconds: float) -> Path:
+        """효과음 트랙을 내레이션 위에 얹는다. 화면은 다시 인코딩하지 않는다"""
+        track = trade_sfx.render(cues, seconds, work / "sfx.wav")
+        out = work / "out-sfx.mp4"
+        self._ffmpeg(work, ["-i", video.name, "-i", track.name, "-filter_complex",
+                            "[0:a][1:a]amix=inputs=2:normalize=0:duration=first,alimiter=limit=0.95[a]",
+                            "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-ac", "2",
+                            "-movflags", "+faststart", out.name])
+        return out
+
+    def _card(self, work: Path, script: Script) -> tuple[Path, float]:
+        """영상 맨 끝 고지 카드 한 장(소리 없이 짧게). 대본과 상관없이 늘 붙어서 AI가 대본을 다시 써도 빠지지 않는다"""
+        font = "font" + Path(self.font).suffix
+        mode = "실계좌" if (script.replay or {}).get("mode") == "LIVE" else "모의투자"
+        lines = [(f"{mode} 기록", 64, "white", 860), ("투자 권유가 아니에요", 52, MUTED, 960)]
+        parts = []
+        for k, (value, size, color, y) in enumerate(lines):
+            (work / f"card{k}.txt").write_text(value, encoding="utf-8")
+            parts.append(f"drawtext=fontfile={font}:textfile=card{k}.txt:expansion=none:fontsize={size}:fontcolor={color}"
+                         f":x=(w-text_w)/2:y={y}:alpha='clip(t/0.15,0,1)'")
+        audio = work / "card.wav"
+        self._ffmpeg(work, ["-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo", "-t", f"{replay.CARD_SECONDS:.2f}", audio.name])
+        return self._encode(work, len(script.scenes), audio, replay.CARD_SECONDS, ",".join(parts)), replay.CARD_SECONDS
 
     def _ffmpeg(self, work: Path, args: list[str]) -> None:
         try:

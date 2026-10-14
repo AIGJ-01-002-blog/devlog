@@ -3,10 +3,11 @@
 import json
 import shutil
 import unittest
+import wave
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from devlog_render import candles, replay
+from devlog_render import candles, replay, trade_sfx
 from devlog_render.candles import Candle
 from devlog_render.render import Renderer, Script, find_font
 
@@ -129,3 +130,28 @@ class ReplayRenderTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class EffectsTest(unittest.TestCase):
+    """체결 효과음·흔들림 순서표 (#265): 렌더 방식이 바뀌어도 쓰는 데이터"""
+
+    def test_cues_follow_fills_and_result(self):
+        r = replay.Replay("BINANCE", "BTCUSDT", "비트코인", "USDT", "PAPER", "5m",
+                          [replay.Fill("BUY", 100.0, 600), replay.Fill("SELL", 110.0, 1500, 10.0)],
+                          [Candle(i * 300, 100, 101, 99, 100) for i in range(8)])
+        starts = [0.0, 3.0, 6.0, 9.0, 12.0]
+        cues = replay.cues(r, starts, 15.0)
+        kinds = [c.kind for c in cues if c.kind != "tick"]
+        self.assertEqual(kinds, ["whoosh", "buy", "whoosh", "sell", "win"])
+        self.assertTrue(any(c.kind == "tick" for c in cues))
+        self.assertEqual(len(replay.shakes(r, starts, 15.0)), 2)
+        with TemporaryDirectory() as tmp:
+            path = trade_sfx.render(cues, 15.0, Path(tmp) / "s.wav")
+            with wave.open(str(path)) as w:
+                self.assertEqual((w.getnchannels(), w.getframerate()), (2, 44_100))
+                self.assertAlmostEqual(w.getnframes() / 44_100, 15.0, places=1)
+            # 장면 시작 기준 훅용: (장면, 장면 안 시각, 종류, 크기)와 종류별 파일
+            scene, at, kind, _ = next(e for e in trade_sfx.per_scene(cues, starts) if e[2] == "buy")
+            self.assertEqual(scene, 1)
+            self.assertGreaterEqual(at, 0.0)
+            self.assertTrue(trade_sfx.sound_file("sell", Path(tmp)).stat().st_size > 1000)
