@@ -10,6 +10,18 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
+### 화면
+| 쇼츠 스튜디오 (PC) | 양산형 검사 (PC) |
+|---|---|
+| ![쇼츠 스튜디오 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shorts-studio-pc.webp) | ![양산형 검사 결과](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shorts-studio-check-pc.webp) |
+
+| 휴대폰 | 휴대폰 · 다크 | 렌더 워커가 만든 영상 한 장면 |
+|---|---|---|
+| ![쇼츠 스튜디오 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shorts-studio-m.webp) | ![장면 편집 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shorts-studio-m-dark.webp) | ![9:16 영상 장면](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/shorts-video-frame.webp) |
+
+### 추가
+- 쇼츠 스튜디오 1단계(`/studio`, 기본 꺼짐 `SHORTS_ENABLED=false`): 내 AI가 MCP(`create_shorts_script`·`update_shorts_script`·`list_shorts`)로 쓴 쇼츠 대본을 장면(자막·읽을 문장·코드)별로 다듬고, [영상 만들기]를 누르면 내 컴퓨터의 렌더 워커(`app/render-worker`, 맥 `say`·Windows 기본 음성)가 9:16 MP4로 만들어 올린다. 영상은 받아서 SNS에 직접 올리며 자동 업로드는 없다. 영상 만들기 전에 양산형 검사로 다른 대본과 겹침·글 그대로 옮김·장면 반복·같은 첫마디를 막는다. DB에 `shorts`·`shorts_render_request` 표가 생긴다 (목표 v2.0.0 [#236](https://github.com/AIGJ-01-002-blog/devlog/issues/236) · spec 099, #237, #242)
+
 ### 고침
 
 - 소셜로 가입할 때 미리 채울 닉네임이 이미 쓰는 닉네임이면 빈칸 대신 `민서2`처럼 숫자를 붙인 빈 닉네임을 채운다. 이미 가입한 사람이 같은 별명의 다른 소셜 계정으로 오면 닉네임 칸이 비던 문제다 (목표 v1.72.0 [#223](https://github.com/AIGJ-01-002-blog/devlog/issues/223) · spec 096)
