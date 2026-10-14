@@ -243,8 +243,10 @@ class Renderer:
             else:
                 text(layer.value, layer.size, layer.color, layer.y, layer.x, when, layer.box)
 
-        mode = "실계좌" if (script.replay or {}).get("mode") == "LIVE" else "모의투자"
-        text(f"{mode} 기록 · 투자 권유가 아니에요", 28, MUTED, 1290)
+        if i == len(script.scenes) - 1:
+            # 투자 권유 고지는 영상 맨 끝 장면에만 작게 적는다
+            mode = "실계좌" if (script.replay or {}).get("mode") == "LIVE" else "모의투자"
+            text(f"{mode} 기록 · 투자 권유 아님", 28, MUTED, 1290)
         for k, line in enumerate(layout.wrap(scene.narration, 19, 5)):
             text(line, 48, "white", 1370 + k * 66)
         text(script.footer, 36, MUTED, 1790)

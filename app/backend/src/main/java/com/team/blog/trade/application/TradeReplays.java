@@ -42,6 +42,8 @@ public class TradeReplays {
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("M월 d일").withZone(TradeTexts.KST);
     static final int REASON_SPOKEN_MAX = 90;
     static final int REASON_SPOKEN_MIN = 30;
+    /** 마지막 장면 끝에 붙이는 짧은 고지 */
+    static final String CLOSING = "투자 권유는 아니에요.";
     static final int MEMO_SPOKEN_MAX = 150;
     static final int MEMO_SPOKEN_MIN = 40;
 
@@ -202,15 +204,13 @@ public class TradeReplays {
     private static List<Scene> draft(TradeReplay r, String memo, int memoMax, int reasonMax, boolean brief, boolean noPnl) {
         TradeReplay.Interval interval = TradeReplay.Interval.parse(r.interval()).orElse(TradeReplay.Interval.M15);
         String coin = coin(r);
-        String modeWord = "LIVE".equals(r.mode()) ? "실계좌" : "모의투자";
         List<Scene> out = new ArrayList<>();
         out.add(new Scene(coin + " " + interval.label + " 다시 보기", "그때 저는 왜 여기서 " + side(r.fills().getFirst().side()) + "했을까요? "
                 + (brief ? "그 시각으로 돌려 볼게요." : DATE.format(r.fills().getFirst().executedAt()) + " " + coin + " 차트를 그 시각으로 돌려 볼게요."), null));
         for (TradeReplay.Fill f : r.fills()) out.add(fillScene(r, f, reasonMax, noPnl));
         out.add(resultScene(r));
-        out.add(new Scene("제가 배운 점", (brief ? "제 메모예요. " : "제가 그날 남긴 메모는 이래요. ") + clip(memo, memoMax), null));
-        out.add(new Scene("투자 권유가 아니에요", brief ? modeWord + " 기록이고, 투자 권유가 아니에요."
-                : modeWord + " 기록을 다시 돌려 본 영상이에요. 수익을 약속하지 않고, 투자 권유가 아니에요.", null));
+        // 투자 권유 고지는 맨 끝에 한마디만 붙인다. 화면에는 워커가 마지막 장면에 "모의투자 기록 · 투자 권유 아님"을 작게 적는다
+        out.add(new Scene("제가 배운 점", (brief ? "제 메모예요. " : "제가 그날 남긴 메모는 이래요. ") + clip(memo, memoMax) + " " + CLOSING, null));
         return out;
     }
 

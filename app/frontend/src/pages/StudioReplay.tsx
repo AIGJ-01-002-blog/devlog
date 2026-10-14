@@ -167,7 +167,7 @@ export function ReplayInfo({ item, replay }: { item: ShortsItem; replay: TradeRe
           </li>
         ))}
       </ol>
-      <p className="muted small">{t('1번 장면에서 체결 전 흐름을 보여 주고, 2번 장면부터 체결 하나에 장면 하나씩 그 시각에 표시가 찍혀요. 남은 장면은 결과·배운 점·고지예요.')}</p>
+      <p className="muted small">{t('1번 장면에서 체결 전 흐름을 보여 주고, 2번 장면부터 체결 하나에 장면 하나씩 그 시각에 표시가 찍혀요. 남은 장면은 결과·배운 점이고, 투자 권유 고지는 맨 끝에 짧게 붙어요.')}</p>
       <CopyCode label={t('내 AI에게 대본 부탁하기')} code={replayPrompt(item.id)} />
     </section>
   )

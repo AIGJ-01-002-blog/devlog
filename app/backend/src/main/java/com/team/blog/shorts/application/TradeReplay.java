@@ -18,7 +18,7 @@ import java.util.Optional;
 public record TradeReplay(String exchange, String symbol, String symbolName, String currency, String mode, String interval,
                           Instant from, Instant to, List<Fill> fills) {
 
-    /** 한 영상에 담는 체결 수. 도입 1 + 체결마다 1 + 결과·메모·고지 3 = 장면 10개 안 */
+    /** 한 영상에 담는 체결 수. 도입 1 + 체결마다 1 + 결과·메모 2 = 장면 9개 (고지는 마지막 장면 끝에 붙는다) */
     public static final int FILLS_MAX = 6;
     /** 체결 사이 구간이 이 봉 수 안에 들어오는 가장 짧은 봉을 고른다 */
     static final int SPAN_CANDLES_AUTO = 60;

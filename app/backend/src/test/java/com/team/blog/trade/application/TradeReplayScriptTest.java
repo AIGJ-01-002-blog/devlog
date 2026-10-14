@@ -29,14 +29,14 @@ class TradeReplayScriptTest {
     @Test
     void 체결마다_장면을_두고_고지로_끝난다() {
         List<ShortsScript.Scene> scenes = TradeReplays.scenes(replay(2, "20일선 위로 거래량 두 배"), "두 번째 매수는 서둘렀어요.");
-        assertThat(scenes).hasSize(2 + 4);
+        assertThat(scenes).hasSize(2 + 3);
         assertThat(scenes.get(0).narration()).startsWith("그때 저는 왜 여기서 매수했을까요?");
         assertThat(scenes.get(1).caption()).isEqualTo("10:15 매수 92,100.00 USDT");
         assertThat(scenes.get(1).narration()).isEqualTo("10시 15분, 20일선 위로 거래량 두 배 0 그래서 92,100.00 USDT에 매수했어요.");
         assertThat(scenes.get(2).narration()).contains("+4.50 USDT이 확정됐어요");
         assertThat(scenes.get(3).caption()).isEqualTo("결과 +4.50 USDT");
-        assertThat(scenes.get(4).narration()).endsWith("두 번째 매수는 서둘렀어요.");
-        assertThat(scenes.getLast().narration()).contains("모의투자", "투자 권유가 아니에요");
+        // 고지는 따로 장면을 두지 않고 마지막 장면 끝에 한마디만 붙인다
+        assertThat(scenes.getLast().narration()).endsWith("두 번째 매수는 서둘렀어요. 투자 권유는 아니에요.");
         assertThat(ShortsScript.checkRender(TradeReplays.title(replay(2, "")), scenes)).isEmpty();
         assertThat(OriginalityCheck.check(scenes, null, List.of()).passed()).isTrue();
     }
@@ -45,7 +45,8 @@ class TradeReplayScriptTest {
     void 체결이_많고_이유가_길면_60초_안으로_줄인다() {
         String reason = "가".repeat(200);
         List<ShortsScript.Scene> scenes = TradeReplays.scenes(replay(TradeReplay.FILLS_MAX, reason), "메".repeat(500));
-        assertThat(scenes).hasSize(ShortsScript.SCENES_MAX);
+        assertThat(scenes).hasSize(TradeReplay.FILLS_MAX + 3);
+        assertThat(scenes.getLast().narration()).endsWith("투자 권유는 아니에요.");
         assertThat(ShortsScript.estimateSeconds(scenes)).isLessThanOrEqualTo(ShortsScript.SECONDS_MAX);
         assertThat(ShortsScript.checkSave("t", scenes)).isEmpty();
     }

@@ -1666,6 +1666,6 @@ export const en: Record<string, string> = {
   "매매 재현": "Trade replay",
   "모의투자": "Paper trading",
   "차트 {0} ~ {1}": "Chart {0} – {1}",
-  "1번 장면에서 체결 전 흐름을 보여 주고, 2번 장면부터 체결 하나에 장면 하나씩 그 시각에 표시가 찍혀요. 남은 장면은 결과·배운 점·고지예요.": "Scene 1 shows the move before the first fill. From scene 2, each fill gets one scene and its marker appears then. The remaining scenes are the result, lessons and disclaimer.",
+  "1번 장면에서 체결 전 흐름을 보여 주고, 2번 장면부터 체결 하나에 장면 하나씩 그 시각에 표시가 찍혀요. 남은 장면은 결과·배운 점이고, 투자 권유 고지는 맨 끝에 짧게 붙어요.": "Scene 1 shows the move before the first fill. From scene 2, each fill gets one scene and its marker appears then. The remaining scenes are the result and lessons, and a short disclaimer closes the video.",
   "내 AI에게 대본 부탁하기": "Ask my AI for a script",
 }
