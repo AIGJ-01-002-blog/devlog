@@ -1,7 +1,6 @@
 // 디자이너가 만든 움직이는 그림: Google Noto 애니메이션 이모지(Lottie, CC BY 4.0).
 // 마스코트(고양이 얼굴)와 소품(전구·로켓·폭죽 등)을 @remotion/lottie로 그린다. 재생은 장면 프레임에 맞춰 Remotion이 돌린다.
 import {Lottie, type LottieAnimationData} from '@remotion/lottie';
-import {Star} from '@remotion/shapes';
 import React from 'react';
 import {useCurrentFrame} from 'remotion';
 import type {Pose} from './Cat';
@@ -57,17 +56,16 @@ const HAPPY: Face[] = ['grin', 'joy', 'love'];
 export const Mascot: React.FC<{p: Pose; face: Face}> = ({p, face}) => {
   const frame = useCurrentFrame();
   const size = p.size * 0.92;
-  // 기쁜 표정 뒤에는 천천히 도는 햇살(@remotion/shapes Star)을 깔아 시선을 모은다
+  // 기쁜 표정 뒤에는 숨 쉬듯 커졌다 작아지는 빛을 깔아 시선을 모은다
   const rays = HAPPY.includes(face);
   // 말할 때 소리 크기만큼 살짝 커졌다 작아져서 말하는 느낌을 준다
   const talk = 1 + 0.05 * p.talk;
   return (
     <>
     {rays ? (
-      <div style={{position: 'absolute', left: p.x - size * 0.8, top: p.y - size * 1.3, width: size * 1.6, height: size * 1.6, display: 'grid',
-        placeItems: 'center', rotate: `${frame * 0.6}deg`, opacity: 0.22}}>
-        <Star points={12} innerRadius={size * 0.32} outerRadius={size * 0.8} cornerRadius={8} fill="#fde68a" />
-      </div>
+      <div style={{position: 'absolute', left: p.x - size * 0.8, top: p.y - size * 1.3, width: size * 1.6, height: size * 1.6, borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(253,224,71,0.45) 0%, rgba(253,224,71,0.18) 35%, rgba(253,224,71,0) 62%)',
+        scale: String(1 + 0.06 * Math.sin(frame / 8))}} />
     ) : null}
     <div style={{position: 'absolute', left: p.x - size / 2, top: p.y - size, width: size, height: size, transformOrigin: '50% 100%',
       scale: `${(talk / Math.sqrt(p.squash)).toFixed(4)} ${(talk * p.squash).toFixed(4)}`, rotate: `${p.bodyTilt + p.headTilt * 0.6}deg`}}>
