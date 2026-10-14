@@ -25,6 +25,9 @@ class PointsDisabledTest extends IntegrationTest {
         me.http().perform(post("/api/me/points/attendance").with(csrf())).andExpect(status().isNotFound());
         me.http().perform(get("/api/me/points/today")).andExpect(status().isNotFound());
         mvc.perform(get("/api/members/" + me.handle() + "/badges")).andExpect(status().isNotFound());
+        // 포인트가 꺼지면 상점(#268)·포인트 모의투자(#267)도 없다
+        me.http().perform(get("/api/shop")).andExpect(status().isNotFound());
+        me.http().perform(get("/api/me/paper")).andExpect(status().isNotFound());
         assertThat(jdbc.queryForObject("SELECT count(*) FROM point_ledger WHERE member_id = ?", Integer.class, me.memberId())).isZero();
     }
 }

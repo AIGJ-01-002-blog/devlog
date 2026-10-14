@@ -18,6 +18,7 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 - 쇼츠 주제 묶음: 글 하나나 AI와 나눈 맥락 하나를 작은 주제 2~5개로 나눠 주제마다 쇼츠 한 편씩 만든다. MCP `plan_shorts`가 주제(제목·첫 질문·다룰 범위)를 남기고, `create_shorts_script`는 `batch_id`·`topic`이나 맥락 근거 `source_text`를 받는다. 양산형 검사는 맥락 근거와도 비교하고, 같은 묶음의 다른 편과 겹치면 경고한다. 스튜디오는 묶음별로 대본을 모아 보여 주고 [묶음 영상 모두 만들기]로 통과한 편을 한 번에 대기열에 넣는다(막힌 편은 이유와 함께 건너뜀). DB `shorts_batch` 표와 `shorts`의 `batch_id`·`topic`·`source_text` 열(V42). 장면마다 배경 그림(`image`, devlog에 올린 그림이나 사이트 경로만)을 고를 수 있고, 렌더 워커가 받는 작업에 장면 그림과 원본 글 대표 사진(`coverImage`)이 함께 간다. 장면마다 연출(`visual`: explain·shock·typing·panic·restore·wait·fast·idea·protect·think·celebrate, 비우면 워커가 고름)과 효과음(`effects`: pop·ding·whoosh·boing·tick·typing, 장면당 3개)을 고를 수 있고, 워커에는 작업 단위 `effects[]`로 펼쳐 보낸다(#277 워커와 짝). (#276)
 - 매매 일지의 날마다 [재현 영상 만들기]로 그날 체결을 스튜디오의 매매 재현 영상으로 넘긴다(`/studio?replay=날짜`). (#265)
 - 크레딧 상점과 블로그 꾸미기: 아이언·브론즈·실버·골드·플래티넘·다이아·마스터·그랜드마스터·챌린저 9티어의 테마 색·프로필 테두리·블로그 표지와 빛·반짝임 효과를 크레딧으로 사서 내 블로그에 적용한다. 가격은 아이언 100에서 티어마다 10배(챌린저 100억)이고, 아래 티어를 사야 윗 티어가 열린다. 다이아부터 빛나고 챌린저는 반짝인다. 가입 첫 지급 포인트로는 못 산다. 관리자는 아이템을 티어와 함께 추가·가격 변경·내리기 한다. DB에 `shop_item`·`member_item`·`member_decoration`이 생긴다(V44). ([#268](https://github.com/AIGJ-01-002-blog/devlog/issues/268), 목표 [#253](https://github.com/AIGJ-01-002-blog/devlog/issues/253))
+- 포인트 모의투자: 업비트 원화 시세로 비트코인·이더리움·리플·솔라나·도지코인을 포인트로 사고판다(시장가·현물, 수수료 0.05%, 최소 5,000P). 투자 전용 포인트를 먼저 쓰고 고르면 상점 포인트도 쓰며, 판 돈은 낸 지갑으로·수익은 투자 전용으로 돌아가고 수익의 1%(하루 3,000P까지)가 상점 포인트로 쌓인다. 체결은 매매 일지에 모의투자(PAPER)로 남는다. 오름·이익은 초록, 내림·손실은 빨강. 화면은 `/paper`, 포인트와 매매 일지가 둘 다 켜져야 보인다. DB에 `paper_position`·`paper_order`가 생긴다(V44). ([#267](https://github.com/AIGJ-01-002-blog/devlog/issues/267), 목표 [#253](https://github.com/AIGJ-01-002-blog/devlog/issues/253))
 
 ### 바꿈
 - 운영(devlog.life)에서 숏폼 스튜디오와 매매 일지를 켰다(`SHORTS_ENABLED`, `TRADES_ENABLED`). 렌더 워커 토큰은 GitHub Secret `SHORTS_WORKER_TOKEN`으로 넣고, 없으면 대본까지만 만들고 영상은 만들지 않는다. (#256)
@@ -44,6 +45,10 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 | 연속 출석 휘장 탭 (PC) | 휘장 탭 (휴대폰 · 다크) |
 |---|---|
 | ![휘장 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/badges-many-pc.webp) | ![휘장 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/badges-many-m-dark.webp) |
+
+| 포인트 모의투자 사기 (PC) | 팔기 (PC) | 휴대폰 · 다크 |
+|---|---|---|
+| ![포인트 모의투자](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/paper-pc.webp) | ![포인트 모의투자 팔기](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/paper-sell-pc.webp) | ![포인트 모의투자 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/paper-m-dark.webp) |
 
 | 관리자 포인트 규칙 (PC) | 내 메뉴의 [내 포인트] |
 |---|---|

@@ -57,6 +57,8 @@ public abstract class IntegrationTest {
         r.add("blog.telegram.base-url", FakeTelegram.INSTANCE::baseUrl);
         // 디스코드 웹훅(078)도 가짜 서버로
         r.add("blog.discord.base-url", FakeDiscord.INSTANCE::baseUrl);
+        // 포인트 모의투자 시세(#267)도 가짜 업비트로
+        r.add("blog.paper.base-url", FakeUpbit.INSTANCE::baseUrl);
     }
 
     @BeforeEach

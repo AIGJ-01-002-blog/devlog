@@ -400,6 +400,21 @@ public class PointLedger {
         }, memberId);
     }
 
+    /**
+     * 지갑에 포인트를 넣는다. 모의투자(#267)가 판 돈(원금·수익)을 돌려줄 때 쓴다. 같은 요청 키는 한 번만 들어간다.
+     *
+     * @return 이번에 새로 넣었으면 true
+     */
+    public boolean credit(long memberId, Wallet wallet, long amount, PointReason reason, String requestKey, Long refId, String memo) {
+        requireEnabled();
+        if (amount <= 0) return false;
+        Boolean done = tx.execute(st -> {
+            lock(memberId);
+            return insert(memberId, wallet, amount, reason, requestKey, refId, memo);
+        });
+        return Boolean.TRUE.equals(done);
+    }
+
     // ---- 탈퇴 ----
 
     public void purge(long memberId) {
@@ -411,8 +426,8 @@ public class PointLedger {
 
     // ---- 내부 ----
 
-    /** 이 회원의 포인트 쓰기를 트랜잭션이 끝날 때까지 한 줄로 세운다 */
-    private void lock(long memberId) {
+    /** 이 회원의 포인트 쓰기를 트랜잭션이 끝날 때까지 한 줄로 세운다. 바깥 트랜잭션에서 미리 잡아도 된다(같은 트랜잭션은 다시 잡아도 막히지 않는다) */
+    public void lock(long memberId) {
         jdbc.query("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", rs -> null, "point:" + memberId);
     }
 

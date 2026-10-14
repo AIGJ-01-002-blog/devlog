@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { ApiError } from '../lib/api'
+import { useAuth } from '../lib/auth'
 import { num } from '../lib/dashboard'
 import { compactNumber } from '../lib/format'
 import { t } from '../lib/i18n'
@@ -40,6 +41,7 @@ const filters = (): { key: Filter; label: string; tip: string }[] => [
  * 가입 첫 지급은 모의투자에만 쓰고, 활동으로 번 포인트는 상점에서 꾸미기 아이템을 산다. 현금으로 바꿀 수 없다.
  */
 export function PointsPage() {
+  const { me } = useAuth()
   const [data, setData] = useState<PointSummary | null>(null)
   const [error, setError] = useState(false)
   const [filter, setFilter] = useState<Filter>('ALL')
@@ -119,7 +121,10 @@ export function PointsPage() {
     <main className="container dashboard-page points-page">
       <div className="points-title">
         <h1 className="page-title">{t('내 포인트')}</h1>
-        <Link to="/shop" className="btn btn-primary btn-small" data-tip={t('크레딧으로 블로그 꾸미기 아이템 사기')}>{t('크레딧 상점')}</Link>
+        <span className="points-title-actions">
+          {me?.features?.trades && <Link to="/paper" className="btn btn-outline btn-small" data-tip={t('포인트로 코인을 사고파는 모의투자')}>{t('모의투자')}</Link>}
+          <Link to="/shop" className="btn btn-primary btn-small" data-tip={t('크레딧으로 블로그 꾸미기 아이템 사기')}>{t('크레딧 상점')}</Link>
+        </span>
       </div>
       <p className="muted small points-notice">{t('포인트는 devlog 안에서만 써요. 현금이나 코인으로 바꾸거나 다른 사람에게 줄 수 없어요.')}</p>
       {error && <p className="error" role="alert">{t('포인트를 불러오지 못했어요.')}</p>}

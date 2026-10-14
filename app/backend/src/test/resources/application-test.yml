@@ -13,6 +13,9 @@ blog:
   # 블로그 포인트(#266)도 시험에서 켠다. 꺼졌을 때는 PointsDisabledTest가 본다
   points:
     enabled: true
+  # 포인트 모의투자(#267)는 시험이 시세를 바로 바꿔 보므로 시세를 들고 있지 않는다
+  paper:
+    cache-ttl: 0s
   dev-login:
     enabled: true
   cursor:

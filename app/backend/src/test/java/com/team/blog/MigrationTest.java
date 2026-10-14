@@ -32,10 +32,10 @@ class MigrationTest {
                 .createSchemas(false).locations("classpath:db/migration").load().migrate();
 
         try (Connection c = DriverManager.getConnection(url, "cf_user", "cf_pw"); Statement st = c.createStatement()) {
-            // V44 뒤: 테이블 64개(V3 정규화 28개 + member_telegram + series·series_post + member_about + member_social_link + post_thumbnail + oauth_client·personal_access_token·post_ai_hint + inquiry·notification_inquiry + post_revision + ai_post_proposal·ai_note + site_visit + member_active_day + visit_source_day·page_view_day + notification_ai_proposal + post_topic + series_subscription·post_topic_optout + member_discord + shorts·shorts_render_request + shorts_upload + trade·trade_day + shorts_batch + point_ledger·point_attendance·point_rule·point_badge + shop_item·member_item·member_decoration) + 통계 뷰 post_stat 1개. V16 post_embedding은 확장 권한이 없는 이 계정에서는 건너뛴다. Crowfoot 문서 660은 아직 28개
+            // V44 뒤: 테이블 65개(V3 정규화 28개 + member_telegram + series·series_post + member_about + member_social_link + post_thumbnail + oauth_client·personal_access_token·post_ai_hint + inquiry·notification_inquiry + post_revision + ai_post_proposal·ai_note + site_visit + member_active_day + visit_source_day·page_view_day + notification_ai_proposal + post_topic + series_subscription·post_topic_optout + member_discord + shorts·shorts_render_request + shorts_upload + trade·trade_day + point_ledger·point_attendance·point_rule·point_badge + shop_item·member_item·member_decoration + paper_position·paper_order) + 통계 뷰 post_stat 1개. V16 post_embedding은 확장 권한이 없는 이 계정에서는 건너뛴다. Crowfoot 문서 660은 아직 28개
             ResultSet tables = st.executeQuery("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'cf_test' AND table_type = 'BASE TABLE' AND table_name <> 'flyway_schema_history'");
             tables.next();
-            assertThat(tables.getInt(1)).isEqualTo(64);
+            assertThat(tables.getInt(1)).isEqualTo(65);
             ResultSet views = st.executeQuery("SELECT string_agg(table_name, ',') FROM information_schema.views WHERE table_schema = 'cf_test'");
             views.next();
             assertThat(views.getString(1)).isEqualTo("post_stat");
