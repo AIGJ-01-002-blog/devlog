@@ -21,8 +21,10 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
 
 import com.team.blog.media.storage.ObjectStorage;
+import com.team.blog.post.infra.PostSql;
 import com.team.blog.shared.error.ApiException;
 import com.team.blog.shared.error.NotFoundException;
+import com.team.blog.shared.markdown.ImageUrls;
 import com.team.blog.shared.time.Times;
 import com.team.blog.shorts.application.ShortsScript.Scene;
 
@@ -41,24 +43,29 @@ public class RenderQueue {
     private static final TypeReference<List<Scene>> SCENES = new TypeReference<>() {};
     private static final DateTimeFormatter MONTH = DateTimeFormatter.ofPattern("yyyy/MM").withZone(ZoneOffset.UTC);
 
-    /** 워커에게 주는 일. postUrl은 영상 끝 화면에 적을 원본 글 주소(사이트 안 경로) */
-    public record Job(long id, String claim, int attempt, String title, List<Scene> scenes, String handle, String postUrl) {}
+    /**
+     * 워커에게 주는 일. postUrl은 영상 끝 화면에 적을 원본 글 주소(사이트 안 경로).
+     * coverImage는 원본 글 대표 사진(#277): 워커가 그림 없는 첫 장면의 가운데 카드로 쓴다. 장면마다 그림은 scenes[].image
+     */
+    public record Job(long id, String claim, int attempt, String title, List<Scene> scenes, String handle, String postUrl, String coverImage) {}
 
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
     private final ObjectStorage storage;
     private final StringRedisTemplate redis;
     private final ShortsProperties props;
+    private final ImageUrls imageUrls;
     private final Clock clock;
     private final JsonMapper json = JsonMapper.builder().build();
 
     public RenderQueue(JdbcTemplate jdbc, PlatformTransactionManager txm, ObjectStorage storage, StringRedisTemplate redis,
-                       ShortsProperties props, Clock clock) {
+                       ShortsProperties props, ImageUrls imageUrls, Clock clock) {
         this.jdbc = jdbc;
         this.tx = new TransactionTemplate(txm);
         this.storage = storage;
         this.redis = redis;
         this.props = props;
+        this.imageUrls = imageUrls;
         this.clock = clock;
     }
 
@@ -74,14 +81,16 @@ public class RenderQueue {
                 FROM next WHERE s.id = next.id
                 RETURNING s.id, s.attempts, s.title, s.scenes::text, s.post_id,
                           (SELECT handle FROM member WHERE id = s.member_id) AS handle,
-                          (SELECT m.handle FROM post p JOIN member m ON m.id = p.author_id WHERE p.id = s.post_id AND p.deleted_at IS NULL) AS post_handle
-                """, rs -> {
+                          (SELECT m.handle FROM post p JOIN member m ON m.id = p.author_id WHERE p.id = s.post_id AND p.deleted_at IS NULL) AS post_handle,
+                          (SELECT %s FROM post p WHERE p.id = s.post_id AND p.deleted_at IS NULL) AS cover_key
+                """.formatted(PostSql.THUMBNAIL_KEY.replace(" AS thumbnail_key", "")), rs -> {
             if (!rs.next()) return null;
             long postId = rs.getLong("post_id");
             String postHandle = rs.getString("post_handle");
             String postUrl = rs.wasNull() || postHandle == null ? null : "/@" + postHandle + "/posts/" + postId;
             return new Job(rs.getLong("id"), claim, rs.getInt("attempts"), rs.getString("title"),
-                    json.readValue(rs.getString(4), SCENES), rs.getString("handle"), postUrl);
+                    json.readValue(rs.getString(4), SCENES), rs.getString("handle"), postUrl,
+                    postUrl == null ? null : imageUrls.urlOf(rs.getString("cover_key")));
         }, claim, Timestamp.from(now), Timestamp.from(now))));
     }
 

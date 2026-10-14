@@ -302,7 +302,7 @@ function Editor({ item, onChange, onReload, onDeleted }: {
     }
   }
   const save = async (): Promise<ShortsItem> => {
-    const saved = await saveShorts(item.id, { title, scenes: scenes.map((s) => ({ ...s, code: s.code?.trim() ? s.code : null })), version: item.version })
+    const saved = await saveShorts(item.id, { title, scenes: scenes.map((s) => ({ ...s, code: s.code?.trim() ? s.code : null, image: s.image?.trim() ? s.image.trim() : null })), version: item.version })
     onChange(saved)
     return saved
   }
@@ -377,6 +377,13 @@ function Editor({ item, onChange, onReload, onDeleted }: {
               <div className="field">
                 <label htmlFor={`scene-${i}-code`}>{t('코드 (선택)')}</label>
                 <textarea id={`scene-${i}-code`} rows={2} className="mono" value={s.code ?? ''} maxLength={LIMITS.code} onChange={(e) => edit(i, { code: e.target.value })} />
+              </div>
+              <div className="field">
+                <label htmlFor={`scene-${i}-image`}>{t('배경 그림 (선택)')}</label>
+                <input id={`scene-${i}-image`} type="text" inputMode="url" value={s.image ?? ''} maxLength={LIMITS.image}
+                  placeholder="/media/images/…" data-tip={t('글에 올린 그림 주소를 넣으면 이 장면 배경으로 깔려요. 비우면 첫 장면에 글 대표 사진이 들어가요.')}
+                  onChange={(e) => edit(i, { image: e.target.value })} />
+                {errors[`scenes[${i}].image`] && <span className="error">{errors[`scenes[${i}].image`]}</span>}
               </div>
             </li>
           ))}

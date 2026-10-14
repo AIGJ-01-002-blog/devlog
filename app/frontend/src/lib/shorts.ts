@@ -13,6 +13,7 @@ export const LIMITS = {
   caption: 40,
   narration: 200,
   code: 300,
+  image: 500,
   seconds: 60,
 } as const
 
@@ -27,6 +28,8 @@ export interface Scene {
   caption: string
   narration: string
   code: string | null
+  /** 장면 배경 그림 (선택, devlog에 올린 그림 주소나 /로 시작하는 사이트 경로) */
+  image?: string | null
 }
 
 export interface ShortsItem {

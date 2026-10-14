@@ -136,6 +136,39 @@ class ShortsTest extends IntegrationTest {
     }
 
     @Test
+    void 장면_그림은_우리_그림만_받고_워커에게_장면_그림과_글_대표_사진을_넘긴다() throws Exception {
+        Session me = signup(uniqueLogin("shortsimg"));
+        long postId = writePost(me, POST_BODY);
+        String key = "images/2026/10/" + java.util.UUID.randomUUID() + ".webp";
+        long resource = jdbc.queryForObject("""
+                INSERT INTO resource (uploader_id, storage_key, content_type, size_bytes, kind)
+                VALUES (?, ?, 'image/webp', 10, 'IMAGE') RETURNING id
+                """, Long.class, me.memberId(), key);
+        jdbc.update("INSERT INTO resource_image (resource_id, kind) VALUES (?, 'IMAGE')", resource);
+        jdbc.update("INSERT INTO post_image (post_id, resource_id, position) VALUES (?, ?, 0)", postId, resource);
+
+        // 바깥 주소는 워커가 아무 곳에나 요청하게 되니 막는다
+        List<Map<String, String>> outside = new java.util.ArrayList<>(GOOD);
+        outside.set(1, Map.of("caption", "범인은 직렬화", "narration", GOOD.get(1).get("narration"), "image", "https://evil.example/x.png"));
+        Map<String, Object> body = Map.of("postId", postId, "title", "그림 있는 쇼츠", "scenes", outside);
+        JsonNode bad = read(me.http().perform(asJson(post("/api/me/shorts"), body)).andExpect(status().isBadRequest()).andReturn());
+        assertThat(bad.toString()).contains("scenes[1].image");
+
+        List<Map<String, String>> withImage = new java.util.ArrayList<>(GOOD);
+        withImage.set(1, Map.of("caption", "범인은 직렬화", "narration", GOOD.get(1).get("narration"), "image", "/media/" + key));
+        JsonNode item = create(me, postId, "그림 있는 쇼츠", withImage);
+        assertThat(item.path("scenes").get(1).path("image").asString()).isEqualTo("/media/" + key);
+        long id = item.path("id").asLong();
+        me.http().perform(post("/api/me/shorts/" + id + "/render").with(csrf())).andExpect(status().isOk());
+
+        JsonNode job = claim();
+        assertThat(job.path("id").asLong()).isEqualTo(id);
+        assertThat(job.path("scenes").get(1).path("image").asString()).isEqualTo("/media/" + key);
+        assertThat(job.path("scenes").get(0).path("image").isNull()).isTrue();
+        assertThat(job.path("coverImage").asString()).endsWith("/" + key);
+    }
+
+    @Test
     void 원본_글을_그대로_읽는_대본은_영상으로_만들지_못하고_이유를_돌려준다() throws Exception {
         Session me = signup(uniqueLogin("shcopy"));
         long postId = writePost(me, POST_BODY);

@@ -136,6 +136,7 @@ public class ShortsService {
         List<Scene> scenes = scenes(draft.scenes());
         String source = draft.sourceText() == null ? "" : TextCleaner.cleanMultiline(draft.sourceText());
         List<FieldErrorItem> errors = new ArrayList<>(ShortsScript.checkSave(title, scenes));
+        errors.addAll(imageErrors(scenes));
         if (source.length() > ShortsBatches.SOURCE_MAX) {
             errors.add(new FieldErrorItem("sourceText", "TOO_LONG", "맥락 근거는 " + ShortsBatches.SOURCE_MAX + "자까지예요."));
         }
@@ -164,7 +165,9 @@ public class ShortsService {
             }
             String title = edit.title() == null ? cur.title() : ShortsScript.cleanTitle(edit.title());
             List<Scene> scenes = edit.scenes() == null ? cur.scenes() : scenes(edit.scenes());
-            reject(ShortsScript.checkSave(title, scenes));
+            List<FieldErrorItem> errors = new ArrayList<>(ShortsScript.checkSave(title, scenes));
+            errors.addAll(imageErrors(scenes));
+            reject(errors);
             String video = jdbc.queryForObject("SELECT video_key FROM shorts WHERE id = ?", String.class, id);
             jdbc.update("""
                     UPDATE shorts SET title = ?, scenes = ?::jsonb, status = 'DRAFT', attempts = 0, claim_token = NULL, queued_at = NULL,
@@ -400,7 +403,25 @@ public class ShortsService {
 
     private static List<Scene> scenes(List<Scene> raw) {
         if (raw == null) return List.of();
-        return raw.stream().map(s -> s == null ? new Scene("", "", null) : new Scene(s.caption(), s.narration(), s.code())).toList();
+        return raw.stream().map(s -> s == null ? new Scene("", "", null) : new Scene(s.caption(), s.narration(), s.code(), s.image())).toList();
+    }
+
+    /**
+     * 장면 그림은 렌더 워커가 내려받으므로 우리 그림만 받는다: devlog에 올린 그림 주소이거나 "/"로 시작하는 사이트 경로.
+     * 바깥 주소를 받으면 워커가 아무 곳에나 요청을 보내게 된다.
+     */
+    private List<FieldErrorItem> imageErrors(List<Scene> scenes) {
+        List<FieldErrorItem> errors = new ArrayList<>();
+        for (int i = 0; i < scenes.size(); i++) {
+            String image = scenes.get(i).image();
+            if (image == null) continue;
+            boolean sitePath = image.startsWith("/") && !image.startsWith("//") && image.chars().noneMatch(c -> Character.isWhitespace(c) || c == '\\');
+            if (image.length() > ShortsScript.IMAGE_MAX || !(sitePath || urls.keyOf(image) != null)) {
+                errors.add(new FieldErrorItem("scenes[" + i + "].image", "INVALID",
+                        (i + 1) + "번 장면 그림은 devlog에 올린 그림 주소나 /로 시작하는 사이트 경로만 쓸 수 있어요."));
+            }
+        }
+        return errors;
     }
 
     private static void reject(List<FieldErrorItem> errors) {

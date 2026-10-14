@@ -1497,6 +1497,8 @@ export const en: Record<string, string> = {
   "장면 추가": "Add scene",
   "장면이 {0}개 이상 있어야 영상으로 만들 수 있어요.": "A video needs at least {0} scenes.",
   "코드 (선택)": "Code (optional)",
+  "배경 그림 (선택)": "Background image (optional)",
+  "글에 올린 그림 주소를 넣으면 이 장면 배경으로 깔려요. 비우면 첫 장면에 글 대표 사진이 들어가요.": "Paste an image URL from your post to use it as this scene's background. Leave it empty and the post's cover goes on the first scene.",
   "화면 자막": "On-screen caption",
   "AI 음성을 썼다면 고급 설정에서 AI 정보 표시를 켜요.": "If you used an AI voice, turn on the AI info label in Advanced settings.",
   "AI 음성을 썼다면 더 보기 옵션에서 AI 생성 콘텐츠 표시를 켜요.": "If you used an AI voice, turn on the AI-generated content label under More options.",

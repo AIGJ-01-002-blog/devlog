@@ -22,11 +22,19 @@ public final class ShortsScript {
     static final double CHARS_PER_SECOND = 6.5;
     static final double SCENE_GAP_SECONDS = 0.6;
 
-    public record Scene(String caption, String narration, String code) {
+    public static final int IMAGE_MAX = 500;
+
+    /** image: 장면 배경으로 깔 글 그림 (선택, #277 렌더 워커). devlog에 올린 그림 주소나 "/"로 시작하는 사이트 경로만 받는다 */
+    public record Scene(String caption, String narration, String code, String image) {
         public Scene {
             caption = TextCleaner.cleanLine(caption);
             narration = TextCleaner.cleanLine(narration);
             code = code == null || code.isBlank() ? null : TextCleaner.cleanMultiline(code);
+            image = image == null || image.isBlank() ? null : image.strip();
+        }
+
+        public Scene(String caption, String narration, String code) {
+            this(caption, narration, code, null);
         }
     }
 

@@ -29,7 +29,8 @@ class ShortsTools {
             "scenes":{"type":"array","maxItems":10,"description":"장면 3~10개. 합쳐서 60초 안(내레이션 약 330자 안)","items":{"type":"object","properties":{
                 "caption":{"type":"string","description":"화면 큰 자막 (40자까지, 한 줄 요점)"},
                 "narration":{"type":"string","description":"읽을 문장 (200자까지, 말하듯이)"},
-                "code":{"type":"string","description":"화면에 보일 짧은 코드 (선택, 300자까지)"}},
+                "code":{"type":"string","description":"화면에 보일 짧은 코드 (선택, 300자까지)"},
+                "image":{"type":"string","description":"장면 배경으로 깔 그림 (선택). get_post 본문에 있는 devlog 그림 주소나 /로 시작하는 사이트 경로만. 그림이 없으면 글 대표 사진이 첫 장면에 들어가요"}},
               "required":["caption","narration"]}}""";
 
     static final String GUIDE = "양산형으로 보이지 않게: 원본 글 문장을 그대로 읽지 말고 말로 풀어 쓴다. 첫 장면은 시청자가 겪는 문제나 질문으로 시작한다. "
@@ -210,7 +211,8 @@ class ShortsTools {
 
     private static List<ShortsScript.Scene> scenes(JsonNode a) {
         List<ShortsScript.Scene> out = new ArrayList<>();
-        for (JsonNode n : a.path("scenes")) out.add(new ShortsScript.Scene(text(n, "caption"), text(n, "narration"), n.has("code") ? text(n, "code") : null));
+        for (JsonNode n : a.path("scenes")) out.add(new ShortsScript.Scene(text(n, "caption"), text(n, "narration"), n.has("code") ? text(n, "code") : null,
+                n.has("image") ? text(n, "image") : null));
         return out;
     }
 
