@@ -20,6 +20,9 @@ import { NavIcon } from '../components/NavIcons'
 import { avatarColor, AVATAR_COLORS } from '../lib/avatar'
 import { compactNumber } from '../lib/format'
 import { t } from '../lib/i18n'
+import { loadBadges, type StreakBadge } from '../lib/points'
+import { StreakBadgeIcon } from '../components/StreakBadge'
+import { bannerProps, effectName, frameProps, loadDecorations, themeStyle, type Decorations } from '../lib/shop'
 
 /** 블로그 표지 색(0~3). 같은 블로그는 언제나 같은 색이다. */
 export function blogTone(handle: string): number {
@@ -37,6 +40,28 @@ export function BlogPage({ handle, tab = 'posts' }: { handle: string; tab?: 'pos
   const badTag = tag != null && tagFormatError(tag) != null
   const q = (search.get('q') ?? '').trim()
   const searchIn = (nq: string) => navigate(`/@${handle}?q=${encodeURIComponent(nq)}`)
+  const { me } = useAuth()
+  const pointsOn = !!me?.features?.points
+  const [badges, setBadges] = useState<StreakBadge[]>([])
+  // 연속 출석 휘장(#266)은 포인트가 켜졌을 때만 받는다. 가장 높은 휘장 하나를 이름 옆에 둔다
+  useEffect(() => {
+    if (!pointsOn) return
+    let alive = true
+    loadBadges(handle).then((b) => { if (alive) setBadges(b) }).catch(() => { if (alive) setBadges([]) })
+    return () => { alive = false }
+  }, [handle, pointsOn])
+  const topBadge = badges.length > 0 ? badges[badges.length - 1] : null
+  const [deco, setDeco] = useState<Decorations | null>(null)
+
+  useEffect(() => {
+    // 블로그 꾸미기 (#268): 포인트를 켠 서버에서만 받는다. 못 받아도 기본 모습으로 보인다
+    setDeco(null)
+    if (!pointsOn) return
+    // 블로그를 빠르게 옮겨 다닐 때 늦게 온 이전 블로그의 꾸미기가 덮어쓰지 않게 한다
+    let alive = true
+    loadDecorations(handle).then((d) => { if (alive) setDeco(d) }).catch(() => {})
+    return () => { alive = false }
+  }, [handle, pointsOn])
 
   useEffect(() => {
     // 정규화되지 않은 필터 값은 정규화된 주소로 바꾼다 (서버는 301)
@@ -52,19 +77,25 @@ export function BlogPage({ handle, tab = 'posts' }: { handle: string; tab?: 'pos
 
   if (missing || badTag) return <NotFoundPage />
   if (!profile) return <main className="container"><p className="muted center">{t('불러오는 중…')}</p></main>
+  const banner = bannerProps(deco?.banner)
+  const frame = frameProps(deco?.frame)
+  const theme = themeStyle(deco?.theme)
   return (
-    <main className="container">
-      <header className="blog-hero">
-        <div className="blog-cover" data-tone={blogTone(profile.handle)} aria-hidden="true" />
+    <main className={`container${theme ? ' blog-themed' : ''}`} style={theme}>
+      <header className="blog-hero" data-effect={effectName(deco?.effect)}>
+        <div className={`blog-cover${deco?.banner ? ' deco-banner' : ''}${banner.image ? ' has-image' : ''}`} data-tone={blogTone(profile.handle)}
+          data-banner={banner['data-banner']} style={banner.style} aria-hidden="true" />
         <div className="blog-hero-body">
           <div className="blog-hero-top">
-            <span className="blog-avatar"><Avatar src={profile.profileImageUrl} name={profile.nickname} seed={profile.handle} size={112} /></span>
+            <span className={`blog-avatar${frame['data-frame'] ? ' deco-frame' : ''}`} data-frame={frame['data-frame']} style={frame.style}
+              title={deco?.frame ? t('{0} 테두리', { 0: deco.frame.name }) : undefined}><Avatar src={profile.profileImageUrl} name={profile.nickname} seed={profile.handle} size={112} /></span>
             <div className="blog-hero-actions">
               <Link to={`/@${profile.handle}/rss`} className="btn btn-outline btn-icon" aria-label={t('RSS 구독')}
                     data-tip={t('RSS 구독: 구독 앱으로 이 블로그의 새 글 받기')}><NavIcon name="rss" /></Link>
               {profile.mine ? <>
                 <Link to="/settings#profile" className="btn btn-outline" data-tip={t('사진·닉네임·소개 바꾸기')}>{t('프로필 편집')}</Link>
                 <Link to="/manage/posts" className="btn btn-outline" data-tip={t('임시글·발행 글·휴지통 관리')}>{t('글 관리')}</Link>
+                {pointsOn && <Link to="/shop" className="btn btn-outline" data-tip={t('크레딧으로 테마 색·프로필 테두리·표지·빛 효과를 사서 블로그 꾸미기')}>{t('꾸미기')}</Link>}
                 <Link to="/write" className="btn btn-primary" data-tip={t('새 글 쓰기')}><NavIcon name="pen" size={16} />{t('새 글')}</Link>
               </> : <>
                 <FriendButton profile={profile} onChange={(f) => {
@@ -77,7 +108,9 @@ export function BlogPage({ handle, tab = 'posts' }: { handle: string; tab?: 'pos
               </>}
             </div>
           </div>
-          <h1 className="blog-name">{profile.nickname}</h1>
+          <h1 className="blog-name">{profile.nickname}
+            {topBadge && <StreakBadgeIcon days={topBadge.days} size={30} />}
+          </h1>
           <p className="blog-handle muted">@{profile.handle}
             {lastActiveLabel(profile.lastActiveDaysAgo) && <span className="blog-active">  {t('· 최근 활동')} {lastActiveLabel(profile.lastActiveDaysAgo)}</span>}
           </p>

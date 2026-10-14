@@ -123,6 +123,25 @@ class ShortsBatchTest extends IntegrationTest {
 
         JsonNode bad = call(token, "create_shorts_script", Map.of("title", "x", "scenes", List.of(Map.of("caption", "a", "narration", "b", "visual", "explode"))));
         assertThat(text(bad)).contains("연출은", "celebrate");
+
+        // 설명 도식: 모양이 맞으면 그대로 저장하고, type·칸 수·이름표가 틀리면 막는다
+        Map<String, Object> flow = Map.of("type", "flow", "items", List.of("빌드", "캐시", Map.of("label", "잠금 파일", "icon", "file", "note", "해시")));
+        JsonNode drawn = call(token, "create_shorts_script", Map.of("title", "캐시 키 그림", "source_text", CONTEXT, "scenes", List.of(
+                Map.of("caption", "빌드 7분, 왜?", "narration", CACHE.get(0).get("narration")),
+                Map.of("caption", "캐시가 날아감", "narration", CACHE.get(1).get("narration"), "diagram", flow),
+                Map.of("caption", "7분 → 2분", "narration", CACHE.get(3).get("narration")))));
+        assertThat(drawn.path("isError").asBoolean()).as(text(drawn)).isFalse();
+        long drawnId = Long.parseLong(jdbc.queryForObject("SELECT max(id)::text FROM shorts WHERE member_id = ?", String.class, me.memberId()));
+        JsonNode saved = read(me.http().perform(get("/api/me/shorts/" + drawnId)).andExpect(status().isOk()).andReturn());
+        assertThat(saved.path("scenes").get(1).path("diagram").path("items").get(2).path("note").asString()).isEqualTo("해시");
+        for (Map<String, Object> wrong : List.of(
+                Map.<String, Object>of("type", "pie", "items", List.of("a", "b")),
+                Map.<String, Object>of("type", "flow", "items", List.of("a", "b", "c", "d", "e")),
+                Map.<String, Object>of("type", "steps", "items", List.of("하나", "x".repeat(21))),
+                Map.<String, Object>of("type", "compare", "left", Map.of("title", "전", "items", List.of("느림"))))) {
+            JsonNode r2 = call(token, "create_shorts_script", Map.of("title", "x", "scenes", List.of(Map.of("caption", "a", "narration", "b", "diagram", wrong))));
+            assertThat(text(r2)).as(wrong.toString()).contains("설명 그림");
+        }
     }
 
     private static List<Map<String, String>> topics(int n) {

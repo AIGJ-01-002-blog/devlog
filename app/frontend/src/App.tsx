@@ -6,6 +6,7 @@ import { TooltipLayer } from './components/TooltipLayer'
 import { MobileNav } from './components/MobileNav'
 import { SiteFooter } from './components/SiteFooter'
 import { PageAnnouncer } from './components/PageAnnouncer'
+import { AttendNudge } from './components/AttendNudge'
 import { ScrollTopButton } from './components/ScrollTopButton'
 import { MAIN_ID } from './lib/focusMain'
 import { VerifyBanner } from './components/VerifyBanner'
@@ -67,6 +68,11 @@ const AboutPage = lazyPage(() => import('./pages/AboutPage'), 'AboutPage')
 const StudioPage = lazyPage(() => import('./pages/StudioPage'), 'StudioPage')
 const DashboardPage = lazyPage(() => import('./pages/DashboardPage'), 'DashboardPage')
 const TradesPage = lazyPage(() => import('./pages/TradesPage'), 'TradesPage')
+const PointsPage = lazyPage(() => import('./pages/PointsPage'), 'PointsPage')
+const AdminPointsPage = lazyPage(() => import('./pages/AdminPointsPage'), 'AdminPointsPage')
+const ShopPage = lazyPage(() => import('./pages/ShopPage'), 'ShopPage')
+const PaperPage = lazyPage(() => import('./pages/PaperPage'), 'PaperPage')
+const AdminShopPage = lazyPage(() => import('./pages/AdminShopPage'), 'AdminShopPage')
 // 첫 로그인 회원만 보는 팝업이라 첫 묶음에 넣지 않는다 (spec 098)
 const AiOnboarding = lazy(() => import('./components/AiOnboarding').then((m) => ({ default: m.AiOnboarding })))
 
@@ -81,6 +87,7 @@ export function App() {
       {!path.startsWith('/write') && path !== '/account/restore' && <Header />}
       {path !== '/verify-email' && <VerifyBanner />}
       <Flash path={path} />
+      <AttendNudge path={path} />
       <div id={MAIN_ID} tabIndex={-1}>
         <WithdrawnGate path={path}><AgreementGate path={path}><PageErrorBoundary path={path}><Suspense fallback={<Loading />}>{route(path)}<FadeOnShow path={path} /></Suspense></PageErrorBoundary></AgreementGate></WithdrawnGate>
       </div>
@@ -151,6 +158,10 @@ function route(path: string): ReactNode {
   if (path === '/dashboard') return <RequireLogin><DashboardPage /></RequireLogin>
   if (path === '/studio') return <RequireLogin><RequireShorts><StudioPage /></RequireShorts></RequireLogin>
   if (path === '/trades') return <RequireLogin><RequireTrades><TradesPage /></RequireTrades></RequireLogin>
+  if (path === '/points') return <RequireLogin><RequirePoints><PointsPage /></RequirePoints></RequireLogin>
+  if (path === '/shop') return <RequireLogin><RequirePoints><ShopPage /></RequirePoints></RequireLogin>
+  // 포인트 모의투자(#267)는 체결을 매매 일지에 남기므로 둘 다 켜져야 보인다
+  if (path === '/paper') return <RequireLogin><RequirePoints><RequireTrades><PaperPage /></RequireTrades></RequirePoints></RequireLogin>
   if (path === '/feed') return <RequireLogin><FeedPage /></RequireLogin>
   if (path === '/lists/liked') return <RequireLogin><LikedPage /></RequireLogin>
   if (path === '/lists/read') return <RecentReadsPage />
@@ -164,6 +175,8 @@ function route(path: string): ReactNode {
   if (path === '/admin/members') return <RequireAdmin><AdminMembersPage /></RequireAdmin>
   if (path === '/admin/reports') return <RequireAdmin><AdminReportsPage /></RequireAdmin>
   if ((p = match('/admin/reports/:id', path))) return <RequireAdmin><AdminReportPage key={p.id} id={p.id} /></RequireAdmin>
+  if (path === '/admin/points') return <RequireAdmin><RequirePoints><AdminPointsPage /></RequirePoints></RequireAdmin>
+  if (path === '/admin/shop') return <RequireAdmin><RequirePoints><AdminShopPage /></RequirePoints></RequireAdmin>
   if (path === '/admin/inquiries') return <RequireAdmin><AdminInquiriesPage /></RequireAdmin>
   if ((p = match('/admin/inquiries/:id', path))) return <RequireAdmin><AdminInquiryPage key={p.id} id={p.id} /></RequireAdmin>
   if ((p = match('/admin/members/:handle', path))) return <RequireAdmin><AdminMemberPage key={p.handle} handle={p.handle} /></RequireAdmin>
@@ -185,6 +198,13 @@ function RequireShorts({ children }: { children: ReactNode }) {
 function RequireTrades({ children }: { children: ReactNode }) {
   const { me } = useAuth()
   if (!me?.features?.trades) return <NotFoundPage />
+  return <>{children}</>
+}
+
+/** 블로그 포인트(#266)도 서버에서 켠 뒤에만 보인다 */
+function RequirePoints({ children }: { children: ReactNode }) {
+  const { me } = useAuth()
+  if (!me?.features?.points) return <NotFoundPage />
   return <>{children}</>
 }
 
