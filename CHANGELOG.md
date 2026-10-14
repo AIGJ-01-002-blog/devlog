@@ -12,7 +12,7 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ### 추가
 - 매매 일지가 코인 거래소 체결을 받는다. `record_trade`에 거래소(`exchange`)와 통화(`currency`)를 적고, 0.00012345 BTC 같은 소수 수량·가격을 그대로 남긴다. 원화와 USDT는 더하지 않고 손익·수수료를 통화별로 따로 보여 준다. DB `trade`에 `exchange`·`currency` 열이 생기고 금액 자릿수가 넓어진다(V40). (#254)
-- 블로그 포인트 1단계: 포인트 원장(지갑 두 개: 투자 전용·상점), 가입 첫 지급 10,000,000P(모의투자 전용), 출석·7일 연속 출석 보너스, 처음 전체 공개한 글 적립(하루 3편·300자 이상), 모의투자 수익 적립 규칙, 내 포인트 화면(`/points`), 관리자 포인트 규칙 화면(`/admin/points`). `POINTS_ENABLED`로 켠다(기본 꺼짐). DB에 `point_ledger`·`point_attendance`·`point_rule`이 생긴다(V42). ([#266](https://github.com/AIGJ-01-002-blog/devlog/issues/266), 목표 [#253](https://github.com/AIGJ-01-002-blog/devlog/issues/253))
+- 블로그 포인트 1단계: 포인트 원장(지갑 두 개: 투자 전용·상점), 가입 첫 지급 10,000,000P(모의투자 전용), 출석 보상(100 × 연속 출석 일수², 365일에 하루 13,322,500크레딧으로 멈춤)과 출석 알림(오늘 출석 전이면 화면 위에 한 줄), 연속 출석 휘장(20·50·100·150·200·300일, 365일 특별 휘장, 블로그 이름 옆에 보임), 활동으로 번 포인트를 "크레딧"으로 표시, 처음 전체 공개한 글 적립(하루 3편·300자 이상), 모의투자 수익 적립 규칙, 내 포인트 화면(`/points`), 관리자 포인트 규칙 화면(`/admin/points`). `POINTS_ENABLED`로 켠다(기본 꺼짐). DB에 `point_ledger`·`point_attendance`·`point_rule`·`point_badge`가 생긴다(V42). ([#266](https://github.com/AIGJ-01-002-blog/devlog/issues/266), 목표 [#253](https://github.com/AIGJ-01-002-blog/devlog/issues/253))
 
 ### 바꿈
 - 매매 일지 손익 색을 거래소 차트처럼 바꿨다: 이익·매수 초록, 손실·매도 빨강. (#254)
@@ -21,6 +21,10 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 | 내 포인트 (PC) | 출석한 뒤 (휴대폰) | 휴대폰 · 다크 |
 |---|---|---|
 | ![내 포인트 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/points-before-pc.webp) | ![내 포인트 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/points-after-m.webp) | ![내 포인트 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/points-after-m-dark.webp) |
+
+| 출석 알림 (PC) | 출석 알림 (휴대폰) | 1년 휘장을 단 블로그 |
+|---|---|---|
+| ![출석 알림 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/nudge-pc.webp) | ![출석 알림 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/nudge-m.webp) | ![1년 휘장 블로그](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/blog-1year-pc.webp) |
 
 | 관리자 포인트 규칙 (PC) | 내 메뉴의 [내 포인트] |
 |---|---|

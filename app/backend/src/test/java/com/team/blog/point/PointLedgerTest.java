@@ -74,14 +74,18 @@ class PointLedgerTest extends IntegrationTest {
     }
 
     @Test
-    void 출석은_하루_한_번이고_연속_출석이_주기에_닿으면_보너스를_준다() throws Exception {
+    void 출석은_하루_한_번이고_보상은_100_곱하기_연속일_제곱에_하루_상한까지다() throws Exception {
         Session me = signup(uniqueLogin("ptatt"));
+        JsonNode before0 = summary(me);
+        assertThat(before0.path("attendance").path("todayReward").asLong()).isEqualTo(100);
+        assertThat(before0.path("attendance").path("maxReward").asLong()).isEqualTo(13_322_500L);
+        assertThat(before0.path("attendance").path("maxStreak").asInt()).isEqualTo(365);
         JsonNode first = read(me.http().perform(post("/api/me/points/attendance").with(csrf())).andExpect(status().isOk()).andReturn());
         assertThat(first.path("already").asBoolean()).isFalse();
         assertThat(first.path("earned").asLong()).isEqualTo(100);
+        assertThat(first.path("streak").asInt()).isEqualTo(1);
         assertThat(first.path("summary").path("attendance").path("attendedToday").asBoolean()).isTrue();
-        assertThat(first.path("summary").path("attendance").path("streak").asInt()).isEqualTo(1);
-        assertThat(first.path("summary").path("attendance").path("nextBonusIn").asInt()).isEqualTo(6);
+        assertThat(first.path("summary").path("attendance").path("nextReward").asLong()).isEqualTo(400);
         assertThat(first.path("summary").path("balance").path("shop").asLong()).isEqualTo(100);
 
         JsonNode again = read(me.http().perform(post("/api/me/points/attendance").with(csrf())).andExpect(status().isOk()).andReturn());
@@ -89,27 +93,53 @@ class PointLedgerTest extends IntegrationTest {
         assertThat(again.path("earned").asLong()).isZero();
         assertThat(again.path("summary").path("balance").path("shop").asLong()).isEqualTo(100);
 
-        // 어제까지 6일 연속이었던 회원은 오늘 출석으로 7일째 보너스를 받는다
+        // 어제까지 9일 연속이었던 회원은 오늘 10일째로 100 × 10² = 10,000을 받는다
         Session streaker = signup(uniqueLogin("ptstr"));
         LocalDate today = points.today();
-        for (int i = 6; i >= 1; i--) {
-            jdbc.update("INSERT INTO point_attendance (member_id, day, streak) VALUES (?, ?, ?)", streaker.memberId(), today.minusDays(i), 7 - i);
+        for (int i = 9; i >= 1; i--) {
+            jdbc.update("INSERT INTO point_attendance (member_id, day, streak) VALUES (?, ?, ?)", streaker.memberId(), today.minusDays(i), 10 - i);
         }
         JsonNode before = summary(streaker);
-        assertThat(before.path("attendance").path("streak").asInt()).isEqualTo(6);
-        assertThat(before.path("attendance").path("nextBonusIn").asInt()).isEqualTo(1);
-        assertThat(before.path("attendance").path("recent")).hasSize(6);
-        JsonNode bonus = read(streaker.http().perform(post("/api/me/points/attendance").with(csrf())).andExpect(status().isOk()).andReturn());
-        assertThat(bonus.path("earned").asLong()).isEqualTo(800);
-        assertThat(bonus.path("bonus").asLong()).isEqualTo(700);
-        assertThat(bonus.path("summary").path("attendance").path("streak").asInt()).isEqualTo(7);
-        assertThat(bonus.path("summary").path("attendance").path("nextBonusIn").asInt()).isEqualTo(7);
+        assertThat(before.path("attendance").path("streak").asInt()).isEqualTo(9);
+        assertThat(before.path("attendance").path("todayReward").asLong()).isEqualTo(10_000);
+        assertThat(before.path("attendance").path("recent")).hasSize(9);
+        JsonNode tenth = read(streaker.http().perform(post("/api/me/points/attendance").with(csrf())).andExpect(status().isOk()).andReturn());
+        assertThat(tenth.path("earned").asLong()).isEqualTo(10_000);
+        assertThat(tenth.path("summary").path("attendance").path("streak").asInt()).isEqualTo(10);
+        assertThat(tenth.path("summary").path("attendance").path("nextReward").asLong()).isEqualTo(12_100);
 
-        // 하루 비면 연속이 끊긴다
+        // 19일 연속이던 회원은 오늘 20일째에 첫 휘장을 받고, 블로그에서 누구나 본다
+        Session badge = signup(uniqueLogin("ptbdg"));
+        jdbc.update("INSERT INTO point_attendance (member_id, day, streak) VALUES (?, ?, 19)", badge.memberId(), today.minusDays(1));
+        assertThat(summary(badge).path("nextBadge").asInt()).isEqualTo(20);
+        JsonNode twenty = read(badge.http().perform(post("/api/me/points/attendance").with(csrf())).andExpect(status().isOk()).andReturn());
+        assertThat(twenty.path("newBadges").get(0).asInt()).isEqualTo(20);
+        assertThat(twenty.path("summary").path("nextBadge").asInt()).isEqualTo(50);
+        JsonNode shown = read(mvc.perform(get("/api/members/" + badge.handle() + "/badges")).andExpect(status().isOk()).andReturn());
+        assertThat(shown.get(0).path("days").asInt()).isEqualTo(20);
+        assertThat(shown.get(0).path("special").asBoolean()).isFalse();
+        mvc.perform(get("/api/members/no-such-blog-xyz/badges")).andExpect(status().isNotFound());
+
+        // 출석 알림은 오늘 출석했는지만 알려 준다
+        JsonNode t1 = read(badge.http().perform(get("/api/me/points/today")).andExpect(status().isOk()).andReturn());
+        assertThat(t1.path("attendedToday").asBoolean()).isTrue();
+
+        // 365일을 넘기면 하루 상한(1,332만 2,500)에서 멈춘다
+        Session veteran = signup(uniqueLogin("ptvet"));
+        jdbc.update("INSERT INTO point_attendance (member_id, day, streak) VALUES (?, ?, 400)", veteran.memberId(), today.minusDays(1));
+        JsonNode capped = read(veteran.http().perform(post("/api/me/points/attendance").with(csrf())).andExpect(status().isOk()).andReturn());
+        assertThat(capped.path("earned").asLong()).isEqualTo(13_322_500L);
+        // 1년을 넘긴 회원은 빠진 휘장까지 모두 받고, 365일 휘장은 특별 휘장이다
+        assertThat(capped.path("newBadges")).hasSize(7);
+        assertThat(capped.path("summary").path("badges").get(6).path("special").asBoolean()).isTrue();
+        assertThat(capped.path("summary").path("nextBadge").isNull()).isTrue();
+
+        // 하루 비면 연속이 끊겨 다시 100부터다
         Session gap = signup(uniqueLogin("ptgap"));
         jdbc.update("INSERT INTO point_attendance (member_id, day, streak) VALUES (?, ?, 5)", gap.memberId(), today.minusDays(2));
         assertThat(summary(gap).path("attendance").path("streak").asInt()).isZero();
         JsonNode reset = read(gap.http().perform(post("/api/me/points/attendance").with(csrf())).andExpect(status().isOk()).andReturn());
+        assertThat(reset.path("earned").asLong()).isEqualTo(100);
         assertThat(reset.path("summary").path("attendance").path("streak").asInt()).isEqualTo(1);
     }
 
@@ -171,7 +201,7 @@ class PointLedgerTest extends IntegrationTest {
         points.attend(me.memberId());
         // 첫 지급(투자 전용)은 상점 지갑 사용에 섞이지 않는다
         assertThatThrownBy(() -> points.spend(me.memberId(), Wallet.SHOP, 500, PointReason.SHOP, "shop:test:1", null, "테마"))
-                .isInstanceOf(ApiException.class).hasMessageContaining("상점 포인트가 모자라요");
+                .isInstanceOf(ApiException.class).hasMessageContaining("크레딧이 모자라요");
         assertThat(points.spend(me.memberId(), Wallet.SHOP, 60, PointReason.SHOP, "shop:test:2", null, "테두리")).isTrue();
         assertThat(points.spend(me.memberId(), Wallet.SHOP, 60, PointReason.SHOP, "shop:test:2", null, "테두리")).isFalse();
         assertThat(points.spend(me.memberId(), Wallet.INVEST_ONLY, 1_000_000, PointReason.INVEST, "invest:test:1", null, "BTC 매수")).isTrue();
@@ -199,11 +229,11 @@ class PointLedgerTest extends IntegrationTest {
         jdbc.update("UPDATE member SET role = 'ADMIN' WHERE id = ?", admin.memberId());
         admin = new Session(relogin(admin), admin.memberId(), admin.handle(), admin.githubId());
         JsonNode rules = read(admin.http().perform(get("/api/admin/points/rules")).andExpect(status().isOk()).andReturn());
-        assertThat(rules.findValuesAsString("code")).contains("WELCOME", "ATTENDANCE", "STREAK_BONUS", "POST_DAILY_MAX", "TRADE_PROFIT_PERCENT");
+        assertThat(rules.findValuesAsString("code")).contains("WELCOME", "ATTENDANCE", "ATTENDANCE_MAX", "POST_DAILY_MAX", "TRADE_PROFIT_PERCENT");
 
         admin.http().perform(asJson(put("/api/admin/points/rules"), Map.of("ATTENDANCE", 999_999_999))).andExpect(status().isBadRequest());
         admin.http().perform(asJson(put("/api/admin/points/rules"), Map.of("NOPE", 1))).andExpect(status().isBadRequest());
-        admin.http().perform(asJson(put("/api/admin/points/rules"), Map.of("STREAK_DAYS", 0))).andExpect(status().isBadRequest());
+        admin.http().perform(asJson(put("/api/admin/points/rules"), Map.of("POST_DAILY_MAX", 0))).andExpect(status().isBadRequest());
         admin.http().perform(asJson(put("/api/admin/points/rules"), Map.of("ATTENDANCE", 250, "WELCOME", 5_000_000))).andExpect(status().isOk());
 
         Session fresh = signup(uniqueLogin("ptnew"));

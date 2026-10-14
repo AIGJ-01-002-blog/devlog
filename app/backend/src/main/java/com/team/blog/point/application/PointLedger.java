@@ -56,18 +56,29 @@ public class PointLedger {
     public record History(List<Entry> items, Long nextBefore) {}
 
     /**
-     * @param attendedToday 오늘(한국 시간) 출석했는지, streak 이어진 연속 출석 일수(오늘 안 했으면 어제까지), nextBonusIn 보너스까지 남은 출석 수
+     * @param attendedToday 오늘(한국 시간) 출석했는지, streak 이어진 연속 출석 일수(오늘 안 했으면 어제까지)
+     * @param todayReward   오늘 받은 보상(출석했으면) 또는 지금 출석하면 받을 보상
+     * @param nextReward    내일도 이어서 출석하면 받을 보상
+     * @param maxReward     하루 상한, maxStreak 상한에 닿는 연속 출석 일수
      */
-    public record Attendance(LocalDate today, boolean attendedToday, int streak, int streakDays, int nextBonusIn, List<LocalDate> recent) {}
+    public record Attendance(LocalDate today, boolean attendedToday, int streak, long todayReward, long nextReward, long maxReward, int maxStreak,
+                             List<LocalDate> recent) {}
 
     public record RuleView(String code, String label, long value, long defaultValue, long max) {}
 
-    /** 내 포인트 화면 한 번에 */
-    public record Summary(Balance balance, Attendance attendance, List<RuleView> rules, int postsRewardedToday, long tradeProfitToday,
-                          History history) {}
+    /** 연속 출석 휘장을 주는 날들. 365일은 1년을 채운 회원에게 주는 특별 휘장 (블로그 주인 결정) */
+    public static final List<Integer> BADGE_DAYS = List.of(20, 50, 100, 150, 200, 300, 365);
 
-    /** @param earned 이번 출석으로 받은 포인트(보너스 포함). 이미 출석했으면 0 */
-    public record AttendResult(boolean already, long earned, long bonus, Summary summary) {}
+    /** @param special 1년(365일) 휘장 */
+    public record Badge(int days, boolean special, Instant earnedAt) {}
+
+    /** 내 포인트 화면 한 번에 */
+    /** @param badges 받은 휘장, nextBadge 다음 휘장까지의 연속 일수 기준 (다 받았으면 null) */
+    public record Summary(Balance balance, Attendance attendance, List<RuleView> rules, int postsRewardedToday, long tradeProfitToday,
+                          History history, List<Badge> badges, Integer nextBadge) {}
+
+    /** @param earned 이번 출석으로 받은 크레딧. 이미 출석했으면 0, streak 오늘까지 이어진 연속 출석 일수, newBadges 이번에 받은 휘장 */
+    public record AttendResult(boolean already, long earned, int streak, List<Integer> newBadges, Summary summary) {}
 
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
@@ -138,7 +149,7 @@ public class PointLedger {
                 errors.add(new FieldErrorItem(code, "UNKNOWN", "없는 규칙이에요."));
                 return;
             }
-            long min = r == PointRule.STREAK_DAYS || r == PointRule.POST_DAILY_MAX ? 1 : 0;
+            long min = r == PointRule.POST_DAILY_MAX ? 1 : 0;
             if (value == null || value < min || value > r.max()) {
                 errors.add(new FieldErrorItem(code, "OUT_OF_RANGE", r.label() + "은(는) " + min + "~" + String.format("%,d", r.max()) + " 사이로 적어 주세요."));
                 return;
@@ -209,22 +220,38 @@ public class PointLedger {
                 Long.class, memberId, Timestamp.from(dayStart));
         List<RuleView> views = new ArrayList<>();
         rules.forEach((r, v) -> views.add(new RuleView(r.name(), r.label(), v, r.defaultValue(), r.max())));
-        return new Summary(balance(memberId), attendance(memberId, today, rules), views, posts == null ? 0 : posts, trade == null ? 0 : trade,
-                history(memberId, null, null));
+        Attendance attendance = attendance(memberId, today, rules);
+        List<Badge> badges = badges(memberId);
+        int streak = attendance.streak();
+        Integer nextBadge = BADGE_DAYS.stream().filter(d -> d > streak).findFirst().orElse(null);
+        return new Summary(balance(memberId), attendance, views, posts == null ? 0 : posts, trade == null ? 0 : trade,
+                history(memberId, null, null), badges, nextBadge);
     }
 
     private Attendance attendance(long memberId, LocalDate today, Map<PointRule, Long> rules) {
-        int cycle = (int) Math.max(1, rules.get(PointRule.STREAK_DAYS));
         List<LocalDate> recent = jdbc.queryForList("SELECT day FROM point_attendance WHERE member_id = ? AND day > ? ORDER BY day",
-                LocalDate.class, memberId, today.minusDays(cycle + 7L));
+                LocalDate.class, memberId, today.minusDays(14));
         Optional<int[]> last = jdbc.query("SELECT day, streak FROM point_attendance WHERE member_id = ? AND day >= ? ORDER BY day DESC LIMIT 1",
                 (rs, i) -> new int[] {rs.getObject("day", LocalDate.class).equals(today) ? 1 : 0, rs.getInt("streak")},
                 memberId, today.minusDays(1)).stream().findFirst();
         boolean attended = last.map(a -> a[0] == 1).orElse(false);
         int streak = last.map(a -> a[1]).orElse(0);
-        // 오늘 출석했든 안 했든, 보너스를 받는 출석까지 남은 횟수는 같은 식이다 (오늘 했으면 오늘 것을 빼고 센다)
-        int nextBonusIn = cycle - (streak % cycle);
-        return new Attendance(today, attended, streak, cycle, nextBonusIn, recent);
+        // 오늘 했으면 오늘 몫은 이미 받은 값, 안 했으면 지금 출석해 streak+1이 될 때의 값
+        int todayStreak = attended ? streak : streak + 1;
+        long base = rules.get(PointRule.ATTENDANCE);
+        long max = rules.get(PointRule.ATTENDANCE_MAX);
+        int maxStreak = base <= 0 ? 0 : (int) Math.ceil(Math.sqrt((double) max / base));
+        return new Attendance(today, attended, streak, attendanceReward(rules, todayStreak), attendanceReward(rules, todayStreak + 1), max, maxStreak,
+                recent);
+    }
+
+    /** 연속 출석 streak일째의 보상: 기준 값 × streak², 하루 상한까지 (1일 100, 2일 400, 10일 1만, 365일 1,332만 2,500) */
+    static long attendanceReward(Map<PointRule, Long> rules, int streak) {
+        long base = rules.get(PointRule.ATTENDANCE);
+        long max = rules.get(PointRule.ATTENDANCE_MAX);
+        if (base <= 0 || streak <= 0) return 0;
+        long sq = (long) streak * streak;
+        return sq > max / base ? max : Math.min(max, base * sq);
     }
 
     // ---- 적립 ----
@@ -239,11 +266,12 @@ public class PointLedger {
         tx.executeWithoutResult(st -> insert(memberId, Wallet.INVEST_ONLY, amount, PointReason.WELCOME, "welcome", null, "가입 축하 모의투자 포인트"));
     }
 
-    /** 오늘 출석. 이미 했으면 그대로 돌려준다. 연속 출석이 주기(기본 7일)에 닿으면 보너스를 더 준다 */
+    /** 오늘 출석. 이미 했으면 그대로 돌려준다. 보상은 기준 값(기본 100) × 연속 출석 일수², 하루 상한(기본 13,322,500 = 365일 연속)까지 */
     public AttendResult attend(long memberId) {
         requireEnabled();
         ensureWelcome(memberId);
         LocalDate today = today();
+        List<Integer> newBadges = new ArrayList<>();
         long[] got = tx.execute(st -> {
             lock(memberId);
             Boolean done = jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM point_attendance WHERE member_id = ? AND day = ?)", Boolean.class, memberId, today);
@@ -253,17 +281,23 @@ public class PointLedger {
             int streak = prev.isEmpty() ? 1 : prev.getFirst() + 1;
             jdbc.update("INSERT INTO point_attendance (member_id, day, streak, created_at) VALUES (?, ?, ?, ?)", memberId, today, streak,
                     Timestamp.from(Times.now(clock)));
-            Map<PointRule, Long> rules = rules();
-            long base = rules.get(PointRule.ATTENDANCE);
-            long cycle = Math.max(1, rules.get(PointRule.STREAK_DAYS));
-            long bonus = streak % cycle == 0 ? rules.get(PointRule.STREAK_BONUS) : 0;
-            if (base > 0) insert(memberId, Wallet.SHOP, base, PointReason.ATTENDANCE, "attend:" + today, null, today + " 출석");
-            if (bonus > 0) insert(memberId, Wallet.SHOP, bonus, PointReason.STREAK, "streak:" + today, null, streak + "일 연속 출석 보너스");
-            return new long[] {base, bonus};
+            long reward = attendanceReward(rules(), streak);
+            if (reward > 0) {
+                insert(memberId, Wallet.SHOP, reward, PointReason.ATTENDANCE, "attend:" + today, null,
+                        streak == 1 ? today + " 출석" : today + " 출석 (" + streak + "일 연속)");
+            }
+            List<Integer> fresh = new ArrayList<>();
+            for (int d : BADGE_DAYS) {
+                // 하루씩 늘어나므로 보통은 그날 하나지만, 빠진 휘장이 있으면 함께 채운다
+                if (d <= streak && jdbc.update("INSERT INTO point_badge (member_id, days, earned_at) VALUES (?, ?, ?) ON CONFLICT DO NOTHING",
+                        memberId, d, Timestamp.from(Times.now(clock))) == 1) fresh.add(d);
+            }
+            newBadges.addAll(fresh);
+            return new long[] {reward, streak};
         });
         Summary s = summaryWithoutWelcome(memberId);
-        if (got == null) return new AttendResult(true, 0, 0, s);
-        return new AttendResult(false, got[0] + got[1], got[1], s);
+        if (got == null) return new AttendResult(true, 0, s.attendance().streak(), List.of(), s);
+        return new AttendResult(false, got[0], (int) got[1], List.copyOf(newBadges), s);
     }
 
     /**
@@ -294,7 +328,7 @@ public class PointLedger {
     }
 
     /**
-     * 모의투자 실현 수익의 일부(기본 1%)를 상점 포인트로 적립한다. 모의투자(#267)가 매도 체결마다 부른다.
+     * 모의투자 실현 수익의 일부(기본 1%)를 크레딧(상점 지갑)으로 적립한다. 모의투자(#267)가 매도 체결마다 부른다.
      * 손실·0은 적립하지 않고, 하루 상한(기본 3,000)을 넘는 만큼은 버린다. 같은 체결은 한 번만.
      *
      * @param profit 그 매도의 실현 손익(포인트 = 원 단위)
@@ -336,12 +370,34 @@ public class PointLedger {
             if (Boolean.TRUE.equals(dup)) return false;
             long have = balance(memberId).of(wallet);
             if (have < amount) {
-                throw ApiException.conflict("POINTS_SHORT", (wallet == Wallet.SHOP ? "상점 포인트" : "투자 전용 포인트") + "가 모자라요. 지금 "
-                        + String.format("%,d", have) + "P예요.", Map.of("wallet", wallet.name(), "balance", have, "need", amount));
+                throw ApiException.conflict("POINTS_SHORT", wallet == Wallet.SHOP
+                        ? "크레딧이 모자라요. 지금 " + String.format("%,d", have) + "크레딧이에요."
+                        : "투자 전용 포인트가 모자라요. 지금 " + String.format("%,d", have) + "P예요.", Map.of("wallet", wallet.name(), "balance", have, "need", amount));
             }
             return insert(memberId, wallet, -amount, reason, requestKey, refId, memo);
         });
         return Boolean.TRUE.equals(done);
+    }
+
+    // ---- 출석 알림 ----
+
+    /** 화면 위 출석 알림용: 오늘 출석했는지와 지금 출석하면 받을 크레딧 (#266, 블로그 주인 결정 "버튼 + 알림") */
+    public record Today(boolean attendedToday, int streak, long reward) {}
+
+    public Today todayState(long memberId) {
+        requireEnabled();
+        Attendance a = attendance(memberId, today(), rules());
+        return new Today(a.attendedToday(), a.streak(), a.todayReward());
+    }
+
+    // ---- 휘장 ----
+
+    /** 받은 연속 출석 휘장, 적은 일수부터 */
+    public List<Badge> badges(long memberId) {
+        return jdbc.query("SELECT days, earned_at FROM point_badge WHERE member_id = ? ORDER BY days", (rs, i) -> {
+            int d = rs.getInt("days");
+            return new Badge(d, d == 365, rs.getTimestamp("earned_at").toInstant());
+        }, memberId);
     }
 
     // ---- 탈퇴 ----
@@ -349,6 +405,7 @@ public class PointLedger {
     public void purge(long memberId) {
         jdbc.update("DELETE FROM point_ledger WHERE member_id = ?", memberId);
         jdbc.update("DELETE FROM point_attendance WHERE member_id = ?", memberId);
+        jdbc.update("DELETE FROM point_badge WHERE member_id = ?", memberId);
         jdbc.update("UPDATE point_rule SET updated_by = NULL WHERE updated_by = ?", memberId);
     }
 

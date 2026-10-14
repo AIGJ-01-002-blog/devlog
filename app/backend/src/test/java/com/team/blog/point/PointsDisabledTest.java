@@ -23,6 +23,8 @@ class PointsDisabledTest extends IntegrationTest {
         me.http().perform(get("/api/me/points")).andExpect(status().isNotFound());
         me.http().perform(get("/api/me/points/history")).andExpect(status().isNotFound());
         me.http().perform(post("/api/me/points/attendance").with(csrf())).andExpect(status().isNotFound());
+        me.http().perform(get("/api/me/points/today")).andExpect(status().isNotFound());
+        mvc.perform(get("/api/members/" + me.handle() + "/badges")).andExpect(status().isNotFound());
         assertThat(jdbc.queryForObject("SELECT count(*) FROM point_ledger WHERE member_id = ?", Integer.class, me.memberId())).isZero();
     }
 }

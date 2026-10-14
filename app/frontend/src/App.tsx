@@ -6,6 +6,7 @@ import { TooltipLayer } from './components/TooltipLayer'
 import { MobileNav } from './components/MobileNav'
 import { SiteFooter } from './components/SiteFooter'
 import { PageAnnouncer } from './components/PageAnnouncer'
+import { AttendNudge } from './components/AttendNudge'
 import { ScrollTopButton } from './components/ScrollTopButton'
 import { MAIN_ID } from './lib/focusMain'
 import { VerifyBanner } from './components/VerifyBanner'
@@ -83,6 +84,7 @@ export function App() {
       {!path.startsWith('/write') && path !== '/account/restore' && <Header />}
       {path !== '/verify-email' && <VerifyBanner />}
       <Flash path={path} />
+      <AttendNudge path={path} />
       <div id={MAIN_ID} tabIndex={-1}>
         <WithdrawnGate path={path}><AgreementGate path={path}><PageErrorBoundary path={path}><Suspense fallback={<Loading />}>{route(path)}<FadeOnShow path={path} /></Suspense></PageErrorBoundary></AgreementGate></WithdrawnGate>
       </div>

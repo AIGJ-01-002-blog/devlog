@@ -24,6 +24,16 @@
   --color-focus: #2563eb;
   /* 개인 토큰 (docs/45 §3 밖, 이름만 이 서비스에서 씀) */
   --color-surface-2: #eef0f4;
+  /* 연속 출석 휘장 (이슈 266): 20·50·100·150·200·300일, 365일 특별 */
+  --badge-20: #8d6e63;
+  --badge-50: #78909c;
+  --badge-100: #c9a227;
+  --badge-150: #1f9e8f;
+  --badge-200: #4f63c9;
+  --badge-300: #9c3fc0;
+  --badge-365: #e3b23c;
+  --badge-365-hi: #fff4c2;
+  --badge-ink: #ffffff;
   --color-text-2: #3e4553;
   --color-input-border: #8a8a93;
   --color-brand-fill-hover: #2b27a8;
@@ -2446,6 +2456,11 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 .points-dot.today.done .points-dot-mark { box-shadow: inset 0 0 0 2px var(--color-ok-text); }
 .points-dot.today { color: var(--color-text); font-weight: 600; }
 .points-attend-btn { width: 100%; margin-top: 4px; }
+.points-ladder { list-style: none; margin: 0 0 12px; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; }
+.points-ladder li { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px; border: 1px solid var(--color-border); border-radius: var(--radius);
+  font-variant-numeric: tabular-nums; }
+.points-ladder li b { font-size: 0.8125rem; overflow-wrap: anywhere; text-align: center; }
+.points-ladder li.reached { border-color: var(--color-ok-text); background: var(--color-ok-bg); }
 .points-rules { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .points-rules li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 10px 0; border-bottom: 1px solid var(--color-border); }
 .points-rules li:last-child { border-bottom: 0; }
@@ -2470,3 +2485,33 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
   .points-layout { grid-template-columns: 1fr; }
   .points-kpis .kpi:last-child { grid-column: 1 / -1; }
 }
+
+/* 연속 출석 휘장과 출석 알림 (이슈 266) */
+.streak-badge { display: inline-grid; place-items: center; vertical-align: middle; position: relative; flex: none; --b: var(--badge-20); }
+.streak-badge.d50 { --b: var(--badge-50); }
+.streak-badge.d100 { --b: var(--badge-100); }
+.streak-badge.d150 { --b: var(--badge-150); }
+.streak-badge.d200 { --b: var(--badge-200); }
+.streak-badge.d300 { --b: var(--badge-300); }
+.streak-badge.d365 { --b: var(--badge-365); }
+.streak-badge svg { display: block; overflow: visible; }
+.streak-badge .ribbon { fill: var(--b); opacity: 0.75; }
+.streak-badge .medal { fill: var(--b); }
+.streak-badge .rim { fill: none; stroke: var(--badge-ink); stroke-opacity: 0.55; stroke-width: 1.2; }
+.streak-badge .num { fill: var(--badge-ink); font-size: 8px; font-weight: 800; font-family: inherit; }
+.streak-badge.locked .ribbon, .streak-badge.locked .medal { fill: var(--color-border); opacity: 1; }
+.streak-badge.locked .num { fill: var(--color-text-muted); }
+.streak-badge.special .rim { stroke: var(--badge-365-hi); stroke-opacity: 1; stroke-width: 1.6; }
+.streak-badge.special:not(.locked) { filter: drop-shadow(0 0 4px var(--badge-365)); }
+.streak-badge.special:not(.locked)::after { content: ""; position: absolute; inset: 30% 18% 0; border-radius: 50%; pointer-events: none;
+  background: linear-gradient(115deg, transparent 35%, var(--badge-365-hi) 50%, transparent 65%); background-size: 250% 100%; mix-blend-mode: screen;
+  animation: badge-shine 2.6s ease-in-out infinite; }
+@keyframes badge-shine { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+.blog-name .streak-badge { margin-left: 8px; }
+.points-badges-title { margin: 20px 0 8px; font-size: 1rem; }
+.points-badges { list-style: none; margin: 0 0 8px; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.points-badges li { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--color-text-muted); }
+.points-badges li.got { color: var(--color-text); font-weight: 600; }
+@media (max-width: 480px) { .points-badges { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.attend-nudge { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 12px 0 0; }
+.attend-nudge-actions { display: flex; align-items: center; gap: 4px; }

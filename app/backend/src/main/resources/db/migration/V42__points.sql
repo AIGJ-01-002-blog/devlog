@@ -21,7 +21,7 @@ CREATE INDEX ix_point_ledger_reason_day ON point_ledger (member_id, reason, crea
 
 COMMENT ON TABLE point_ledger IS '포인트 적립(+)·사용(-) 내역. 잔액은 지갑별 합계 (#266)';
 COMMENT ON COLUMN point_ledger.wallet IS 'INVEST_ONLY(가입 첫 지급, 모의투자에만) | SHOP(활동으로 번 포인트, 상점에서도)';
-COMMENT ON COLUMN point_ledger.reason IS 'WELCOME, ATTENDANCE, STREAK, POST, TRADE_PROFIT, SHOP, INVEST, ADMIN 등';
+COMMENT ON COLUMN point_ledger.reason IS 'WELCOME, ATTENDANCE, POST, TRADE_PROFIT, SHOP, INVEST, ADMIN 등';
 COMMENT ON COLUMN point_ledger.request_key IS '같은 일을 두 번 반영하지 않기 위한 키. 예: welcome, attend:2026-10-14, post:103';
 COMMENT ON COLUMN point_ledger.ref_id IS '근거가 된 글·체결·아이템 번호 (없으면 비움)';
 
@@ -37,6 +37,18 @@ CREATE TABLE point_attendance (
 );
 
 COMMENT ON TABLE point_attendance IS '하루 한 번 출석 (#266)';
+
+-- 연속 출석 휘장: 20·50·100·150·200·300일, 365일(특별). 한 번 받으면 연속이 끊겨도 남는다
+CREATE TABLE point_badge (
+    member_id  bigint NOT NULL,
+    days       integer NOT NULL,
+    earned_at  timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (member_id, days),
+    CONSTRAINT fk_point_badge_member FOREIGN KEY (member_id) REFERENCES member (id) ON DELETE CASCADE,
+    CONSTRAINT ck_point_badge_days CHECK (days IN (20, 50, 100, 150, 200, 300, 365))
+);
+
+COMMENT ON TABLE point_badge IS '연속 출석 휘장 (#266). 블로그 이름 옆에 보인다';
 
 -- 관리자가 바꾼 적립 규칙 값. 없는 규칙은 코드의 기본값을 쓴다
 CREATE TABLE point_rule (
