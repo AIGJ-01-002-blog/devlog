@@ -2628,8 +2628,19 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 :is(.tier-challenger, [data-frame="challenger"], [data-banner="challenger"]) { --ta: var(--tier-challenger-a); --tb: var(--tier-challenger-b); }
 
 /* 테두리: 아래 티어는 금속 결, 다이아부터 빛난다. 마스터·그랜드마스터·챌린저는 자기 색 빛줄기가 테두리를 돌고 주기적으로 번쩍인다(블로그 주인 요청) */
-.deco-frame[data-frame]:not([data-frame="color"]) { --frame-bg: conic-gradient(from 210deg, var(--ta), var(--tb), var(--ta), var(--tb), var(--ta)); }
-.deco-frame:is([data-frame="diamond"], [data-frame="master"], [data-frame="grandmaster"], [data-frame="challenger"]) { box-shadow: 0 0 12px 1px var(--ta); }
+.deco-frame[data-frame]:not([data-frame="color"]) {
+  --metal: conic-gradient(from 210deg, var(--ta), var(--tb), var(--ta), var(--tb), var(--ta));
+  --frame-bg: var(--metal);
+  /* 깎은 금속 모서리: 위는 빛, 아래는 그늘 */
+  box-shadow: inset 0 1.5px 0 color-mix(in srgb, var(--tier-spark) 70%, transparent), inset 0 -1.5px 0 color-mix(in srgb, var(--tb) 80%, black), 0 1px 3px var(--badge-shadow);
+}
+/* 실버·골드는 동전 테처럼 촘촘한 홈, 플래티넘은 굵고 가는 홈을 번갈아, 다이아는 열두 면으로 깎는다 */
+.deco-frame:is([data-frame="silver"], [data-frame="gold"]) { --frame-bg: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--tb) 55%, transparent) 0 1.5deg, transparent 1.5deg 6deg), var(--metal); }
+.deco-frame[data-frame="platinum"] { --frame-bg: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--tier-spark) 55%, transparent) 0 1deg, transparent 1deg 7.5deg, color-mix(in srgb, var(--tb) 60%, transparent) 7.5deg 9.5deg, transparent 9.5deg 15deg), var(--metal); }
+.deco-frame[data-frame="diamond"] { --frame-bg: repeating-conic-gradient(from 15deg, color-mix(in srgb, var(--tier-spark) 45%, transparent) 0 15deg, transparent 15deg 30deg), var(--metal); }
+.deco-frame:is([data-frame="diamond"], [data-frame="master"], [data-frame="grandmaster"], [data-frame="challenger"]) {
+  box-shadow: inset 0 1.5px 0 color-mix(in srgb, var(--tier-spark) 70%, transparent), inset 0 -1.5px 0 color-mix(in srgb, var(--tb) 80%, black), 0 0 12px 1px var(--ta);
+}
 .deco-frame:is([data-frame="master"], [data-frame="grandmaster"], [data-frame="challenger"]) {
   --tg: color-mix(in srgb, var(--ta) 45%, var(--tb)); --tg2: var(--ta); --spin: 2.2s; --flash: 2.6s;
   animation: tier-breathe var(--flash) ease-in-out infinite;
@@ -2667,22 +2678,53 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 @keyframes tier-twinkle { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
 @keyframes tier-sweep { from { background-position: 160% 0; } to { background-position: -60% 0; } }
 
-/* 표지: 티어 색 그러데이션. 다이아부터 빛이 번지고, 챌린저는 금빛 줄이 지나간다 */
-.deco-banner[data-banner] { --cover-a: var(--ta); --cover-b: var(--tb); }
-.deco-banner:is([data-banner="diamond"], [data-banner="master"], [data-banner="grandmaster"], [data-banner="challenger"]) {
-  background: radial-gradient(60% 90% at 78% 20%, var(--tier-spark-soft), transparent 70%), radial-gradient(120% 140% at 0% 0%, var(--cover-a) 0%, transparent 60%),
-    linear-gradient(120deg, var(--cover-a), var(--cover-b));
+/* 표지: 티어마다 금속·보석 재질 무늬를 얹는다(블로그 주인 요청으로 품질을 올림).
+   아이언 헤어라인 → 브론즈 두들긴 물결 → 실버 기요셰 각인 → 골드 햇살 → 플래티넘 격자 → 다이아 깎은 면 → 마스터 성운 → 그랜드마스터 불씨 → 챌린저 오로라와 금빛 줄 */
+.deco-banner[data-banner] {
+  --cover-a: var(--ta); --cover-b: var(--tb);
+  --line: color-mix(in srgb, var(--tier-spark) 18%, transparent); --line-2: color-mix(in srgb, var(--tier-spark) 9%, transparent);
+  --shade: color-mix(in srgb, var(--tb) 45%, transparent); --cover-pattern: none;
+  --cover-light: radial-gradient(70% 120% at 85% 0%, var(--tier-spark-soft), transparent 62%);
 }
-.deco-banner[data-banner="challenger"] {
-  background: linear-gradient(105deg, transparent 40%, var(--tier-spark-soft) 50%, transparent 60%), radial-gradient(60% 90% at 78% 20%, var(--tier-spark-soft), transparent 70%),
-    linear-gradient(120deg, var(--tier-challenger-c), var(--ta) 35%, var(--tb));
-  background-size: 250% 100%, 100% 100%, 100% 100%;
+.deco-banner[data-banner]:not(.has-image) {
+  background: var(--cover-pattern), var(--cover-light), linear-gradient(to top, var(--shade), transparent 55%),
+    radial-gradient(120% 140% at 0% 0%, var(--cover-a) 0%, transparent 60%), linear-gradient(120deg, var(--cover-a), var(--cover-b));
+}
+.deco-banner[data-banner="iron"] { --cover-pattern: repeating-linear-gradient(0deg, var(--line) 0 1px, transparent 1px 3px), repeating-linear-gradient(0deg, var(--line-2) 0 1px, transparent 1px 7px); }
+.deco-banner[data-banner="bronze"] { --cover-pattern: repeating-radial-gradient(circle at 18% 120%, transparent 0 9px, var(--line) 9px 10px, transparent 10px 15px), repeating-radial-gradient(circle at 92% -20%, transparent 0 11px, var(--line-2) 11px 12px); }
+.deco-banner[data-banner="silver"] { --cover-pattern: repeating-radial-gradient(circle at 0% 100%, transparent 0 6px, var(--line) 6px 7px), repeating-radial-gradient(circle at 100% 100%, transparent 0 6px, var(--line) 6px 7px); }
+.deco-banner[data-banner="gold"] { --cover-pattern: repeating-conic-gradient(from 0deg at 82% 115%, var(--line) 0 2.5deg, transparent 2.5deg 8deg), radial-gradient(40% 70% at 82% 100%, var(--tier-spark-soft), transparent 70%); }
+.deco-banner[data-banner="platinum"] { --cover-pattern: repeating-linear-gradient(60deg, var(--line) 0 1px, transparent 1px 16px), repeating-linear-gradient(-60deg, var(--line) 0 1px, transparent 1px 16px), repeating-linear-gradient(0deg, var(--line-2) 0 1px, transparent 1px 13.86px); }
+.deco-banner[data-banner="diamond"] { --cover-pattern: linear-gradient(115deg, transparent 0 56%, color-mix(in srgb, var(--tier-spark) 26%, transparent) 56% 68%, transparent 68%),
+    linear-gradient(64deg, transparent 0 60%, color-mix(in srgb, var(--tb) 26%, transparent) 60% 77%, transparent 77%),
+    linear-gradient(160deg, transparent 0 34%, var(--line) 34% 46%, transparent 46%),
+    linear-gradient(28deg, transparent 0 18%, color-mix(in srgb, var(--tb) 14%, transparent) 18% 31%, transparent 31%); }
+.deco-banner[data-banner="master"] {
+  --cover-pattern: radial-gradient(2.5px 2.5px at 12% 28%, var(--tier-spark), transparent), radial-gradient(2px 2px at 27% 64%, var(--tier-spark), transparent),
+    radial-gradient(3px 3px at 44% 22%, var(--tier-spark), transparent), radial-gradient(2px 2px at 58% 74%, var(--tier-spark), transparent),
+    radial-gradient(2.5px 2.5px at 71% 40%, var(--tier-spark), transparent), radial-gradient(2px 2px at 88% 18%, var(--tier-spark), transparent),
+    radial-gradient(45% 80% at 30% 70%, color-mix(in srgb, var(--ta) 55%, transparent), transparent 70%),
+    radial-gradient(35% 60% at 72% 30%, color-mix(in srgb, var(--tier-spark) 22%, transparent), transparent 70%);
+}
+.deco-banner[data-banner="grandmaster"] {
+  --cover-pattern: radial-gradient(1.5px 1.5px at 22% 40%, var(--tier-challenger-a), transparent), radial-gradient(1px 1px at 38% 22%, var(--tier-challenger-a), transparent),
+    radial-gradient(2px 2px at 63% 34%, var(--tier-challenger-a), transparent), radial-gradient(1px 1px at 80% 18%, var(--tier-challenger-a), transparent),
+    radial-gradient(34% 80% at 16% 112%, color-mix(in srgb, var(--tier-challenger-a) 70%, transparent), transparent 70%),
+    radial-gradient(28% 70% at 52% 118%, color-mix(in srgb, var(--tier-challenger-a) 85%, transparent), transparent 70%),
+    radial-gradient(34% 80% at 88% 112%, color-mix(in srgb, var(--tier-challenger-a) 60%, transparent), transparent 70%),
+    repeating-linear-gradient(-72deg, var(--line-2) 0 1px, transparent 1px 11px);
+}
+.deco-banner[data-banner="challenger"]:not(.has-image) {
+  background: linear-gradient(105deg, transparent 40%, var(--tier-spark-soft) 50%, transparent 60%),
+    conic-gradient(from 200deg at 50% 130%, transparent 0deg, color-mix(in srgb, var(--tier-challenger-b) 55%, transparent) 40deg, transparent 80deg, color-mix(in srgb, var(--tier-challenger-c) 50%, transparent) 120deg, transparent 160deg),
+    var(--cover-light), linear-gradient(120deg, var(--tier-challenger-c), var(--ta) 35%, var(--tb));
+  background-size: 250% 100%, 100% 100%, 100% 100%, 100% 100%;
   animation: tier-sweep 4s ease-in-out infinite;
 }
 
 /* 빛·반짝임 효과 (EFFECT): 블로그 머리말에 data-effect로 건다. 상점 미리보기도 같은 규칙 */
 :is(.blog-hero, .deco-effect-preview)[data-effect] :is(.blog-avatar, .deco-effect-avatar) { position: relative; }
-:is(.blog-hero, .deco-effect-preview)[data-effect] :is(.blog-cover, .deco-effect-cover) { position: relative; }
+.blog-hero[data-effect] .blog-cover { position: relative; }
 :is(.blog-hero, .deco-effect-preview)[data-effect="glow"] :is(.blog-avatar, .deco-effect-avatar) { filter: drop-shadow(0 0 10px var(--tier-spark)); animation: tier-twinkle 3s ease-in-out infinite; }
 :is(.blog-hero, .deco-effect-preview)[data-effect] :is(.blog-cover, .deco-effect-cover)::before {
   content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1;
@@ -2695,6 +2737,13 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
     radial-gradient(1.5px 1.5px at 90% 22%, var(--tier-spark), transparent), radial-gradient(2px 2px at 96% 80%, var(--tier-spark), transparent);
   animation: tier-twinkle 1.8s ease-in-out infinite;
 }
+:is(.blog-hero, .deco-effect-preview)[data-effect="stardust"] :is(.blog-cover, .deco-effect-cover)::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+  background: radial-gradient(1.5px 1.5px at 15% 55%, var(--tier-spark), transparent), radial-gradient(2px 2px at 30% 34%, var(--tier-spark), transparent),
+    radial-gradient(1px 1px at 46% 82%, var(--tier-spark), transparent), radial-gradient(2.5px 2.5px at 58% 40%, var(--tier-spark), transparent),
+    radial-gradient(1.5px 1.5px at 73% 14%, var(--tier-spark), transparent), radial-gradient(2px 2px at 86% 48%, var(--tier-spark), transparent);
+  animation: tier-twinkle 1.8s ease-in-out 0.9s infinite;
+}
 :is(.blog-hero, .deco-effect-preview)[data-effect="radiance"] :is(.blog-cover, .deco-effect-cover)::after {
   content: ""; position: absolute; inset: 0; pointer-events: none;
   background: linear-gradient(105deg, transparent 38%, var(--tier-spark-soft) 50%, transparent 62%); background-size: 250% 100%;
@@ -2702,7 +2751,7 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 }
 :is(.blog-hero, .deco-effect-preview)[data-effect="radiance"] :is(.blog-avatar, .deco-effect-avatar) { filter: drop-shadow(0 0 14px var(--tier-challenger-c)); }
 .deco-effect-preview { overflow: hidden; }
-.deco-effect-cover { position: absolute; inset: 0 0 38%; background: linear-gradient(120deg, var(--cover-a), var(--cover-b)); }
+.deco-effect-cover { position: absolute; inset: 0 0 38%; }
 .deco-effect-avatar { position: relative; margin-top: 30px; z-index: 2; }
 
 /* 티어 문장 */
@@ -2724,6 +2773,9 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 .tier-emblem.t9 .crown path { fill: var(--tier-challenger-c); }
 .tier-emblem.t9 .jewel { fill: var(--badge-gem); }
 .tier-emblem .shine { fill: var(--tier-spark); opacity: 0.5; }
+.tier-emblem .bevel-hi { fill: none; stroke: var(--tier-spark); stroke-width: 0.7; stroke-linecap: round; opacity: 0.7; }
+.tier-emblem .rivet circle { fill: color-mix(in srgb, var(--ta) 60%, var(--tier-spark)); stroke: var(--tb); stroke-width: 0.4; }
+.tier-emblem .stipple { fill: none; stroke: var(--tb); stroke-width: 0.7; stroke-dasharray: 0.1 1.3; stroke-linecap: round; opacity: 0.55; }
 .tier-emblem:is(.t6, .t7, .t8, .t9) svg { filter: drop-shadow(0 0 3px var(--ta)) drop-shadow(0 1px 1px var(--badge-shadow)); }
 .tier-emblem.t9 svg { animation: tier-twinkle 2s ease-in-out infinite; }
 
@@ -2736,7 +2788,6 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 .shop-card { display: flex; flex-direction: column; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); overflow: hidden; }
 .shop-card.applied { border-color: var(--color-brand); box-shadow: inset 0 0 0 1px var(--color-brand); }
 .shop-preview { position: relative; height: 104px; display: grid; place-items: center; background: var(--color-surface-2); }
-.shop-preview.deco-banner:not(:is([data-banner="diamond"], [data-banner="master"], [data-banner="grandmaster"], [data-banner="challenger"])) { background: radial-gradient(120% 140% at 0% 0%, var(--cover-a) 0%, transparent 60%), linear-gradient(120deg, var(--cover-a), var(--cover-b)); }
 .shop-preview.deco-banner.has-image { background-color: var(--color-surface-2); }
 .shop-card.locked .shop-preview { filter: grayscale(0.7); opacity: 0.55; }
 .shop-card.tier-card:is(.t6, .t7, .t8, .t9):not(.locked) { border-color: color-mix(in srgb, var(--ta) 55%, var(--color-border)); }
@@ -2759,7 +2810,20 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 .shop-tabs .settings-panel { padding: 16px 20px 20px; }
 .shop-tabs .shop-head h2 { margin: 0; font-size: 1.1rem; }
 .shop-tabs .shop-grid { margin-bottom: 0; }
-.shop-preview-theme { display: flex; align-items: center; gap: 8px; }
+.shop-preview-theme { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; }
+.theme-mock { display: flex; flex-direction: column; gap: 6px; width: min(168px, 82%); padding: 8px 10px; border-radius: var(--radius);
+  background: var(--color-surface); box-shadow: 0 0 0 1px var(--color-border); }
+.theme-mock i { display: block; height: 5px; border-radius: 3px; background: var(--color-border); }
+.theme-mock-tabs { display: flex; gap: 10px; padding-bottom: 5px; border-bottom: 1px solid var(--color-border); }
+.theme-mock-tabs i { width: 22px; }
+.theme-mock-tabs i.on { background: var(--color-brand); box-shadow: 0 6px 0 -3px var(--color-brand); }
+.theme-mock-text { display: flex; flex-direction: column; gap: 5px; }
+.theme-mock-text i:nth-child(1) { width: 92%; }
+.theme-mock-text i.link { width: 54%; background: var(--color-brand); opacity: 0.85; }
+.theme-mock-text i:nth-child(3) { width: 72%; }
+.theme-mock-foot { display: flex; align-items: center; justify-content: space-between; }
+.theme-mock .shop-swatch { flex: none; width: 20px; height: 20px; }
+.theme-mock .btn.btn-small { min-height: 0; padding: 2px 10px; font-size: 0.75rem; }
 .shop-swatch { width: 40px; height: 40px; border-radius: 50%; background: var(--swatch); box-shadow: inset 0 0 0 1px var(--color-border); }
 .shop-preview-theme .btn { pointer-events: none; }
 .shop-body { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px 14px; flex: 1; }

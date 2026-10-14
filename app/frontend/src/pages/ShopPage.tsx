@@ -13,6 +13,7 @@ import { Avatar } from '../components/Avatar'
 import { TierEmblem } from '../components/TierEmblem'
 import { NavIcon, type IconName } from '../components/NavIcons'
 
+const EFFECT_TIER: Record<string, string> = { glow: 'diamond', stardust: 'grandmaster', radiance: 'challenger' }
 const KIND_ICONS: Record<ItemKind, IconName> = { THEME: 'sun', FRAME: 'user', BANNER: 'blog', EFFECT: 'eye' }
 
 /** 주소 뒤 #frame처럼 종류 탭을 바로 연다 */
@@ -180,8 +181,12 @@ export function Preview({ item, kind, seed, name, image }: { item: Pick<ShopItem
     return (
       <div className="shop-preview" aria-hidden="true">
         <span className="shop-preview-theme blog-themed" style={{ '--blog-theme': item.value } as CSSProperties}>
-          <span className="shop-swatch" style={{ '--swatch': item.value } as CSSProperties} />
-          <span className="btn btn-primary btn-small">{t('새 글')}</span>
+          {/* 내 블로그 머리 부분을 줄여 그린 모습: 고른 탭 밑줄·링크·버튼이 이 색으로 바뀐다 */}
+          <span className="theme-mock">
+            <span className="theme-mock-tabs"><i className="on" /><i /><i /></span>
+            <span className="theme-mock-text"><i /><i className="link" /><i /></span>
+            <span className="theme-mock-foot"><span className="shop-swatch" style={{ '--swatch': item.value } as CSSProperties} /><span className="btn btn-primary btn-small">{t('새 글')}</span></span>
+          </span>
         </span>
       </div>
     )
@@ -195,10 +200,12 @@ export function Preview({ item, kind, seed, name, image }: { item: Pick<ShopItem
     )
   }
   if (kind === 'EFFECT') {
+    // 효과는 그 효과가 놓인 티어의 표지·테두리 위에 걸어 보여 준다
+    const tier = EFFECT_TIER[item.value] ?? 'diamond'
     return (
       <div className="shop-preview deco-effect-preview" data-effect={item.value} aria-hidden="true">
-        <span className="deco-banner deco-effect-cover" data-banner="master" />
-        <span className="deco-frame deco-effect-avatar" data-frame="diamond"><Avatar src={image} name={name || '?'} seed={seed} size={44} /></span>
+        <span className="deco-banner deco-effect-cover" data-banner={tier} />
+        <span className="deco-frame deco-effect-avatar" data-frame={tier}><Avatar src={image} name={name || '?'} seed={seed} size={44} /></span>
       </div>
     )
   }

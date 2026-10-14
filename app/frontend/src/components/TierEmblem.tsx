@@ -3,7 +3,8 @@ import { tierKey, tierName } from '../lib/shop'
 
 /**
  * 상점 티어 문장 (#268). 아이언~챌린저를 금속 방패로 직접 그렸다(게임 회사의 문장 그림은 쓰지 않고 이름·색만 빌렸다).
- * 방패는 빛 받는 면·테두리 홈·깎은 보석이 있고, 실버부터 양옆 장식, 다이아부터 날개, 마스터부터 왕관이 붙는다.
+ * 방패는 빛 받는 면·깎은 윗변·테두리 홈·깎은 보석이 있고, 아이언·브론즈는 리벳, 실버부터는 점 각인이 들어간다.
+ * 실버부터 양옆 장식, 다이아부터 날개, 마스터부터 왕관이 붙는다.
  * 색은 티어 토큰(--ta 밝은 쪽, --tb 어두운 쪽)이고 빛·반짝임은 CSS(.tier-emblem.t6~t9)가 맡는다.
  */
 export function TierEmblem({ tier, size = 22, label = true }: { tier: number; size?: number; label?: boolean }) {
@@ -53,6 +54,14 @@ export function TierEmblem({ tier, size = 22, label = true }: { tier: number; si
         <path className="shield" d="M20 7 L31.5 11 L30.5 23 Q28.5 32 20 37.5 Q11.5 32 9.5 23 L8.5 11 Z" fill={`url(#${metal})`} />
         <path className="shield-face" d="M20 9.8 L29 13 L28.2 22.6 Q26.6 29.8 20 34.4 Q13.4 29.8 11.8 22.6 L11 13 Z" fill={`url(#${face})`} />
         <path className="groove" d="M20 9.8 L29 13 L28.2 22.6 Q26.6 29.8 20 34.4 Q13.4 29.8 11.8 22.6 L11 13 Z" />
+        {/* 빛 받는 윗변: 금속 방패의 깎은 모서리 */}
+        <path className="bevel-hi" d="M10.2 12 L20 8.4 L30.2 12" />
+        {/* 아이언·브론즈는 리벳으로 박은 철판, 실버부터는 테 안쪽에 점 각인 */}
+        {tier <= 2 ? (
+          <g className="rivet"><circle cx="12.6" cy="14.2" r="0.95" /><circle cx="27.4" cy="14.2" r="0.95" /><circle cx="13.6" cy="24.6" r="0.95" /><circle cx="26.4" cy="24.6" r="0.95" /></g>
+        ) : (
+          <path className="stipple" d="M20 11.6 L27.4 14.2 L26.8 22.4 Q25.4 28.6 20 32.6 Q14.6 28.6 13.2 22.4 L12.6 14.2 Z" />
+        )}
         {/* 깎은 보석: 밝은 면 둘, 어두운 면 둘 */}
         <path className="gem-lo" d="M20 14 L25 20.5 L20 29 Z" />
         <path className="gem-hi" d="M20 14 L15 20.5 L20 29 Z" />
