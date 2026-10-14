@@ -1,0 +1,91 @@
+# 시험 환경(spec 092, #170). develop에 머지된 코드를 운영과 같은 클러스터의 다른 네임스페이스(blog-dev)에 띄운다.
+# 운영(blog)의 DB·Redis·MinIO와 데이터를 나누려고 같은 부품(in-cluster-deps)을 이 네임스페이스에 따로 띄운다.
+# 학교 서버 메모리를 아끼려고 앱은 1개만 띄우고, 검색 임베딩 모델(Ollama)·매일 DB 백업은 띄우지 않는다(검색은 키워드로만).
+# 비밀값(secret.env, 커밋 금지)은 배포 워크플로가 처음 한 번 임의 값으로 만들어 클러스터의 blog-dev-seed Secret에 두고 다시 쓴다.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: blog-dev
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: blog-dev
+    includeSelectors: false
+resources:
+  - ../../base
+components:
+  - ../../components/in-cluster-deps
+configMapGenerator:
+  - name: blog-app-config
+    envs: [app.env]
+secretGenerator:
+  - name: blog-app-secret
+    envs: [secret.env]
+patches:
+  - target:
+      kind: Ingress
+      name: blog-app
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: dev.devlog.life
+  - target:
+      kind: Deployment
+      name: blog-app
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: 384Mi
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: blog-app
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 1
+  # 앱이 1개라 "최소 1개 유지"를 걸면 노드 비우기가 막힌다. 시험 환경은 잠깐 끊겨도 된다
+  - patch: |-
+      $patch: delete
+      apiVersion: policy/v1
+      kind: PodDisruptionBudget
+      metadata:
+        name: blog-app
+  - patch: |-
+      $patch: delete
+      apiVersion: apps/v1
+      kind: StatefulSet
+      metadata:
+        name: ollama-embed
+  - patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: ollama-embed
+  - patch: |-
+      $patch: delete
+      apiVersion: batch/v1
+      kind: CronJob
+      metadata:
+        name: pg-backup
+  - patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: pg-backup
+  # 시험 데이터라 디스크를 작게 잡는다
+  - target: {kind: StatefulSet, name: postgres}
+    patch: |-
+      - op: replace
+        path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+        value: 2Gi
+  - target: {kind: StatefulSet, name: minio}
+    patch: |-
+      - op: replace
+        path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+        value: 2Gi

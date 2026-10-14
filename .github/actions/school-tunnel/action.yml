@@ -1,0 +1,55 @@
+# 학교 실습 서버의 k3d 쿠버네티스 API를 SSH 터널로 러너 127.0.0.1:16443에 잇고 KUBECONFIG를 잡는다.
+# 운영 배포(deploy)와 시험 환경 배포(deploy-staging)가 같이 쓴다. 비밀번호는 sshpass 환경 변수로만 넘긴다.
+# 다 쓴 뒤에는 부르는 쪽에서 pkill -f 'ssh .*-L 16443:' 로 터널을 닫는다.
+name: school-tunnel
+description: 학교 서버 쿠버네티스 API SSH 터널
+inputs:
+  known-hosts: {description: 학교 서버 SSH 키(변수 SCHOOL_SSH_KNOWN_HOSTS), required: true}
+  host: {description: 변수 SCHOOL_SSH_HOST, required: true}
+  ssh-port: {description: 변수 SCHOOL_SSH_PORT, required: true}
+  user: {description: 변수 SCHOOL_SSH_USER, required: true}
+  api-port: {description: 변수 SCHOOL_K8S_API_PORT, required: true}
+  password: {description: Secret SCHOOL_SSH_PASSWORD, required: true}
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        KNOWN_HOSTS: ${{ inputs.known-hosts }}
+        HOST: ${{ inputs.host }}
+        SSH_PORT: ${{ inputs.ssh-port }}
+        SSH_USER: ${{ inputs.user }}
+        API_PORT: ${{ inputs.api-port }}
+        SSHPASS: ${{ inputs.password }}
+      run: |
+        # 학교 서버 SSH 키를 저장소 변수 SCHOOL_SSH_KNOWN_HOSTS로 고정한다. 변수가 없으면 붙지 않는다
+        if [ -n "$KNOWN_HOSTS" ]; then mkdir -p ~/.ssh && printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 600 ~/.ssh/known_hosts; HKC=yes
+        else echo "::error::변수 SCHOOL_SSH_KNOWN_HOSTS가 없어 학교 서버 SSH 키를 확인할 수 없습니다. 확인 안 된 서버에는 비밀번호를 보내지 않습니다"; exit 1; fi
+        [ -n "$SSHPASS" ] || { echo "::error::Secret SCHOOL_SSH_PASSWORD가 없습니다"; exit 1; }
+        for v in HOST SSH_PORT SSH_USER API_PORT; do [ -n "${!v}" ] || { echo "::error::변수 SCHOOL_SSH_HOST·SCHOOL_SSH_PORT·SCHOOL_SSH_USER·SCHOOL_K8S_API_PORT를 설정하세요"; exit 1; }; done
+        sudo apt-get install -y -qq sshpass >/dev/null
+        umask 077
+        ssh_opts=(-p "$SSH_PORT" -o StrictHostKeyChecking=$HKC -o ConnectTimeout=15 -o ServerAliveInterval=30)
+        # 학교 서버의 쿠버네티스 API는 그 서버 127.0.0.1에만 열려 있다(school-setup.sh). SSH로 러너 16443에 잇는다
+        sshpass -e ssh "${ssh_opts[@]}" "$SSH_USER@$HOST" 'cat "$HOME/devlog/kubeconfig.yaml"' \
+          | sed -E "s#https://127\.0\.0\.1:[0-9]+#https://127.0.0.1:16443#" > "$RUNNER_TEMP/kubeconfig"
+        [ -s "$RUNNER_TEMP/kubeconfig" ] || { echo "::error::학교 서버에 클러스터가 없습니다. Actions → 학교 서버 준비를 먼저 실행하세요"; exit 1; }
+        # ssh -f는 sshpass가 끝날 때 함께 끊길 수 있다. 터널을 직접 띄우고 포트가 열릴 때까지 기다린다
+        setsid sshpass -e ssh "${ssh_opts[@]}" -N -o ExitOnForwardFailure=yes \
+          -L "16443:127.0.0.1:${API_PORT}" "$SSH_USER@$HOST" </dev/null >"$RUNNER_TEMP/tunnel.log" 2>&1 &
+        tunnel_pid=$!
+        for i in $(seq 1 30); do
+          (exec 3<>/dev/tcp/127.0.0.1/16443) 2>/dev/null && break
+          kill -0 "$tunnel_pid" 2>/dev/null || break
+          sleep 1
+        done
+        if ! (exec 3<>/dev/tcp/127.0.0.1/16443) 2>/dev/null; then
+          echo "::error::학교 서버 SSH 터널이 열리지 않았습니다"; cat "$RUNNER_TEMP/tunnel.log"; exit 1
+        fi
+        echo "KUBECONFIG=$RUNNER_TEMP/kubeconfig" >> "$GITHUB_ENV"
+        for i in 1 2 3; do
+          KUBECONFIG="$RUNNER_TEMP/kubeconfig" kubectl get nodes && exit 0
+          sleep 5
+        done
+        echo "::error::터널은 열렸지만 쿠버네티스 API가 응답하지 않습니다. Actions → 학교 서버 준비를 다시 실행하세요"
+        cat "$RUNNER_TEMP/tunnel.log"; exit 1

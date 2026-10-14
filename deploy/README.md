@@ -19,6 +19,7 @@ deploy/
 │   ├── app.env                  비밀 아닌 설정 (주소, Redis DB 번호 등)
 │   └── secret.env.example       비밀값 형식. secret.env로 복사해 채운다 (커밋 금지)
 ├── k8s/overlays/local/          로컬 검증용: selfhosted와 같은 부품, 개발 로그인 켬
+├── k8s/overlays/staging/        시험 환경(blog-dev): develop 푸시가 배포. 데이터·비밀값을 운영과 나눔, 앱 1개
 ├── k8s/addons/cloudflare-tunnel/ 도메인 연결용 cloudflared 2개 (토큰이 있을 때만 deploy.yml이 적용)
 ├── k8s/addons/kubernetes-dashboard/ 운영 대시보드(Kubernetes Dashboard v2.7.0) + 읽기 전용 로그인 계정 (학교 서버에 deploy.yml이 적용)
 ├── scripts/gen-secret-env.sh    secret.env를 임의 비밀번호로 만들어 줌
@@ -243,6 +244,29 @@ Access를 먼저 만들고 주소를 연결한다(순서를 바꾸면 잠깐이�
 3. 로그인 토큰 만들기(필요할 때마다, 저장소·채팅에 남기지 않는다). 학교 서버에 SSH로 들어가:
    `docker exec k3d-devlog-server-0 kubectl -n kubernetes-dashboard create token devlog-viewer --duration=24h`
 4. https://k8s.devlog.life → Cloudflare 이메일 인증 → 대시보드에서 Token을 고르고 3의 토큰을 붙여 넣는다. 네임스페이스를 `blog`로 바꾸면 블로그 파드가 보인다.
+
+## 시험 환경 (dev.devlog.life, spec 092)
+
+develop에 머지된 코드를 운영과 같은 학교 서버 클러스터의 네임스페이스 `blog-dev`에 먼저 띄워 열어 본다. 운영(`blog`)과 DB·Redis·MinIO를 따로 띄워 데이터가 섞이지 않고, 운영 비밀값(`BLOG_SECRET_ENV`, OAuth·메일·AI 열쇠)은 넣지 않는다. 구성은 `k8s/overlays/staging`이다.
+
+- 앱 1개, PostgreSQL·Redis·MinIO 각 1개(디스크 2Gi). 검색 임베딩 모델과 매일 DB 백업은 띄우지 않는다(검색은 키워드로만). 메모리 요청은 합쳐 약 0.9GB다.
+- 로그인은 개발용 로그인(`/api/dev/login`)과 이메일 가입. 보낸 메일은 `/api/dev/mails`에서 본다. 그래서 **Access로 막기 전에는 주소를 열지 않는다.**
+- DB·MinIO 비밀번호는 첫 배포 때 워크플로가 임의 값으로 만들어 클러스터의 Secret `blog-dev-seed`에 두고 다음 배포부터 다시 쓴다.
+- 운영 배포와 같은 줄(`deploy-cluster`)에 서서 겹치지 않는다. 이미지는 `develop` 태그로 따로 두고 `latest`는 main만 가리킨다.
+
+켜는 순서(운영 대시보드와 같이 Access를 먼저 만든다):
+
+1. Cloudflare 대시보드 → Zero Trust → Access → Applications → Add an application → Self-hosted. 도메인 `dev.devlog.life`, 정책 Allow, Include → Emails에 볼 사람 이메일만 넣는다.
+2. Zero Trust → Networks → Tunnels → `devlog` → Public Hostname 추가: `dev.devlog.life` → Service `HTTP`, `ingress-nginx-controller.ingress-nginx.svc.cluster.local:80`.
+3. GitHub 저장소 → Settings → Secrets and variables → Actions → Variables에 `STAGING_ENABLED` = `true`.
+4. develop에 머지하거나 Actions → 블로그 배포 → Run workflow(branch `develop`, "시험 환경에 배포" 체크). 끝나면 https://dev.devlog.life 에서 그 커밋이 보인다.
+
+Access를 만들기 전에 배포되지 않게 하려면 저장소 Settings → Environments → `staging`에 Required reviewers를 두고, Access가 있는 것을 확인한 뒤에만 승인한다(권장). 이 시험 환경은 개발용 로그인(`/api/dev/login`)이 켜져 있어서 Access 없이 열리면 안 된다.
+
+끄기:
+- `STAGING_ENABLED`를 지우면 **새 배포만** 멈춘다. 이미 떠 있는 시험 환경은 그대로 돈다.
+- 잠시 내리려면 학교 서버에서 `kubectl -n blog-dev scale deploy,statefulset --all --replicas=0`.
+- 자원까지 돌려받으려면 네임스페이스 `blog-dev`를 지운다(시험 데이터와 blog-dev-seed도 함께 사라진다).
 
 ## 로컬에서 검증
 
