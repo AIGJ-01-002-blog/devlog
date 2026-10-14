@@ -217,7 +217,7 @@ blog:
   trades:
     enabled: ${TRADES_ENABLED:false}
     daily-records: 500
-  # 블로그 포인트 (#266, 목표 v2.2.0): 출석·글 발행·모의투자 수익으로 쌓고 상점에서 쓴다. v2.2.0 릴리스 전까지 꺼 둔다.
+  # 블로그 포인트 (#266, 목표 #253): 출석·글 발행·모의투자 수익으로 쌓고 상점에서 쓴다. devlog 2.0 묶음 릴리스 전까지 꺼 둔다.
   # 적립 규칙 값은 관리자 화면(/admin/points)에서 바꾼다
   points:
     enabled: ${POINTS_ENABLED:false}

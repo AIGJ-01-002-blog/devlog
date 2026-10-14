@@ -24,7 +24,7 @@ import com.team.blog.shared.error.NotFoundException;
 import com.team.blog.shared.time.Times;
 
 /**
- * 블로그 포인트 원장 (#266, 목표 v2.2.0 #262).
+ * 블로그 포인트 원장 (#266, 목표 #253).
  * <ul>
  *   <li>잔액은 원장(point_ledger) 지갑별 합계다. 따로 들고 있는 잔액 칸이 없어서 원장과 어긋날 수 없다.</li>
  *   <li>모든 적립·사용은 요청 키(request_key)로 한 번만 반영한다. 같은 출석·같은 글·같은 체결이 두 번 와도 한 줄이다.</li>
