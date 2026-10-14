@@ -5,6 +5,7 @@ import {basePose, type Pose} from './Cat';
 import {Emoji, Mascot} from './Emoji';
 import {FONT} from './fonts';
 import {Badge, C, CodeLine, Database, Mark, Paper, Pill, Server, Shield, Star} from './props';
+import {theme} from './theme';
 import type {SceneData} from './types';
 
 export const STAGE_W = 1080;
@@ -13,23 +14,34 @@ const FEET = STAGE_H - 30;
 
 const clamp = {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'} as const;
 
-/** 공통 움직임: 숨쉬기, 깜빡임, 목소리에 맞춘 입, 꼬리 */
-const useLife = (scene: SceneData) => {
+/** 공통 움직임: 숨쉬기, 깜빡임, 목소리에 맞춘 입·몸 들썩임, 구절마다 콩 뛰기, 장면마다 옆에서 뛰어 들어오기 */
+const useLife = (scene: SceneData, enterFrom = -1, beats: number[] = []) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
   const t = frame / fps;
   const talkIndex = frame - scene.leadFrames;
   const talk = talkIndex >= 0 && talkIndex < scene.mouth.length ? scene.mouth[talkIndex] : 0;
   const blink = (t + 0.7) % 3.2 < 0.11;
+  // 콩 뛰기: 구절이 바뀔 때와 beats(도식 칸이 나타날 때 등)마다 작게 뛰고 내려앉을 때 살짝 눌린다
+  const hopAt = [...scene.pages.map((p) => scene.leadFrames + (p.startMs / 1000) * fps), ...beats.map((b) => b * fps)]
+    .filter((f) => f <= frame).sort((a, b) => b - a)[0];
+  const since = hopAt === undefined ? 99 : (frame - hopAt) / fps;
+  const hop = since < 0.3 ? Math.sin((since / 0.3) * Math.PI) * 26 : 0;
+  const land = since >= 0.3 && since < 0.45 ? Math.sin(((since - 0.3) / 0.15) * Math.PI) : 0;
+  // 뛰어 들어오기: 0→1. enterFrom(-1 왼쪽, 1 오른쪽, 0 없음) 쪽 무대 밖에서 포물선을 그리며 들어온다
+  const enter = enterFrom === 0 ? 1 : spring({frame, fps, config: {damping: 15, stiffness: 110}});
   const live = (over: Partial<Pose>): Pose => {
     const p = basePose({y: FEET, ...over});
-    p.squash *= 1 + 0.018 * Math.sin(t * 2.8);
+    p.x += (1 - enter) * enterFrom * 520;
+    p.y -= Math.sin(Math.min(1, enter) * Math.PI) * 90 * (enterFrom === 0 ? 0 : 1) + hop + talk * 10;
+    p.squash *= (1 + 0.025 * Math.sin(t * 2.8)) * (1 - 0.08 * land) * (1 + 0.04 * talk);
+    p.bodyTilt += Math.sin(t * 2.1) * 4 + (1 - enter) * enterFrom * -18;
     p.tail += Math.sin(t * 2.4) * 14;
     if (p.eyes === 'open' && blink) p.eyes = 'blink';
     if ((p.mouth === 'smile' || p.mouth === 'talk') && talk > 0.06) {
       p.mouth = 'talk';
       p.talk = talk;
-      p.headTilt += Math.sin(t * 9) * 2 * talk; // 말할 때 고개가 조금 까딱인다
+      p.headTilt += Math.sin(t * 9) * 3 * talk; // 말할 때 고개가 까딱인다
     }
     return p;
   };
@@ -39,13 +51,29 @@ const useLife = (scene: SceneData) => {
 };
 
 export const Act: React.FC<{scene: SceneData; first: boolean}> = ({scene, first}) => {
-  const life = useLife(scene);
-  const enter = first ? life.pop(0, 9) : 1; // 첫 장면은 고양이가 통 튀어나오며 시작(훅)
+  // 첫 장면은 고양이가 통 튀어나오며 시작(훅), 다음 장면부터는 옆에서 뛰어 들어온다
+  const life = useLife(scene, first ? 0 : -1);
+  const enter = first ? life.pop(0, 9) : 1;
   const Body = ACTS[scene.action] ?? Explain;
   return (
     <div style={{position: 'absolute', inset: 0, scale: String(0.55 + 0.45 * enter), transformOrigin: '50% 95%'}}>
       <Body scene={scene} life={life} />
     </div>
+  );
+};
+
+/** 도식 장면의 발표자: 왼쪽 아래에서 도식을 손가락으로 가리키며 설명하고, 칸이 나타날 때마다 콩 뛴다 */
+export const Presenter: React.FC<{scene: SceneData; beats: number[]; done: boolean}> = ({scene, beats, done}) => {
+  const life = useLife(scene, -1, beats);
+  const {t, live, talk} = life;
+  const p = live({x: 150, y: STAGE_H - 10, size: 250, look: [1, -0.6]});
+  const reach = Math.sin(t * 3.2) * 10 + talk * 8;
+  return (
+    <>
+      <Mascot face={done ? 'joy' : talk > 0.06 ? 'grin' : 'smile'} p={p} />
+      {done ? <Emoji name="thumbs" x={p.x + 150} y={p.y - 170} size={120} rotate={-8} /> :
+        <Emoji name="pointR" x={p.x + 150 + reach} y={p.y - 170 - reach * 0.6} size={120} rotate={-28} />}
+    </>
   );
 };
 
@@ -109,7 +137,7 @@ const Typing: React.FC<ActProps> = ({scene, life}) => {
   return (
     <>
       <div style={{position: 'absolute', left: 60, top: 10, width: 960, height: 430, background: C.slateD, borderRadius: 28,
-        border: '7px solid #3b2a22', boxShadow: '0 18px 0 rgba(0,0,0,0.25)', overflow: 'hidden'}}>
+        boxShadow: theme.shadow.card, overflow: 'hidden'}}>
         <div style={{display: 'flex', gap: 12, padding: '18px 24px', background: '#1e293b', alignItems: 'center'}}>
           {[C.red, C.yellow, C.green].map((c) => <div key={c} style={{width: 22, height: 22, borderRadius: 11, background: c}} />)}
           <div style={{marginLeft: 'auto', font: `600 24px ${FONT}`, color: C.muted}}>{params.shell ? '터미널' : '코드'}</div>
@@ -179,7 +207,7 @@ const Restore: React.FC<ActProps> = ({scene, life}) => {
   });
   return (
     <>
-      <div style={{position: 'absolute', left: 470, top: 470, width: 190, height: 150, background: '#c08a52', border: '7px solid #3b2a22',
+      <div style={{position: 'absolute', left: 470, top: 470, width: 190, height: 150, background: '#c08a52', boxShadow: theme.shadow.soft,
         borderRadius: 18, display: 'grid', placeItems: 'center', font: `800 46px ${FONT}`, color: '#fff'}}>백업</div>
       <Database x={860} y={420} fill={fill} color={done ? C.green : C.blue} />
       {flying}
@@ -198,7 +226,7 @@ const Wait: React.FC<ActProps> = ({scene, life}) => {
   const sleepy = t > 1.2;
   return (
     <>
-      <div style={{position: 'absolute', left: 470, top: 40, width: 560, height: 430, background: C.slateD, border: '7px solid #3b2a22',
+      <div style={{position: 'absolute', left: 470, top: 40, width: 560, height: 430, background: C.slateD, boxShadow: theme.shadow.card,
         borderRadius: 28, padding: 36, display: 'flex', flexDirection: 'column', gap: 26}}>
         {[1, 0.8, 0.6].map((w, k) => <div key={k} style={{height: 46, width: `${w * 100}%`, background: '#1e293b', borderRadius: 14,
           opacity: 0.6 + 0.4 * Math.sin(t * 4 + k)}} />)}
@@ -209,7 +237,7 @@ const Wait: React.FC<ActProps> = ({scene, life}) => {
         armL: sleepy ? 130 : 12, look: [1, -0.3]})} />
       {sleepy ? [0, 1, 2].map((k) => {
         const ph = ((t - 1.2) * 0.7 + k / 3) % 1;
-        return <Mark key={k} x={360 + ph * 90} y={190 - ph * 150} text="z" color="#e2e8f0" size={40 + 34 * ph} opacity={1 - ph} />;
+        return <Mark key={k} x={360 + ph * 90} y={190 - ph * 150} text="z" color={theme.color.muted} size={40 + 34 * ph} opacity={1 - ph} />;
       }) : null}
     </>
   );
@@ -226,8 +254,8 @@ const Fast: React.FC<ActProps> = ({scene, life}) => {
   const cheer = t > 1.0;
   const bar = (y: number, frac: number, color: string, name: string, value: string | null) => (
     <div style={{position: 'absolute', left: 60, top: y, width: 960, display: 'flex', alignItems: 'center', gap: 22}}>
-      <div style={{font: `800 46px ${FONT}`, color: '#fff', width: 60}}>{name}</div>
-      <div style={{flex: 1, height: 78, background: C.slate, borderRadius: 40, border: '6px solid #3b2a22', overflow: 'hidden'}}>
+      <div style={{font: `800 46px ${FONT}`, color: theme.color.ink, width: 60}}>{name}</div>
+      <div style={{flex: 1, height: 78, background: theme.color.surfaceAlt, borderRadius: 40, overflow: 'hidden'}}>
         <div style={{width: `${Math.max(7, frac * 100)}%`, height: '100%', background: color, borderRadius: 40}} />
       </div>
       <div style={{font: `900 52px ${FONT}`, color, width: 190}}>{value}</div>

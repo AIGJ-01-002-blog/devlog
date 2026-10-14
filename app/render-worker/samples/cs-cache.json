@@ -1,0 +1,13 @@
+{"title": "캐시는 왜 빠를까? 3분 CS", "handle": "minseo",
+ "scenes": [
+  {"caption": "글 하나 열 때마다", "narration": "블로그 글 하나를 열면, 브라우저가 서버에 묻고, 서버는 DB에서 글을 꺼내 와요.",
+   "diagram": {"type": "flow", "items": ["브라우저", "서버", {"label": "DB", "note": "디스크에 저장"}]}},
+  {"caption": "디스크는 느려요", "narration": "CPU 가까이 있을수록 빠르고, 메모리보다 디스크는 수백 배 느려요.",
+   "diagram": {"type": "stack", "items": [{"label": "CPU 캐시", "icon": "cpu", "note": "1ns"}, {"label": "메모리", "note": "100ns"}, {"label": "디스크", "note": "100,000ns"}], "highlight": 2}},
+  {"caption": "캐시 = 가까운 메모", "narration": "그래서 자주 찾는 글은 서버 메모리에 잠깐 적어 둬요. 이걸 캐시라고 해요.",
+   "diagram": {"type": "flow", "items": ["서버", {"label": "캐시", "note": "메모리"}, "DB"]}},
+  {"caption": "얼마나 빨라질까", "narration": "캐시가 없으면 매번 DB까지 다녀오지만, 캐시가 있으면 메모리에서 바로 꺼내요.",
+   "diagram": {"type": "compare", "left": {"title": "캐시 없음", "items": ["매번 DB까지 왕복", "목록 4초"]}, "right": {"title": "캐시 있음", "items": ["메모리에서 바로", "목록 0.1초"]}}},
+  {"caption": "글을 고치면 꼭", "narration": "글을 고치면 캐시를 지우고, 새 글로 다시 채워야 옛 글이 안 보여요.",
+   "diagram": {"type": "steps", "items": ["글 고치기", "캐시 지우기", "새 글로 다시 채우기"]}}
+ ]}

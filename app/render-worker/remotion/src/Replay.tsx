@@ -8,12 +8,14 @@ import {AbsoluteFill, Easing, interpolate, spring, useCurrentFrame, useVideoConf
 import {STAGE_H, STAGE_W} from './actions';
 import type {CustomSceneProps} from './custom';
 import {FONT} from './fonts';
+import {accent, card, theme} from './theme';
 
-const UP = '#26a69a';
-const DOWN = '#ef5350';
-const MUTED = '#94a3b8';
-const GRID = 'rgba(148,163,184,0.16)';
-const SOFT = '#e2e8f0';
+// 색·글꼴은 쇼츠 공통 테마(theme.ts)를 따른다: 흰 카드 위에 진한 글자, 오르내림만 초록·빨강
+const UP = theme.color.good;
+const DOWN = theme.color.bad;
+const MUTED = theme.color.sub;
+const GRID = theme.color.line;
+const SOFT = theme.color.ink;
 
 export type ReplayCandle = {o: number; h: number; l: number; c: number; time: string};
 export type ReplayFill = {index: number; at: number; side: 'BUY' | 'SELL'; price: number; banner: string; closeIndex: number | null; good: boolean};
@@ -91,7 +93,7 @@ const rangeAt = (d: ReplayData, g: number) => {
 const fmt = (v: number, digits: number, unit: string) =>
   v.toLocaleString('en-US', {minimumFractionDigits: digits, maximumFractionDigits: digits}) + unit;
 
-export const ReplayScene: React.FC<CustomSceneProps> = ({data}) => {
+export const ReplayScene: React.FC<CustomSceneProps> = ({data, index = 0}) => {
   const d = data as ReplayData;
   const local = useCurrentFrame();
   const {fps} = useVideoConfig();
@@ -134,9 +136,8 @@ export const ReplayScene: React.FC<CustomSceneProps> = ({data}) => {
 
   return (
     <AbsoluteFill>
-      <div style={{position: 'absolute', left: BOX.x, top: BOX.y, width: BOX.w, height: BOX.h, borderRadius: 28,
-        background: 'rgba(10,16,34,0.92)', border: '1px solid rgba(255,255,255,0.06)'}} />
-      <div style={{position: 'absolute', left: BOX.x + 30, top: BOX.y + 22, font: `700 30px ${FONT}`, color: SOFT}}>{d.header}</div>
+      <div style={{position: 'absolute', left: BOX.x, top: BOX.y, width: BOX.w, height: BOX.h, ...card()}} />
+      <div style={{position: 'absolute', left: BOX.x + 30, top: BOX.y + 22, font: theme.type.title, color: SOFT}}>{d.header}</div>
       <div style={{position: 'absolute', left: BOX.x + 30, top: BOX.y + 66, display: 'flex', gap: 14, alignItems: 'center'}}>
         <div style={{font: `700 26px ${FONT}`, color: MUTED}}>{d.mode}</div>
         {playing && (
@@ -145,7 +146,7 @@ export const ReplayScene: React.FC<CustomSceneProps> = ({data}) => {
       </div>
       {/* 시계: 지금 그리는 캔들의 한국 시간 */}
       <div style={{position: 'absolute', right: STAGE_W - BOX.x - BOX.w + 30, top: BOX.y + 18, textAlign: 'right',
-        font: `700 60px ${FONT}`, color: SOFT, fontVariantNumeric: 'tabular-nums', letterSpacing: 1}}>{clock}</div>
+        font: `800 60px ${FONT}`, color: SOFT, fontVariantNumeric: 'tabular-nums', letterSpacing: 1}}>{clock}</div>
 
       <svg width={STAGE_W} height={STAGE_H} style={{position: 'absolute', inset: 0}}>
         <defs>
@@ -153,8 +154,8 @@ export const ReplayScene: React.FC<CustomSceneProps> = ({data}) => {
             <rect x={PLOT.x0} y={PLOT.y0 - 40} width={PLOT.x1 - PLOT.x0} height={PLOT.y1 - PLOT.y0 + 80} />
           </clipPath>
           <linearGradient id="fade" x1="0" x2="1">
-            <stop offset="0" stopColor="#0a1022" stopOpacity={offset > 0 ? 1 : 0} />
-            <stop offset="0.08" stopColor="#0a1022" stopOpacity={0} />
+            <stop offset="0" stopColor={theme.color.surface} stopOpacity={offset > 0 ? 1 : 0} />
+            <stop offset="0.08" stopColor={theme.color.surface} stopOpacity={0} />
           </linearGradient>
         </defs>
         {ticks.map((p, k) => (
@@ -213,11 +214,11 @@ export const ReplayScene: React.FC<CustomSceneProps> = ({data}) => {
           );
         })}
         {/* 진행 막대: 차트 전체 시간 중 어디까지 왔는지와 체결 자리 */}
-        <line x1={bar.x0} x2={bar.x1} y1={bar.y} y2={bar.y} stroke="rgba(148,163,184,0.2)" strokeWidth={4} strokeLinecap="round" />
-        <line x1={bar.x0} x2={barX(head)} y1={bar.y} y2={bar.y} stroke={SOFT} strokeOpacity={0.8} strokeWidth={4} strokeLinecap="round" />
+        <line x1={bar.x0} x2={bar.x1} y1={bar.y} y2={bar.y} stroke={theme.color.surfaceAlt} strokeWidth={6} strokeLinecap="round" />
+        <line x1={bar.x0} x2={barX(head)} y1={bar.y} y2={bar.y} stroke={accent(index)} strokeWidth={6} strokeLinecap="round" />
         {d.fills.map((f, k) => (
           <circle key={`p${k}`} cx={barX(f.index + 0.5)} cy={bar.y} r={f.at <= g ? 7 : 5}
-            fill={f.at <= g ? (f.side === 'BUY' ? UP : DOWN) : '#0a1022'} stroke={f.side === 'BUY' ? UP : DOWN} strokeWidth={2} />
+            fill={f.at <= g ? (f.side === 'BUY' ? UP : DOWN) : theme.color.surface} stroke={f.side === 'BUY' ? UP : DOWN} strokeWidth={2} />
         ))}
         <text x={bar.x0} y={bar.y - 16} fill={MUTED} style={{font: `600 20px ${FONT}`}}>{d.candles[0]?.time}</text>
         <text x={bar.x1} y={bar.y - 16} textAnchor="end" fill={MUTED} style={{font: `600 20px ${FONT}`}}>{d.candles[n - 1]?.time}</text>
@@ -225,7 +226,7 @@ export const ReplayScene: React.FC<CustomSceneProps> = ({data}) => {
 
       {/* 체결 순간: 차트가 그 색으로 번쩍이고 가격 띠가 오른쪽에서 밀려 들어온다 */}
       {recent && since < FLASH && (
-        <div style={{position: 'absolute', left: BOX.x, top: BOX.y, width: BOX.w, height: BOX.h, borderRadius: 28,
+        <div style={{position: 'absolute', left: BOX.x, top: BOX.y, width: BOX.w, height: BOX.h, borderRadius: theme.radius.card,
           background: recent.side === 'BUY' ? UP : DOWN, opacity: 0.08 * (1 - since / FLASH)}} />
       )}
       {recent && since < BANNER && (() => {
@@ -234,18 +235,18 @@ export const ReplayScene: React.FC<CustomSceneProps> = ({data}) => {
         return (
           <div style={{position: 'absolute', top: BOX.y + 128, left: 0, right: 0, display: 'flex', justifyContent: 'center',
             transform: `translateY(${(1 - enter) * 16}px)`, opacity: Math.min(enter, leave)}}>
-            <div style={{font: `700 40px ${FONT}`, color: recent.side === 'BUY' ? UP : DOWN, background: 'rgba(10,16,34,0.92)',
-              border: `1px solid ${recent.side === 'BUY' ? UP : DOWN}`, padding: '8px 24px', borderRadius: 10}}>{recent.banner}</div>
+            <div style={{font: `700 40px ${FONT}`, color: recent.side === 'BUY' ? UP : DOWN, background: theme.color.surface,
+              boxShadow: theme.shadow.soft, padding: '8px 24px', borderRadius: theme.radius.small}}>{recent.banner}</div>
           </div>
         );
       })()}
       {/* 결과 장면: 손익 합계가 차트 가운데에 크게 튀어나온다 */}
       {resultOn && d.result && (() => {
-        const s = spring({frame: g - d.result.at, fps, config: {damping: 20, stiffness: 120}});
+        const s = spring({frame: g - d.result.at, fps, config: theme.motion.enter});
         return (
           <>
-            <div style={{position: 'absolute', left: BOX.x, top: BOX.y, width: BOX.w, height: BOX.h, borderRadius: 28,
-              background: 'rgba(10,16,34,0.7)', opacity: Math.min(1, s)}} />
+            <div style={{position: 'absolute', left: BOX.x, top: BOX.y, width: BOX.w, height: BOX.h, borderRadius: theme.radius.card,
+              background: 'rgba(255,255,255,0.86)', opacity: Math.min(1, s)}} />
             <div style={{position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
               <div style={{font: `800 112px ${FONT}`, color: d.result.good ? UP : DOWN, scale: String(0.85 + 0.15 * s), opacity: Math.min(1, s)}}>{d.result.label}</div>
             </div>
@@ -261,12 +262,12 @@ export const ReplayCard: React.FC<CustomSceneProps> = ({data}) => {
   const {mode} = data as {mode: string};
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
-  const s = spring({frame, fps, config: {damping: 14, stiffness: 200}});
+  const s = spring({frame, fps, config: theme.motion.enter});
   return (
     <AbsoluteFill style={{alignItems: 'center', justifyContent: 'center', opacity: Math.min(1, s * 1.5), translate: `0 ${(1 - s) * 30}px`}}>
-      <div style={{textAlign: 'center', background: 'rgba(10,16,34,0.8)', padding: '44px 70px', borderRadius: 32, border: '2px solid rgba(255,255,255,0.1)'}}>
-        <div style={{font: `900 72px ${FONT}`, color: '#fff'}}>{mode} 기록</div>
-        <div style={{font: `700 52px ${FONT}`, color: MUTED, marginTop: 18}}>투자 권유가 아니에요</div>
+      <div style={{textAlign: 'center', padding: '44px 70px', ...card()}}>
+        <div style={{font: `900 72px ${FONT}`, color: theme.color.ink}}>{mode} 기록</div>
+        <div style={{font: `700 52px ${FONT}`, color: theme.color.sub, marginTop: 18}}>투자 권유가 아니에요</div>
       </div>
     </AbsoluteFill>
   );

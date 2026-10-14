@@ -2,7 +2,7 @@
 import React from 'react';
 import {FONT, MONO} from './fonts';
 
-const INK = '#3b2a22';
+const INK = '#334155'; // 밝은 바탕에서 또렷한 진회색 테두리(theme.ts와 맞춤)
 export const C = {
   red: '#ef4444', green: '#22c55e', blue: '#38bdf8', yellow: '#facc15', pink: '#f9a8d4',
   slate: '#1e293b', slateD: '#0f172a', muted: '#94a3b8', code: '#e2e8f0', comment: '#7dd3fc',
@@ -22,7 +22,7 @@ export const Paper: React.FC<Pos & {label?: string}> = ({label, ...pos}) => (
       <path d="M 84 6 V 36 H 114" fill="#e2e8f0" stroke={INK} strokeWidth={6} strokeLinejoin="round" />
       <path d="M 24 64 H 96 M 24 88 H 96 M 24 112 H 76" stroke="#94a3b8" strokeWidth={9} strokeLinecap="round" />
     </svg>
-    {label ? <div style={{position: 'absolute', top: -58, width: '100%', textAlign: 'center', font: `700 34px ${FONT}`, color: '#fff'}}>{label}</div> : null}
+    {label ? <div style={{position: 'absolute', top: -58, width: '100%', textAlign: 'center', font: `700 34px ${FONT}`, color: '#111827'}}>{label}</div> : null}
   </div>
 );
 
@@ -124,7 +124,7 @@ export const Pill: React.FC<Pos & {text: string; bg: string; color?: string; siz
   <div style={{...place(pos, 0, 0), width: 'auto', height: 'auto', translate: '-50% -50%', left: pos.x, top: pos.y}}>
     <div style={{
       background: bg, color, font: `800 ${size}px ${FONT}`, padding: `${size * 0.28}px ${size * 0.62}px`, borderRadius: 999,
-      border: `5px solid ${INK}`, whiteSpace: 'nowrap', boxShadow: '0 6px 0 rgba(0,0,0,0.25)',
+      whiteSpace: 'nowrap', boxShadow: '0 8px 20px rgba(15,23,42,0.12)',
     }}>{text}</div>
   </div>
 );
