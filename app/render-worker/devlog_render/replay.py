@@ -1,4 +1,4 @@
-"""매매 재현 화면 (#265). 캔들이 한 개씩 흘러가다 체결 시각에 매수·매도 표시가 찍히는 차트의 시간표를 만든다.
+"""매매 재현 화면 (#265). 실시간 분봉 차트를 빨리감기하듯 캔들이 계속 생겨나며 흘러가다 체결 시각에 매수·매도 표시가 찍히는 차트의 시간표를 만든다.
 
 장면과 차트는 이렇게 맞물린다(서버가 만드는 처음 대본과 AI 다시 쓰기 안내가 같은 규칙을 쓴다):
 - 1번 장면: 첫 체결 전 흐름. 영상이 시작할 때 체결 전 캔들의 40%가 이미 보이고 나머지가 흘러간다.
@@ -20,8 +20,12 @@ KST = timezone(timedelta(hours=9))
 
 FIRST_VISIBLE = 0.4
 FILL_DELAY = 0.6
+#: 영상에 흘릴 캔들 수 상한. 이 안에 드는 가장 짧은 봉으로 빨리감기한다
+PLAY_MAX = 720
+#: 체결 가까이에서 느려지는 정도(0이면 일정한 속도)
+EASE = 0.45
 #: 캔들 틱 소리는 이 간격보다 촘촘하면 건너뛴다
-TICK_GAP = 0.09
+TICK_GAP = 0.12
 #: 결과 장면이 시작하고 손익 합계가 튀어나오기까지(초)
 RESULT_DELAY = 0.35
 
@@ -93,35 +97,62 @@ def candle_index(candles: list[Candle], at: int, sec: int) -> int:
     return 0 if not candles or at < candles[0].t else len(candles) - 1
 
 
-def reveal_times(candles: list[Candle], fills: list[Fill], sec: int, starts: list[float], total: float) -> tuple[list[float], list[float]]:
-    """캔들마다, 체결마다 나타나는 시각(초). 장면 시작 시각(starts)과 전체 길이(total)에 맞춘다."""
+def play_interval(start: int, end: int) -> str:
+    """영상으로 흘릴 봉. 서버가 정한 구간을 PLAY_MAX개 안에 담는 가장 짧은 봉(대개 1분봉)으로 빨리감기한다."""
+    for code, sec in INTERVAL_SECONDS.items():
+        if (end - start) // sec <= PLAY_MAX:
+            return code
+    return "1d"
+
+
+def _ease(u: float) -> float:
+    """체결 가까이에서 느려지고 사이에서는 빨라지게. 직선과 smoothstep을 섞어 멈춰 보이지는 않는다."""
+    return (1 - EASE) * u + EASE * u * u * (3 - 2 * u)
+
+
+def anchors(candles: list[Candle], fills: list[Fill], sec: int, starts: list[float], total: float) -> tuple[list[tuple[float, float]], list[float]]:
+    """빨리감기 기준점 [(영상 시각 초, 차트 위치)]과 체결마다 찍히는 시각.
+    차트 위치는 캔들 단위 실수다. i번 캔들은 위치 i에서 생기기 시작해 i+1에서 다 그려진다."""
     n = len(candles)
-    if n == 0:
-        return [], []
     idx = [candle_index(candles, f.at, sec) for f in fills]
     first = idx[0] if idx else n - 1
-    visible = max(1, int(first * FIRST_VISIBLE))
-    anchors: list[tuple[int, float]] = [(visible - 1, 0.0)]
+    points: list[tuple[float, float]] = [(0.0, max(1.0, first * FIRST_VISIBLE))]
     fill_times: list[float] = []
-    last_time = 0.0
-    for k, i in enumerate(idx):
+    for k, (f, i) in enumerate(zip(fills, idx)):
         scene = min(k + 1, len(starts) - 1)
-        t = max(starts[scene] + FILL_DELAY, last_time + 0.4 if fill_times else 0.0)
-        t = min(t, max(0.0, total - 0.5))
+        t = max(starts[scene] + FILL_DELAY, fill_times[-1] + 0.4 if fill_times else 0.0)
+        t = max(points[-1][0], min(t, max(0.0, total - 0.5)))
         fill_times.append(t)
-        last_time = t
-        if i > anchors[-1][0]:
-            anchors.append((i, t))
-    end_time = min(max(last_time + 0.5, total - 1.0), max(0.0, total - 0.2))
-    if n - 1 > anchors[-1][0]:
-        anchors.append((n - 1, max(end_time, anchors[-1][1])))
-    times = [0.0] * n
-    for (i0, t0), (i1, t1) in zip(anchors, anchors[1:]):
-        for i in range(i0 + 1, i1 + 1):
-            times[i] = t0 + (t1 - t0) * (i - i0) / (i1 - i0)
-    # 체결 표시는 그 캔들보다 먼저 나오지 않는다
-    fill_times = [max(t, times[i]) for t, i in zip(fill_times, idx)]
-    return times, fill_times
+        pos = i + min(0.9, max(0.1, (f.at - candles[i].t) / sec)) if n else 0.0
+        if pos > points[-1][1] and t > points[-1][0]:
+            points.append((t, pos))
+    end_time = min(max(fill_times[-1] + 0.5 if fill_times else 0.0, total - 1.0), max(0.0, total - 0.2))
+    if n > points[-1][1] and end_time > points[-1][0]:
+        points.append((end_time, float(n)))
+    return points, fill_times
+
+
+def position(points: list[tuple[float, float]], t: float) -> float:
+    """영상 t초의 차트 위치"""
+    if t <= points[0][0]:
+        return points[0][1]
+    for (t0, p0), (t1, p1) in zip(points, points[1:]):
+        if t <= t1:
+            return p0 + (p1 - p0) * _ease((t - t0) / (t1 - t0))
+    return points[-1][1]
+
+
+def close_times(points: list[tuple[float, float]], n: int, step: float) -> list[float | None]:
+    """캔들마다 다 그려지는(종가가 정해지는) 영상 시각. 처음부터 보이던 캔들은 0, 끝내 안 닫히면 None"""
+    out: list[float | None] = [None] * n
+    t, end, closed = 0.0, points[-1][0] + step, 0
+    while t <= end:
+        done = min(n, int(position(points, t) + 1e-6))
+        for i in range(closed, done):
+            out[i] = t
+        closed = max(closed, done)
+        t += step
+    return out
 
 
 def total_pnl(r: Replay) -> float | None:
@@ -138,11 +169,11 @@ def result_time(r: Replay, starts: list[float]) -> float | None:
 def cues(r: Replay, starts: list[float], total: float) -> list[Cue]:
     """효과음 순서표. 화면 효과와 같은 시각을 쓴다(렌더러가 바뀌어도 그대로 쓸 수 있게 데이터로만 낸다)."""
     sec = INTERVAL_SECONDS.get(r.interval, 900)
-    times, fill_times = reveal_times(r.candles, r.fills, sec, starts, total)
+    points, fill_times = anchors(r.candles, r.fills, sec, starts, total)
     out: list[Cue] = []
     last = -1.0
-    for t in times:
-        if t > 0 and t - last >= TICK_GAP:
+    for t in close_times(points, len(r.candles), 1 / 60):
+        if t is not None and t > 0 and t - last >= TICK_GAP:
             out.append(Cue(t, "tick"))
             last = t
     for f, t in zip(r.fills, fill_times):
@@ -156,21 +187,17 @@ def cues(r: Replay, starts: list[float], total: float) -> list[Cue]:
 
 def chart_data(r: Replay, starts: list[float], total: float, fps: int) -> dict:
     """Remotion 매매 재현 장면(remotion/src/Replay.tsx의 ReplayData)에 넘길 차트 전체 데이터. 시각은 영상 전체 프레임.
+    head는 프레임마다 차트 위치(캔들 단위 실수)라, 화면은 이 값만 보고 캔들을 흘리고 지금 캔들을 그리는 중으로 보여 준다.
     금액 글자는 서버와 같은 표기(money)로 여기서 만들어 넘긴다."""
     sec = INTERVAL_SECONDS.get(r.interval, 900)
     candles = r.candles
-    times, fill_times = reveal_times(candles, r.fills, sec, starts, total)
+    points, fill_times = anchors(candles, r.fills, sec, starts, total)
+    frames = int(round(total * fps))
+    head = [round(position(points, f / fps), 4) for f in range(frames + 1)]
 
     def frame(t: float) -> int:
         return round(t * fps)
 
-    def plain(v: float) -> str:
-        return money(v, r.currency).replace(f" {r.currency}", "")
-
-    prices = [p for c in candles for p in (c.h, c.l)] + [f.price for f in r.fills]
-    lo, hi = (min(prices), max(prices)) if prices else (0.0, 1.0)
-    pad = (hi - lo) * 0.06 or max(abs(hi) * 0.01, 1e-9)
-    lo, hi = lo - pad, hi + pad
     fills = []
     for k, (f, t) in enumerate(zip(r.fills, fill_times)):
         buy = f.side == "BUY"
@@ -187,14 +214,15 @@ def chart_data(r: Replay, starts: list[float], total: float, fps: int) -> dict:
     result = None if at is None or pnl is None else {
         "at": frame(at), "until": frame(starts[k]) if k < len(starts) else None,
         "label": money(pnl, r.currency, sign=True), "good": pnl >= 0}
+    krw = r.currency == "KRW"
     return {
         "header": f"{EXCHANGE_NAMES.get(r.exchange, r.exchange)} · {r.symbol_name or r.symbol} · {INTERVAL_LABELS.get(r.interval, r.interval)}",
         "mode": "실계좌" if r.mode == "LIVE" else "모의투자",
-        "lo": lo, "hi": hi,
-        "ticks": [{"price": p, "label": plain(p)} for p in (lo + (hi - lo) * (k + 0.5) / 4 for k in range(4))],
-        "timeStart": _clock(candles[0].t, sec) if candles else "",
-        "timeEnd": _clock(candles[-1].t, sec) if candles else "",
-        "candles": [{"o": c.o, "h": c.h, "l": c.l, "c": c.c, "at": frame(t), "label": plain(c.c)} for c, t in zip(candles, times)],
+        "seconds": sec,
+        "digits": 0 if krw else 2,
+        "unit": "원" if krw else "",
+        "head": head,
+        "candles": [{"o": c.o, "h": c.h, "l": c.l, "c": c.c, "time": _clock(c.t, sec)} for c in candles],
         "fills": fills,
         "result": result,
     }
@@ -202,4 +230,4 @@ def chart_data(r: Replay, starts: list[float], total: float, fps: int) -> dict:
 
 def _clock(epoch: int, sec: int) -> str:
     d = datetime.fromtimestamp(epoch, KST)
-    return d.strftime("%m/%d") if sec >= 86_400 else d.strftime("%m/%d %H:%M")
+    return d.strftime("%m/%d") if sec >= 86_400 else d.strftime("%H:%M")

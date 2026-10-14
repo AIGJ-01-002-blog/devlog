@@ -19,8 +19,9 @@ INTERVAL_SECONDS = {"1m": 60, "5m": 300, "15m": 900, "1h": 3600, "4h": 14_400, "
 UPBIT_PATHS = {"1m": "minutes/1", "5m": "minutes/5", "15m": "minutes/15", "1h": "minutes/60", "4h": "minutes/240", "1d": "days"}
 BINANCE_HOSTS = ("https://api.binance.com", "https://data-api.binance.vision")
 UPBIT_HOST = "https://api.upbit.com"
-#: 한 영상의 캔들 상한. 서버가 150개 안으로 구간을 정한다
-MAX_CANDLES = 200
+#: 한 영상의 캔들 상한. 서버가 정한 구간을 워커가 1분봉으로 빨리감기하므로(replay.play_interval) 12시간치까지 받는다
+MAX_CANDLES = 720
+UPBIT_PAGE = 200
 TIMEOUT = 15
 USER_AGENT = "devlog-render-worker"
 
@@ -79,15 +80,22 @@ def _binance(symbol: str, interval: str, start: int, end: int, count: int, get) 
 
 
 def _upbit(symbol: str, interval: str, end: int, count: int, get) -> list[Candle]:
-    to = datetime.fromtimestamp(end, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    query = urllib.parse.urlencode({"market": symbol.upper(), "to": to, "count": min(200, count)})
-    try:
-        rows = json.loads(get(f"{UPBIT_HOST}/v1/candles/{UPBIT_PATHS[interval]}?{query}"))
-        out = [Candle(parse_time(r["candle_date_time_utc"] + "Z"), float(r["opening_price"]), float(r["high_price"]),
-                      float(r["low_price"]), float(r["trade_price"])) for r in rows]
-    except (urllib.error.URLError, TimeoutError, ConnectionError, ValueError, KeyError, TypeError) as e:
-        raise CandleError(f"업비트 캔들을 받지 못했어요: {e}") from None
-    return sorted(out, key=lambda c: c.t)
+    """업비트는 한 번에 200개까지라 끝에서부터 거슬러 올라가며 나눠 받는다."""
+    sec = INTERVAL_SECONDS[interval]
+    out: list[Candle] = []
+    while count > 0:
+        to = datetime.fromtimestamp(end, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        page = min(UPBIT_PAGE, count)
+        query = urllib.parse.urlencode({"market": symbol.upper(), "to": to, "count": page})
+        try:
+            rows = json.loads(get(f"{UPBIT_HOST}/v1/candles/{UPBIT_PATHS[interval]}?{query}"))
+            out += [Candle(parse_time(r["candle_date_time_utc"] + "Z"), float(r["opening_price"]), float(r["high_price"]),
+                           float(r["low_price"]), float(r["trade_price"])) for r in rows]
+        except (urllib.error.URLError, TimeoutError, ConnectionError, ValueError, KeyError, TypeError) as e:
+            raise CandleError(f"업비트 캔들을 받지 못했어요: {e}") from None
+        count -= page
+        end -= page * sec
+    return sorted({c.t: c for c in out}.values(), key=lambda c: c.t)
 
 
 def fill_gaps(candles: list[Candle], start: int, end: int, sec: int) -> list[Candle]:

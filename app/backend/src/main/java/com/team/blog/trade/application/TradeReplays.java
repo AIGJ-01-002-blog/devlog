@@ -201,10 +201,10 @@ public class TradeReplays {
     }
 
     private static List<Scene> draft(TradeReplay r, String memo, int memoMax, int reasonMax, boolean brief, boolean noPnl) {
-        TradeReplay.Interval interval = TradeReplay.Interval.parse(r.interval()).orElse(TradeReplay.Interval.M15);
         String coin = coin(r);
         List<Scene> out = new ArrayList<>();
-        out.add(new Scene(coin + " " + interval.label + " 다시 보기", "그때 저는 왜 여기서 " + side(r.fills().getFirst().side()) + "했을까요? "
+        // 영상은 워커가 가능한 한 1분봉으로 빨리감기해 보여 주므로 제목에 봉 이름을 넣지 않는다
+        out.add(new Scene(coin + " 매매 다시 보기", "그때 저는 왜 여기서 " + side(r.fills().getFirst().side()) + "했을까요? "
                 + (brief ? "그 시각으로 돌려 볼게요." : DATE.format(r.fills().getFirst().executedAt()) + " " + coin + " 차트를 그 시각으로 돌려 볼게요."), null));
         for (TradeReplay.Fill f : r.fills()) out.add(fillScene(r, f, reasonMax, noPnl));
         out.add(resultScene(r));

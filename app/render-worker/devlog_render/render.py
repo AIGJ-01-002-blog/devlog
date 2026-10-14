@@ -26,7 +26,7 @@ import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import acting, bgm, candles, captions, draw, layout, remotion, replay, sfx, trade_sfx, tts
+from . import acting, bgm, candles, captions, draw, layout, remotion, replay, sfx, trade_bgm, trade_sfx, tts
 
 try:  # 캐릭터 무대는 Pillow가 있을 때만. 없으면 글자 화면으로 만든다
     from . import stage
@@ -240,7 +240,7 @@ class Renderer:
                     sfx.Effect(i, at, name, volume)
                     for i, v in enumerate(visuals) if script.scenes[i].custom is None
                     for name, at, volume in acting.effects(v, timings[i].lead, timings[i].speech, timings[i].length)]
-                self._join(work, [video], audios, timings, total, joined, effects, joined_video=True)
+                self._join(work, [video], audios, timings, total, joined, effects, joined_video=True, upbeat=chart is not None)
             else:
                 stages = self._stages(script, audios, timings)
                 segments = [self._encode(work, i, timings[i], images[i], stages[i],
@@ -266,7 +266,16 @@ class Renderer:
         if data.get("candles"):
             chart.candles = candles.from_json(data["candles"])
         else:
+            # 서버가 정한 구간을 가능한 한 1분봉으로 빨리감기한다. 짧은 봉을 못 받으면 서버가 고른 봉으로 그린다
             start, end = replay.window_of(data)
+            play = replay.play_interval(start, end)
+            if play != chart.interval:
+                try:
+                    chart.candles = self.fetch_candles(chart.exchange, chart.symbol, play, start, end)
+                    chart.interval = play
+                    return chart
+                except candles.CandleError as e:
+                    log.warning("%s 캔들을 받지 못해 %s로 그려요: %s", play, chart.interval, e)
             chart.candles = self.fetch_candles(chart.exchange, chart.symbol, chart.interval, start, end)
         return chart
 
@@ -500,7 +509,7 @@ class Renderer:
                 c.text(comment, 38, CODE_COMMENT, y, x=str(x), mono=True, alpha=draw.fade_in(at, 0.12), enable=draw.after(at))
 
     def _join(self, work: Path, segments: list[Path], audios: list[Path], timings: list[Timing], total: float, out: Path,
-              effects: list | None = None, joined_video: bool = False) -> None:
+              effects: list | None = None, joined_video: bool = False, upbeat: bool = False) -> None:
         """장면을 xfade로 잇고, 내레이션을 제자리에 놓고, 배경음을 깔고, 효과음을 얹어 한 번에 최종 인코딩한다.
 
         효과음(sfx.Effect)은 장면이 화면에 나오기 시작한 시각(timings[scene].start) + at에 놓는다. 같은 소리 파일은 입력 하나를
@@ -516,7 +525,7 @@ class Renderer:
                 args += ["-i", seg.name]
         for audio in audios:
             args += ["-i", audio.name]
-        music = self._music()
+        music = self._music(upbeat)
         if music:
             args += ["-stream_loop", "-1", "-i", str(music)]
         placed: dict[str, list[tuple[float, float]]] = {}
@@ -573,7 +582,8 @@ class Renderer:
             "-c:a", "aac", "-b:a", str(AUDIO_BITRATE), "-ar", "44100", "-ac", "2",
             "-movflags", "+faststart", out.name], timeout=FINAL_TIMEOUT)
 
-    def _music(self) -> Path | None:
+    def _music(self, upbeat: bool = False) -> Path | None:
+        """upbeat: 매매 재현처럼 빨리감기 영상이면 빠른 배경음(trade_bgm)을 쓴다. --bgm 파일이 있으면 그 파일이 우선한다."""
         if self.music == "none":
             return None
         if self.music:
@@ -581,7 +591,7 @@ class Renderer:
                 raise FileNotFoundError(f"배경음 파일이 없어요: {self.music}")
             return Path(self.music).resolve()
         try:
-            return bgm.path().resolve()
+            return (trade_bgm.path() if upbeat else bgm.path()).resolve()
         except OSError as e:
             log.warning("배경음을 만들지 못해 배경음 없이 만들어요: %s", e)
             return None

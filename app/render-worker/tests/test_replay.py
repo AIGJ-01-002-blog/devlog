@@ -9,7 +9,7 @@ from unittest import mock
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from devlog_render import candles, remotion, replay, trade_sfx
+from devlog_render import bgm, candles, remotion, replay, trade_bgm, trade_sfx
 from devlog_render.candles import Candle
 from devlog_render.render import FPS, Renderer, Script, find_font
 
@@ -64,28 +64,56 @@ class CandlesTest(unittest.TestCase):
         with self.assertRaises(candles.CandleError):
             candles.fetch("KIS", "005930", "5m", T0, T0 + 600, lambda u: b"[]")
         with self.assertRaises(candles.CandleError):
-            candles.fetch("BINANCE", "BTCUSDT", "1m", T0, T0 + 60 * 500, lambda u: b"[]")
+            candles.fetch("BINANCE", "BTCUSDT", "1m", T0, T0 + 60 * 1000, lambda u: b"[]")
+
+    def test_upbit_pages_back_from_the_end(self):
+        tos = []
+
+        def get(url):
+            q = candles.urllib.parse.parse_qs(candles.urllib.parse.urlparse(url).query)
+            tos.append((q["to"][0], int(q["count"][0])))
+            end = candles.parse_time(q["to"][0])
+            return json.dumps([{"candle_date_time_utc": iso(end - 60 * (k + 1)).replace("Z", ""), "opening_price": 1, "high_price": 1,
+                                "low_price": 1, "trade_price": 1} for k in range(int(q["count"][0]))]).encode()
+
+        got = candles.fetch("UPBIT", "KRW-BTC", "1m", T0, T0 + 60 * 300, get)
+        self.assertEqual([c for _, c in tos], [200, 100])
+        self.assertEqual(len(got), 300)
+        self.assertEqual(got[0].t, T0)
 
 
 class TimelineTest(unittest.TestCase):
-    def test_fill_appears_when_its_scene_starts(self):
+    def test_fast_forward_reaches_each_fill_when_its_scene_starts(self):
         cs = series()
-        fills = [replay.Fill("BUY", 92_100, T0 + 20 * 300 + 30), replay.Fill("SELL", 92_400, T0 + 40 * 300)]
+        fills = [replay.Fill("BUY", 92_100, T0 + 20 * 300 + 150), replay.Fill("SELL", 92_400, T0 + 40 * 300)]
         starts, total = [0.0, 5.0, 11.0, 16.0], 22.0
-        times, fill_times = replay.reveal_times(cs, fills, 300, starts, total)
-        self.assertEqual(times[:8], [0.0] * 8)  # 첫 체결 전 흐름의 40%는 처음부터 보인다
+        points, fill_times = replay.anchors(cs, fills, 300, starts, total)
+        self.assertEqual(points[0], (0.0, 8.0))  # 첫 체결 전 흐름의 40%는 처음부터 보인다
         self.assertAlmostEqual(fill_times[0], 5.6)
-        self.assertAlmostEqual(times[20], 5.6)
+        self.assertAlmostEqual(replay.position(points, 5.6), 20.5)  # 체결 순간 그 캔들을 그리는 중이다
         self.assertAlmostEqual(fill_times[1], 11.6)
-        self.assertTrue(all(a <= b for a, b in zip(times, times[1:])), "캔들은 순서대로 나온다")
-        self.assertLess(times[-1], total)
+        heads = [replay.position(points, t / 30) for t in range(int(total * 30))]
+        self.assertTrue(all(a <= b for a, b in zip(heads, heads[1:])), "차트는 앞으로만 흘러간다")
+        self.assertEqual(heads[-1], 60.0)
+        closes = replay.close_times(points, 60, 1 / 30)
+        self.assertEqual(closes[:8], [0.0] * 8)
+        self.assertTrue(all(t is not None and t < total for t in closes))
+
+    def test_slows_down_near_fills(self):
+        points, _ = replay.anchors(series(), [replay.Fill("BUY", 92_100, T0 + 30 * 300)], 300, [0.0, 6.0], 12.0)
+        speed = lambda t: replay.position(points, t + 0.05) - replay.position(points, t - 0.05)
+        self.assertLess(speed(6.5), speed(3.3))
 
     def test_more_fills_than_scenes_stay_in_order(self):
         cs = series()
         fills = [replay.Fill("BUY", 92_000, T0 + k * 600) for k in range(5, 10)]
-        _, fill_times = replay.reveal_times(cs, fills, 300, [0.0, 4.0, 8.0], 12.0)
+        _, fill_times = replay.anchors(cs, fills, 300, [0.0, 4.0, 8.0], 12.0)
         self.assertEqual(fill_times, sorted(fill_times))
         self.assertLessEqual(fill_times[-1], 11.5)
+
+    def test_plays_the_window_at_one_minute_when_it_fits(self):
+        self.assertEqual(replay.play_interval(T0, T0 + 6 * 3600), "1m")
+        self.assertEqual(replay.play_interval(T0, T0 + 30 * 3600), "5m")
 
     def test_money_matches_server(self):
         self.assertEqual(replay.money(92100.5, "USDT"), "92,100.50 USDT")
@@ -119,14 +147,16 @@ class ReplayRenderTest(unittest.TestCase):
 
         def fetch(exchange, symbol, interval, start, end):
             asked.append((exchange, symbol, interval, start, end))
-            return series()
+            sec = candles.INTERVAL_SECONDS[interval]
+            return series((end - start) // sec, sec)
 
         r = Renderer(find_font(), find_font(mono=True), "silent", music="none", use_remotion=True, fetch_candles=fetch)
         with TemporaryDirectory() as tmp, mock.patch.object(remotion, "render", _fake_remotion):
             out = Path(tmp) / "r.mp4"
             ms = r.render(Script.from_job(self.job()), out)
             self.assertGreater(ms, 2000)
-        self.assertEqual(asked, [("BINANCE", "BTCUSDT", "5m", T0, T0 + 60 * 300)])
+        # 서버가 5분봉으로 정한 다섯 시간을 1분봉으로 빨리감기한다
+        self.assertEqual(asked, [("BINANCE", "BTCUSDT", "1m", T0, T0 + 60 * 300)])
         scenes = _fake_remotion.props["scenes"]
         # 대본 장면은 모두 차트 장면, 맨 끝에 말 없는 고지 카드 한 장
         self.assertEqual([s["custom"]["kind"] for s in scenes], ["replay"] * 4 + ["replay-card"])
@@ -134,12 +164,36 @@ class ReplayRenderTest(unittest.TestCase):
         self.assertEqual(scenes[-1]["pages"], [])
         self.assertLess(scenes[-1]["durationInFrames"], 2 * FPS)
         chart = scenes[1]["custom"]["data"]
-        self.assertEqual(len(chart["candles"]), 60)
+        self.assertEqual(len(chart["candles"]), 300)
+        self.assertIn("1분봉", chart["header"])
+        self.assertGreater(len(chart["head"]), chart["fills"][-1]["at"])  # 프레임마다 차트 위치
         self.assertEqual([f["side"] for f in chart["fills"]], ["BUY", "SELL"])
         self.assertEqual(chart["result"]["label"], "+3.10 USDT")
         self.assertGreater(chart["startFrame"], scenes[0]["custom"]["data"]["startFrame"])
         # 체결은 그 장면이 화면에 나온 뒤에 찍힌다
         self.assertGreaterEqual(chart["fills"][0]["at"], chart["startFrame"])
+
+    def test_falls_back_to_server_interval(self):
+        asked = []
+
+        def fetch(exchange, symbol, interval, start, end):
+            asked.append(interval)
+            if interval == "1m":
+                raise candles.CandleError("1분봉을 받지 못했어요")
+            return series()
+
+        r = Renderer(find_font(), find_font(mono=True), "silent", music="none", use_remotion=True, fetch_candles=fetch)
+        with TemporaryDirectory() as tmp, mock.patch.object(remotion, "render", _fake_remotion):
+            r.render(Script.from_job(self.job()), Path(tmp) / "r.mp4")
+        self.assertEqual(asked, ["1m", "5m"])
+        self.assertIn("5분봉", _fake_remotion.props["scenes"][0]["custom"]["data"]["header"])
+
+    def test_replay_uses_the_fast_music(self):
+        r = Renderer(find_font(), find_font(mono=True), "silent", use_remotion=True)
+        with mock.patch.object(trade_bgm, "path", return_value=Path("/x/bgm-trade.wav")), \
+                mock.patch.object(bgm, "path", return_value=Path("/x/bgm.wav")):
+            self.assertEqual(r._music(True).name, "bgm-trade.wav")
+            self.assertEqual(r._music(False).name, "bgm.wav")
 
     def test_needs_remotion(self):
         r = Renderer(find_font(), find_font(mono=True), "silent", use_remotion=False, fetch_candles=lambda *_: series())
