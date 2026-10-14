@@ -8,6 +8,8 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Locale;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 
@@ -19,6 +21,7 @@ import com.team.blog.trade.application.TradeJournal;
 /**
  * 매매 일지 MCP 도구 (#243). record_trade는 집 컴퓨터의 매매 봇이 쓰기 토큰으로 체결마다 부르고,
  * get_trade_day는 사용자 쪽 AI가 그날 기록을 읽고 메모·글을 도울 때 쓴다. 주문을 내는 도구는 없다.
+ * 코인 거래소(#254)는 exchange·currency를 함께 보내고, 금액은 그 통화로 읽는다.
  */
 @Component
 class TradeTools {
@@ -26,13 +29,15 @@ class TradeTools {
             {"type":"object","properties":{
               "external_id":{"type":"string","description":"봇 쪽 주문·체결 번호 (80자까지). 같은 번호로 다시 보내면 한 번만 남는다"},
               "mode":{"type":"string","enum":["PAPER","LIVE"],"default":"PAPER","description":"PAPER 모의투자, LIVE 실계좌"},
-              "symbol":{"type":"string","description":"종목 코드 (영문·숫자 20자까지, 예: 005930)"},
-              "symbol_name":{"type":"string","description":"종목 이름 (예: 삼성전자)"},
+              "exchange":{"type":"string","description":"거래소 코드 (BINANCE, UPBIT, BYBIT 등). 증권사면 비워도 된다"},
+              "symbol":{"type":"string","description":"종목·마켓 코드 (영문·숫자 20자까지, 예: BTCUSDT, KRW-BTC, 005930)"},
+              "symbol_name":{"type":"string","description":"종목 이름 (예: 비트코인, 삼성전자)"},
               "side":{"type":"string","enum":["BUY","SELL"]},
-              "quantity":{"type":"number","exclusiveMinimum":0},
-              "price":{"type":"number","minimum":0,"description":"체결 가격 (원)"},
-              "fee":{"type":"number","minimum":0,"description":"수수료·세금 (원)"},
-              "realized_pnl":{"type":"number","description":"매도로 확정된 손익 (원, 수수료·세금을 뺀 값). 매도에만"},
+              "quantity":{"type":"number","exclusiveMinimum":0,"description":"수량. 코인은 소수 10자리까지 (예: 0.00012345)"},
+              "price":{"type":"number","minimum":0,"description":"체결 가격 (currency 통화)"},
+              "currency":{"type":"string","default":"KRW","description":"가격·수수료·손익의 통화 (KRW, USDT 등)"},
+              "fee":{"type":"number","minimum":0,"description":"수수료·세금 (currency 통화)"},
+              "realized_pnl":{"type":"number","description":"매도로 확정된 손익 (currency 통화, 수수료·세금을 뺀 값). 매도에만"},
               "strategy":{"type":"string","description":"전략 이름 (60자까지)"},
               "reason":{"type":"string","description":"주문을 낸 신호·이유 (300자까지)"},
               "executed_at":{"type":"string","description":"체결 시각 ISO-8601 (예: 2026-10-14T10:03:00+09:00). 없으면 지금"}},
@@ -66,7 +71,8 @@ class TradeTools {
         }
         TradeJournal.Recorded r = trades.record(caller.memberId(), new TradeJournal.Input(a.path("external_id").asString(""), mode,
                 a.path("symbol").asString(""), a.path("symbol_name").asString(""), side, number(a, "quantity"), number(a, "price"),
-                number(a, "fee"), number(a, "realized_pnl"), a.path("strategy").asString(""), a.path("reason").asString(""), at));
+                number(a, "fee"), number(a, "realized_pnl"), a.path("strategy").asString(""), a.path("reason").asString(""), at,
+                a.path("exchange").asString(""), a.path("currency").asString("")));
         String link = baseUrl + "/trades?date=" + r.day();
         return McpTools.Result.ok(r.duplicate()
                 ? "이미 남긴 체결이에요 (체결 번호 " + r.id() + "). 다시 남기지 않았어요. 매매 일지: " + link
@@ -85,14 +91,16 @@ class TradeTools {
         TradeJournal.Summary s = d.summary();
         StringBuilder sb = new StringBuilder(date + " 매매 기록\n");
         sb.append("체결 ").append(s.trades()).append("건 (매수 ").append(s.buys()).append(" · 매도 ").append(s.sells()).append(")")
-                .append(" · 실현 손익 ").append(plain(s.realizedPnl())).append("원 (이익 ").append(s.wins()).append(" · 손해 ").append(s.losses()).append(")")
-                .append(" · 수수료·세금 ").append(plain(s.fees())).append("원 · 누적 실현 손익 ").append(plain(d.cumulativePnl())).append("원\n");
+                .append(" · 실현 손익 ").append(plain(s.realizedPnl())).append(" (이익 ").append(s.wins()).append(" · 손해 ").append(s.losses()).append(")")
+                .append(" · 수수료·세금 ").append(plain(s.fees())).append(" · 누적 실현 손익 ").append(plain(d.cumulativePnl())).append('\n');
         for (TradeJournal.Fill f : d.fills()) {
+            String unit = TradeJournal.unit(f);
             sb.append("- ").append(TIME.format(f.executedAt())).append(' ').append(f.mode().equals("LIVE") ? "[실계좌] " : "")
+                    .append(f.exchange().isBlank() ? "" : "[" + f.exchange() + "] ")
                     .append(f.symbolName().isBlank() ? f.symbol() : f.symbolName() + "(" + f.symbol() + ")")
-                    .append(' ').append(f.side().equals("BUY") ? "매수" : "매도").append(' ').append(plain(f.quantity())).append("주 @ ")
-                    .append(plain(f.price())).append("원");
-            if (f.realizedPnl() != null) sb.append(" · 손익 ").append(plain(f.realizedPnl())).append("원");
+                    .append(' ').append(f.side().equals("BUY") ? "매수" : "매도").append(' ').append(plain(f.quantity()))
+                    .append(unit.equals("주") ? "주" : " " + unit).append(" @ ").append(plain(f.price(), f.currency()));
+            if (f.realizedPnl() != null) sb.append(" · 손익 ").append(plain(f.realizedPnl(), f.currency()));
             if (!f.reason().isBlank()) sb.append(" · 이유: ").append(f.reason());
             else if (!f.strategy().isBlank()) sb.append(" · 전략: ").append(f.strategy());
             sb.append('\n');
@@ -118,6 +126,17 @@ class TradeTools {
 
     private static String plain(BigDecimal v) {
         return v == null ? "0" : v.stripTrailingZeros().toPlainString();
+    }
+
+    /** 원화는 39800원, 그 밖의 통화는 83752.3 USDT */
+    private static String plain(BigDecimal v, String currency) {
+        return plain(v) + ("KRW".equals(currency) ? "원" : " " + currency);
+    }
+
+    /** 통화별 금액: 14600원 · 12.5 USDT. 없으면 0 */
+    private static String plain(Map<String, BigDecimal> amounts) {
+        if (amounts.isEmpty()) return "0";
+        return amounts.entrySet().stream().map(e -> plain(e.getValue(), e.getKey())).collect(Collectors.joining(" · "));
     }
 
     private static <E extends Enum<E>> E enumOf(Class<E> type, String raw) {
