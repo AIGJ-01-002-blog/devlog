@@ -79,6 +79,7 @@ class RemotionPathTest(unittest.TestCase):
         self.assertEqual(props["scenes"][-1]["custom"], {"kind": "outro", "data": None})
         self.assertEqual(props["scenes"][-1]["durationInFrames"], round(OUTRO_SECONDS * FPS))
         self.assertEqual(props["scenes"][-1]["pages"], [])
+
         keys = {"caption", "code", "action", "params", "durationInFrames", "leadFrames", "speechFrames", "pages", "mouth", "image", "custom", "cut", "diagram"}
         for s in props["scenes"][:-1]:
             self.assertEqual(set(s), keys)
@@ -89,6 +90,13 @@ class RemotionPathTest(unittest.TestCase):
         # 장면 길이 합 - 전환 겹침 = 전체 길이
         total = sum(s["durationInFrames"] for s in props["scenes"]) - props["transitionFrames"] * 3
         self.assertLessEqual(abs(total - props["totalFrames"]), 3)
+
+    def test_outro_can_be_turned_off_per_job(self):
+        job = {"title": "광고 없이", "outro": False, "scenes": [{"caption": "되돌렸어요", "narration": "백업으로 다 되돌렸어요."}]}
+        self.assertTrue(Script.from_job({"title": "기본", "scenes": []}).outro)
+        with TemporaryDirectory() as tmp, mock.patch.object(remotion, "render", _fake_remotion):
+            Renderer(find_font(), find_font(mono=True), "silent", music="none", use_remotion=True).render(Script.from_job(job), Path(tmp) / "a.mp4")
+        self.assertEqual([s["custom"] for s in _fake_remotion.props["scenes"]], [None])
 
 
 NODE_READY = bool(shutil.which("node")) and (remotion.PROJECT / "node_modules" / ".bin" / "remotion").exists()

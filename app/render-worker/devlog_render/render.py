@@ -127,6 +127,8 @@ class Script:
     style: str = "clean"
     #: 연기할 캐릭터 이름(remotion/src/character/<이름>/). None이면 Noto 고양이
     character: str | None = None
+    #: 끝에 3초 블로그 광고(Outro)를 붙일지. 서버 작업의 outro가 false면 붙이지 않는다
+    outro: bool = True
 
     @property
     def fast(self) -> bool:
@@ -162,7 +164,7 @@ class Script:
         if not isinstance(character, str) or character not in remotion.characters():  # "cat"이나 모르는 이름이면 기본 고양이(Noto)
             character = None
         return Script(job.get("title") or "", scenes, footer, effects, style="fast" if job.get("style") == "fast" else "clean",
-                      character=character, replay=job.get("replay"))
+                      character=character, replay=job.get("replay"), outro=job.get("outro") is not False)
 
 
 @dataclass
@@ -255,7 +257,7 @@ class Renderer:
             mode = "실계좌" if (script.replay or {}).get("mode") == "LIVE" else "모의투자"
             card = Scene("", "", custom={"kind": "replay-card", "data": {"mode": mode}})
             script = Script(script.title, [*script.scenes, card], script.footer, list(script.effects), style=script.style,
-                            character=script.character, replay=script.replay)
+                            character=script.character, replay=script.replay, outro=script.outro)
         with tempfile.TemporaryDirectory(prefix="devlog-render-") as tmp:
             work = Path(tmp)
             shutil.copyfile(self.font, work / ("font" + Path(self.font).suffix))
@@ -274,8 +276,9 @@ class Renderer:
             joined = work / "out.mp4"
             if self.use_remotion:
                 body = timings
-                script, timings = self._with_outro(work, script, timings, audios, words, images)
-                total = timings[-1].start + timings[-1].length
+                if script.outro:
+                    script, timings = self._with_outro(work, script, timings, audios, words, images)
+                    total = timings[-1].start + timings[-1].length
                 # 화면은 Remotion이 한 번에(전환 포함) 그리고, 소리는 아래 _join이 섞는다
                 visuals = self._visuals(script)
                 video = work / "screen.mp4"
@@ -317,7 +320,7 @@ class Renderer:
         outro = Scene("", "", custom={"kind": OUTRO, "data": None})
         effects = [*script.effects, sfx.Effect(i, 0.6, "ding", 0.35)]
         script = Script(script.title, [*script.scenes, outro], script.footer, effects, style=script.style,
-                        character=script.character, replay=script.replay)
+                        character=script.character, replay=script.replay, outro=script.outro)
         audio = work / f"a{i}.wav"
         self._ffmpeg(work, ["-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo", "-t", f"{SILENT_SECONDS:.2f}", audio.name])
         audios.append(audio)

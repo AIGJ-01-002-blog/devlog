@@ -289,12 +289,13 @@ function Editor({ item, onChange, onReload, onDeleted }: {
 }) {
   const [title, setTitle] = useState(item.title)
   const [character, setCharacter] = useState<string>(item.character ?? '')
+  const [outro, setOutro] = useState(item.outro)
   const [scenes, setScenes] = useState<Scene[]>(item.scenes.length ? item.scenes : [emptyScene()])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [report, setReport] = useState<OriginalityReport | null>(null)
   const [working, setWorking] = useState(false)
   const busy = isBusy(item.status)
-  const dirty = title !== item.title || character !== (item.character ?? '') || JSON.stringify(scenes) !== JSON.stringify(item.scenes)
+  const dirty = title !== item.title || character !== (item.character ?? '') || outro !== item.outro || JSON.stringify(scenes) !== JSON.stringify(item.scenes)
   const seconds = estimateSeconds(scenes)
   const problems = renderProblems(title, scenes)
 
@@ -322,7 +323,7 @@ function Editor({ item, onChange, onReload, onDeleted }: {
     }
   }
   const save = async (): Promise<ShortsItem> => {
-    const saved = await saveShorts(item.id, { title, scenes: scenes.map((s) => ({ ...s, code: s.code?.trim() ? s.code : null, image: s.image?.trim() ? s.image.trim() : null })), version: item.version, character })
+    const saved = await saveShorts(item.id, { title, scenes: scenes.map((s) => ({ ...s, code: s.code?.trim() ? s.code : null, image: s.image?.trim() ? s.image.trim() : null })), version: item.version, character, outro })
     onChange(saved)
     return saved
   }
@@ -386,6 +387,9 @@ function Editor({ item, onChange, onReload, onDeleted }: {
             {errors.character && <span className="error">{errors.character}</span>}
           </div>
         )}
+        <label className="check studio-outro" data-tip={t('로고와 devlog.life 주소가 나오는 고정 화면이에요.')}>
+          <input type="checkbox" checked={outro} onChange={(e) => setOutro(e.target.checked)} /> {t('영상 끝에 블로그 광고 3초 붙이기')}
+        </label>
 
         <ol className="studio-scenes">
           {scenes.map((s, i) => (
