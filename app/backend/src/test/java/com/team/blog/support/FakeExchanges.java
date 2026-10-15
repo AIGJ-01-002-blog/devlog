@@ -14,7 +14,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
 /**
- * 테스트용 가짜 거래소 공개 캔들 (spec 101 자동매매 차트). 바이낸스 /api/v3/klines와 업비트 /v1/candles/…를 흉내 낸다.
+ * 테스트용 가짜 거래소 공개 캔들 (spec 101 자동매매 차트). 바이낸스 /api/v3/klines, 업비트 /v1/candles/…, 코빗 /v2/candles를 흉내 낸다.
  * 봉은 지금부터 거꾸로 15분 간격으로 limit·count개를 만들고, 종가는 100에서 1씩 오른다. SOL은 실패(500)로 답한다.
  */
 public final class FakeExchanges {
@@ -24,6 +24,8 @@ public final class FakeExchanges {
     private final HttpServer server;
     /** 받은 요청 수 (캐시를 확인할 때) */
     public final AtomicInteger calls = new AtomicInteger();
+    /** 받은 요청 경로 (원화 탭이 코빗으로 가는지 본다) */
+    public final java.util.Queue<String> paths = new java.util.concurrent.ConcurrentLinkedQueue<>();
 
     private FakeExchanges(HttpServer server) {
         this.server = server;
@@ -48,13 +50,14 @@ public final class FakeExchanges {
     private void handle(HttpExchange ex) throws IOException {
         calls.incrementAndGet();
         String path = ex.getRequestURI().getPath();
+        paths.add(path);
         String query = ex.getRequestURI().getQuery();
-        int n = Integer.parseInt(param(query, path.startsWith("/api/v3/klines") ? "limit" : "count"));
+        int n = Integer.parseInt(param(query, path.startsWith("/v1/candles") ? "count" : "limit"));
         long step = 15 * 60_000L;
         long last = Instant.now().toEpochMilli() / step * step;
         String out;
         int status = 200;
-        if (query.contains("SOL")) {
+        if (query.contains("SOL") || query.contains("sol_krw")) {
             status = 500;
             out = "{}";
         } else if (path.startsWith("/api/v3/klines")) {
@@ -63,6 +66,14 @@ public final class FakeExchanges {
                 long t = last - (long) (n - 1 - i) * step;
                 int c = 100 + i;
                 j.add("[" + t + ",\"" + (c - 1) + "\",\"" + (c + 1) + "\",\"" + (c - 2) + "\",\"" + c + "\",\"1\"," + (t + step - 1) + "]");
+            }
+            out = j.toString();
+        } else if (path.startsWith("/v2/candles")) {
+            StringJoiner j = new StringJoiner(",", "{\"success\":true,\"data\":[", "]}");
+            for (int i = 0; i < n; i++) { // 코빗은 오래된 순, 값은 문자열
+                long t = last - (long) (n - 1 - i) * step;
+                int c = 100 + i;
+                j.add("{\"timestamp\":" + t + ",\"open\":\"" + (c - 1) + "\",\"high\":\"" + (c + 1) + "\",\"low\":\"" + (c - 2) + "\",\"close\":\"" + c + "\",\"volume\":\"1\"}");
             }
             out = j.toString();
         } else {

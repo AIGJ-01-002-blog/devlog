@@ -2030,7 +2030,6 @@ export const en: Record<string, string> = {
   "시세를 받지 못했어요. 잠시 뒤 다시 받아요.": "Couldn't get prices. Will retry shortly.",
   "실시간 차트": "Live charts",
   "아직 봉이 없어요.": "No candles yet.",
-  "업비트 원화 시세로 봐요": "Show Upbit KRW prices",
   "차트를 불러오지 못했어요. 10초 뒤 다시 받아요.": "Couldn't load charts. Retrying in 10 seconds.",
   "차트": "Charts",
   "코인 5종의 거래소별 실시간 차트와 봇의 모의 체결 표시": "Live charts of 5 coins per exchange with the bot's paper fills",
@@ -2059,4 +2058,6 @@ export const en: Record<string, string> = {
   "실거래": "Live",
   "아직 실거래 기록이 없어요": "No live fills yet",
   "아직 모의 기록이 없어요": "No paper fills yet",
+  "코빗 원화 시세로 봐요. 업비트 봇 체결도 여기에 찍혀요": "Show Korbit KRW prices. Upbit bot fills appear here too",
+  "원화": "KRW",
 }
