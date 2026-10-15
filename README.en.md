@@ -242,7 +242,7 @@ sequenceDiagram
 - **404 that hides existence**: private, friends-only, trashed and hidden posts return the same 404 as missing posts to anyone without permission.
 - **Rate limits**: requests that can be repeated, such as writing, autosave, image uploads, likes, search, reports and AI suggestions, have rate limits (429 with `Retry-After`).
 - **Minimal personal data**: view counts never store the original IP, and search terms are not logged. Mail failures and malformed tokens are logged by exception type only, so addresses and tokens never reach the logs. `X-Forwarded-For` is trusted only from trusted proxy ranges.
-- **Image bucket**: anonymous users may only download image files (GetObject on `images/` and `profiles/`); listing the bucket is blocked, so image URLs of private posts can't be discovered by listing. Anyone who already knows an image URL can still download that file.
+- **Image bucket**: anonymous users may only download image files (GetObject on `images/`, `profiles/` and Shorts videos in `shorts/`); listing the bucket is blocked, so image URLs of private posts can't be discovered by listing. Anyone who already knows an image URL can still download that file.
 - **Network policy**: PostgreSQL and Redis accept connections only from app pods, and MinIO only from the app and the ingress.
 - **Secrets**: credentials are never committed. They go in only as Kubernetes Secrets or GitHub Secrets, and `deploy/scripts/check-no-secrets.sh` checks for leaks in CI.
 
@@ -386,6 +386,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v2.1.2 | 2026-10-16 | Fix finished Shorts videos failing to open with AccessDenied | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.1.2) |
 | v2.1.1 | 2026-10-15 | Dubu the puppy as a Shorts character and searching every post as a Shorts source, live and paper views in the trading journal, a paper trading bot run by the server, a header split into shared tools and grouped menus, round profile frames in the shop and a shorter shop on phones, and the dev login turned off on staging | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.1.1) |
 | v2.1.0 | 2026-10-15 | devlog 2.0 complete: crypto spot and futures trading journal (totals per currency), trade replay Shorts built from chosen fills, blog points (attendance, streak badges, credits for publishing) with a tiered shop for blog decorations, crypto paper trading with points, the paper auto-trading page `/trade`, Shorts rendered with Remotion and a neural voice, and Shorts, the trading journal and points turned on in production | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.1.0) |
 | v2.0.0 | 2026-10-14 | Short-form studio: polish posts into Shorts scripts and render MP4s with a render worker on your own computer, a mass-production check before rendering, guides for uploading to YouTube, Instagram and TikTok yourself, My dashboard, MCP evidence links and Shorts candidates, a trading journal for an automated trading bot, and backup/restore to move to a home computer (Shorts and the trading journal are off by default) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.0.0) |

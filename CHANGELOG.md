@@ -10,6 +10,13 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
+## [2.1.2] - 2026-10-16
+
+완성된 쇼츠 영상이 열리지 않던 문제를 고친다. 렌더 워커가 올린 영상(`blog-images/shorts/…mp4`)을 스튜디오에서 재생하거나 [영상 받기]로 열면 MinIO가 AccessDenied를 돌려줬다.
+
+### 고침
+- 사진 버킷의 익명 받기(GetObject) 공개 경로에 쇼츠 영상 `shorts/*`를 더했다. 그동안 `images/*`·`profiles/*`만 열려 있어 영상은 주소가 있어도 받을 수 없었다. 사진처럼 목록 조회는 여전히 막아 영상 주소(무작위 UUID)를 아는 사람만 받을 수 있다. 앱이 다시 뜰 때 `ensure-bucket`이 정책을 다시 맞춰 이미 만든 영상도 바로 열린다
+
 ## [2.1.1] - 2026-10-15
 
 **목표: v2.2.0 작업 중 먼저 끝난 것 내보내기** ([목표 이슈 #282](https://github.com/AIGJ-01-002-blog/devlog/issues/282) · [v2.1.0](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.1.0) 뒤 develop)
