@@ -14,8 +14,8 @@ const REFRESH_MS = 10_000
 const QUICK = [10, 25, 50, 100]
 
 /**
- * 포인트 모의투자 (#267). 원화 시장 시세(코빗, v2.1.3부터)로 BTC·ETH·XRP·SOL·DOGE를 포인트로 사고판다(시장가·현물).
- * 투자 전용 포인트를 먼저 쓰고, 고르면 크레딧도 쓴다. 체결은 매매 일지에 모의투자로 남는다.
+ * 크레딧 모의투자 (#267, #331). 원화 시장 시세(코빗, v2.1.3부터)로 BTC·ETH·XRP·SOL·DOGE를 크레딧으로 사고판다(시장가·현물).
+ * 기본 크레딧(가입 첫 지급, 상점에서는 못 씀)을 먼저 쓰고, 고르면 번 크레딧도 쓴다. 체결은 매매 일지에 모의투자로 남는다.
  * 상승·이익은 초록, 하락·손해는 빨강(바이낸스와 같은 색)이고 +·- 기호를 같이 붙인다.
  */
 export function PaperPage() {
@@ -123,7 +123,7 @@ export function PaperPage() {
         <h1 className="page-title">{t('크레딧 모의투자')}</h1>
         <Link to="/points" className="btn btn-outline btn-small" data-tip={t('출석하고 크레딧 잔액과 내역 보기')}>{t('내 크레딧')}</Link>
       </div>
-      <p className="muted small points-notice">{t('거래소 원화 시세로 비트코인·이더리움·리플·솔라나·도지코인을 포인트로 사고팔아요. 체결은 매매 일지에 모의투자로 남고, 수익은 모두 크레딧으로 쌓여요.')}</p>
+      <p className="muted small points-notice">{t('코빗 원화 시세로 비트코인·이더리움·리플·솔라나·도지코인을 크레딧으로 사고팔아요. 처음 받은 기본 크레딧을 먼저 쓰고, 체결은 매매 일지에 남아요. 수익은 모두 크레딧으로 쌓여요.')}</p>
       {error && <p className="error" role="alert">{t('모의투자를 불러오지 못했어요.')}</p>}
       {!state && !error && <p className="muted center">{t('불러오는 중…')}</p>}
       {state && (

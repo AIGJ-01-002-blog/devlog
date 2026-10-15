@@ -1938,7 +1938,7 @@ export const en: Record<string, string> = {
   "크레딧으로 테마 색·프로필 테두리·표지·빛 효과를 사서 블로그 꾸미기": "Decorate your blog with theme colors, frames, covers and effects bought with credits",
   "기본 크레딧이 모자라요. 번 크레딧도 쓰려면 아래에서 켜 주세요": "Not enough starter credits. Turn on earned credits below to use them too",
   "{0} {1}개를 팔았어요. 손익 {2}, {3} 적립": "Sold {1} {0}. P&L {2}, earned {3}",
-  "거래소 원화 시세로 비트코인·이더리움·리플·솔라나·도지코인을 포인트로 사고팔아요. 체결은 매매 일지에 모의투자로 남고, 수익은 모두 크레딧으로 쌓여요.": "Buy and sell Bitcoin, Ethereum, XRP, Solana and Dogecoin with points at exchange KRW prices. Fills are logged in your trade journal as paper trades, and all profit becomes credits.",
+  "코빗 원화 시세로 비트코인·이더리움·리플·솔라나·도지코인을 크레딧으로 사고팔아요. 처음 받은 기본 크레딧을 먼저 쓰고, 체결은 매매 일지에 남아요. 수익은 모두 크레딧으로 쌓여요.": "Trade Bitcoin, Ethereum, XRP, Solana and Dogecoin with credits at Korbit KRW prices. Your starter credits are used first, and fills are saved to your trade journal. All profit becomes credits.",
   "출석·글·수익 적립으로 번 크레딧이에요. 켜면 모의투자에도 써요": "Credits earned from check-ins, posts and profit. Turn on to use them for paper trading too",
   "기본 크레딧이 모자라면 번 크레딧으로 채워요. 판 돈은 낸 쪽으로 돌아가요": "Earned credits cover any shortfall in starter credits. Sale proceeds return to whichever paid",
   "크레딧도 쓰기 (지금 {0})": "Also use credits (now {0})",
