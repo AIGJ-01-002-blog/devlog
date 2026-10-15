@@ -96,6 +96,9 @@ MONO_CANDIDATES = {
 
 #: 말 없는 장면(매매 재현 끝 고지 카드)의 길이. 앞 여유·끝 머묾을 더하면 1.3초 남짓
 SILENT_SECONDS = 0.35
+#: 모든 쇼츠 맨 끝에 붙는 devlog 블로그 광고 길이(초). 화면·문구는 remotion/src/Outro.tsx에 고정돼 있다(Remotion으로 그릴 때만)
+OUTRO_SECONDS = 3.0
+OUTRO = "outro"
 
 
 @dataclass
@@ -270,6 +273,9 @@ class Renderer:
                 self._attach_replay(script, chart, timings)
             joined = work / "out.mp4"
             if self.use_remotion:
+                body = timings
+                script, timings = self._with_outro(work, script, timings, audios, words, images)
+                total = timings[-1].start + timings[-1].length
                 # 화면은 Remotion이 한 번에(전환 포함) 그리고, 소리는 아래 _join이 섞는다
                 visuals = self._visuals(script)
                 video = work / "screen.mp4"
@@ -286,9 +292,9 @@ class Renderer:
                 effects += [sfx.Effect(i, 0.0, "whip", 0.3) for i in range(1, len(script.scenes)) if not (script.scenes[i].custom or {}).get("cut")]
                 music = {}
                 if chart is not None:  # 배경음은 제목 카드가 끝나면 들어오고 결산 화면부터 작아진다
-                    soft = replay.result_scene(chart, [t.start for t in timings[:-1]])
+                    soft = replay.result_scene(chart, [t.start for t in body[:-1]])
                     music = {"music_at": replay.TITLE,
-                             "music_soft": timings[soft].start if soft is not None else timings[-1].start}
+                             "music_soft": body[soft].start if soft is not None else body[-1].start}
                 self._join(work, [video], audios, timings, total, joined, effects, joined_video=True, upbeat=chart is not None, **music)
             else:
                 stages = self._stages(script, audios, timings)
@@ -303,6 +309,22 @@ class Renderer:
             out.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(joined), str(out))
         return probe_ms(out, self.ffmpeg)
+
+    def _with_outro(self, work: Path, script: Script, timings: list[Timing], audios: list[Path], words: list, images: list):
+        """맨 끝에 말 없는 블로그 광고 장면(OUTRO_SECONDS초)을 붙인다. 앞 장면과는 전환으로 겹치고, 주소 칩이 뜰 때 딩 소리를 낸다.
+        audios·words·images에는 그 장면 몫을 더하고, 광고를 붙인 대본과 시각표를 돌려준다."""
+        i = len(script.scenes)
+        outro = Scene("", "", custom={"kind": OUTRO, "data": None})
+        effects = [*script.effects, sfx.Effect(i, 0.6, "ding", 0.35)]
+        script = Script(script.title, [*script.scenes, outro], script.footer, effects, style=script.style,
+                        character=script.character, replay=script.replay)
+        audio = work / f"a{i}.wav"
+        self._ffmpeg(work, ["-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo", "-t", f"{SILENT_SECONDS:.2f}", audio.name])
+        audios.append(audio)
+        words.append(None)
+        images.append(None)
+        last = timings[-1]
+        return script, [*timings, Timing(last.start + last.length - TRANSITION, 0.0, SILENT_SECONDS, OUTRO_SECONDS)]
 
     # ── 매매 재현 (#265) ───────────────────────────────────────────────
 
