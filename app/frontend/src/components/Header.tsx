@@ -8,6 +8,7 @@ import { NotificationBell } from './NotificationBell'
 import { LanguageMenu } from './LanguageMenu'
 import { ThemeToggle } from './ThemeToggle'
 import { t } from '../lib/i18n'
+import type { Me } from '../lib/types'
 
 interface NavItem {
   to: string; label: string; tip: string; icon: IconName; on: (p: string) => boolean; memberOnly?: boolean
@@ -31,6 +32,25 @@ export function headerItems(path: string): NavItem[] {
       tip: t('궁금한 점·버그·제안을 운영자에게 보내요'), icon: 'support', on: (p) => p === '/support', inMenu: true },
     { to: '/releases', label: t('릴리스 노트'), tip: t('버전마다 바뀐 점을 봐요'), icon: 'releases', on: (p) => p === '/releases', inMenu: true },
   ]
+}
+
+type Features = NonNullable<Me['features']> | undefined
+
+/**
+ * 여러 사람이 함께 쓰는 도구 (#282 목표 v2.2.0). 내 메뉴에는 내 것(설정·블로그·글·대시보드·포인트)만 두고
+ * 쇼츠 스튜디오·매매 일지·자동매매·모의투자는 머리말로 꺼낸다. 서버에서 켠 기능만 보인다.
+ * 휴대폰은 머리말 메뉴가 숨으니 머리말 바로 아래 옆으로 미는 줄(.tool-strip)에 같은 항목을 둔다.
+ */
+export function toolItems(features: Features): NavItem[] {
+  const f = features ?? { shorts: false }
+  const items: NavItem[] = []
+  if (f.shorts) items.push({ to: '/studio', label: t('쇼츠 스튜디오'), tip: t('글로 쇼츠 대본을 쓰고 영상 만들기'), icon: 'video', on: (p) => p === '/studio' })
+  if (f.trades) {
+    items.push({ to: '/trades', label: t('매매 일지'), tip: t('매매 봇이 보낸 체결을 날짜별로 보고 글·쇼츠로 남기기'), icon: 'trend', on: (p) => p === '/trades' })
+    items.push({ to: '/trade', label: t('자동매매'), tip: t('봇이 내 AI의 기준대로 돌리는 모의 자동매매 계좌·체결·Gemini 판단 보기'), icon: 'ai', on: (p) => p === '/trade' })
+  }
+  if (f.points && f.trades) items.push({ to: '/paper', label: t('모의투자'), tip: t('포인트로 코인을 사고파는 모의투자'), icon: 'candle', on: (p) => p === '/paper' })
+  return items
 }
 
 export function Header() {
@@ -97,7 +117,18 @@ export function Header() {
   const menuExtra = all.filter((it) => member && it.inMenu)
   // 휴대폰에서는 머리말 메뉴가 숨으니 아래 탭에 없는 좋아한 글도 내 메뉴 아래에 둔다
   const mobileExtra = items.filter((it) => it.icon !== 'feed' && it.icon !== 'tag')
+  const tools = member ? toolItems(me?.features) : []
+  const navLink = (it: NavItem) => {
+    const on = it.on(path)
+    return (
+      <Link key={it.icon} to={it.to} className={`btn btn-text header-nav header-link${on ? ' on' : ''}`}
+            aria-current={on ? 'page' : undefined} aria-label={it.label} data-tip={it.tip}>
+        <NavIcon name={it.icon} /><span className="header-label">{it.label}</span>
+      </Link>
+    )
+  }
   return (
+    <>
     <header className="site-header">
       <div className="container header-inner">
         <Link to="/" className="logo" data-tip={t('첫 화면으로')}><span className="logo-mark" aria-hidden="true" />devlog</Link>
@@ -107,15 +138,9 @@ export function Header() {
           </Link>
           <Link to="/mcp" className="btn btn-text header-mcp" data-tip={t('Claude·ChatGPT 같은 AI 도구에 devlog 연결하기')}>{t('AI 연결')}</Link>
           <span className="header-sep header-nav" aria-hidden="true" />
-          {items.map((it) => {
-            const on = it.on(path)
-            return (
-              <Link key={it.icon} to={it.to} className={`btn btn-text header-nav header-link${on ? ' on' : ''}`}
-                    aria-current={on ? 'page' : undefined} aria-label={it.label} data-tip={it.tip}>
-                <NavIcon name={it.icon} /><span className="header-label">{it.label}</span>
-              </Link>
-            )
-          })}
+          {items.map(navLink)}
+          {tools.length > 0 && <span className="header-sep header-nav" aria-hidden="true" />}
+          {tools.map(navLink)}
           {member ? (
             <>
               {isStaff(member.role) && (
@@ -130,7 +155,7 @@ export function Header() {
                 // 초점이 메뉴 밖의 다른 요소로 옮겨 가면 닫는다 (빈 곳 클릭은 mousedown이 맡는다)
                 if (open && e.relatedTarget && !e.currentTarget.contains(e.relatedTarget as Node)) setOpen(false)
               }}>
-                <button type="button" ref={buttonRef} className="menu-button" aria-haspopup="menu" aria-expanded={open} data-tip={t('내 메뉴: 내 설정·내 블로그·글 관리·로그아웃')}
+                <button type="button" ref={buttonRef} className="menu-button" aria-haspopup="menu" aria-expanded={open} data-tip={t('내 메뉴: 내 설정·내 블로그·글 관리·대시보드·포인트')}
                         onClick={() => setOpen((o) => !o)}>
                   <Avatar src={member.profileImageUrl} name={member.nickname} seed={member.handle} />
                   <span className="sr-only">{t('내 메뉴')}</span>
@@ -145,11 +170,7 @@ export function Header() {
                     <Link to={`/@${member.handle}`} role="menuitem"><NavIcon name="blog" />{t('내 블로그')}</Link>
                     <Link to="/manage/posts" role="menuitem"><NavIcon name="posts" />{t('내 글 관리')}</Link>
                     <Link to="/dashboard" role="menuitem" title={t('내 글과 쇼츠가 받은 반응을 기간별로 보기')}><NavIcon name="chart" />{t('내 대시보드')}</Link>
-                    {me?.features?.shorts && <Link to="/studio" role="menuitem" title={t('글로 쇼츠 대본을 쓰고 영상 만들기')}><NavIcon name="video" />{t('쇼츠 스튜디오')}</Link>}
-                    {me?.features?.trades && <Link to="/trades" role="menuitem" title={t('매매 봇이 보낸 체결을 날짜별로 보고 글·쇼츠로 남기기')}><NavIcon name="trend" />{t('매매 일지')}</Link>}
-                    {me?.features?.trades && <Link to="/trade" role="menuitem" title={t('봇이 내 AI의 기준대로 돌리는 모의 자동매매 계좌·체결·Gemini 판단 보기')}><NavIcon name="ai" />{t('자동매매 (모의)')}</Link>}
                     {me?.features?.points && <Link to="/points" role="menuitem" title={t('출석하고 포인트 잔액과 내역 보기')}><NavIcon name="coin" />{t('내 포인트')}</Link>}
-                    {me?.features?.points && me.features.trades && <Link to="/paper" role="menuitem" title={t('포인트로 코인을 사고파는 모의투자')}><NavIcon name="candle" />{t('포인트 모의투자')}</Link>}
                     {mobileExtra.length > 0 && (
                       <div className="menu-mobile-only" role="none">
                         <div className="menu-sep" role="separator" />
@@ -178,5 +199,18 @@ export function Header() {
         </nav>
       </div>
     </header>
+    {tools.length > 0 && (
+      <nav className="tool-strip" aria-label={t('도구 메뉴')}>
+        {tools.map((it) => {
+          const on = it.on(path)
+          return (
+            <Link key={it.icon} to={it.to} className={on ? 'on' : undefined} aria-current={on ? 'page' : undefined} data-tip={it.tip}>
+              <NavIcon name={it.icon} />{it.label}
+            </Link>
+          )
+        })}
+      </nav>
+    )}
+    </>
   )
 }
