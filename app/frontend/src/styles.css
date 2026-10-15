@@ -2988,7 +2988,15 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 .shop-actions .btn { flex: 1; }
 .shop-admin-list { list-style: none; margin: 0; padding: 0; }
 .shop-admin-list li { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--color-border); }
-.shop-admin-list .shop-preview { height: 40px; border-radius: var(--radius); }
+/* 관리자 목록의 작은 미리보기: 칸 크기를 고정하고 넘치는 것은 잘라 옆 글자를 덮지 않게 한다 */
+.shop-admin-list .shop-preview, .shop-admin-list .shop-preview.shop-preview-small { width: 56px; height: 48px; min-height: 0; overflow: hidden; border-radius: var(--radius); }
+.shop-preview-small .shop-swatch { width: 28px; height: 28px; }
+.shop-preview-small .deco-effect-avatar { margin-top: 14px; }
+.shop-admin-tabs { margin: 0 0 8px; }
+.shop-color { display: flex; gap: 8px; align-items: center; }
+.field .shop-color input[type="color"] { flex: none; width: 44px; height: 38px; padding: 2px; border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-surface); cursor: pointer; }
+.field .shop-color input:not([type="color"]) { flex: 1; width: auto; min-width: 0; font-family: var(--font-mono, monospace); }
+.shop-value-field .muted.small { line-height: 1.45; }
 .shop-admin-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px 16px; }
 /* 휴대폰: 카드를 미리보기 왼쪽·내용 오른쪽의 낮은 한 줄로 쌓고, 티어 사다리는 가로로 밀어 보게 해 화면이 덜 길어지게 한다 (블로그 주인 요청) */
 @media (max-width: 640px) {
@@ -3018,6 +3026,8 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
   .shop-tabs .settings-panel { padding: 12px; }
   .shop-admin-list li { grid-template-columns: 44px minmax(0, 1fr); }
   .shop-admin-list li > :last-child { grid-column: 1 / -1; }
+  /* 위의 휴대폰 상점 카드 규칙(.shop-actions 오른쪽 칸)이 관리자 목록에 번지지 않게 버튼 줄을 이름 아래로 둔다 */
+  .shop-admin-list .shop-actions { grid-column: 2; grid-row: auto; padding: 0; }
 }
 
 /* 포인트 모의투자 (이슈 267). 오름·이익·매수 초록, 내림·손실·매도 빨강 */
