@@ -2022,4 +2022,8 @@ export const en: Record<string, string> = {
   "리플": "XRP",
   "솔라나": "Solana",
   "도지코인": "Dogecoin",
+  "{0} 차트를 크게 봐요": "View the {0} chart large",
+  "구간 고가 {0} · 저가 {1}": "Range high {0} · low {1}",
+  "이 구간에는 봇 체결이 없어요.": "No bot fills in this range.",
+  "종목": "Coins",
 }
