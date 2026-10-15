@@ -177,10 +177,9 @@ public class SearchQuery {
     private List<Found> fillStages(SearchTerms terms, List<Integer> stages, Long authorId, int fromStage, Instant cursorAt, Long cursorId,
                                    Set<Long> shown) {
         List<Found> found = new ArrayList<>();
-        for (int stage : stages) {
+        for (int stage : stages.stream().filter(s -> s >= fromStage).toList()) {
             int need = pageSize + 1 - found.size();
             if (need <= 0) break;
-            if (stage < fromStage) continue;
             boolean continuing = stage == fromStage && cursorAt != null;
             List<Found> got = new ArrayList<>(findStage(terms, stage, authorId, continuing ? cursorAt : null,
                     continuing ? cursorId : null, need + shown.size()));

@@ -390,19 +390,22 @@ public class PointLedger {
     private long settleBotProfit(long memberId, PaperProfits.Profit t, LocalDate today, long room) {
         String doneKey = "trade:" + t.tradeId();
         // 이미 다 넣었거나(봇·포인트 모의투자 모두 같은 끝 키) 오늘 이미 나눠 넣은 체결은 건너뛴다
-        Map<String, Object> paid = jdbc.queryForMap("""
+        BotPaid paid = jdbc.query("""
                 SELECT COALESCE(BOOL_OR(request_key = ?), false) AS finished, COALESCE(BOOL_OR(request_key = ?), false) AS today,
                        COALESCE(SUM(amount) FILTER (WHERE reason = 'BOT_PROFIT'), 0) AS paid
                 FROM point_ledger WHERE member_id = ? AND (request_key = ? OR request_key LIKE ?)
-                """, doneKey, doneKey + ":" + today, memberId, doneKey, doneKey + ":%");
-        if (Boolean.TRUE.equals(paid.get("finished")) || Boolean.TRUE.equals(paid.get("today"))) return 0;
-        long alreadyPaid = paid.get("paid") instanceof Number num ? num.longValue() : 0L;
-        long left = t.profit() - alreadyPaid;
+                """, (rs, n) -> new BotPaid(rs.getBoolean("finished"), rs.getBoolean("today"), rs.getLong("paid")),
+                doneKey, doneKey + ":" + today, memberId, doneKey, doneKey + ":%").getFirst();
+        if (paid.finished() || paid.today()) return 0;
+        long left = t.profit() - paid.amount();
         if (left <= 0) return 0;
         long amount = Math.min(left, room);
         String key = amount == left ? doneKey : doneKey + ":" + today;
         return insert(memberId, Wallet.SHOP, amount, PointReason.BOT_PROFIT, key, t.tradeId(), "봇 모의투자 수익") ? amount : 0;
     }
+
+    /** 체결 하나에 대해 이미 넣은 수익: 끝냈는지, 오늘 넣었는지, 지금까지 넣은 합 */
+    private record BotPaid(boolean finished, boolean today, long amount) {}
 
     // ---- 사용 ----
 

@@ -29,5 +29,7 @@ class SecretScannerTest {
                 "토큰은 dvl_로 시작해요. GitHub 토큰은 ghp_xxx 꼴이고 키는 sk-... 처럼 생겼어요.",
                 "postgres://user:${DB_PASSWORD}@db/blog, postgres://app:<password>@db, mysql://root:****@localhost",
                 "https://devlog.life/@minseo/posts/12, 전화 010-1234-5678, 2026-10-11", null, "")).isEmpty();
+        assertThat(SecretScanner.find("postgres://u:pass@db", "postgres://u:passwd@db", "postgres://u:PassWord@db",
+                "redis://u:xxxx@cache", "redis://u:changeme@cache")).isEmpty();
     }
 }
