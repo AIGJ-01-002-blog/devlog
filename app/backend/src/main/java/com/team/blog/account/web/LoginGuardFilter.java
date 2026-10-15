@@ -14,6 +14,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import com.team.blog.shared.config.BlogProperties;
 import com.team.blog.shared.web.ClientIpResolver;
 import com.team.blog.shared.web.RateLimiter;
+import com.team.blog.shared.web.RequestPaths;
 import com.team.blog.shared.web.SafeRedirects;
 
 /**
@@ -38,7 +39,7 @@ public class LoginGuardFilter extends OncePerRequestFilter {
     }
 
     static boolean isLoginAttempt(HttpServletRequest request) {
-        String p = request.getRequestURI();
+        String p = RequestPaths.of(request);
         return p.startsWith("/oauth2/authorization/") || p.startsWith("/login/oauth2/code/")
                 || ("POST".equals(request.getMethod()) && (p.equals("/api/auth/login") || p.equals("/api/dev/login")));
     }
@@ -51,7 +52,8 @@ public class LoginGuardFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        boolean api = request.getRequestURI().startsWith("/api/");
+        String path = RequestPaths.of(request);
+        boolean api = path.startsWith("/api/");
         String ip = ipResolver.resolve(request);
         if (!rateLimiter.tryAcquire("login:ip:" + ip, perMinute, Duration.ofMinutes(1))) {
             fail(response, api, 429, "TOO_MANY_REQUESTS", "로그인 시도가 너무 많아요. 잠시 후 다시 시도해 주세요.");
@@ -61,7 +63,7 @@ public class LoginGuardFilter extends OncePerRequestFilter {
             fail(response, api, 503, "TEMPORARILY_UNAVAILABLE", "잠시 후 다시 시도해 주세요.");
             return;
         }
-        if (request.getRequestURI().startsWith("/oauth2/authorization/")) {
+        if (path.startsWith("/oauth2/authorization/")) {
             request.getSession(true).setAttribute(LoginFlow.REDIRECT_KEY, SafeRedirects.sanitize(request.getParameter("redirect")));
         }
         chain.doFilter(request, response);

@@ -28,7 +28,11 @@ public record BlogProperties(
 
     public record Site(String baseUrl, @DefaultValue("devlog") String name, @DefaultValue("/og-default.png") String defaultOgImage) {}
 
-    public record Web(@DefaultValue List<String> trustedProxies) {}
+    /**
+     * @param trustedProxies 이 대역에서 온 요청만 X-Forwarded-For를 믿는다 (docs/02 §5 H4)
+     * @param clientIpHeader X-Forwarded-For가 모두 신뢰 대역뿐일 때 쓸 사용자 IP 머리글 (예: CF-Connecting-IP). 비우면 쓰지 않는다
+     */
+    public record Web(@DefaultValue List<String> trustedProxies, @DefaultValue("") String clientIpHeader) {}
 
     public record Agreements(String termsVersion, String termsEffectiveDate, String privacyVersion, String privacyEffectiveDate) {}
 

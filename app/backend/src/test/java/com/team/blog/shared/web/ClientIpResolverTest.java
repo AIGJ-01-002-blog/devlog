@@ -66,4 +66,47 @@ class ClientIpResolverTest {
         assertThatThrownBy(() -> new ClientIpResolver(badPrefix)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ClientIpResolver(notIp)).isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void 클러스터_안_터널_뒤에서는_신뢰_프록시가_넘긴_사용자_IP_머리글을_쓴다() {
+        // cloudflared 파드(10.42.0.7) → ingress-nginx 파드(10.42.0.9): X-Forwarded-For에 터널 주소만 남는다
+        ClientIpResolver tunnel = new ClientIpResolver(List.of("10.42.0.0/16"), "CF-Connecting-IP");
+        MockHttpServletRequest a = request("10.42.0.9", "10.42.0.7");
+        a.addHeader("CF-Connecting-IP", "198.51.100.7");
+        MockHttpServletRequest b = request("10.42.0.9", "10.42.0.7");
+        b.addHeader("CF-Connecting-IP", "203.0.113.20");
+        assertThat(tunnel.resolve(a)).isEqualTo("198.51.100.7");
+        assertThat(tunnel.resolve(b)).isEqualTo("203.0.113.20");
+        // 머리글을 정하지 않으면 예전처럼 접속 주소 하나로 묶인다
+        assertThat(new ClientIpResolver(List.of("10.42.0.0/16")).resolve(a)).isEqualTo("10.42.0.9");
+    }
+
+    @Test
+    void 사용자_IP_머리글은_신뢰_프록시에서_왔을_때만_숫자_주소로만_쓴다() {
+        ClientIpResolver tunnel = new ClientIpResolver(List.of("10.42.0.0/16"), "CF-Connecting-IP");
+        // 신뢰 밖에서 직접 오면 머리글을 무시한다
+        MockHttpServletRequest direct = request("203.0.113.9", null);
+        direct.addHeader("CF-Connecting-IP", "1.1.1.1");
+        assertThat(tunnel.resolve(direct)).isEqualTo("203.0.113.9");
+        // 체인에 신뢰 밖 주소가 있으면 그쪽이 먼저다
+        MockHttpServletRequest chain = request("10.42.0.9", "198.51.100.7, 10.42.0.7");
+        chain.addHeader("CF-Connecting-IP", "1.1.1.1");
+        assertThat(tunnel.resolve(chain)).isEqualTo("198.51.100.7");
+        // 숫자가 아니거나 내부 주소면 접속 주소로 돌아간다
+        MockHttpServletRequest bad = request("10.42.0.9", "10.42.0.7");
+        bad.addHeader("CF-Connecting-IP", "example.com");
+        assertThat(tunnel.resolve(bad)).isEqualTo("10.42.0.9");
+        MockHttpServletRequest inner = request("10.42.0.9", "10.42.0.7");
+        inner.addHeader("CF-Connecting-IP", "10.42.3.3");
+        assertThat(tunnel.resolve(inner)).isEqualTo("10.42.0.9");
+        // 신뢰 대역 밖이어도 루프백·사설·링크 로컬 주소는 사용자 IP로 보지 않는다
+        for (String internal : List.of("127.0.0.1", "192.168.1.1", "172.16.0.5", "169.254.1.1", "::1", "fd12::1", "fe80::1")) {
+            MockHttpServletRequest r = request("10.42.0.9", "10.42.0.7");
+            r.addHeader("CF-Connecting-IP", internal);
+            assertThat(tunnel.resolve(r)).as(internal).isEqualTo("10.42.0.9");
+        }
+        MockHttpServletRequest v6 = request("10.42.0.9", "10.42.0.7");
+        v6.addHeader("CF-Connecting-IP", "2001:db8::7");
+        assertThat(tunnel.resolve(v6)).isEqualTo("2001:db8::7");
+    }
 }

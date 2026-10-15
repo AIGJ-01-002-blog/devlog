@@ -24,6 +24,7 @@ import com.team.blog.account.infra.MemberRepository;
 import com.team.blog.shared.error.ErrorResponse;
 import com.team.blog.shared.security.CurrentMemberArgumentResolver;
 import com.team.blog.shared.security.MemberPrincipal;
+import com.team.blog.shared.web.RequestPaths;
 
 /**
  * 로그인한 사용자의 계정 상태 판정 (docs/42 §3 ②). 세션 값이 아니라 DB의 현재 상태로 판단해
@@ -73,7 +74,7 @@ public class AccountStateFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !request.getRequestURI().startsWith("/api/");
+        return !RequestPaths.of(request).startsWith("/api/");
     }
 
     @Override
@@ -84,7 +85,7 @@ public class AccountStateFilter extends OncePerRequestFilter {
             chain.doFilter(request, response);
             return;
         }
-        String path = request.getRequestURI();
+        String path = RequestPaths.of(request);
         MemberStatus status = members.findById(principal.id()).map(Member::getStatus).orElse(null);
         if (status == null) {
             SecurityContextHolder.clearContext();
