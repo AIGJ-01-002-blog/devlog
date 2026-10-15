@@ -132,6 +132,7 @@ class ShortsTools {
         Long postId = a.path(POST_ID).canConvertToLong() ? a.path(POST_ID).asLong() : null;
         Long batchId = a.path("batch_id").canConvertToLong() ? a.path("batch_id").asLong() : null;
         Integer topic = a.path("topic").canConvertToInt() ? a.path("topic").asInt() : null;
+        if (badCharacter(a)) return McpTools.Result.fail(CHARACTER_TYPE);
         try {
             ShortsService.Item item = batchId != null
                     ? batches.create(caller.memberId(), batchId, topic, text(a, TITLE), scenes(a), character(a))
@@ -157,6 +158,8 @@ class ShortsTools {
         long id = idNode.asLong();
         String title = a.has(TITLE) ? text(a, TITLE) : null;
         List<ShortsScript.Scene> scenes = a.has("scenes") ? scenes(a) : null;
+        // null·숫자를 빈 값으로 읽으면 캐릭터를 지우고 만든 영상까지 지우므로 고치기 전에 막는다
+        if (badCharacter(a)) return McpTools.Result.fail(CHARACTER_TYPE);
         String character = a.has(CHARACTER) ? text(a, CHARACTER) : null;
         if (title == null && scenes == null && character == null) return McpTools.Result.fail("바꿀 제목(title)·장면(scenes)·캐릭터(character)를 주세요.");
         try {
@@ -323,6 +326,13 @@ class ShortsTools {
     }
 
     private static final tools.jackson.databind.json.JsonMapper DIAGRAM_JSON = tools.jackson.databind.json.JsonMapper.builder().build();
+
+    private static final String CHARACTER_TYPE = "캐릭터(character)는 lognyang·logduck·dubu·cat 가운데 하나를 문자열로 주세요.";
+
+    /** character를 줬는데 문자열이 아니면 true */
+    private static boolean badCharacter(JsonNode a) {
+        return a.has(CHARACTER) && !a.get(CHARACTER).isString();
+    }
 
     /** 대본 캐릭터(#304). 없으면 null(워커 기본) */
     private static String character(JsonNode a) {

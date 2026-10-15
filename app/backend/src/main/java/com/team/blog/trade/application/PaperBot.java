@@ -230,7 +230,7 @@ public class PaperBot {
             BigDecimal avg = pos == null ? BigDecimal.ZERO : new BigDecimal(pos.path(AVG_PRICE).asString("0"));
             String signal = rule.onBar(c.c(), qty.signum() > 0, avg);
             if (c.t() > seenT && signal != null) {
-                Fill f = signal.equals("BUY") ? buy(book, acc, positions, coin, c) : sell(book, acc, positions, coin, c, qty, avg, signal.substring(5));
+                Fill f = signal.equals("BUY") ? buy(book, acc, positions, coin, c) : sell(book, acc, positions, coin, c, signal.substring(5));
                 if (f != null) out.add(f);
             }
         }
@@ -256,7 +256,10 @@ public class PaperBot {
     }
 
     /** 가진 수량을 모두 판다 */
-    private Fill sell(Book book, ObjectNode acc, ObjectNode positions, Coin coin, Candle c, BigDecimal qty, BigDecimal avg, String reason) {
+    private Fill sell(Book book, ObjectNode acc, ObjectNode positions, Coin coin, Candle c, String reason) {
+        JsonNode pos = positions.get(coin.symbol());
+        BigDecimal qty = new BigDecimal(pos.path(QUANTITY).asString("0"));
+        BigDecimal avg = new BigDecimal(pos.path(AVG_PRICE).asString("0"));
         BigDecimal cash = new BigDecimal(acc.path("cash").asString("0"));
         BigDecimal proceeds = qty.multiply(c.c());
         BigDecimal fee = book.money(proceeds.multiply(book.feeRate()));

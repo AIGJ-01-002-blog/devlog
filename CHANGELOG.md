@@ -10,14 +10,66 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-10-15
+
+**목표: v2.2.0 작업 중 먼저 끝난 것 내보내기** ([목표 이슈 #282](https://github.com/AIGJ-01-002-blog/devlog/issues/282) · [v2.1.0](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.1.0) 뒤 develop)
+
+v2.1.0을 낸 뒤 develop에 들어온 작업을 블로그 주인 결정으로 v2.1.1에 먼저 내보낸다. 쇼츠에 강아지 캐릭터 두부가 생기고 바탕 글을 전체에서 찾으며, 매매 일지를 실거래·모의로 나눠 보고, 회원 컴퓨터 봇 없이도 서버가 모의 봇을 돌린다. 머리말은 공용 도구와 묶음 메뉴로 나누고, 상점의 프로필 테두리와 휴대폰 상점 화면을 다듬었다. 시험 환경(dev.devlog.life)의 개발용 로그인을 끈다. 운영 DB에 V49(`trade_paper_bot`)와 V50(`shorts.mascot`)이 처음 적용된다. v2.2.0 목표 #282의 봇 판단 흔적(#283~#285)은 아직 남아 있다.
+
+### 화면
+| 머리말 · 피드 묶음 (PC) | 모의투자 묶음 (PC · 다크) | 휴대폰 · 도구 칩 줄 |
+|---|---|---|
+| ![머리말 피드 묶음](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.1/header-feed-pc.webp) | ![머리말 모의투자 묶음 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.1/header-paper-pc-dark.webp) | ![휴대폰 머리말](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.1/header-m.webp) |
+
+| 서버 모의 봇 계좌 (PC) | 켜기 전 (휴대폰) | 휴대폰 · 다크 |
+|---|---|---|
+| ![서버 모의 봇 계좌](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.1/paper-bot-pc.webp) | ![모의 봇 켜기 전 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.1/paper-bot-off-m.webp) | ![서버 모의 봇 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.1/paper-bot-m-dark.webp) |
+
+| 매매 일지 · 실거래 (PC) | 모의 (PC) | 모의 (휴대폰 · 다크) |
+|---|---|---|
+| ![매매 일지 실거래](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.1/trades-live-pc.webp) | ![매매 일지 모의](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.1/trades-paper-pc.webp) | ![매매 일지 모의 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.1/trades-paper-m-dark.webp) |
+
+| 프로필 테두리 전 (PC) | 후 (PC) | 테두리 단 블로그 (휴대폰 · 다크) |
+|---|---|---|
+| ![프로필 테두리 전](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.1/frame-before-pc.webp) | ![프로필 테두리 후](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.1/frame-after-pc.webp) | ![테두리 블로그 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.1/frame-blog-m-dark.webp) |
+
+| 휴대폰 상점 전 | 휴대폰 상점 후 (약 35% 짧게) | 쇼츠 바탕 글 검색 (휴대폰) |
+|---|---|---|
+| ![휴대폰 상점 전](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.1/shop-before-m.webp) | ![휴대폰 상점 후](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.1/shop-after-m.webp) | ![바탕 글 검색](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.1/post-search-m.webp) |
+
+![쇼츠 캐릭터 두부](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.1/shorts-dubu.webp)
+
 ### 추가
-- 매매 일지 실거래·모의 토글: `/trades`에서 [실거래]·[모의]를 골라 그 모드의 체결·손익·누적만 본다(`?mode=live|paper`, API `GET /api/me/trades?mode=`). 고르지 않으면 실거래, 실거래 기록이 없으면 모의를 보여 준다. 메모·요약 글·쇼츠는 날에 붙어 있어 양쪽에서 보인다.
-- 서버가 돌리는 모의 봇 (spec 102): `/trade`의 [모의 봇 켜기]를 누르면 devlog 서버가 5분마다 거래소 공개 시세(키 없음)로 바이낸스·업비트 모의 계좌(`server-paper-…`)를 이동평균 교차 규칙으로 돌린다. 켜자마자 한 바퀴 돌아 화면이 바로 채워진다. 회원 컴퓨터 봇의 알림과 계좌가 섞이지 않고, 실거래는 하지 않는다. `PUT /api/me/trade-bot/paper`, V49 `trade_paper_bot`.
-- `/trade` 안내 "이 봇은 어떻게 도나요?": 규칙으로 도는 자동 프로그램이고 AI는 기준을 정하거나(MCP) 진입을 거르는(Gemini) 데만 쓴다는 것, 모의만 보인다는 것, 투자 권유가 아니라는 것.
+- 쇼츠 캐릭터 고르기: 민서님이 만든 흰 강아지 두부(Lottie 동작 12개)를 더했다. 대본마다 스튜디오의 캐릭터 칸이나 MCP `create_shorts_script`·`update_shorts_script`의 `character`로 로그냥(기본)·로그덕·두부·이모지 고양이 가운데 하나를 고르면 렌더 워커가 그 캐릭터로 연기한다. 캐릭터를 바꾸면 만들어 둔 영상은 지워진다. DB 이전 V50(`shorts.mascot`, 서버 모의 봇 V49와 번호가 겹쳐 옮김). (#304, PR #307)
+- 쇼츠 스튜디오 [새 대본]의 바탕이 될 글을 최신순 목록에서 스크롤해 고르고, 제목 검색으로 공개한 글 전체에서 찾는다. 목록 끝에 닿으면 다음 20편을 더 불러온다. 내 글 목록 API `/api/me/posts`가 제목 검색어 `q`를 받는다(검색어마다 커서가 따로). (#308, PR #307)
+- 매매 일지 실거래·모의 토글: `/trades`에서 [실거래]·[모의]를 골라 그 모드의 체결·손익·누적만 본다(`?mode=live|paper`, API `GET /api/me/trades?mode=`). 고르지 않으면 실거래, 실거래 기록이 없으면 모의를 보여 준다. 메모·요약 글·쇼츠는 날에 붙어 있어 양쪽에서 보인다. (PR #314)
+- 서버가 돌리는 모의 봇 (spec 102): `/trade`의 [모의 봇 켜기]를 누르면 devlog 서버가 5분마다 거래소 공개 시세(키 없음)로 바이낸스·업비트 모의 계좌(`server-paper-…`)를 이동평균 교차 규칙으로 돌린다. 켜자마자 한 바퀴 돌아 화면이 바로 채워진다. 회원 컴퓨터 봇의 알림과 계좌가 섞이지 않고, 실거래는 하지 않는다. `PUT /api/me/trade-bot/paper`, V49 `trade_paper_bot`. (PR #310)
+- `/trade` 안내 "이 봇은 어떻게 도나요?": 규칙으로 도는 자동 프로그램이고 AI는 기준을 정하거나(MCP) 진입을 거르는(Gemini) 데만 쓴다는 것, 모의만 보인다는 것, 투자 권유가 아니라는 것. (PR #310)
+
+### 바꿈
+- 머리말을 [AI 연결]·[쇼츠 스튜디오]·[피드 ▾]·[모의투자 ▾]로 나눈다. 피드 묶음에는 피드·좋아한 글·태그, 모의투자 묶음에는 매매 일지·자동매매·모의투자가 들어가고, 마우스를 올리거나 ▾를 누르면 펼쳐진다. 휴대폰은 머리말 아래 칩 줄로 보인다. 내 메뉴에는 내 설정·내 블로그·내 글 관리·내 대시보드·내 포인트 같은 개인 항목만 남긴다. (#282, PR #313)
 
 ### 고침
-- 프로필 테두리가 프로필 사진에 딱 맞는 원으로 그려진다. 상점 미리보기에서 글줄 높이가 끼어 세로로 긴 타원이 되던 문제를 고치고, 고리를 사진 크기에 맞춰 더 얇게 했다(블로그 주인 요청).
-- 휴대폰 상점 화면이 덜 길어진다. 아이템 카드를 미리보기 왼쪽·내용 오른쪽의 낮은 한 줄로 쌓고 설명을 빼며, 티어 사다리는 가로로 밀어 본다. 테두리 탭 기준으로 화면 길이가 약 35% 줄었다(블로그 주인 요청).
+- 쇼츠 스튜디오에서 [새 대본]이나 [매매 재현 영상] 화면이 열린 채로 왼쪽 목록의 대본·묶음을 누르면 주소만 바뀌고 화면은 그대로여서 [취소]를 눌러야 넘어가던 것을, 누르면 바로 그 대본·묶음으로 넘어가게 고쳤다. (#312, PR #307)
+- 프로필 테두리가 프로필 사진에 딱 맞는 원으로 그려진다. 상점 미리보기에서 글줄 높이가 끼어 세로로 긴 타원이 되던 문제를 고치고, 고리를 사진 크기에 맞춰 더 얇게 했다(블로그 주인 요청). (PR #309)
+- 휴대폰 상점 화면이 덜 길어진다. 아이템 카드를 미리보기 왼쪽·내용 오른쪽의 낮은 한 줄로 쌓고 설명을 빼며, 티어 사다리는 가로로 밀어 본다. 테두리 탭 기준으로 화면 길이가 약 35% 줄었다(블로그 주인 요청). (PR #311)
+- 보안: 시험 환경(dev.devlog.life)의 개발용 로그인을 끈다. 비밀번호 없이 관리자로 들어갈 수 있었고 막는 것이 Cloudflare Access 하나뿐이었다. 시험 환경은 이메일 가입·로그인으로 들어가고, 관리자 자동 승격(`OWNER_HANDLE`)도 비운다. 매니페스트 검증이 운영·시험 설정에서 `DEV_LOGIN_ENABLED`가 켜지면 실패한다. 운영(devlog.life)은 원래 꺼져 있었다. (PR #316)
+- 릴리스 전 SonarQube 점검: 서버 모의 봇과 쇼츠 MCP의 지적 13건(null 확인, 겹친 삼항, 복잡한 메서드 나누기 등)을 동작을 바꾸지 않고 고쳐 이슈 0건으로 맞춘다. (PR #317, #318)
+
+### 포함된 작업
+| 이슈 | 브랜치 | PR |
+|---|---|---|
+| #304 쇼츠 캐릭터 두부, #308 바탕 글 검색, #312 목록 이동 | - | #307 |
+| 프로필 테두리 원형 | - | #309 |
+| 서버 모의 봇 (spec 102) | - | #310 |
+| 휴대폰 상점 줄이기 | - | #311 |
+| #282 머리말 나누기 | - | #313 |
+| 매매 일지 실거래·모의 토글 | - | #314 |
+| 시험 환경 개발용 로그인 끄기 | - | #316 |
+| 릴리스 전 SonarQube 점검(이슈 13건) | `release/v2.1.1-p04q04` | #317, #318 |
+| v2.1.0 main을 develop에 합치기 | - | #306 |
+
+**비교:** [v2.1.0...v2.1.1](https://github.com/AIGJ-01-002-blog/devlog/compare/v2.1.0...v2.1.1)
 
 ## [2.1.0] - 2026-10-15
 
@@ -93,8 +145,6 @@ devlog 2.0을 한 번에 마무리한다. 매매 일지가 코인 현물·선물
 - 같은 날 모의투자와 실계좌 체결이 섞이면 실현 손익을 더하지 않고 나눠 보여 준다. 화면(기간 합계·날짜 목록·하루 상세), 요약 글 제목과 본문, 쇼츠 제목과 대본에서 "모의투자 +12.00 USDT · 실계좌 -4.00 USDT"처럼 적는다. (#260)
 - 쇼츠 주제 묶음: 글 하나나 AI와 나눈 맥락 하나를 작은 주제 2~5개로 나눠 주제마다 쇼츠 한 편씩 만든다. MCP `plan_shorts`가 주제(제목·첫 질문·다룰 범위)를 남기고, `create_shorts_script`는 `batch_id`·`topic`이나 맥락 근거 `source_text`를 받는다. 양산형 검사는 맥락 근거와도 비교하고, 같은 묶음의 다른 편과 겹치면 경고한다. 스튜디오는 묶음별로 대본을 모아 보여 주고 [묶음 영상 모두 만들기]로 통과한 편을 한 번에 대기열에 넣는다(막힌 편은 이유와 함께 건너뜀). DB `shorts_batch` 표와 `shorts`의 `batch_id`·`topic`·`source_text` 열(V42). 장면마다 배경 그림(`image`, devlog에 올린 그림이나 사이트 경로만)을 고를 수 있고, 렌더 워커가 받는 작업에 장면 그림과 원본 글 대표 사진(`coverImage`)이 함께 간다. 장면마다 연출(`visual`: explain·shock·typing·panic·restore·wait·fast·idea·protect·think·celebrate, 비우면 워커가 고름)과 효과음(`effects`: pop·ding·whoosh·boing·tick·typing, 장면당 3개)을 고를 수 있고, 워커에는 작업 단위 `effects[]`로 펼쳐 보낸다(#277 워커와 짝). (#276)
 - 쇼츠 장면 설명 그림: CS 개념을 설명하는 장면에 도식(`diagram`: flow 흐름·stack 층·steps 순서·compare 비교)을 담아 렌더 워커가 그림으로 풀어 그린다. MCP `create_shorts_script`가 받고, 저장할 때 type·칸 수(flow 4, 나머지 5, compare 쪽마다 4)·이름표 20자만 검사한 뒤 작업 `scenes[].diagram`으로 그대로 넘긴다. 스튜디오 편집기는 [설명 그림 있음]으로 표시하고 고쳐 저장해도 도식을 지키며, DB 변경은 없다(장면 JSON). (#277)
-- 쇼츠 캐릭터 고르기: 민서님이 만든 흰 강아지 두부(Lottie 동작 12개)를 더했다. 대본마다 스튜디오의 캐릭터 칸이나 MCP `create_shorts_script`·`update_shorts_script`의 `character`로 로그냥(기본)·로그덕·두부·이모지 고양이 가운데 하나를 고르면 렌더 워커가 그 캐릭터로 연기한다. 캐릭터를 바꾸면 만들어 둔 영상은 지워진다. DB 이전 V50(`shorts.mascot`, 서버 모의 봇 V49와 번호가 겹쳐 옮김). (#304)
-- 쇼츠 스튜디오 [새 대본]의 바탕이 될 글을 최신순 목록에서 스크롤해 고르고, 제목 검색으로 공개한 글 전체에서 찾는다. 목록 끝에 닿으면 다음 20편을 더 불러온다. 내 글 목록 API `/api/me/posts`가 제목 검색어 `q`를 받는다(검색어마다 커서가 따로). (#308)
 - 매매 일지의 날마다 [재현 영상 만들기]로 그날 체결을 스튜디오의 매매 재현 영상으로 넘긴다(`/studio?replay=날짜`). (#265)
 - 크레딧 상점과 블로그 꾸미기: 아이언·브론즈·실버·골드·플래티넘·다이아·마스터·그랜드마스터·챌린저 9티어의 테마 색·프로필 테두리·블로그 표지와 빛·반짝임 효과를 크레딧으로 사서 내 블로그에 적용한다. 가격은 아이언 100에서 티어마다 10배(챌린저 100억)이고, 아래 티어를 사야 윗 티어가 열린다. 다이아부터 빛나고 챌린저는 반짝인다. 가입 첫 지급 포인트로는 못 산다. 관리자는 아이템을 티어와 함께 추가·가격 변경·내리기 한다. DB에 `shop_item`·`member_item`·`member_decoration`이 생긴다(V44). ([#268](https://github.com/AIGJ-01-002-blog/devlog/issues/268), 목표 [#253](https://github.com/AIGJ-01-002-blog/devlog/issues/253))
 - 포인트 모의투자: 업비트 원화 시세로 비트코인·이더리움·리플·솔라나·도지코인을 포인트로 사고판다(시장가·현물, 수수료 0.05%, 최소 5,000P). 투자 전용 포인트를 먼저 쓰고 고르면 상점 포인트도 쓰며, 판 돈의 원금은 낸 지갑으로 돌아가고 수익은 모두 크레딧으로 쌓인다. 체결은 매매 일지에 모의투자(PAPER)로 남는다. 오름·이익은 초록, 내림·손실은 빨강. 화면은 `/paper`, 포인트와 매매 일지가 둘 다 켜져야 보인다. DB에 `paper_position`·`paper_order`가 생긴다(V45). ([#267](https://github.com/AIGJ-01-002-blog/devlog/issues/267), 목표 [#253](https://github.com/AIGJ-01-002-blog/devlog/issues/253))
@@ -112,7 +162,6 @@ devlog 2.0을 한 번에 마무리한다. 매매 일지가 코인 현물·선물
 - 보안: 계정 상태 필터와 로그인 입구 필터가 퍼센트 디코딩한 경로로 비교한다. 전에는 `/api/%70osts`처럼 인코딩하면 이메일 인증 전 글쓰기 막기와 같은 IP 1분 20회 로그인 한도를 건너뛰었다. ([#292](https://github.com/AIGJ-01-002-blog/devlog/issues/292))
 - 보안: 클러스터 안 Cloudflare 터널 뒤에서 X-Forwarded-For가 모두 신뢰 대역이면 `CLIENT_IP_HEADER`(운영·시험은 `CF-Connecting-IP`)를 사용자 IP로 쓴다. 전에는 모든 방문자가 인그레스 파드 주소 하나로 묶여 IP별 한도가 사이트 전체 한도가 될 수 있었다. ([#293](https://github.com/AIGJ-01-002-blog/devlog/issues/293))
 - spec 목록(`specs/README.md`)에 빠져 있던 099 쇼츠 스튜디오와 100 블로그 포인트를 더한다. ([#289](https://github.com/AIGJ-01-002-blog/devlog/issues/289))
-- 쇼츠 스튜디오에서 [새 대본]이나 [매매 재현 영상] 화면이 열린 채로 왼쪽 목록의 대본·묶음을 누르면 주소만 바뀌고 화면은 그대로여서 [취소]를 눌러야 넘어가던 것을, 누르면 바로 그 대본·묶음으로 넘어가게 고쳤다. (#312)
 
 ### 포함된 작업
 | 이슈 | 브랜치 | PR |

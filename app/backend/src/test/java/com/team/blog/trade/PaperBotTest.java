@@ -43,7 +43,10 @@ class PaperBotTest extends TradeBotSimTest {
 
         me.http().perform(asJson(put("/api/me/trade-bot/paper"), Map.of("enabled", false))).andExpect(status().isOk());
         assertThat(read(me.http().perform(get("/api/me/trade-bot/paper")).andReturn()).path("enabled").asBoolean()).isFalse();
-        Long before = jdbc.queryForObject("SELECT count(*) FROM trade_paper_bot WHERE enabled", Long.class);
-        assertThat(paper.runAll()).isEqualTo(before.intValue()); // 끈 회원은 돌지 않는다
+        // 끈 회원은 돌지 않는다: 이 회원의 마지막 알림 시각이 그대로다
+        String reported = "SELECT reported_at FROM trade_bot_status WHERE member_id = ?";
+        java.sql.Timestamp before = jdbc.queryForObject(reported, java.sql.Timestamp.class, me.memberId());
+        paper.runAll();
+        assertThat(jdbc.queryForObject(reported, java.sql.Timestamp.class, me.memberId())).isEqualTo(before);
     }
 }

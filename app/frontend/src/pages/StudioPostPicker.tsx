@@ -11,7 +11,7 @@ export interface PickedPost { id: number; title: string }
 const DEBOUNCE_MS = 250
 
 const pageUrl = (q: string, cursor: string | null) => {
-  const params = new URLSearchParams({ tab: 'published' })
+  const params = new URLSearchParams({ tab: 'published', visibility: 'public' })
   if (q) params.set('q', q)
   if (cursor) params.set('cursor', cursor)
   return `/api/me/posts?${params}`
@@ -34,7 +34,8 @@ export function StudioPostPicker({ value, onChange }: { value: number | null; on
     api<ManagePage>(pageUrl(q, after))
       .then((page) => {
         if (id !== request.current) return
-        const more = page.items.map((p) => ({ id: p.id, title: p.title }))
+        // 운영 정책으로 숨겨진 글은 시청자가 열 수 없어 고르지 않는다
+        const more = page.items.filter((p) => !p.hidden).map((p) => ({ id: p.id, title: p.title }))
         setPosts((prev) => (after ? [...prev, ...more] : more))
         setCursor(page.nextCursor)
       })
@@ -51,6 +52,14 @@ export function StudioPostPicker({ value, onChange }: { value: number | null; on
     return () => window.clearTimeout(timer)
   }, [query])
 
+  // 검색어가 바뀌면 기다리는 동안 이전 응답·커서가 남지 않게 바로 비운다
+  const changeQuery = (next: string) => {
+    request.current++
+    setQuery(next)
+    setPosts([])
+    setCursor(null)
+  }
+
   // 목록 끝 가까이 내리면 다음 쪽을 부른다
   const onScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget
@@ -60,7 +69,7 @@ export function StudioPostPicker({ value, onChange }: { value: number | null; on
   return (
     <div className="post-picker">
       <input id="shorts-post" type="search" value={query} placeholder={t('제목으로 내 글 찾기')} aria-label={t('바탕이 될 글 검색')}
-        aria-controls="shorts-post-list" onChange={(e) => setQuery(e.target.value)} />
+        aria-controls="shorts-post-list" onChange={(e) => changeQuery(e.target.value)} />
       <div id="shorts-post-list" ref={list} className="post-picker-list" role="radiogroup" aria-label={t('바탕이 될 글')} aria-busy={loading} onScroll={onScroll}>
         <label className={`post-picker-item${value === null ? ' picked' : ''}`}>
           <input type="radio" name="shorts-post" checked={value === null} onChange={() => onChange(null)} />
