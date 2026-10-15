@@ -172,38 +172,11 @@ public class AiTagService {
      * 그렇지 않으면 외부 AI → (한도면) 집 PC.
      */
     private Called call(AiInput.Cleaned input, Set<String> attached) {
-        if (props.preferLocal() && state.localUsable()) {
-            if (localSlots.tryAcquire()) {
-                try {
-                    return new Called(local.suggest(prompt(local, input, attached)), Provider.LOCAL);
-                } catch (ModelException e) {
-                    state.localFailed(e.kind());
-                    log.warn("자체 AI 태그 추천 실패, 외부 AI로 넘깁니다: {}", e.kind());
-                } finally {
-                    localSlots.release();
-                }
-            } else if (!state.geminiUsable()) {
-                throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, AI_BUSY, "잠시 후 다시 시도해 주세요.");
-            }
-            if (!state.geminiUsable()) throw unavailable();
-            try {
-                List<String> raw = gemini.suggest(prompt(gemini, input, attached));
-                state.succeeded();
-                return new Called(raw, Provider.GEMINI);
-            } catch (ModelException e) {
-                state.failed(e.kind());
-                log.warn("외부 AI 태그 추천 실패: {}", e.kind());
-                throw unavailable();
-            }
-        }
+        if (props.preferLocal() && state.localUsable()) return callLocalFirst(input, attached);
         if (state.geminiUsable()) {
             try {
-                List<String> raw = gemini.suggest(prompt(gemini, input, attached));
-                state.succeeded();
-                return new Called(raw, Provider.GEMINI);
+                return callGemini(input, attached);
             } catch (ModelException e) {
-                state.failed(e.kind());
-                log.warn("외부 AI 태그 추천 실패: {}", e.kind());
                 // 한도 초과만 같은 요청을 자체 AI로 넘긴다. 시간 초과·오류는 더 기다리게 하지 않는다
                 if (!e.quota() || !local.configured()) throw unavailable();
             }
@@ -211,6 +184,41 @@ public class AiTagService {
             throw unavailable();
         }
         return new Called(callLocal(input, attached), Provider.LOCAL);
+    }
+
+    /** 집 PC를 먼저 쓰고, 꺼졌거나 바쁘면 외부 AI로 넘긴다 */
+    private Called callLocalFirst(AiInput.Cleaned input, Set<String> attached) {
+        if (localSlots.tryAcquire()) {
+            try {
+                return new Called(local.suggest(prompt(local, input, attached)), Provider.LOCAL);
+            } catch (ModelException e) {
+                state.localFailed(e.kind());
+                log.warn("자체 AI 태그 추천 실패, 외부 AI로 넘깁니다: {}", e.kind());
+            } finally {
+                localSlots.release();
+            }
+        } else if (!state.geminiUsable()) {
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, AI_BUSY, "잠시 후 다시 시도해 주세요.");
+        }
+        if (!state.geminiUsable()) throw unavailable();
+        try {
+            return callGemini(input, attached);
+        } catch (ModelException e) {
+            throw unavailable();
+        }
+    }
+
+    /** 외부 AI를 부른다. 실패하면 상태를 적고 예외를 그대로 던진다 */
+    private Called callGemini(AiInput.Cleaned input, Set<String> attached) throws ModelException {
+        try {
+            List<String> raw = gemini.suggest(prompt(gemini, input, attached));
+            state.succeeded();
+            return new Called(raw, Provider.GEMINI);
+        } catch (ModelException e) {
+            state.failed(e.kind());
+            log.warn("외부 AI 태그 추천 실패: {}", e.kind());
+            throw e;
+        }
     }
 
     private List<String> callLocal(AiInput.Cleaned input, Set<String> attached) {

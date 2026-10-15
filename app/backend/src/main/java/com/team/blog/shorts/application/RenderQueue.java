@@ -42,6 +42,18 @@ public class RenderQueue {
     static final int ERROR_MAX = 500;
     private static final TypeReference<List<Scene>> SCENES = new TypeReference<>() {};
     private static final DateTimeFormatter MONTH = DateTimeFormatter.ofPattern("yyyy/MM").withZone(ZoneOffset.UTC);
+    /** 가장 먼저 대기한 일 하나를 잠가 RENDERING으로 바꾸고 워커에게 줄 칸을 돌려준다 */
+    private static final String CLAIM_SQL = """
+            WITH next AS (
+                SELECT id FROM shorts WHERE status = 'QUEUED' ORDER BY queued_at, id LIMIT 1 FOR UPDATE SKIP LOCKED
+            )
+            UPDATE shorts s SET status = 'RENDERING', claim_token = ?, claimed_at = ?, attempts = s.attempts + 1, updated_at = ?
+            FROM next WHERE s.id = next.id
+            RETURNING s.id, s.attempts, s.title, s.scenes::text, s.post_id, s.replay::text AS replay,
+                      (SELECT handle FROM member WHERE id = s.member_id) AS handle,
+                      (SELECT m.handle FROM post p JOIN member m ON m.id = p.author_id WHERE p.id = s.post_id AND p.deleted_at IS NULL) AS post_handle,
+                      (SELECT %s FROM post p WHERE p.id = s.post_id AND p.deleted_at IS NULL) AS cover_key
+            """.formatted(PostSql.THUMBNAIL_KEY.replace(" AS thumbnail_key", ""));
 
     /**
      * 워커에게 주는 일. postUrl은 영상 끝 화면에 적을 원본 글 주소(사이트 안 경로).
@@ -93,17 +105,7 @@ public class RenderQueue {
         markWorkerSeen();
         Instant now = Times.now(clock);
         String claim = UUID.randomUUID().toString();
-        return Optional.ofNullable(tx.execute(s -> jdbc.query("""
-                WITH next AS (
-                    SELECT id FROM shorts WHERE status = 'QUEUED' ORDER BY queued_at, id LIMIT 1 FOR UPDATE SKIP LOCKED
-                )
-                UPDATE shorts s SET status = 'RENDERING', claim_token = ?, claimed_at = ?, attempts = s.attempts + 1, updated_at = ?
-                FROM next WHERE s.id = next.id
-                RETURNING s.id, s.attempts, s.title, s.scenes::text, s.post_id, s.replay::text AS replay,
-                          (SELECT handle FROM member WHERE id = s.member_id) AS handle,
-                          (SELECT m.handle FROM post p JOIN member m ON m.id = p.author_id WHERE p.id = s.post_id AND p.deleted_at IS NULL) AS post_handle,
-                          (SELECT %s FROM post p WHERE p.id = s.post_id AND p.deleted_at IS NULL) AS cover_key
-                """.formatted(PostSql.THUMBNAIL_KEY.replace(" AS thumbnail_key", "")), rs -> {
+        return Optional.ofNullable(tx.execute(s -> jdbc.query(CLAIM_SQL, rs -> {
             if (!rs.next()) return null;
             long postId = rs.getLong("post_id");
             String postHandle = rs.getString("post_handle");

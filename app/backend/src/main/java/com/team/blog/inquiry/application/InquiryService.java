@@ -97,7 +97,7 @@ public class InquiryService {
         String title = title(cmd.title());
         String content = content(cmd.content());
         limit(memberId);
-        return insert(memberId, category, Source.WEB, title, content, pageUrl(cmd.pageUrl()), null, null);
+        return insert(memberId, new NewInquiry(category, Source.WEB, title, content, pageUrl(cmd.pageUrl()), null, null));
     }
 
     /** 연결한 AI의 버그 신고. 종류는 늘 BUG다. 실패는 웹과 같은 예외로 알린다(MCP가 문장으로 바꾼다) */
@@ -105,8 +105,8 @@ public class InquiryService {
         String title = title(r.title());
         String content = content(r.content());
         limit(memberId);
-        return insert(memberId, InquiryCategory.BUG, Source.MCP, title, content, null, cut(TextCleaner.cleanLine(r.tool()), TOOL_MAX),
-                cut(TextCleaner.cleanLine(r.client()), CLIENT_MAX));
+        return insert(memberId, new NewInquiry(InquiryCategory.BUG, Source.MCP, title, content, null,
+                cut(TextCleaner.cleanLine(r.tool()), TOOL_MAX), cut(TextCleaner.cleanLine(r.client()), CLIENT_MAX)));
     }
 
     /** 내가 남긴 문의 (최근 50개). 관리자 이름은 싣지 않는다 */
@@ -190,13 +190,17 @@ public class InquiryService {
         jdbc.update("DELETE FROM inquiry WHERE member_id = ?", memberId);
     }
 
-    private long insert(long memberId, InquiryCategory category, Source source, String title, String content, String pageUrl,
-                        String tool, String client) {
+    /** 새 문의 한 건. tool·client는 AI 신고일 때만 있다 */
+    private record NewInquiry(InquiryCategory category, Source source, String title, String content, String pageUrl,
+                              String tool, String client) {}
+
+    private long insert(long memberId, NewInquiry n) {
         Timestamp now = Timestamp.from(Times.now(clock));
         return Objects.requireNonNull(jdbc.queryForObject("""
                 INSERT INTO inquiry (member_id, category, source, title, content, page_url, tool_name, client_name, app_version, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
-                """, Long.class, memberId, category.name(), source.name(), title, content, pageUrl, blankToNull(tool), blankToNull(client),
+                """, Long.class, memberId, n.category().name(), n.source().name(), n.title(), n.content(), n.pageUrl(),
+                blankToNull(n.tool()), blankToNull(n.client()),
                 releases.currentVersion(), now, now));
     }
 

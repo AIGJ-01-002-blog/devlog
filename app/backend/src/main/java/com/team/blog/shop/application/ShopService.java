@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -56,6 +57,8 @@ public class ShopService {
     /** 화면(lib/shop.ts)과 같은 이름. 늘리면 둘 다 고친다 */
     public static final Set<String> TIER_PRESETS = Set.of("iron", "bronze", "silver", "gold", "platinum", "diamond", "master", "grandmaster", "challenger");
     public static final Set<String> EFFECT_PRESETS = Set.of("glow", "stardust", "radiance");
+    private static final String INVALID = "INVALID";
+    private static final String VALUE = "value";
     private static final String ORDER = "CASE i.kind WHEN 'THEME' THEN 0 WHEN 'FRAME' THEN 1 WHEN 'BANNER' THEN 2 ELSE 3 END, i.tier, i.sort, i.id";
 
     /** 티어 기본 가격: 100 × 10^(티어-1) 크레딧 (아이언 100 ~ 챌린저 100억) */
@@ -133,21 +136,21 @@ public class ShopService {
         points.requireEnabled();
         points.ensureWelcome(memberId);
         tx.executeWithoutResult(st -> {
-            Map<String, Object> row = jdbc.query("SELECT name, kind, tier, price, active FROM shop_item WHERE id = ? FOR SHARE",
-                    rs -> rs.next() ? Map.<String, Object>of("name", rs.getString("name"), "kind", rs.getString("kind"), "tier", rs.getInt("tier"),
-                            "price", rs.getLong("price"), "active", rs.getBoolean("active")) : null,
+            List<Listing> rows = jdbc.query("SELECT name, kind, tier, price, active FROM shop_item WHERE id = ? FOR SHARE",
+                    (rs, n) -> new Listing(rs.getString("name"), rs.getString("kind"), rs.getInt("tier"), rs.getLong("price"), rs.getBoolean("active")),
                     itemId);
-            if (row == null || !(Boolean) row.get("active")) throw new NotFoundException();
+            if (rows.isEmpty() || !rows.getFirst().active()) throw new NotFoundException();
+            Listing row = rows.getFirst();
             Boolean owned = jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM member_item WHERE member_id = ? AND item_id = ?)", Boolean.class, memberId, itemId);
             if (Boolean.TRUE.equals(owned)) throw ApiException.conflict("ALREADY_OWNED", "이미 산 아이템이에요. 보관함에서 적용해 주세요.");
             // 산 아이템은 지우지 않으니(내려도 보관함에 남는다) 한 번 가진 아래 티어는 계속 유효하다. 그래서 잠금 없이 읽어도 된다
             Ladder ladder = ladder(memberId);
-            Need need = ladder.need((String) row.get("kind"), (Integer) row.get("tier"));
+            Need need = ladder.need(row.kind(), row.tier());
             if (need != null && !ladder.has(need)) throw ApiException.conflict("TIER_LOCKED", needText(need) + "부터 사야 열려요.");
-            long price = (Long) row.get("price");
+            long price = row.price();
             // 같은 트랜잭션 안에서 크레딧을 빼고 보관함에 넣는다. 하나라도 실패하면 둘 다 없던 일이 된다
             // spend가 회원별 잠금을 잡으므로, 동시에 누른 두 번째 요청은 여기서 같은 요청 키를 보고 false를 받는다
-            if (!points.spend(memberId, Wallet.SHOP, price, PointReason.SHOP, "shop:item:" + itemId, itemId, (String) row.get("name") + " 구매")) {
+            if (!points.spend(memberId, Wallet.SHOP, price, PointReason.SHOP, "shop:item:" + itemId, itemId, row.name() + " 구매")) {
                 throw ApiException.conflict("ALREADY_OWNED", "이미 산 아이템이에요. 보관함에서 적용해 주세요.");
             }
             jdbc.update("INSERT INTO member_item (member_id, item_id, price, purchased_at) VALUES (?, ?, ?, ?)", memberId, itemId, price,
@@ -159,10 +162,11 @@ public class ShopService {
     /** 산 아이템을 내 블로그에 적용한다. 같은 종류의 이전 아이템은 해제된다 */
     public Shop apply(long memberId, long itemId) {
         points.requireEnabled();
-        String kind = jdbc.query("""
+        List<String> kinds = jdbc.query("""
                 SELECT i.kind FROM member_item o JOIN shop_item i ON i.id = o.item_id WHERE o.member_id = ? AND o.item_id = ?
-                """, rs -> rs.next() ? rs.getString(1) : null, memberId, itemId);
-        if (kind == null) throw ApiException.conflict("NOT_OWNED", "산 아이템만 적용할 수 있어요.");
+                """, (rs, n) -> rs.getString(1), memberId, itemId);
+        if (kinds.isEmpty()) throw ApiException.conflict("NOT_OWNED", "산 아이템만 적용할 수 있어요.");
+        String kind = kinds.getFirst();
         jdbc.update("""
                 INSERT INTO member_decoration (member_id, kind, item_id, updated_at) VALUES (?, ?, ?, ?)
                 ON CONFLICT (member_id, kind) DO UPDATE SET item_id = EXCLUDED.item_id, updated_at = EXCLUDED.updated_at
@@ -190,7 +194,7 @@ public class ShopService {
                 SELECT d.kind, i.id, i.name, i.tier, i.value, i.image_key FROM member_decoration d JOIN shop_item i ON i.id = d.item_id
                 WHERE d.member_id = ?
                 """, (ResultSet rs) -> {
-            Look look = new Look(rs.getLong("id"), rs.getString("name"), rs.getInt("tier"), rs.getString("value"), imageUrls.urlOf(rs.getString("image_key")));
+            Look look = new Look(rs.getLong("id"), rs.getString("name"), rs.getInt("tier"), rs.getString(VALUE), imageUrls.urlOf(rs.getString("image_key")));
             looks[Kind.valueOf(rs.getString("kind")).ordinal()] = look;
         }, memberId);
         return Arrays.stream(looks).allMatch(Objects::isNull) ? Decorations.NONE : new Decorations(looks[0], looks[1], looks[2], looks[3]);
@@ -234,6 +238,9 @@ public class ShopService {
     }
 
     // ---- 내부 ----
+
+    /** 살 때 보는 아이템 정보 */
+    private record Listing(String name, String kind, int tier, long price, boolean active) {}
 
     /** 사려면 가져야 하는 것: 이 티어 이상의 아이템 하나(kind가 null이면 어느 종류든) */
     record Need(int tier, String kind) {}
@@ -279,7 +286,7 @@ public class ShopService {
 
     private Item item(ResultSet rs, boolean owned, boolean applied) throws SQLException {
         return new Item(rs.getLong("id"), rs.getString("kind"), rs.getInt("tier"), rs.getString("name"), rs.getString("description"), rs.getLong("price"),
-                rs.getString("value"), imageUrls.urlOf(rs.getString("image_key")), rs.getBoolean("active"), rs.getInt("sort"), owned, applied, false, null, null);
+                rs.getString(VALUE), imageUrls.urlOf(rs.getString("image_key")), rs.getBoolean("active"), rs.getInt("sort"), owned, applied, false, null, null);
     }
 
     private record Valid(Kind kind, int tier, String name, String description, long price, String value, String imageKey, boolean active, int sort) {}
@@ -287,68 +294,88 @@ public class ShopService {
     private Valid validate(ItemInput in, Item current) {
         if (in == null) throw ApiException.badRequest("EMPTY", "아이템 정보를 보내 주세요.");
         List<FieldErrorItem> errors = new ArrayList<>();
-        Kind kind = null;
-        if (current != null) {
-            kind = Kind.valueOf(current.kind());
-        } else {
-            try {
-                kind = Kind.valueOf(in.kind() == null ? "" : in.kind().toUpperCase(Locale.ROOT));
-            } catch (IllegalArgumentException e) {
-                errors.add(new FieldErrorItem("kind", "INVALID", "종류는 THEME·FRAME·BANNER·EFFECT 가운데 하나예요."));
-            }
-        }
-        int tier = in.tier() != null ? in.tier() : current == null ? 1 : current.tier();
-        String name = pick(in.name(), current == null ? null : current.name()).strip();
-        String description = pick(in.description(), current == null ? "" : current.description()).strip();
-        long price = in.price() != null ? in.price()
-                : current != null ? current.price()
-                : defaultPrice(Math.max(1, Math.min(TIER_MAX, tier)));
-        String value = pick(in.value(), current == null ? "" : current.value()).strip();
-        String imageKey;
-        if (in.imageUrl() != null) {
-            imageKey = in.imageUrl().isBlank() ? null : imageUrls.keyOf(in.imageUrl().strip());
-            if (!in.imageUrl().isBlank() && imageKey == null) errors.add(new FieldErrorItem("imageUrl", "INVALID", "이 블로그에 올린 사진 주소만 쓸 수 있어요."));
-        } else {
-            imageKey = current == null ? null : imageUrls.keyOf(current.imageUrl());
-        }
-        boolean active = in.active() != null ? in.active() : current == null || current.active();
-        int sort = in.sort() != null ? in.sort() : current == null ? 0 : current.sort();
-        if (tier < 1 || tier > TIER_MAX) errors.add(new FieldErrorItem("tier", "INVALID", "티어는 1(아이언)~" + TIER_MAX + "(챌린저)예요."));
-        if (name.isEmpty() || name.length() > NAME_MAX) errors.add(new FieldErrorItem("name", "INVALID", "이름은 1~" + NAME_MAX + "자예요."));
+        Kind kind = current != null ? Kind.valueOf(current.kind()) : kindOf(in.kind(), errors);
+        int tier = pick(in.tier(), current, Item::tier, 1);
+        String name = text(in.name(), current, Item::name).strip();
+        String description = text(in.description(), current, Item::description).strip();
+        long price = priceOf(in, current, tier);
+        String value = text(in.value(), current, Item::value).strip();
+        String imageKey = imageKeyOf(in, current, errors);
+        boolean active = pick(in.active(), current, Item::active, true);
+        int sort = pick(in.sort(), current, Item::sort, 0);
+        if (tier < 1 || tier > TIER_MAX) errors.add(new FieldErrorItem("tier", INVALID, "티어는 1(아이언)~" + TIER_MAX + "(챌린저)예요."));
+        if (name.isEmpty() || name.length() > NAME_MAX) errors.add(new FieldErrorItem("name", INVALID, "이름은 1~" + NAME_MAX + "자예요."));
         if (description.length() > DESCRIPTION_MAX) errors.add(new FieldErrorItem("description", "TOO_LONG", "설명은 " + DESCRIPTION_MAX + "자까지예요."));
-        if (price <= 0 || price > PRICE_MAX) errors.add(new FieldErrorItem("price", "INVALID", "가격은 1~" + String.format("%,d", PRICE_MAX) + "크레딧이에요."));
-        if (kind != null) {
-            switch (kind) {
-                case THEME -> {
-                    if (!HEX.matcher(value).matches()) errors.add(new FieldErrorItem("value", "INVALID", "테마 색은 #2f9e44처럼 적어 주세요."));
-                    imageKey = null;
-                }
-                case FRAME -> {
-                    if (!HEX.matcher(value).matches() && !TIER_PRESETS.contains(value)) {
-                        errors.add(new FieldErrorItem("value", "INVALID", "테두리는 #RRGGBB 색이나 iron~challenger 티어 모양 가운데 하나예요."));
-                    }
-                    imageKey = null;
-                }
-                case BANNER -> {
-                    if (imageKey == null && !TIER_PRESETS.contains(value)) {
-                        errors.add(new FieldErrorItem("value", "INVALID", "표지는 사진을 올리거나 iron~challenger 티어 표지 가운데 하나를 골라 주세요."));
-                    }
-                    if (imageKey != null && !value.isEmpty() && !TIER_PRESETS.contains(value)) {
-                        errors.add(new FieldErrorItem("value", "INVALID", "사진 표지의 바탕은 비우거나 iron~challenger 티어 표지 가운데 하나예요."));
-                    }
-                }
-                case EFFECT -> {
-                    if (!EFFECT_PRESETS.contains(value)) errors.add(new FieldErrorItem("value", "INVALID", "효과는 glow·stardust·radiance 가운데 하나예요."));
-                    imageKey = null;
-                }
-            }
-        }
+        if (price <= 0 || price > PRICE_MAX) errors.add(new FieldErrorItem("price", INVALID, "가격은 1~" + String.format("%,d", PRICE_MAX) + "크레딧이에요."));
+        if (kind != null) imageKey = checkLook(kind, value, imageKey, errors);
         if (!errors.isEmpty()) throw ApiException.validation(errors);
         if (kind == Kind.THEME) value = value.toLowerCase(Locale.ROOT);
         return new Valid(kind, tier, name, description, price, value, imageKey, active, sort);
     }
 
-    private static String pick(String v, String fallback) {
-        return v != null ? v : fallback == null ? "" : fallback;
+    private static Kind kindOf(String kind, List<FieldErrorItem> errors) {
+        try {
+            return Kind.valueOf(kind == null ? "" : kind.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            errors.add(new FieldErrorItem("kind", INVALID, "종류는 THEME·FRAME·BANNER·EFFECT 가운데 하나예요."));
+            return null;
+        }
+    }
+
+    /** 가격을 비우면 지금 가격, 새로 만들 때는 티어 기본 가격 */
+    private static long priceOf(ItemInput in, Item current, int tier) {
+        if (in.price() != null) return in.price();
+        if (current != null) return current.price();
+        return defaultPrice(Math.clamp(tier, 1, TIER_MAX));
+    }
+
+    /** 사진 주소를 저장소 키로 바꾼다. 비운 칸(null)은 지금 사진, 빈 문자열은 사진 없음 */
+    private String imageKeyOf(ItemInput in, Item current, List<FieldErrorItem> errors) {
+        if (in.imageUrl() == null) return current == null ? null : imageUrls.keyOf(current.imageUrl());
+        if (in.imageUrl().isBlank()) return null;
+        String key = imageUrls.keyOf(in.imageUrl().strip());
+        if (key == null) errors.add(new FieldErrorItem("imageUrl", INVALID, "이 블로그에 올린 사진 주소만 쓸 수 있어요."));
+        return key;
+    }
+
+    /** 종류마다 꾸미기 값을 확인한다 @return 이 종류에서 쓰는 사진 키 (표지만 사진을 쓴다) */
+    private static String checkLook(Kind kind, String value, String imageKey, List<FieldErrorItem> errors) {
+        return switch (kind) {
+            case THEME -> {
+                if (!HEX.matcher(value).matches()) errors.add(new FieldErrorItem(VALUE, INVALID, "테마 색은 #2f9e44처럼 적어 주세요."));
+                yield null;
+            }
+            case FRAME -> {
+                if (!HEX.matcher(value).matches() && !TIER_PRESETS.contains(value)) {
+                    errors.add(new FieldErrorItem(VALUE, INVALID, "테두리는 #RRGGBB 색이나 iron~challenger 티어 모양 가운데 하나예요."));
+                }
+                yield null;
+            }
+            case BANNER -> {
+                if (imageKey == null && !TIER_PRESETS.contains(value)) {
+                    errors.add(new FieldErrorItem(VALUE, INVALID, "표지는 사진을 올리거나 iron~challenger 티어 표지 가운데 하나를 골라 주세요."));
+                }
+                if (imageKey != null && !value.isEmpty() && !TIER_PRESETS.contains(value)) {
+                    errors.add(new FieldErrorItem(VALUE, INVALID, "사진 표지의 바탕은 비우거나 iron~challenger 티어 표지 가운데 하나예요."));
+                }
+                yield imageKey;
+            }
+            case EFFECT -> {
+                if (!EFFECT_PRESETS.contains(value)) errors.add(new FieldErrorItem(VALUE, INVALID, "효과는 glow·stardust·radiance 가운데 하나예요."));
+                yield null;
+            }
+        };
+    }
+
+    /** 들어온 값이 있으면 그 값, 비웠으면(null) 지금 값, 새로 만들 때는 fallback */
+    private static <T> T pick(T in, Item current, Function<Item, T> now, T fallback) {
+        if (in != null) return in;
+        if (current == null) return fallback;
+        return now.apply(current);
+    }
+
+    /** 글자 칸은 비었거나 지금 값이 없으면 빈 문자열 */
+    private static String text(String in, Item current, Function<Item, String> now) {
+        return Objects.requireNonNullElse(pick(in, current, now, ""), "");
     }
 }

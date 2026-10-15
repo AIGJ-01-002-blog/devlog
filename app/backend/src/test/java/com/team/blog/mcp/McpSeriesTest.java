@@ -65,9 +65,11 @@ class McpSeriesTest extends IntegrationTest {
         return jdbc.queryForList("SELECT post_id FROM series_post WHERE series_id = ? ORDER BY position", Long.class, seriesId);
     }
 
-    @Test
-    void 시리즈를_만들고_글을_원하는_자리에_넣는다() throws Exception {
-        Session me = signup(uniqueLogin("mcpser"));
+    /** 글 세 편(a, b, c)과 시리즈 하나("devlog 만들기")를 만든 상태 */
+    record Shelf(Session me, String token, long a, long b, long c, long seriesId) {}
+
+    Shelf shelf(String login) throws Exception {
+        Session me = signup(uniqueLogin(login));
         String t = token(me, "WRITE");
         long a = publish(me, "첫 글", "PUBLIC");
         long b = publish(me, "둘째 글", "PUBLIC");
@@ -76,7 +78,17 @@ class McpSeriesTest extends IntegrationTest {
         assertThat(text(call(t, "list_series", Map.of()))).contains("아직 시리즈가 없어요");
         JsonNode made = call(t, "create_series", Map.of("series_name", "devlog 만들기"));
         assertThat(made.path("isError").asBoolean()).as(text(made)).isFalse();
-        long sid = seriesId(text(made));
+        return new Shelf(me, t, a, b, c, seriesId(text(made)));
+    }
+
+    @Test
+    void 시리즈를_만들고_글을_원하는_자리에_넣는다() throws Exception {
+        Shelf f = shelf("mcpser");
+        String t = f.token();
+        long a = f.a();
+        long b = f.b();
+        long c = f.c();
+        long sid = f.seriesId();
 
         assertThat(text(call(t, "add_to_series", Map.of("post_id", a, "series_id", sid)))).contains("1편");
         assertThat(text(call(t, "add_to_series", Map.of("post_id", c, "series_id", sid)))).contains("2편");
@@ -89,18 +101,26 @@ class McpSeriesTest extends IntegrationTest {
         assertThat(text(call(t, "list_series", Map.of()))).contains(sid + "번 devlog 만들기 (글 3편)");
 
         // 임시글은 맨 뒤에 들어가고 순서는 매기지 않는다
-        long draft = read(me.http().perform(asJson(post("/api/posts"), Map.of("title", "임시", "contentMd", "")))
+        long draft = read(f.me().http().perform(asJson(post("/api/posts"), Map.of("title", "임시", "contentMd", "")))
                 .andExpect(status().isCreated()).andReturn()).path("id").asLong();
         assertThat(text(call(t, "add_to_series", Map.of("post_id", draft, "series_id", sid, "position", 1)))).contains("발행 전");
         assertThat(order(sid)).containsExactly(c, a, b, draft);
+    }
+
+    @Test
+    void 남의_시리즈와_남의_글에는_넣을_수_없고_읽기_토큰과_같은_이름은_거절한다() throws Exception {
+        Shelf f = shelf("mcpserx");
+        String t = f.token();
+        long sid = f.seriesId();
+        call(t, "add_to_series", Map.of("post_id", f.a(), "series_id", sid));
 
         // 남의 시리즈·남의 글에는 넣을 수 없고, 읽기 토큰은 만들 수 없다
         Session other = signup(uniqueLogin("mcpser2"));
         String ot = token(other, "WRITE");
-        assertThat(call(ot, "add_to_series", Map.of("post_id", a, "series_id", sid)).path("isError").asBoolean()).isTrue();
+        assertThat(call(ot, "add_to_series", Map.of("post_id", f.a(), "series_id", sid)).path("isError").asBoolean()).isTrue();
         long theirs = publish(other, "남의 글", "PUBLIC");
         assertThat(call(t, "add_to_series", Map.of("post_id", theirs, "series_id", sid)).path("isError").asBoolean()).isTrue();
-        assertThat(call(token(me, "READ"), "create_series", Map.of("series_name", "읽기")).path("isError").asBoolean()).isTrue();
+        assertThat(call(token(f.me(), "READ"), "create_series", Map.of("series_name", "읽기")).path("isError").asBoolean()).isTrue();
         // 같은 이름은 거절한다
         assertThat(text(call(t, "create_series", Map.of("series_name", "devlog 만들기")))).contains("이미 있어요");
     }

@@ -109,6 +109,13 @@ class McpAiPublishTest extends IntegrationTest {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM post_ai_hint WHERE post_id = ?", Integer.class, id)).isZero();
         // 이미 발행한 글은 다시 발행하지 않는다
         assertThat(call(t, "publish_post", Map.of("post_id", id)).path("isError").asBoolean()).isTrue();
+    }
+
+    @Test
+    void 켜도_태그_규칙은_웹_발행과_같이_검사한다() throws Exception {
+        Session me = signup(uniqueLogin("aiptag"));
+        String t = token(me, "WRITE");
+        allow(me, true);
 
         // 웹 발행과 같은 검증: 태그 규칙을 어기면 발행되지 않는다
         long bad = draft(t, "태그가 이상한 글");
@@ -119,6 +126,17 @@ class McpAiPublishTest extends IntegrationTest {
         assertThat(call(t, "publish_post", Map.of("post_id", bad, "tags", "Spring")).path("isError").asBoolean()).isTrue();
         assertThat(call(t, "publish_post", Map.of("post_id", bad, "tags", List.of("Spring", 1))).path("isError").asBoolean()).isTrue();
         assertThat(postStatus(bad)).isEqualTo("DRAFT");
+    }
+
+    @Test
+    void 켜면_휴지통으로_삭제하고_다시_끄면_바로_막힌다() throws Exception {
+        Session me = signup(uniqueLogin("aipdel"));
+        String t = token(me, "WRITE");
+        long id = draft(t, "AI가 발행한 글");
+        long bad = draft(t, "태그가 이상한 글");
+        allow(me, true);
+        JsonNode pub = call(t, "publish_post", Map.of("post_id", id, "visibility", "PRIVATE"));
+        assertThat(pub.path("isError").asBoolean()).as(text(pub)).isFalse();
 
         // 삭제는 웹의 [삭제]처럼 휴지통으로 옮긴다
         JsonNode del = call(t, "delete_post", Map.of("post_id", id));

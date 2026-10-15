@@ -78,7 +78,7 @@ class PointLedgerTest extends IntegrationTest {
     }
 
     @Test
-    void 출석은_하루_한_번이고_보상은_100_곱하기_연속일_제곱에_하루_상한까지다() throws Exception {
+    void 출석은_하루_한_번이고_첫날_보상은_100이다() throws Exception {
         Session me = signup(uniqueLogin("ptatt"));
         JsonNode before0 = summary(me);
         assertThat(before0.path("attendance").path("todayReward").asLong()).isEqualTo(100);
@@ -96,7 +96,10 @@ class PointLedgerTest extends IntegrationTest {
         assertThat(again.path("already").asBoolean()).isTrue();
         assertThat(again.path("earned").asLong()).isZero();
         assertThat(again.path("summary").path("balance").path("shop").asLong()).isEqualTo(100);
+    }
 
+    @Test
+    void 연속_출석_보상은_100_곱하기_연속일_제곱이다() throws Exception {
         // 어제까지 9일 연속이었던 회원은 오늘 10일째로 100 × 10² = 10,000을 받는다
         Session streaker = signup(uniqueLogin("ptstr"));
         LocalDate today = points.today();
@@ -111,7 +114,11 @@ class PointLedgerTest extends IntegrationTest {
         assertThat(tenth.path("earned").asLong()).isEqualTo(10_000);
         assertThat(tenth.path("summary").path("attendance").path("streak").asInt()).isEqualTo(10);
         assertThat(tenth.path("summary").path("attendance").path("nextReward").asLong()).isEqualTo(12_100);
+    }
 
+    @Test
+    void 연속_20일째에_첫_휘장을_받고_블로그에서_누구나_본다() throws Exception {
+        LocalDate today = points.today();
         // 19일 연속이던 회원은 오늘 20일째에 첫 휘장을 받고, 블로그에서 누구나 본다
         Session badge = signup(uniqueLogin("ptbdg"));
         jdbc.update("INSERT INTO point_attendance (member_id, day, streak) VALUES (?, ?, 19)", badge.memberId(), today.minusDays(1));
@@ -127,7 +134,11 @@ class PointLedgerTest extends IntegrationTest {
         // 출석 알림은 오늘 출석했는지만 알려 준다
         JsonNode t1 = read(badge.http().perform(get("/api/me/points/today")).andExpect(status().isOk()).andReturn());
         assertThat(t1.path("attendedToday").asBoolean()).isTrue();
+    }
 
+    @Test
+    void 연속_출석_보상은_하루_상한에서_멈추고_빠진_휘장까지_받는다() throws Exception {
+        LocalDate today = points.today();
         // 365일을 넘기면 하루 상한(1,332만 2,500)에서 멈춘다
         Session veteran = signup(uniqueLogin("ptvet"));
         jdbc.update("INSERT INTO point_attendance (member_id, day, streak) VALUES (?, ?, 400)", veteran.memberId(), today.minusDays(1));
@@ -137,7 +148,11 @@ class PointLedgerTest extends IntegrationTest {
         assertThat(capped.path("newBadges")).hasSize(7);
         assertThat(capped.path("summary").path("badges").get(6).path("special").asBoolean()).isTrue();
         assertThat(capped.path("summary").path("nextBadge").isNull()).isTrue();
+    }
 
+    @Test
+    void 하루_비면_연속이_끊겨_다시_100부터다() throws Exception {
+        LocalDate today = points.today();
         // 하루 비면 연속이 끊겨 다시 100부터다
         Session gap = signup(uniqueLogin("ptgap"));
         jdbc.update("INSERT INTO point_attendance (member_id, day, streak) VALUES (?, ?, 5)", gap.memberId(), today.minusDays(2));
@@ -249,7 +264,7 @@ class PointLedgerTest extends IntegrationTest {
         drain();
         jdbc.update("DELETE FROM point_ledger WHERE member_id = ? AND ref_id = ?", me.memberId(), lost);
         jdbc.update("INSERT INTO point_outbox (member_id, post_id) VALUES (?, ?)", me.memberId(), lost);
-        assertThat(outbox.drain()).isGreaterThanOrEqualTo(1);
+        assertThat(outbox.drain()).isPositive();
         assertThat(points.balance(me.memberId()).shop()).isEqualTo(600);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM point_outbox WHERE member_id = ?", Integer.class, me.memberId())).isZero();
     }
@@ -257,9 +272,10 @@ class PointLedgerTest extends IntegrationTest {
     @Test
     void 지갑마다_따로_쓰고_모자라면_거절하며_같은_요청은_한_번만_빠진다() throws Exception {
         Session me = signup(uniqueLogin("ptspend"));
-        points.attend(me.memberId());
+        long memberId = me.memberId();
+        points.attend(memberId);
         // 첫 지급(투자 전용)은 상점 지갑 사용에 섞이지 않는다
-        assertThatThrownBy(() -> points.spend(me.memberId(), Wallet.SHOP, 500, PointReason.SHOP, "shop:test:1", null, "테마"))
+        assertThatThrownBy(() -> points.spend(memberId, Wallet.SHOP, 500, PointReason.SHOP, "shop:test:1", null, "테마"))
                 .isInstanceOf(ApiException.class).hasMessageContaining("크레딧이 모자라요");
         assertThat(points.spend(me.memberId(), Wallet.SHOP, 60, PointReason.SHOP, "shop:test:2", null, "테두리")).isTrue();
         assertThat(points.spend(me.memberId(), Wallet.SHOP, 60, PointReason.SHOP, "shop:test:2", null, "테두리")).isFalse();

@@ -10,9 +10,11 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.SingleColumnRowMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -38,6 +40,7 @@ public class PointLedger {
     public static final int PAGE_SIZE = 30;
     private static final int MEMO_MAX = 200;
     private static final int KEY_MAX = 120;
+    private static final String WALLET = "wallet";
 
     /** @param invest 투자 전용(가입 첫 지급) 잔액, shop 상점에서도 쓰는 잔액 */
     public record Balance(long invest, long shop) {
@@ -114,7 +117,7 @@ public class PointLedger {
     // ---- 규칙 ----
 
     public long rule(PointRule r) {
-        List<Long> v = jdbc.queryForList("SELECT value FROM point_rule WHERE code = ?", Long.class, r.name());
+        List<Long> v = jdbc.query("SELECT value FROM point_rule WHERE code = ?", SingleColumnRowMapper.newInstance(Long.class), r.name());
         return v.isEmpty() ? r.defaultValue() : v.getFirst();
     }
 
@@ -177,7 +180,7 @@ public class PointLedger {
     public Balance balance(long memberId) {
         long[] b = new long[2];
         jdbc.query("SELECT wallet, COALESCE(SUM(amount), 0) AS s FROM point_ledger WHERE member_id = ? GROUP BY wallet", rs -> {
-            if (Wallet.INVEST_ONLY.name().equals(rs.getString("wallet"))) b[0] = rs.getLong("s");
+            if (Wallet.INVEST_ONLY.name().equals(rs.getString(WALLET))) b[0] = rs.getLong("s");
             else b[1] = rs.getLong("s");
         }, memberId);
         return new Balance(b[0], b[1]);
@@ -197,7 +200,7 @@ public class PointLedger {
         }
         sql.append(" ORDER BY id DESC LIMIT ?");
         args.add(PAGE_SIZE + 1);
-        List<Entry> rows = jdbc.query(sql.toString(), (rs, i) -> new Entry(rs.getLong("id"), rs.getString("wallet"), rs.getLong("amount"),
+        List<Entry> rows = jdbc.query(sql.toString(), (rs, i) -> new Entry(rs.getLong("id"), rs.getString(WALLET), rs.getLong("amount"),
                 rs.getString("reason"), (Long) rs.getObject("ref_id"), rs.getString("memo"), rs.getTimestamp("created_at").toInstant()),
                 args.toArray());
         boolean more = rows.size() > PAGE_SIZE;
@@ -274,11 +277,10 @@ public class PointLedger {
         requireEnabled();
         ensureWelcome(memberId);
         LocalDate today = today();
-        List<Integer> newBadges = new ArrayList<>();
-        long[] got = tx.execute(st -> {
+        Attended got = tx.execute(st -> {
             lock(memberId);
             Boolean done = jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM point_attendance WHERE member_id = ? AND day = ?)", Boolean.class, memberId, today);
-            if (Boolean.TRUE.equals(done)) return null;
+            if (Boolean.TRUE.equals(done)) return Attended.ALREADY;
             List<Integer> prev = jdbc.queryForList("SELECT streak FROM point_attendance WHERE member_id = ? AND day = ?", Integer.class, memberId,
                     today.minusDays(1));
             int streak = prev.isEmpty() ? 1 : prev.getFirst() + 1;
@@ -289,18 +291,27 @@ public class PointLedger {
                 insert(memberId, Wallet.SHOP, reward, PointReason.ATTENDANCE, "attend:" + today, null,
                         streak == 1 ? today + " 출석" : today + " 출석 (" + streak + "일 연속)");
             }
-            List<Integer> fresh = new ArrayList<>();
-            for (int d : BADGE_DAYS) {
-                // 하루씩 늘어나므로 보통은 그날 하나지만, 빠진 휘장이 있으면 함께 채운다
-                if (d <= streak && jdbc.update("INSERT INTO point_badge (member_id, days, earned_at) VALUES (?, ?, ?) ON CONFLICT DO NOTHING",
-                        memberId, d, Timestamp.from(Times.now(clock))) == 1) fresh.add(d);
-            }
-            newBadges.addAll(fresh);
-            return new long[] {reward, streak};
+            return new Attended(false, reward, streak, awardBadges(memberId, streak));
         });
         Summary s = summaryWithoutWelcome(memberId);
-        if (got == null) return new AttendResult(true, 0, s.attendance().streak(), List.of(), s);
-        return new AttendResult(false, got[0], (int) got[1], List.copyOf(newBadges), s);
+        if (got.already()) return new AttendResult(true, 0, s.attendance().streak(), List.of(), s);
+        return new AttendResult(false, got.reward(), got.streak(), List.copyOf(got.newBadges()), s);
+    }
+
+    /** 출석 트랜잭션의 결과. already면 이미 출석한 날이라 나머지는 쓰지 않는다 */
+    private record Attended(boolean already, long reward, int streak, List<Integer> newBadges) {
+        static final Attended ALREADY = new Attended(true, 0, 0, List.of());
+    }
+
+    /** 연속 출석 streak일까지의 휘장 가운데 아직 없는 것을 넣는다 @return 이번에 새로 받은 휘장 */
+    private List<Integer> awardBadges(long memberId, int streak) {
+        List<Integer> fresh = new ArrayList<>();
+        for (int d : BADGE_DAYS) {
+            // 하루씩 늘어나므로 보통은 그날 하나지만, 빠진 휘장이 있으면 함께 채운다
+            if (d <= streak && jdbc.update("INSERT INTO point_badge (member_id, days, earned_at) VALUES (?, ?, ?) ON CONFLICT DO NOTHING",
+                    memberId, d, Timestamp.from(Times.now(clock))) == 1) fresh.add(d);
+        }
+        return fresh;
     }
 
     /**
@@ -314,20 +325,19 @@ public class PointLedger {
         Map<PointRule, Long> rules = rules();
         long amount = rules.get(PointRule.POST);
         if (amount <= 0) return 0;
-        List<Integer> chars = jdbc.queryForList("""
+        List<Integer> chars = jdbc.query("""
                 SELECT char_length(regexp_replace(content_md, '\\s', '', 'g')) FROM post
                 WHERE id = ? AND author_id = ? AND status = 'PUBLISHED' AND visibility = 'PUBLIC'
                   AND deleted_at IS NULL AND hidden_at IS NULL AND NOT ai_diary
-                """, Integer.class, postId, memberId);
+                """, SingleColumnRowMapper.newInstance(Integer.class), postId, memberId);
         if (chars.isEmpty() || chars.getFirst() < rules.get(PointRule.POST_MIN_CHARS)) return 0;
-        Long done = tx.execute(st -> {
+        return Objects.requireNonNullElse(tx.execute(st -> {
             lock(memberId);
             Integer today = jdbc.queryForObject("SELECT count(*) FROM point_ledger WHERE member_id = ? AND reason = 'POST' AND created_at >= ?",
                     Integer.class, memberId, Timestamp.from(startOf(today())));
             if (today != null && today >= rules.get(PointRule.POST_DAILY_MAX)) return 0L;
             return insert(memberId, Wallet.SHOP, amount, PointReason.POST, "post:" + postId, postId, "글 발행") ? amount : 0L;
-        });
-        return done == null ? 0 : done;
+        }), 0L);
     }
 
     /**
@@ -361,7 +371,7 @@ public class PointLedger {
         Instant now = Times.now(clock);
         List<PaperProfits.Profit> trades = paperProfits.krwSellProfits(memberId, now.minus(Duration.ofDays(BOT_PROFIT_DAYS)));
         if (trades.isEmpty()) return 0;
-        Long done = tx.execute(st -> {
+        return Objects.requireNonNullElse(tx.execute(st -> {
             lock(memberId);
             LocalDate today = today();
             Long sumToday = jdbc.queryForObject("SELECT COALESCE(SUM(amount), 0) FROM point_ledger WHERE member_id = ? AND reason = 'BOT_PROFIT' AND created_at >= ?",
@@ -370,23 +380,27 @@ public class PointLedger {
             long total = 0;
             for (PaperProfits.Profit t : trades) {
                 if (room - total <= 0) break;
-                String doneKey = "trade:" + t.tradeId();
-                // 이미 다 넣었거나(봇·포인트 모의투자 모두 같은 끝 키) 오늘 이미 나눠 넣은 체결은 건너뛴다
-                Map<String, Object> paid = jdbc.queryForMap("""
-                        SELECT COALESCE(BOOL_OR(request_key = ?), false) AS finished, COALESCE(BOOL_OR(request_key = ?), false) AS today,
-                               COALESCE(SUM(amount) FILTER (WHERE reason = 'BOT_PROFIT'), 0) AS paid
-                        FROM point_ledger WHERE member_id = ? AND (request_key = ? OR request_key LIKE ?)
-                        """, doneKey, doneKey + ":" + today, memberId, doneKey, doneKey + ":%");
-                if (Boolean.TRUE.equals(paid.get("finished")) || Boolean.TRUE.equals(paid.get("today"))) continue;
-                long left = t.profit() - ((Number) paid.get("paid")).longValue();
-                if (left <= 0) continue;
-                long amount = Math.min(left, room - total);
-                String key = amount == left ? doneKey : doneKey + ":" + today;
-                if (insert(memberId, Wallet.SHOP, amount, PointReason.BOT_PROFIT, key, t.tradeId(), "봇 모의투자 수익")) total += amount;
+                total += settleBotProfit(memberId, t, today, room - total);
             }
             return total;
-        });
-        return done == null ? 0 : done;
+        }), 0L);
+    }
+
+    /** 체결 하나의 남은 수익을 room까지 넣는다 @return 이번에 넣은 크레딧 (건너뛰었으면 0) */
+    private long settleBotProfit(long memberId, PaperProfits.Profit t, LocalDate today, long room) {
+        String doneKey = "trade:" + t.tradeId();
+        // 이미 다 넣었거나(봇·포인트 모의투자 모두 같은 끝 키) 오늘 이미 나눠 넣은 체결은 건너뛴다
+        Map<String, Object> paid = jdbc.queryForMap("""
+                SELECT COALESCE(BOOL_OR(request_key = ?), false) AS finished, COALESCE(BOOL_OR(request_key = ?), false) AS today,
+                       COALESCE(SUM(amount) FILTER (WHERE reason = 'BOT_PROFIT'), 0) AS paid
+                FROM point_ledger WHERE member_id = ? AND (request_key = ? OR request_key LIKE ?)
+                """, doneKey, doneKey + ":" + today, memberId, doneKey, doneKey + ":%");
+        if (Boolean.TRUE.equals(paid.get("finished")) || Boolean.TRUE.equals(paid.get("today"))) return 0;
+        long left = t.profit() - ((Number) paid.get("paid")).longValue();
+        if (left <= 0) return 0;
+        long amount = Math.min(left, room);
+        String key = amount == left ? doneKey : doneKey + ":" + today;
+        return insert(memberId, Wallet.SHOP, amount, PointReason.BOT_PROFIT, key, t.tradeId(), "봇 모의투자 수익") ? amount : 0;
     }
 
     // ---- 사용 ----
@@ -409,7 +423,7 @@ public class PointLedger {
             if (have < amount) {
                 throw ApiException.conflict("POINTS_SHORT", wallet == Wallet.SHOP
                         ? "크레딧이 모자라요. 지금 " + String.format("%,d", have) + "크레딧이에요."
-                        : "투자 전용 포인트가 모자라요. 지금 " + String.format("%,d", have) + "P예요.", Map.of("wallet", wallet.name(), "balance", have, "need", amount));
+                        : "투자 전용 포인트가 모자라요. 지금 " + String.format("%,d", have) + "P예요.", Map.of(WALLET, wallet.name(), "balance", have, "need", amount));
             }
             return insert(memberId, wallet, -amount, reason, requestKey, refId, memo);
         });
@@ -471,12 +485,16 @@ public class PointLedger {
 
     /** @return 새로 남겼으면 true, 같은 요청 키가 이미 있으면 false */
     private boolean insert(long memberId, Wallet wallet, long amount, PointReason reason, String key, Long refId, String memo) {
-        String k = key.length() > KEY_MAX ? key.substring(0, KEY_MAX) : key;
-        String m = memo == null ? "" : memo.length() > MEMO_MAX ? memo.substring(0, MEMO_MAX) : memo;
+        String k = truncate(key, KEY_MAX);
+        String m = memo == null ? "" : truncate(memo, MEMO_MAX);
         int n = jdbc.update("""
                 INSERT INTO point_ledger (member_id, wallet, amount, reason, request_key, ref_id, memo, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (member_id, request_key) DO NOTHING
                 """, memberId, wallet.name(), amount, reason.name(), k, refId, m, Timestamp.from(Times.now(clock)));
         return n > 0;
+    }
+
+    private static String truncate(String s, int max) {
+        return s.length() > max ? s.substring(0, max) : s;
     }
 }

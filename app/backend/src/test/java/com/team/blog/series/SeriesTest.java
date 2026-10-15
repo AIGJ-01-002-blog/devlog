@@ -109,8 +109,14 @@ class SeriesTest extends IntegrationTest {
 
     // ---------------------------------------------------------------- US2
 
-    @Test
-    void 독자는_읽을_수_있는_글만으로_순서와_목록을_본다() throws Exception {
+    /** 공개·친구·비공개·공개2·임시글이 이 순서로 든 시리즈 "모음" */
+    record Reading(Session author, Session friend, Session stranger, long sid, long pub, long fr, long priv, long pub2, long draft) {
+        String url() {
+            return "/api/members/" + author.handle() + "/series/모음";
+        }
+    }
+
+    Reading reading() throws Exception {
         // 회원 번호가 Long 캐시(-128~127) 밖이어야 번호 비교 실수를 잡는다
         jdbc.execute("SELECT setval(pg_get_serial_sequence('member', 'id'), GREATEST(5000, (SELECT max(id) FROM member)))");
         Session author = signup(uniqueLogin("srr")), friend = signup(uniqueLogin("srf")), stranger = signup(uniqueLogin("srs"));
@@ -119,7 +125,15 @@ class SeriesTest extends IntegrationTest {
         long pub = publish(author, "공개", "PUBLIC"), fr = publish(author, "친구", "FRIENDS"), priv = publish(author, "비공개", "PRIVATE");
         long pub2 = publish(author, "공개2", "PUBLIC"), draft = draft(author, "임시");
         for (long p : List.of(pub, fr, priv, pub2, draft)) assign(author, p, sid).andExpect(status().isNoContent());
-        String url = "/api/members/" + author.handle() + "/series/모음";
+        return new Reading(author, friend, stranger, sid, pub, fr, priv, pub2, draft);
+    }
+
+    @Test
+    void 독자는_읽을_수_있는_글만으로_순서와_목록을_본다() throws Exception {
+        Reading r = reading();
+        Session author = r.author(), friend = r.friend(), stranger = r.stranger();
+        long pub = r.pub(), fr = r.fr(), priv = r.priv(), pub2 = r.pub2();
+        String url = r.url();
 
         assertThat(ids(ok(null, url).path("posts"))).containsExactly(pub, pub2);
         assertThat(ids(ok(stranger, url).path("posts"))).containsExactly(pub, pub2);
@@ -140,9 +154,15 @@ class SeriesTest extends IntegrationTest {
         // 읽을 수 없는 글의 시리즈는 드러나지 않는다
         assertThat(as(stranger, get("/api/posts/" + fr + "/series")).andReturn().getResponse().getStatus()).isEqualTo(204);
         // 작성자는 임시글에서도 시리즈를 안다(순서는 없음)
-        JsonNode draftNav = ok(author, "/api/posts/" + draft + "/series");
-        assertThat(draftNav.path("id").asLong()).isEqualTo(sid);
+        JsonNode draftNav = ok(author, "/api/posts/" + r.draft() + "/series");
+        assertThat(draftNav.path("id").asLong()).isEqualTo(r.sid());
         assertThat(draftNav.path("index").isNull()).isTrue();
+    }
+
+    @Test
+    void 블로그_시리즈_목록과_첫_화면은_읽을_수_있는_글이_있는_시리즈만_보인다() throws Exception {
+        Reading r = reading();
+        Session author = r.author();
 
         JsonNode list = ok(null, "/api/members/" + author.handle() + "/series");
         assertThat(list.get(0).path("postCount").asInt()).isEqualTo(2);
@@ -159,7 +179,7 @@ class SeriesTest extends IntegrationTest {
         // 첫 화면(SSR)도 같은 조건: 남에게 없는 시리즈는 404, 있는 시리즈는 순서대로 링크
         String page = as(null, get("/@" + author.handle() + "/series/모음")).andExpect(status().isOk()).andReturn()
                 .getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
-        assertThat(page).contains("<h1>모음</h1>").contains("/posts/" + pub).doesNotContain("/posts/" + priv);
+        assertThat(page).contains("<h1>모음</h1>").contains("/posts/" + r.pub()).doesNotContain("/posts/" + r.priv());
         as(null, get("/@" + author.handle() + "/series/비밀")).andExpect(status().isNotFound());
         as(null, get("/@" + author.handle() + "/series")).andExpect(status().isOk());
         as(null, get("/api/members/nobody-" + UUID.randomUUID().toString().substring(0, 6) + "/series")).andExpect(status().isNotFound());
@@ -168,7 +188,7 @@ class SeriesTest extends IntegrationTest {
     // ---------------------------------------------------------------- US3
 
     @Test
-    void 순서를_바꾸고_빼고_이름을_바꾸고_지울_수_있다() throws Exception {
+    void 순서를_바꾸면_휴지통_글과_임시글은_뒤에_남는다() throws Exception {
         Session s = signup(uniqueLogin("srm"));
         long sid = create(s, "정리").path("id").asLong();
         long p1 = publish(s, "1", "PUBLIC"), p2 = publish(s, "2", "PUBLIC"), p3 = publish(s, "3", "PUBLIC"), d = draft(s, "임시");
@@ -186,6 +206,15 @@ class SeriesTest extends IntegrationTest {
         s.http().perform(post("/api/posts/" + p2 + "/restore").with(csrf())).andExpect(status().isOk());
         assertThat(ids(ok(null, url).path("posts"))).containsExactly(p3, p1, p2);
         assertThat(ok(s, "/api/posts/" + d + "/series").path("id").asLong()).isEqualTo(sid);
+    }
+
+    @Test
+    void 목록에서_뺀_글은_빠지고_이름을_바꾸고_지울_수_있다() throws Exception {
+        Session s = signup(uniqueLogin("srm"));
+        long sid = create(s, "정리").path("id").asLong();
+        long p1 = publish(s, "1", "PUBLIC"), p2 = publish(s, "2", "PUBLIC"), p3 = publish(s, "3", "PUBLIC"), d = draft(s, "임시");
+        for (long p : List.of(p1, p2, p3, d)) assign(s, p, sid).andExpect(status().isNoContent());
+        String url = "/api/members/" + s.handle() + "/series/정리";
 
         // 빼기: 목록에 없는 보이는 글은 빠진다
         s.http().perform(asJson(put("/api/me/series/" + sid + "/posts"), Map.of("postIds", List.of(p1, p2))))

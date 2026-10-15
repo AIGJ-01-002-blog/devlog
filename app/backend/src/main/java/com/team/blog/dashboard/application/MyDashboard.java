@@ -92,7 +92,9 @@ public class MyDashboard {
     }
 
     private static Sums sum(LocalDate from, LocalDate to, Map<LocalDate, Long> viewed, Map<LocalDate, Long> liked, Map<LocalDate, Long> commented) {
-        long v = 0, l = 0, c = 0;
+        long v = 0;
+        long l = 0;
+        long c = 0;
         for (LocalDate d = from; !d.isAfter(to); d = d.plusDays(1)) {
             v += get(viewed, d);
             l += get(liked, d);

@@ -97,8 +97,10 @@ class ReportTest extends IntegrationTest {
         assertThat(code(report(b, "POST", postId, "SPAM", null), 429)).isEqualTo("TOO_MANY_REQUESTS");
     }
 
-    @Test
-    void 관리자만_목록을_보고_숨기면_신고자와_작성자에게_알리고_작성자_외에는_사라진다() throws Exception {
+    /** 두 사람이 스팸으로 신고한 글 하나와 그 대기 사건 */
+    private record Reported(Session author, Session r1, Session r2, Session adminSession, Browser admin, long postId, long caseId) {}
+
+    private Reported reportedPost() throws Exception {
         Session author = signup(uniqueLogin("hda"));
         Session r1 = signup(uniqueLogin("hdb"));
         Session r2 = signup(uniqueLogin("hdc"));
@@ -107,50 +109,84 @@ class ReportTest extends IntegrationTest {
         long postId = publish(author, "숨길 글", "PUBLIC");
         report(r1, "POST", postId, "SPAM", null).andExpect(status().isNoContent());
         report(r2, "POST", postId, "SPAM", null).andExpect(status().isNoContent());
-        long caseId = caseOf("post_id", postId);
+        return new Reported(author, r1, r2, adminSession, admin, postId, caseOf("post_id", postId));
+    }
+
+    private void hide(Reported t) throws Exception {
+        t.admin().perform(asJson(post("/api/admin/reports/" + t.caseId() + "/resolve"), Map.of("action", "HIDE", "reason", "SPAM")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void 관리자만_신고_목록을_본다() throws Exception {
+        Reported t = reportedPost();
+        Session r1 = t.r1();
+        long caseId = t.caseId();
 
         r1.http().perform(get("/api/admin/reports")).andExpect(status().isNotFound());
         browser().perform(get("/api/admin/reports")).andExpect(status().isUnauthorized());
         browser().perform(get("/api/admin/nothing-here")).andExpect(status().isUnauthorized());
 
-        JsonNode list = read(admin.perform(get("/api/admin/reports")).andExpect(status().isOk()).andReturn()).path("items");
+        JsonNode list = read(t.admin().perform(get("/api/admin/reports")).andExpect(status().isOk()).andReturn()).path("items");
         JsonNode row = null;
         for (JsonNode n : list) if (n.path("caseId").asLong() == caseId) row = n;
         assertThat(row).isNotNull();
         assertThat(row.path("reportCount").asInt()).isEqualTo(2);
         assertThat(row.path("reasons").path("SPAM").asInt()).isEqualTo(2);
         assertThat(row.path("preview").asString()).isEqualTo("숨길 글");
+    }
 
-        // 신고 뒤 비공개로 바꿔도 대기는 그대로, 관리자는 스냅샷만 본다
+    @Test
+    void 신고_뒤_비공개로_바꿔도_대기는_그대로이고_관리자는_스냅샷만_본다() throws Exception {
+        Reported t = reportedPost();
+        Session author = t.author();
+        Browser admin = t.admin();
+        long postId = t.postId();
+
         author.http().perform(asJson(patch("/api/posts/" + postId + "/visibility"), Map.of("visibility", "PRIVATE"))).andExpect(status().isOk());
-        JsonNode detail = read(admin.perform(get("/api/admin/reports/" + caseId)).andExpect(status().isOk()).andReturn());
+        JsonNode detail = read(admin.perform(get("/api/admin/reports/" + t.caseId())).andExpect(status().isOk()).andReturn());
         assertThat(detail.path("targetState").asString()).isEqualTo("PRIVATE");
         assertThat(detail.path("snapshotContent").asString()).isEqualTo("본문 숨길 글");
         assertThat(detail.path("author").path("handle").asString()).isEqualTo(author.handle());
-        assertThat(detail.toString()).doesNotContain(r1.handle()).doesNotContain("reporter");
+        assertThat(detail.toString()).doesNotContain(t.r1().handle()).doesNotContain("reporter");
         admin.perform(get("/api/posts/" + postId)).andExpect(status().isNotFound());
-        author.http().perform(asJson(patch("/api/posts/" + postId + "/visibility"), Map.of("visibility", "PUBLIC"))).andExpect(status().isOk());
+    }
+
+    @Test
+    void 숨기면_작성자_외에는_사라지고_작성자는_사유와_함께_본다() throws Exception {
+        Reported t = reportedPost();
+        Session author = t.author();
+        Browser admin = t.admin();
+        long postId = t.postId();
+        long caseId = t.caseId();
 
         assertThat(code(admin.perform(asJson(post("/api/admin/reports/" + caseId + "/resolve"), Map.of("action", "HIDE"))), 400))
                 .isEqualTo("VALIDATION_FAILED");
-        admin.perform(asJson(post("/api/admin/reports/" + caseId + "/resolve"), Map.of("action", "HIDE", "reason", "SPAM")))
-                .andExpect(status().isOk());
+        hide(t);
         assertThat(code(admin.perform(asJson(post("/api/admin/reports/" + caseId + "/resolve"), Map.of("action", "REJECT"))), 409))
                 .isEqualTo("CASE_ALREADY_HANDLED");
         assertThat(jdbc.queryForMap("SELECT hidden_reason, hidden_by FROM post WHERE id = ?", postId))
-                .containsEntry("hidden_reason", "SPAM").containsEntry("hidden_by", adminSession.memberId());
+                .containsEntry("hidden_reason", "SPAM").containsEntry("hidden_by", t.adminSession().memberId());
 
         // 작성자 외에는 없는 글, 작성자는 사유와 함께 본다
-        r1.http().perform(get("/api/posts/" + postId)).andExpect(status().isNotFound());
+        t.r1().http().perform(get("/api/posts/" + postId)).andExpect(status().isNotFound());
         JsonNode mine = read(author.http().perform(get("/api/posts/" + postId)).andExpect(status().isOk()).andReturn());
         assertThat(mine.path("owner").path("hidden").asBoolean()).isTrue();
         assertThat(mine.path("owner").path("hiddenReason").asString()).isEqualTo("SPAM");
         // 작성자가 공개 범위를 바꿔도 숨김은 풀리지 않는다
         author.http().perform(asJson(patch("/api/posts/" + postId + "/visibility"), Map.of("visibility", "PUBLIC"))).andExpect(status().isOk());
         assertThat(jdbc.queryForObject("SELECT hidden_at IS NOT NULL FROM post WHERE id = ?", Boolean.class, postId)).isTrue();
+    }
+
+    @Test
+    void 숨기면_신고자와_작성자에게_알리고_숨김을_풀면_다시_보인다() throws Exception {
+        Reported t = reportedPost();
+        Session author = t.author();
+        Session r1 = t.r1();
+        hide(t);
 
         // 신고자마다 처리 결과, 작성자에게 숨김 (신고자 정보 없음)
-        for (Session r : List.of(r1, r2)) {
+        for (Session r : List.of(r1, t.r2())) {
             JsonNode n = notifications(r).get(0);
             assertThat(n.path("type").asString()).isEqualTo("REPORT_RESOLVED");
             assertThat(n.path("result").asString()).isEqualTo("ACTION_TAKEN");
@@ -161,11 +197,11 @@ class ReportTest extends IntegrationTest {
         assertThat(hidden.path("type").asString()).isEqualTo("CONTENT_HIDDEN");
         assertThat(hidden.path("hidden").path("reason").asString()).isEqualTo("SPAM");
         assertThat(hidden.path("post").path("title").asString()).isEqualTo("숨길 글");
-        assertThat(hidden.toString()).doesNotContain(r1.handle()).doesNotContain(adminSession.handle());
+        assertThat(hidden.toString()).doesNotContain(r1.handle()).doesNotContain(t.adminSession().handle());
 
         // 숨김 해제: 다시 보이고, 알림은 "지금은 다시 보여요"
-        admin.perform(post("/api/admin/reports/" + caseId + "/unhide").with(csrf())).andExpect(status().isOk());
-        r1.http().perform(get("/api/posts/" + postId)).andExpect(status().isOk());
+        t.admin().perform(post("/api/admin/reports/" + t.caseId() + "/unhide").with(csrf())).andExpect(status().isOk());
+        r1.http().perform(get("/api/posts/" + t.postId())).andExpect(status().isOk());
         JsonNode after = notifications(author).get(0);
         assertThat(after.path("hidden").path("stillHidden").asBoolean()).isFalse();
         assertThat(after.path("hidden").path("reason").isNull()).isTrue();

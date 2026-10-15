@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -62,10 +63,8 @@ public final class FakeDiscord {
 
     /** 이 웹훅으로 n번째 메시지가 올 때까지 기다린다 (보내기는 따로 도는 실행기에서 한다) */
     public String await(String webhookId, int count) throws InterruptedException {
-        long until = System.currentTimeMillis() + 10_000;
-        while (to(webhookId).size() < count) {
-            if (System.currentTimeMillis() > until) throw new AssertionError("디스코드 메시지가 오지 않았습니다: " + to(webhookId));
-            Thread.sleep(10);
+        if (!Waits.until(() -> to(webhookId).size() >= count, Duration.ofSeconds(10))) {
+            throw new AssertionError("디스코드 메시지가 오지 않았습니다: " + to(webhookId));
         }
         return to(webhookId).get(count - 1);
     }

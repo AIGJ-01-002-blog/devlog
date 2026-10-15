@@ -138,6 +138,46 @@ class OriginalityCheckTest {
         assertThat(r.issues().get(0).message()).contains("\"여러분\"", "\"오늘은 세션 직렬화에 대해 알아볼\"", "\"정말 중요한\"");
     }
 
+    private static List<String> warnsOf(String firstNarration) {
+        List<Scene> scenes = List.of(new Scene("첫 장면", firstNarration, null));
+        return codes(OriginalityCheck.check(scenes, POST, List.of()), Level.WARN);
+    }
+
+    @Test
+    void 첫_장면은_질문_문제_말_결론_숫자_중_하나면_약하지_않다() {
+        for (String strong : List.of("세션이 풀리는 까닭이 뭘까요?", "세션이 풀리는 까닭이 뭘까요？  ", "로그인이 안 되는 날이 있었어요",
+                "로그인이 안되는 날이 있었어요", "그날 배포가 터졌어요", "한 줄 바꿔서 3초가 됐어요", "응답이 0.4 초로 줄었어요",
+                "속도가 12.5배 빨라졌어요", "적중률 100%를 찍었어요", "1 2편으로 나눠 볼게요")) {
+            assertThat(warnsOf(strong)).as(strong).doesNotContain("WEAK_HOOK");
+        }
+        for (String weak : List.of("세션 저장 방식을 바꿨어요", "버전은 3.x초 단위예요", "값은 3. 초 단위예요", "2026년 이야기예요",
+                "x?y 같은 이름이에요", "1".repeat(50_000) + "년 없음")) {
+            assertThat(warnsOf(weak)).as(weak.length() > 40 ? "긴 숫자" : weak).contains("WEAK_HOOK");
+        }
+    }
+
+    @Test
+    void 내_경험은_낱말과_띄어_쓴_해_보니와_숫자로_찾는다() {
+        for (String personal : List.of("제가 고친 이야기예요", "저희 팀 이야기예요", "직접 해 보니 달랐어요", "해봤더니 달랐어요", "실제로는 달랐어요",
+                "빌드가 빨라졌어요", "버전 7 이야기예요")) {
+            assertThat(warnsOf("왜 그럴까요? " + personal)).as(personal).doesNotContain("NO_EXPERIENCE");
+        }
+        for (String general : List.of("세션은 저장소에 담겨요", "해봐도 좋은 기능이에요")) {
+            assertThat(warnsOf("왜 그럴까요? " + general)).as(general).contains("NO_EXPERIENCE");
+        }
+    }
+
+    @Test
+    void 상투어는_오늘은_뒤_스무_자_안의_알아보기_살펴보기도_찾는다() {
+        for (String cliche : List.of("오늘은 캐시를 살펴봅시다", "오늘은 캐시를 알아봐요", "오늘은 캐시를 살펴볼게요", "꿀팁대방출", "구독과 좋아요",
+                "좋아요와구독 부탁해요")) {
+            assertThat(warnsOf("왜 그럴까요? 제가 " + cliche)).as(cliche).contains("CLICHE");
+        }
+        for (String plain : List.of("오늘은 캐시를. 알아봐요", "오늘은 알아서 했어요", "오늘은 이것저것 아주 길게 한참 동안 이야기한 다음에야 알아봐요")) {
+            assertThat(warnsOf("왜 그럴까요? 제가 " + plain)).as(plain).doesNotContain("CLICHE");
+        }
+    }
+
     @Test
     void 같은_입력이면_늘_같은_결과다() {
         assertThat(OriginalityCheck.check(GOOD, POST, List.of())).isEqualTo(OriginalityCheck.check(GOOD, POST, List.of()));

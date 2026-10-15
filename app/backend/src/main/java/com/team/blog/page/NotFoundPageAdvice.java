@@ -32,8 +32,11 @@ public class NotFoundPageAdvice {
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
-    ResponseEntity<?> handle(NoResourceFoundException e, HttpServletRequest request) {
-        if (wantsPage(request)) return PageController.notFoundPage(shell, siteName);
+    ResponseEntity<Object> handle(NoResourceFoundException e, HttpServletRequest request) {
+        if (wantsPage(request)) {
+            ResponseEntity<String> page = PageController.notFoundPage(shell, siteName);
+            return new ResponseEntity<>(page.getBody(), page.getHeaders(), page.getStatusCode());
+        }
         // Accept 협상에 맡기면 text/html 요청에서 JSON을 쓰지 못해 406이 되므로 JSON으로 못 박는다
         return ResponseEntity.status(HttpStatus.NOT_FOUND).contentType(MediaType.APPLICATION_JSON)
                 .body(ErrorResponse.of("NOT_FOUND", NotFoundException.MESSAGE));

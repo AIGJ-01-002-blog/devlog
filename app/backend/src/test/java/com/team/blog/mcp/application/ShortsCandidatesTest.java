@@ -24,4 +24,26 @@ class ShortsCandidatesTest {
         assertThat(ShortsCandidates.fit("문제를 고쳤어요.\n```\n" + "sleep 3초\n".repeat(80) + "```").fit()).isFalse();
         assertThat(ShortsCandidates.fit(null).fit()).isFalse();
     }
+
+    @Test
+    void 숫자_뒤에_단위가_있어야_숫자로_된_결과로_본다() {
+        String number = "숫자로 된 결과";
+        assertThat(ShortsCandidates.fit(LONG + " 응답이 120 ms에서 45ms로").reasons()).containsExactly(number);
+        assertThat(ShortsCandidates.fit(LONG + " 1,5배 빨라졌다").reasons()).containsExactly(number);
+        assertThat(ShortsCandidates.fit(LONG + " 이미지가 3.2MB에서 800kb로").reasons()).containsExactly(number);
+        assertThat(ShortsCandidates.fit(LONG + " 처리량 1200 RPS").reasons()).containsExactly(number);
+        assertThat(ShortsCandidates.fit(LONG + " 커버리지 87%").reasons()).containsExactly(number);
+        assertThat(ShortsCandidates.fit(LONG + " 2시간 걸렸다").reasons()).containsExactly(number);
+        assertThat(ShortsCandidates.fit(LONG + " 버전 2.0, 3.5.6 그리고 2026").reasons()).isEmpty();
+    }
+
+    @Test
+    void 긴_숫자열에도_한_번만_훑는다() {
+        // 예전 식은 단위 없는 숫자열 2만 자에 수십 초가 걸렸다
+        String digits = LONG + " " + "1".repeat(200_000);
+        long started = System.nanoTime();
+        assertThat(ShortsCandidates.fit(digits).reasons()).isEmpty();
+        assertThat(ShortsCandidates.fit(digits + "초").reasons()).containsExactly("숫자로 된 결과");
+        assertThat(java.time.Duration.ofNanos(System.nanoTime() - started)).isLessThan(java.time.Duration.ofSeconds(5));
+    }
 }

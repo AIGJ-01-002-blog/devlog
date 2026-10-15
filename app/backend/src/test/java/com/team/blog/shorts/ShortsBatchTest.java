@@ -39,8 +39,25 @@ class ShortsBatchTest extends IntegrationTest {
             Map.of("caption", "빈 포트", "narration", "시험마다 빈 포트를 받게 바꾸니 실패가 사라졌다."),
             Map.of("caption", "알림", "narration", "마지막으로 배포 알림이 두 번씩 오던 것도 고쳤다."));
 
+    /** 주제 3개로 나눈 묶음 번호 */
+    private long plan(String token) throws Exception {
+        JsonNode planned = call(token, "plan_shorts", Map.of("title", "배포 손본 날", "source_text", CONTEXT, "topics", topics(3)));
+        assertThat(planned.path("isError").asBoolean()).as(text(planned)).isFalse();
+        return Long.parseLong(text(planned).replaceAll("(?s).*묶음 번호 (\\d+).*", "$1"));
+    }
+
+    /** 주제 1에는 제 말로 쓴 대본, 주제 2에는 맥락을 그대로 읽는 대본을 둔다 */
+    private void writeTopics(String token, long batchId) throws Exception {
+        assertThat(text(call(token, "create_shorts_script", Map.of("batch_id", batchId, "topic", 1, "scenes", CACHE)))).contains("영상으로 만들 수 있어요");
+        call(token, "create_shorts_script", Map.of("batch_id", batchId, "topic", 2, "title", "포트가 겹친 시험", "scenes", COPIED));
+    }
+
+    private JsonNode batches(Session me) throws Exception {
+        return read(me.http().perform(get("/api/me/shorts/batches")).andExpect(status().isOk()).andReturn());
+    }
+
     @Test
-    void 맥락을_주제로_나누고_주제마다_대본을_써서_묶음째_영상_만들기에_넣는다() throws Exception {
+    void 맥락을_주제로_나눌_때_근거와_주제_수를_확인한다() throws Exception {
         Session me = signup(uniqueLogin("batch"));
         String token = token(me);
         assertThat(rpc(token, "tools/list", null).path("tools").findValuesAsString("name")).contains("plan_shorts");
@@ -54,7 +71,13 @@ class ShortsBatchTest extends IntegrationTest {
         JsonNode planned = call(token, "plan_shorts", Map.of("title", "배포 손본 날", "source_text", CONTEXT, "topics", topics(3)));
         assertThat(planned.path("isError").asBoolean()).as(text(planned)).isFalse();
         assertThat(text(planned)).contains("주제 3개", "1. 주제 1 · 첫 질문: 왜 1번은 느렸을까요?", "/studio?batch=");
-        long batchId = Long.parseLong(text(planned).replaceAll("(?s).*묶음 번호 (\\d+).*", "$1"));
+    }
+
+    @Test
+    void 주제마다_대본을_한_편씩_쓰고_묶음으로_본다() throws Exception {
+        Session me = signup(uniqueLogin("batch"));
+        String token = token(me);
+        long batchId = plan(token);
 
         // 주제 1: 제 말로 쓴 대본. 제목을 비우면 주제 제목을 쓴다
         JsonNode first = call(token, "create_shorts_script", Map.of("batch_id", batchId, "topic", 1, "scenes", CACHE));
@@ -67,17 +90,24 @@ class ShortsBatchTest extends IntegrationTest {
         assertThat(text(call(token, "create_shorts_script", Map.of("batch_id", batchId, "topic", 4, "scenes", CACHE)))).contains("1~3 사이");
         assertThat(text(call(token, "list_shorts", Map.of()))).contains("묶음 " + batchId + "의 1번 주제", "대본이 없는 주제: 3번 주제 3");
 
-        JsonNode batches = read(me.http().perform(get("/api/me/shorts/batches")).andExpect(status().isOk()).andReturn());
-        JsonNode batch = batches.get(0);
+        JsonNode batch = batches(me).get(0);
         assertThat(batch.path("id").asLong()).isEqualTo(batchId);
         assertThat(batch.path("hasSource").asBoolean()).isTrue();
         assertThat(batch.path("topics")).hasSize(3);
         assertThat(batch.path("topics").get(0).path("status").asString()).isEqualTo("DRAFT");
         assertThat(batch.path("topics").get(2).path("shortsId").isNull()).isTrue();
+    }
+
+    @Test
+    void 묶음째_영상_만들기는_통과한_편만_넣고_묶음을_풀어도_대본은_남는다() throws Exception {
+        Session me = signup(uniqueLogin("batch"));
+        String token = token(me);
+        long batchId = plan(token);
+        writeTopics(token, batchId);
+        long firstId = batches(me).get(0).path("topics").get(0).path("shortsId").asLong();
 
         // 묶음째 영상 만들기: 통과한 편만 대기열에, 막힌 편은 이유와 함께 건너뛴다
         JsonNode result = read(me.http().perform(post("/api/me/shorts/batches/" + batchId + "/render").with(csrf())).andExpect(status().isOk()).andReturn());
-        long firstId = batch.path("topics").get(0).path("shortsId").asLong();
         assertThat(result.path("queued").get(0).asLong()).isEqualTo(firstId);
         assertThat(result.path("skipped")).hasSize(1);
         assertThat(result.path("skipped").get(0).path("reason").asString()).contains("양산형");
@@ -92,7 +122,7 @@ class ShortsBatchTest extends IntegrationTest {
         JsonNode kept = read(me.http().perform(get("/api/me/shorts/" + firstId)).andExpect(status().isOk()).andReturn());
         assertThat(kept.path("batchId").isNull()).isTrue();
         assertThat(kept.path("topic").isNull()).isTrue();
-        assertThat(read(me.http().perform(get("/api/me/shorts/batches")).andExpect(status().isOk()).andReturn())).isEmpty();
+        assertThat(batches(me)).isEmpty();
     }
 
     @Test

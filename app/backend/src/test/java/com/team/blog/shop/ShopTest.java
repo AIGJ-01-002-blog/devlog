@@ -83,6 +83,18 @@ class ShopTest extends IntegrationTest {
         me.http().perform(post("/api/shop/items/" + iron + "/purchase").with(csrf())).andExpect(status().isConflict());
         me.http().perform(post("/api/shop/items/" + bronze + "/purchase").with(csrf())).andExpect(status().isOk());
         me.http().perform(post("/api/shop/items/" + ironFrame + "/purchase").with(csrf())).andExpect(status().isOk());
+    }
+
+    @Test
+    void 산_아이템을_적용하면_다른_사람도_블로그에서_보고_해제하면_기본_모습이다() throws Exception {
+        Session me = signup(uniqueLogin("shapl"));
+        long iron = itemId("아이언");
+        long bronze = itemId("브론즈");
+        long ironFrame = itemId("아이언 테두리");
+        giveShopPoints(me, 1_500);
+        for (long id : new long[] {iron, bronze, ironFrame}) {
+            me.http().perform(post("/api/shop/items/" + id + "/purchase").with(csrf())).andExpect(status().isOk());
+        }
 
         // 사지 않은 아이템은 적용 못 한다
         me.http().perform(put("/api/me/decorations/" + itemId("실버")).with(csrf())).andExpect(status().isConflict());

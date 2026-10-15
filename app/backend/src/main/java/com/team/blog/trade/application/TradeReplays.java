@@ -5,7 +5,6 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -40,6 +39,15 @@ import com.team.blog.shorts.application.TradeReplay;
 public class TradeReplays {
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm").withZone(TradeTexts.KST);
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("M월 d일").withZone(TradeTexts.KST);
+    private static final String TRADE_IDS = "tradeIds";
+    private static final String INTERVAL = "interval";
+    private static final String PICK_FILLS = "재현할 체결을 하나 이상 골라 주세요.";
+    private static final String MEMOS_OF_DAYS = "SELECT day, memo FROM trade_day WHERE member_id = ? AND day = ANY(?)";
+    private static final String FILLS_OF_IDS = """
+            SELECT id, external_id, mode, exchange, symbol, symbol_name, side, quantity, price, currency, fee, realized_pnl, strategy,
+                   reason, executed_at, market, position_side, leverage, timeframe
+            FROM trade WHERE member_id = ? AND id = ANY(?) ORDER BY executed_at, id
+            """;
     static final int REASON_SPOKEN_MAX = 90;
     static final int REASON_SPOKEN_MIN = 30;
     static final int MEMO_SPOKEN_MAX = 150;
@@ -67,42 +75,57 @@ public class TradeReplays {
 
     public ShortsService.Item create(long memberId, Request req) {
         if (!enabled()) throw new NotFoundException();
-        List<Long> ids = req == null || req.tradeIds() == null ? List.of() : List.copyOf(new LinkedHashSet<>(req.tradeIds()));
-        if (ids.isEmpty()) throw invalid("tradeIds", "REQUIRED", "재현할 체결을 하나 이상 골라 주세요.");
+        if (req == null || req.tradeIds() == null) throw invalid(TRADE_IDS, "REQUIRED", PICK_FILLS);
+        List<Long> ids = List.copyOf(new LinkedHashSet<>(req.tradeIds()));
+        if (ids.isEmpty()) throw invalid(TRADE_IDS, "REQUIRED", PICK_FILLS);
         if (ids.size() > TradeReplay.FILLS_MAX) {
-            throw invalid("tradeIds", "TOO_MANY", "체결은 한 영상에 " + TradeReplay.FILLS_MAX + "개까지 고를 수 있어요.");
+            throw invalid(TRADE_IDS, "TOO_MANY", "체결은 한 영상에 " + TradeReplay.FILLS_MAX + "개까지 고를 수 있어요.");
         }
-        Optional<TradeReplay.Interval> interval = Optional.empty();
-        if (req.interval() != null && !req.interval().isBlank()) {
-            interval = TradeReplay.Interval.parse(req.interval());
-            if (interval.isEmpty()) throw invalid("interval", "INVALID", "봉은 1m, 5m, 15m, 1h, 4h, 1d 가운데 골라 주세요.");
-        }
+        Optional<TradeReplay.Interval> interval = interval(req.interval());
         List<TradeJournal.Fill> fills = fills(memberId, ids);
-        if (fills.size() != ids.size()) throw invalid("tradeIds", "NOT_FOUND", "고른 체결 가운데 내 매매 일지에 없는 것이 있어요. 새로 불러온 뒤 다시 골라 주세요.");
-        TradeJournal.Fill head = fills.getFirst();
-        for (TradeJournal.Fill f : fills) {
-            if (!f.exchange().equals(head.exchange()) || !f.symbol().equals(head.symbol())) {
-                throw invalid("tradeIds", "MIXED_SYMBOL", "한 영상에는 같은 거래소·같은 종목의 체결만 담을 수 있어요.");
-            }
-            if (!f.mode().equals(head.mode())) throw invalid("tradeIds", "MIXED_MODE", "모의투자와 실계좌 체결은 따로 만들어 주세요.");
-        }
-        if (!TradeReplay.EXCHANGES.contains(head.exchange())) {
-            throw invalid("tradeIds", "EXCHANGE_UNSUPPORTED", "재현 영상은 바이낸스·업비트 체결만 만들 수 있어요. 공개 캔들을 받아 차트를 그리기 때문이에요.");
-        }
+        if (fills.size() != ids.size()) throw invalid(TRADE_IDS, "NOT_FOUND", "고른 체결 가운데 내 매매 일지에 없는 것이 있어요. 새로 불러온 뒤 다시 골라 주세요.");
+        TradeJournal.Fill head = requireSameMarket(fills);
         Map<LocalDate, String> memos = memos(memberId, fills);
-        List<LocalDate> missing = memos.entrySet().stream().filter(e -> e.getValue().isBlank()).map(Map.Entry::getKey).toList();
-        if (!missing.isEmpty()) {
-            throw ApiException.conflict("TRADE_MEMO_REQUIRED", missing.stream().map(LocalDate::toString).reduce((a, b) -> a + ", " + b).orElse("")
-                    + " 메모를 먼저 남겨 주세요. 메모를 남긴 날의 매매만 영상으로 만들어요(숫자만 읽는 영상은 양산형으로 보여요).");
-        }
+        requireMemos(memos);
         TradeReplay.Window window = TradeReplay.window(head.executedAt(), fills.getLast().executedAt(), interval, Times.now(clock));
-        if (window instanceof TradeReplay.Window.TooLong(String message)) throw invalid("interval", "TOO_LONG", message);
+        if (window instanceof TradeReplay.Window.TooLong(String message)) throw invalid(INTERVAL, "TOO_LONG", message);
         TradeReplay.Window.Ok ok = (TradeReplay.Window.Ok) window;
         TradeReplay replay = new TradeReplay(head.exchange(), head.symbol(), head.symbolName(), head.currency(), head.mode(), ok.interval().code,
                 ok.from(), ok.to(), fills.stream().map(f -> new TradeReplay.Fill(f.id(), f.side(), f.price(), f.quantity(), f.realizedPnl(),
                 f.executedAt(), f.reason())).toList());
         return shorts.createReplay(memberId, new ShortsService.Draft(sourcePost(memberId, memos.keySet()), title(replay),
                 scenes(replay, String.join(" ", memos.values()))), replay);
+    }
+
+    /** 비어 있으면 자동(빈 값) */
+    private static Optional<TradeReplay.Interval> interval(String code) {
+        if (code == null || code.isBlank()) return Optional.empty();
+        Optional<TradeReplay.Interval> interval = TradeReplay.Interval.parse(code);
+        if (interval.isEmpty()) throw invalid(INTERVAL, "INVALID", "봉은 1m, 5m, 15m, 1h, 4h, 1d 가운데 골라 주세요.");
+        return interval;
+    }
+
+    /** 같은 거래소·종목·모드의 체결인지, 공개 캔들을 받을 수 있는 거래소인지 본다. 첫 체결을 돌려준다 */
+    private static TradeJournal.Fill requireSameMarket(List<TradeJournal.Fill> fills) {
+        TradeJournal.Fill head = fills.getFirst();
+        for (TradeJournal.Fill f : fills) {
+            if (!f.exchange().equals(head.exchange()) || !f.symbol().equals(head.symbol())) {
+                throw invalid(TRADE_IDS, "MIXED_SYMBOL", "한 영상에는 같은 거래소·같은 종목의 체결만 담을 수 있어요.");
+            }
+            if (!f.mode().equals(head.mode())) throw invalid(TRADE_IDS, "MIXED_MODE", "모의투자와 실계좌 체결은 따로 만들어 주세요.");
+        }
+        if (!TradeReplay.EXCHANGES.contains(head.exchange())) {
+            throw invalid(TRADE_IDS, "EXCHANGE_UNSUPPORTED", "재현 영상은 바이낸스·업비트 체결만 만들 수 있어요. 공개 캔들을 받아 차트를 그리기 때문이에요.");
+        }
+        return head;
+    }
+
+    private static void requireMemos(Map<LocalDate, String> memos) {
+        List<LocalDate> missing = memos.entrySet().stream().filter(e -> e.getValue().isBlank()).map(Map.Entry::getKey).toList();
+        if (!missing.isEmpty()) {
+            throw ApiException.conflict("TRADE_MEMO_REQUIRED", missing.stream().map(LocalDate::toString).reduce((a, b) -> a + ", " + b).orElse("")
+                    + " 메모를 먼저 남겨 주세요. 메모를 남긴 날의 매매만 영상으로 만들어요(숫자만 읽는 영상은 양산형으로 보여요).");
+        }
     }
 
     /** AI가 대본을 다시 쓸 때 읽는 그날 메모들 (날짜 → 메모). 매매 일지가 꺼져 있으면 비어 있다 */
@@ -123,11 +146,11 @@ public class TradeReplays {
         Map<LocalDate, String> out = new LinkedHashMap<>();
         for (LocalDate d : days) out.put(d, "");
         if (days.isEmpty()) return out;
-        List<Object> args = new ArrayList<>();
-        args.add(memberId);
-        args.addAll(days);
-        jdbc.query("SELECT day, memo FROM trade_day WHERE member_id = ? AND day IN (" + String.join(", ", Collections.nCopies(days.size(), "?")) + ")",
-                (RowCallbackHandler) rs -> out.put(rs.getObject("day", LocalDate.class), rs.getString("memo").strip()), args.toArray());
+        String[] dates = days.stream().map(LocalDate::toString).toArray(String[]::new);
+        jdbc.query(MEMOS_OF_DAYS, ps -> {
+            ps.setLong(1, memberId);
+            ps.setArray(2, ps.getConnection().createArrayOf("date", dates));
+        }, (RowCallbackHandler) rs -> out.put(rs.getObject("day", LocalDate.class), rs.getString("memo").strip()));
         return out;
     }
 
@@ -141,20 +164,15 @@ public class TradeReplays {
     }
 
     private List<TradeJournal.Fill> fills(long memberId, List<Long> ids) {
-        String marks = String.join(", ", Collections.nCopies(ids.size(), "?"));
-        List<Object> args = new ArrayList<>();
-        args.add(memberId);
-        args.addAll(ids);
-        return jdbc.query("""
-                SELECT id, external_id, mode, exchange, symbol, symbol_name, side, quantity, price, currency, fee, realized_pnl, strategy,
-                       reason, executed_at, market, position_side, leverage, timeframe
-                FROM trade WHERE member_id = ? AND id IN (""" + marks + ") ORDER BY executed_at, id",
-                (rs, i) -> new TradeJournal.Fill(rs.getLong("id"), rs.getString("external_id"), rs.getString("mode"), rs.getString("exchange"),
-                        rs.getString("symbol"), rs.getString("symbol_name"), rs.getString("side"), plain(rs.getBigDecimal("quantity")),
-                        plain(rs.getBigDecimal("price")), rs.getString("currency"), plain(rs.getBigDecimal("fee")),
-                        plain(rs.getBigDecimal("realized_pnl")), rs.getString("strategy"), rs.getString("reason"),
-                        rs.getTimestamp("executed_at").toInstant(), rs.getString("market"), rs.getString("position_side"),
-                        rs.getObject("leverage", Integer.class), rs.getString("timeframe")), args.toArray());
+        return jdbc.query(FILLS_OF_IDS, ps -> {
+            ps.setLong(1, memberId);
+            ps.setArray(2, ps.getConnection().createArrayOf("bigint", ids.toArray()));
+        }, (rs, i) -> new TradeJournal.Fill(rs.getLong("id"), rs.getString("external_id"), rs.getString("mode"), rs.getString("exchange"),
+                rs.getString("symbol"), rs.getString("symbol_name"), rs.getString("side"), plain(rs.getBigDecimal("quantity")),
+                plain(rs.getBigDecimal("price")), rs.getString("currency"), plain(rs.getBigDecimal("fee")),
+                plain(rs.getBigDecimal("realized_pnl")), rs.getString("strategy"), rs.getString("reason"),
+                rs.getTimestamp("executed_at").toInstant(), rs.getString("market"), rs.getString("position_side"),
+                rs.getObject("leverage", Integer.class), rs.getString("timeframe")));
     }
 
     private static BigDecimal plain(BigDecimal v) {

@@ -97,7 +97,7 @@ class TradeTools {
         return trades.enabled();
     }
 
-    McpTools.Result record(AccessTokens.Caller caller, JsonNode a) {
+    McpTools.Result recordTrade(AccessTokens.Caller caller, JsonNode a) {
         TradeJournal.Side side = enumOf(TradeJournal.Side.class, a.path("side").asString(""));
         String modeRaw = a.path("mode").asString("");
         TradeJournal.Mode mode = modeRaw.isBlank() ? TradeJournal.Mode.PAPER : enumOf(TradeJournal.Mode.class, modeRaw);
@@ -124,7 +124,7 @@ class TradeTools {
         } catch (DateTimeParseException e) {
             return McpTools.Result.fail("executed_at은 2026-10-14T10:03:00+09:00처럼 시간대를 붙여 적어 주세요.");
         }
-        TradeJournal.Recorded r = trades.record(caller.memberId(), new TradeJournal.Input(a.path("external_id").asString(""), mode,
+        TradeJournal.Recorded r = trades.recordFill(caller.memberId(), new TradeJournal.Input(a.path("external_id").asString(""), mode,
                 a.path("symbol").asString(""), a.path("symbol_name").asString(""), side, number(a, "quantity"), number(a, "price"),
                 number(a, "fee"), number(a, "realized_pnl"), a.path("strategy").asString(""), a.path("reason").asString(""), at,
                 a.path("exchange").asString(""), a.path("currency").asString(""), market, position, leverage, a.path("interval").asString("")));
@@ -148,24 +148,27 @@ class TradeTools {
         sb.append("체결 ").append(s.trades()).append("건 (매수 ").append(s.buys()).append(" · 매도 ").append(s.sells()).append(" · 청산 ").append(s.closes()).append(")")
                 .append(" · 실현 손익 ").append(plain(s.realizedPnl())).append(" (이익 ").append(s.wins()).append(" · 손해 ").append(s.losses()).append(")")
                 .append(" · 수수료·세금 ").append(plain(s.fees())).append(" · 누적 실현 손익 ").append(plain(d.cumulativePnl())).append('\n');
-        for (TradeJournal.Fill f : d.fills()) {
-            String unit = TradeJournal.unit(f);
-            sb.append("- ").append(TIME.format(f.executedAt())).append(' ').append(f.mode().equals("LIVE") ? "[실계좌] " : "")
-                    .append(f.exchange().isBlank() ? "" : "[" + f.exchange() + "] ")
-                    .append(f.market().equals("FUTURES") ? "[" + TradeTexts.positionLabel(f) + "] " : "")
-                    .append(f.interval().isBlank() ? "" : "[" + f.interval() + "] ")
-                    .append(f.symbolName().isBlank() ? f.symbol() : f.symbolName() + "(" + f.symbol() + ")")
-                    .append(' ').append(TradeTexts.actionLabel(f)).append(' ').append(plain(f.quantity()))
-                    .append(unit.equals("주") ? "주" : " " + unit).append(" @ ").append(plain(f.price(), f.currency()));
-            if (f.realizedPnl() != null) sb.append(" · 손익 ").append(plain(f.realizedPnl(), f.currency()));
-            if (!f.reason().isBlank()) sb.append(" · 이유: ").append(f.reason());
-            else if (!f.strategy().isBlank()) sb.append(" · 전략: ").append(f.strategy());
-            sb.append('\n');
-        }
+        for (TradeJournal.Fill f : d.fills()) appendFill(sb, f);
         sb.append(d.memo().isBlank() ? "사용자 메모: 아직 없음\n" : "사용자 메모: " + d.memo() + "\n");
         sb.append("메모·요약 글·쇼츠는 사용자가 이 화면에서 정해요: ").append(baseUrl).append("/trades?date=").append(date)
                 .append("\n투자 권유로 읽히는 표현(추천·확실한 수익)은 쓰지 마세요.");
         return McpTools.Result.ok(sb.toString());
+    }
+
+    /** 체결 한 줄: 시각 [실계좌] [거래소] [포지션] [봉] 종목 매수·매도 수량 @ 가격 · 손익 · 이유(없으면 전략) */
+    private static void appendFill(StringBuilder sb, TradeJournal.Fill f) {
+        String unit = TradeJournal.unit(f);
+        sb.append("- ").append(TIME.format(f.executedAt())).append(' ').append(f.mode().equals("LIVE") ? "[실계좌] " : "")
+                .append(f.exchange().isBlank() ? "" : "[" + f.exchange() + "] ")
+                .append(f.market().equals("FUTURES") ? "[" + TradeTexts.positionLabel(f) + "] " : "")
+                .append(f.interval().isBlank() ? "" : "[" + f.interval() + "] ")
+                .append(f.symbolName().isBlank() ? f.symbol() : f.symbolName() + "(" + f.symbol() + ")")
+                .append(' ').append(TradeTexts.actionLabel(f)).append(' ').append(plain(f.quantity()))
+                .append(unit.equals("주") ? "주" : " " + unit).append(" @ ").append(plain(f.price(), f.currency()));
+        if (f.realizedPnl() != null) sb.append(" · 손익 ").append(plain(f.realizedPnl(), f.currency()));
+        if (!f.reason().isBlank()) sb.append(" · 이유: ").append(f.reason());
+        else if (!f.strategy().isBlank()) sb.append(" · 전략: ").append(f.strategy());
+        sb.append('\n');
     }
 
     McpTools.Result report(AccessTokens.Caller caller, JsonNode a) {

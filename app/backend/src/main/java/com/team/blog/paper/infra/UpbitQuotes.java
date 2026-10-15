@@ -12,6 +12,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -39,7 +41,7 @@ class UpbitQuotes implements Quotes {
     private final Clock clock;
     private final HttpClient client = HttpClient.newBuilder().connectTimeout(TIMEOUT).build();
     private final JsonMapper json = JsonMapper.builder().build();
-    private volatile Map<String, Quote> cached = Map.of();
+    private final AtomicReference<Map<String, Quote>> cached = new AtomicReference<>(Map.of());
     private volatile Instant cachedAt = Instant.EPOCH;
     /** 마지막으로 업비트가 실패한 시각. 캐시 시간 동안은 다시 부르지 않고 바로 실패를 돌려준다(줄 서서 5초씩 기다리지 않게). */
     private volatile Instant failedAt = Instant.EPOCH;
@@ -52,14 +54,16 @@ class UpbitQuotes implements Quotes {
     @Override
     public Map<String, Quote> latest() {
         Instant now = Times.now(clock);
-        if (!cached.isEmpty() && cachedAt.plus(props.cacheTtl()).isAfter(now)) return cached;
+        Map<String, Quote> hit = cached.get();
+        if (!hit.isEmpty() && cachedAt.plus(props.cacheTtl()).isAfter(now)) return hit;
         synchronized (this) {
             Instant attempt = Times.now(clock);
-            if (!cached.isEmpty() && cachedAt.plus(props.cacheTtl()).isAfter(attempt)) return cached;
+            hit = cached.get();
+            if (!hit.isEmpty() && cachedAt.plus(props.cacheTtl()).isAfter(attempt)) return hit;
             if (failedAt.plus(props.cacheTtl()).isAfter(attempt)) throw new QuotesUnavailable("시세 서버가 잠시 응답하지 않습니다");
             try {
                 Map<String, Quote> fresh = fetch(attempt);
-                cached = fresh;
+                cached.set(fresh);
                 cachedAt = attempt;
                 failedAt = Instant.EPOCH;
                 return fresh;
@@ -80,26 +84,34 @@ class UpbitQuotes implements Quotes {
             if (res.statusCode() != 200) throw new QuotesUnavailable("HTTP " + res.statusCode());
             Map<String, Quote> out = new LinkedHashMap<>();
             for (JsonNode n : json.readTree(res.body())) {
-                String market = n.path("market").asString("");
-                if (!market.startsWith("KRW-")) continue;
-                String symbol = market.substring(4);
-                BigDecimal price = n.path("trade_price").decimalValue();
-                if (PaperCoins.of(symbol).isEmpty() || price == null || price.signum() <= 0) continue;
-                BigDecimal change = n.path("signed_change_rate").isNumber() ? n.path("signed_change_rate").decimalValue() : BigDecimal.ZERO;
-                out.put(symbol, new Quote(symbol, price, change, now));
+                quoteOf(n, now).ifPresent(q -> out.put(q.symbol(), q));
             }
             if (out.size() != PaperCoins.ALL.size()) throw new QuotesUnavailable("코인 " + out.size() + "개만 받음");
             return Map.copyOf(out);
+        } catch (QuotesUnavailable e) {
+            throw unavailable(e.getMessage());
         } catch (IOException | RuntimeException e) {
-            if (e instanceof QuotesUnavailable q) {
-                log.warn("업비트 시세를 받지 못했습니다: {}", q.getMessage());
-                throw q;
-            }
-            log.warn("업비트 시세를 받지 못했습니다: {}", e.getClass().getSimpleName());
-            throw new QuotesUnavailable(e.getClass().getSimpleName());
+            throw unavailable(e.getClass().getSimpleName());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new QuotesUnavailable("interrupted");
         }
+    }
+
+    /** 원화 시장의 다섯 코인 가운데 값이 있는 것만 시세로 바꾼다 */
+    private static Optional<Quote> quoteOf(JsonNode n, Instant now) {
+        String market = n.path("market").asString("");
+        if (!market.startsWith("KRW-")) return Optional.empty();
+        String symbol = market.substring(4);
+        BigDecimal price = n.path("trade_price").decimalValue();
+        if (PaperCoins.of(symbol).isEmpty() || price == null || price.signum() <= 0) return Optional.empty();
+        BigDecimal change = n.path("signed_change_rate").isNumber() ? n.path("signed_change_rate").decimalValue() : BigDecimal.ZERO;
+        return Optional.of(new Quote(symbol, price, change, now));
+    }
+
+    /** 실패 이유를 남기고 시세 없음으로 돌려준다 */
+    private static QuotesUnavailable unavailable(String reason) {
+        log.warn("업비트 시세를 받지 못했습니다: {}", reason);
+        return new QuotesUnavailable(reason);
     }
 }

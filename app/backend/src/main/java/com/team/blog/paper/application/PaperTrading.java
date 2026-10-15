@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 import org.springframework.http.HttpStatus;
@@ -40,6 +41,8 @@ import com.team.blog.trade.application.TradeJournal;
 public class PaperTrading {
     private static final Pattern ORDER_ID = Pattern.compile("[A-Za-z0-9-]{8,64}");
     private static final int REASON_MAX = 300;
+    private static final String TOO_SMALL = "TOO_SMALL";
+    private static final String INVALID = "INVALID";
     public static final String STRATEGY = "포인트 모의투자";
 
     public enum Side { BUY, SELL }
@@ -141,7 +144,6 @@ public class PaperTrading {
         requireEnabled();
         points.ensureWelcome(memberId);
         Valid v = validate(in);
-        String externalId = "paper-" + v.orderId();
         // 같은 주문 번호로 이미 체결했으면 그대로 돌려준다
         if (ordered(memberId, v.orderId())) return duplicate(memberId, v);
         Quotes.Quote quote;
@@ -152,16 +154,17 @@ public class PaperTrading {
         }
         if (quote == null) throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "QUOTES_UNAVAILABLE", "시세를 받지 못해 주문하지 못했어요. 잠시 뒤 다시 시도해 주세요.");
         BigDecimal price = quote.price();
-        Filled filled = tx.execute(st -> {
+        Optional<Filled> done = tx.execute(st -> {
             points.lock(memberId);
-            if (ordered(memberId, v.orderId())) return null;
-            Filled f = v.side() == Side.BUY ? buy(memberId, v, price, externalId) : sell(memberId, v, price, externalId);
+            if (ordered(memberId, v.orderId())) return Optional.empty();
+            Filled f = v.side() == Side.BUY ? buy(memberId, v, price) : sell(memberId, v, price);
             // 이 주문을 끝냈다는 표시. 같은 주문 번호를 다시 받으면 이 줄을 보고 체결하지 않는다
             jdbc.update("INSERT INTO paper_order (member_id, client_order_id, trade_id, created_at) VALUES (?, ?, ?, ?)", memberId, v.orderId(),
                     f.tradeId(), Timestamp.from(Times.now(clock)));
-            return f;
+            return Optional.of(f);
         });
-        if (filled == null) return duplicate(memberId, v);
+        if (done.isEmpty()) return duplicate(memberId, v);
+        Filled filled = done.get();
         Map<String, Quotes.Quote> q;
         try {
             q = quotes.latest();
@@ -172,11 +175,11 @@ public class PaperTrading {
                 filled.reward(), stateWith(memberId, q, null));
     }
 
-    private Filled buy(long memberId, Valid v, BigDecimal price, String externalId) {
+    private Filled buy(long memberId, Valid v, BigDecimal price) {
         long amount = v.amount();
         long fee = BigDecimal.valueOf(amount).multiply(props.feeRate()).setScale(0, RoundingMode.CEILING).longValue();
         BigDecimal qty = BigDecimal.valueOf(amount - fee).divide(price, v.coin().scale(), RoundingMode.DOWN);
-        if (qty.signum() <= 0) throw ApiException.badRequest("TOO_SMALL", "이 금액으로는 " + v.coin().name() + "을(를) 살 수 없어요. 금액을 늘려 주세요.");
+        if (qty.signum() <= 0) throw ApiException.badRequest(TOO_SMALL, "이 금액으로는 " + v.coin().name() + "을(를) 살 수 없어요. 금액을 늘려 주세요.");
         PointLedger.Balance b = points.balance(memberId);
         long fromInvest = Math.min(amount, b.invest());
         long fromShop = amount - fromInvest;
@@ -195,28 +198,25 @@ public class PaperTrading {
                     cost_invest = paper_position.cost_invest + EXCLUDED.cost_invest, cost_shop = paper_position.cost_shop + EXCLUDED.cost_shop,
                     updated_at = EXCLUDED.updated_at
                 """, memberId, v.coin().symbol(), qty, fromInvest, fromShop, Timestamp.from(Times.now(clock)));
-        long tradeId = record(memberId, v, externalId, TradeJournal.Side.BUY, qty, price, fee, null);
+        long tradeId = recordTrade(memberId, v, TradeJournal.Side.BUY, qty, price, fee, null);
         return new Filled(false, tradeId, Side.BUY.name(), v.coin().symbol(), qty, price, fee, null, 0, null);
     }
 
-    private Filled sell(long memberId, Valid v, BigDecimal price, String externalId) {
-        Map<String, Object> pos = jdbc.query("SELECT quantity, cost_invest, cost_shop FROM paper_position WHERE member_id = ? AND symbol = ?",
-                rs -> rs.next() ? Map.<String, Object>of("q", rs.getBigDecimal(1), "ci", rs.getLong(2), "cs", rs.getLong(3)) : null,
-                memberId, v.coin().symbol());
-        if (pos == null) throw ApiException.conflict("NO_POSITION", v.coin().name() + "을(를) 갖고 있지 않아요.");
-        BigDecimal have = (BigDecimal) pos.get("q");
+    private Filled sell(long memberId, Valid v, BigDecimal price) {
+        Holding pos = holding(memberId, v);
+        BigDecimal have = pos.quantity();
         BigDecimal qty = v.all() ? have : v.quantity().setScale(v.coin().scale(), RoundingMode.DOWN);
-        if (qty.signum() <= 0) throw ApiException.badRequest("TOO_SMALL", "팔 수량을 적어 주세요.");
+        if (qty.signum() <= 0) throw ApiException.badRequest(TOO_SMALL, "팔 수량을 적어 주세요.");
         if (qty.compareTo(have) > 0) throw ApiException.conflict("NOT_ENOUGH", "갖고 있는 " + v.coin().name() + "은(는) " + have.stripTrailingZeros().toPlainString() + "개예요.");
         boolean whole = qty.compareTo(have) == 0;
-        long ci = (Long) pos.get("ci");
-        long cs = (Long) pos.get("cs");
+        long ci = pos.costInvest();
+        long cs = pos.costShop();
         BigDecimal ratio = whole ? BigDecimal.ONE : qty.divide(have, 12, RoundingMode.HALF_UP);
         long partInvest = whole ? ci : BigDecimal.valueOf(ci).multiply(ratio).setScale(0, RoundingMode.HALF_UP).longValue();
         long partShop = whole ? cs : BigDecimal.valueOf(cs).multiply(ratio).setScale(0, RoundingMode.HALF_UP).longValue();
         long gross = qty.multiply(price).setScale(0, RoundingMode.DOWN).longValue();
         if (gross < props.minOrder() && !whole) {
-            throw ApiException.badRequest("TOO_SMALL", "한 번에 " + won(props.minOrder()) + " 이상 팔 수 있어요. 남은 것을 모두 팔 때는 금액 제한이 없어요.");
+            throw ApiException.badRequest(TOO_SMALL, "한 번에 " + won(props.minOrder()) + " 이상 팔 수 있어요. 남은 것을 모두 팔 때는 금액 제한이 없어요.");
         }
         long fee = BigDecimal.valueOf(gross).multiply(props.feeRate()).setScale(0, RoundingMode.CEILING).longValue();
         long proceeds = Math.max(0, gross - fee);
@@ -237,6 +237,25 @@ public class PaperTrading {
         String memo = v.coin().name() + " 매도";
         points.credit(memberId, Wallet.INVEST_ONLY, backInvest, PointReason.INVEST, key(v, "sell-invest"), null, memo);
         points.credit(memberId, Wallet.SHOP, backShop, PointReason.INVEST, key(v, "sell-shop"), null, memo);
+        reducePosition(memberId, v, whole, qty, partInvest, partShop);
+        long tradeId = recordTrade(memberId, v, TradeJournal.Side.SELL, qty, price, fee, BigDecimal.valueOf(pnl));
+        long reward = points.creditTradeProfit(memberId, tradeId, pnl);
+        return new Filled(false, tradeId, Side.SELL.name(), v.coin().symbol(), qty, price, fee, pnl, reward, null);
+    }
+
+    /** 보유분 하나: 수량과 지갑별 남은 원금 */
+    private record Holding(BigDecimal quantity, long costInvest, long costShop) {}
+
+    /** 이 코인 보유분. 없으면 409 NO_POSITION */
+    private Holding holding(long memberId, Valid v) {
+        List<Holding> rows = jdbc.query("SELECT quantity, cost_invest, cost_shop FROM paper_position WHERE member_id = ? AND symbol = ?",
+                (rs, i) -> new Holding(rs.getBigDecimal(1), rs.getLong(2), rs.getLong(3)), memberId, v.coin().symbol());
+        if (rows.isEmpty()) throw ApiException.conflict("NO_POSITION", v.coin().name() + "을(를) 갖고 있지 않아요.");
+        return rows.getFirst();
+    }
+
+    /** 판 만큼 보유분을 줄인다. 전부 팔았으면 줄을 지운다 */
+    private void reducePosition(long memberId, Valid v, boolean whole, BigDecimal qty, long partInvest, long partShop) {
         if (whole) {
             jdbc.update("DELETE FROM paper_position WHERE member_id = ? AND symbol = ?", memberId, v.coin().symbol());
         } else {
@@ -245,13 +264,11 @@ public class PaperTrading {
                     WHERE member_id = ? AND symbol = ?
                     """, qty, partInvest, partShop, Timestamp.from(Times.now(clock)), memberId, v.coin().symbol());
         }
-        long tradeId = record(memberId, v, externalId, TradeJournal.Side.SELL, qty, price, fee, BigDecimal.valueOf(pnl));
-        long reward = points.creditTradeProfit(memberId, tradeId, pnl);
-        return new Filled(false, tradeId, Side.SELL.name(), v.coin().symbol(), qty, price, fee, pnl, reward, null);
     }
 
-    private long record(long memberId, Valid v, String externalId, TradeJournal.Side side, BigDecimal qty, BigDecimal price, long fee, BigDecimal pnl) {
-        TradeJournal.Recorded r = journal.record(memberId, new TradeJournal.Input(externalId, TradeJournal.Mode.PAPER, v.coin().symbol(), v.coin().name(),
+    private long recordTrade(long memberId, Valid v, TradeJournal.Side side, BigDecimal qty, BigDecimal price, long fee, BigDecimal pnl) {
+        String externalId = "paper-" + v.orderId();
+        TradeJournal.Recorded r = journal.recordFill(memberId, new TradeJournal.Input(externalId, TradeJournal.Mode.PAPER, v.coin().symbol(), v.coin().name(),
                 side, qty, price, BigDecimal.valueOf(fee), pnl, STRATEGY, v.reason(), Times.now(clock), "UPBIT", "KRW"));
         return r.id();
     }
@@ -277,27 +294,31 @@ public class PaperTrading {
         if (in == null) throw ApiException.badRequest("EMPTY", "주문 내용을 보내 주세요.");
         List<FieldErrorItem> errors = new ArrayList<>();
         String orderId = in.clientOrderId() == null ? "" : in.clientOrderId().strip();
-        if (!ORDER_ID.matcher(orderId).matches()) errors.add(new FieldErrorItem("clientOrderId", "INVALID", "주문 번호가 올바르지 않아요. 화면을 새로 고쳐 주세요."));
+        if (!ORDER_ID.matcher(orderId).matches()) errors.add(new FieldErrorItem("clientOrderId", INVALID, "주문 번호가 올바르지 않아요. 화면을 새로 고쳐 주세요."));
         PaperCoins.Coin coin = PaperCoins.of(in.symbol()).orElse(null);
-        if (coin == null) errors.add(new FieldErrorItem("symbol", "INVALID", "BTC·ETH·XRP·SOL·DOGE 가운데 하나를 골라 주세요."));
-        Side side = null;
-        try {
-            side = Side.valueOf(in.side() == null ? "" : in.side().toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException e) {
-            errors.add(new FieldErrorItem("side", "INVALID", "사기(BUY)·팔기(SELL) 가운데 하나예요."));
-        }
+        if (coin == null) errors.add(new FieldErrorItem("symbol", INVALID, "BTC·ETH·XRP·SOL·DOGE 가운데 하나를 골라 주세요."));
+        Side side = side(in.side(), errors);
         long amount = in.amount() == null ? 0 : in.amount();
         boolean all = Boolean.TRUE.equals(in.all());
         if (side == Side.BUY && (amount < props.minOrder() || amount > 1_000_000_000_000L)) {
-            errors.add(new FieldErrorItem("amount", "INVALID", "한 번에 " + won(props.minOrder()) + " 이상 살 수 있어요."));
+            errors.add(new FieldErrorItem("amount", INVALID, "한 번에 " + won(props.minOrder()) + " 이상 살 수 있어요."));
         }
         if (side == Side.SELL && !all && (in.quantity() == null || in.quantity().signum() <= 0)) {
-            errors.add(new FieldErrorItem("quantity", "INVALID", "팔 수량을 적어 주세요."));
+            errors.add(new FieldErrorItem("quantity", INVALID, "팔 수량을 적어 주세요."));
         }
         String reason = in.reason() == null ? "" : in.reason().strip().replaceAll("\\s+", " ");
         if (reason.length() > REASON_MAX) errors.add(new FieldErrorItem("reason", "TOO_LONG", "이유는 " + REASON_MAX + "자까지예요."));
         if (!errors.isEmpty()) throw ApiException.validation(errors);
         return new Valid(orderId, coin, side, amount, in.quantity(), all, Boolean.TRUE.equals(in.useShop()), reason);
+    }
+
+    private static Side side(String side, List<FieldErrorItem> errors) {
+        try {
+            return Side.valueOf(side == null ? "" : side.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            errors.add(new FieldErrorItem("side", INVALID, "사기(BUY)·팔기(SELL) 가운데 하나예요."));
+            return null;
+        }
     }
 
     private static String key(Valid v, String part) {

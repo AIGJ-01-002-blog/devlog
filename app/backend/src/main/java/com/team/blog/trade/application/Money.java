@@ -71,7 +71,8 @@ public final class Money {
     static int signum(Map<String, BigDecimal> amounts) {
         boolean up = amounts.values().stream().anyMatch(v -> v.signum() > 0);
         boolean down = amounts.values().stream().anyMatch(v -> v.signum() < 0);
-        return up == down ? 0 : up ? 1 : -1;
+        if (up == down) return 0;
+        return up ? 1 : -1;
     }
 
     static boolean crypto(String exchange) {

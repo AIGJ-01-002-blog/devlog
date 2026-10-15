@@ -114,8 +114,10 @@ class WithdrawalTest extends IntegrationTest {
         assertThat(count("SELECT count(*) FROM friendship WHERE member_a_id = ? OR member_b_id = ?", a.memberId(), a.memberId())).isZero();
     }
 
-    @Test
-    void 소셜_회원은_탈퇴를_입력해_탈퇴하고_모든_기기에서_로그아웃되며_복구하면_원래대로다() throws Exception {
+    /** 글 둘·남의 글에 쓴 댓글·받은 좋아요가 있는 소셜 회원 a와, 미리 다른 기기로 로그인해 둔 a */
+    private record Social(Session a, Session b, long mine, long theirs, Browser other, String email) {}
+
+    private Social socialMember() throws Exception {
         Session a = signup(uniqueLogin("wda"));
         Session b = signup(uniqueLogin("wdb"));
         long mine = publish(a, "탈퇴할 글");
@@ -125,6 +127,13 @@ class WithdrawalTest extends IntegrationTest {
         like(b, mine);
         Browser other = relogin(a);
         String email = jdbc.queryForObject("SELECT email FROM auth_identity WHERE member_id = ?", String.class, a.memberId());
+        return new Social(a, b, mine, theirs, other, email);
+    }
+
+    @Test
+    void 소셜_회원은_탈퇴를_입력해야_탈퇴한다() throws Exception {
+        Social f = socialMember();
+        Session a = f.a();
 
         JsonNode summary = read(a.http().perform(get("/api/me/withdrawal")).andExpect(status().isOk()).andReturn());
         assertThat(summary.path("posts").asLong()).isEqualTo(2);
@@ -135,19 +144,33 @@ class WithdrawalTest extends IntegrationTest {
 
         assertThat(code(withdraw(a.http(), false, null, "탈퇴"), 400)).isEqualTo("VALIDATION_FAILED");
         assertThat(code(withdraw(a.http(), true, null, "탈퇴할래요"), 400)).isEqualTo("VALIDATION_FAILED");
+    }
+
+    @Test
+    void 소셜_회원이_탈퇴하면_모든_기기에서_로그아웃된다() throws Exception {
+        Social f = socialMember();
+        Session a = f.a();
         JsonNode done = read(withdraw(a.http(), true, null, "탈퇴").andExpect(status().isOk()).andReturn());
         assertThat(done.path("restoreBy").asString()).isNotBlank();
         assertThat(jdbc.queryForObject("SELECT status FROM member WHERE id = ?", String.class, a.memberId())).isEqualTo("WITHDRAWN");
 
         // 모든 기기에서 로그아웃 (FR-009)
         assertThat(read(a.http().perform(get("/api/auth/me")).andReturn()).path("authenticated").asBoolean()).isFalse();
-        assertThat(read(other.perform(get("/api/auth/me")).andReturn()).path("authenticated").asBoolean()).isFalse();
-        assertThat(mailSubjectsTo(email)).anyMatch(s -> s.contains("탈퇴 신청이 접수됐어요"));
+        assertThat(read(f.other().perform(get("/api/auth/me")).andReturn()).path("authenticated").asBoolean()).isFalse();
+        assertThat(mailSubjectsTo(f.email())).anyMatch(s -> s.contains("탈퇴 신청이 접수됐어요"));
+    }
+
+    @Test
+    void 탈퇴_유예_중에는_블로그가_가려지고_복구_화면만_쓴다() throws Exception {
+        Social f = socialMember();
+        Session a = f.a();
+        Session b = f.b();
+        withdraw(a.http(), true, null, "탈퇴").andExpect(status().isOk());
 
         // 블로그·글은 바로 찾을 수 없고 댓글은 가려진다 (FR-010·FR-011)
-        b.http().perform(get("/api/posts/" + mine)).andExpect(status().isNotFound());
+        b.http().perform(get("/api/posts/" + f.mine())).andExpect(status().isNotFound());
         b.http().perform(get("/api/members/" + a.handle())).andExpect(status().isNotFound());
-        JsonNode comments = read(b.http().perform(get("/api/posts/" + theirs + "/comments")).andExpect(status().isOk()).andReturn());
+        JsonNode comments = read(b.http().perform(get("/api/posts/" + f.theirs() + "/comments")).andExpect(status().isOk()).andReturn());
         assertThat(comments.toString()).doesNotContain("남의 글에 쓴 댓글");
 
         // 유예 중 로그인: 복구 화면만 (FR-016)
@@ -156,14 +179,23 @@ class WithdrawalTest extends IntegrationTest {
         assertThat(me.path("member").path("status").asString()).isEqualTo("WITHDRAWN");
         assertThat(code(back.perform(asJson(post("/api/posts"), Map.of("title", "x", "contentMd", "y"))), 403)).isEqualTo("ACCOUNT_WITHDRAWN");
         assertThat(read(back.perform(get("/api/me/withdrawal")).andExpect(status().isOk()).andReturn()).path("withdrawn").asBoolean()).isTrue();
+    }
+
+    @Test
+    void 탈퇴한_소셜_회원이_복구하면_원래대로다() throws Exception {
+        Social f = socialMember();
+        Session a = f.a();
+        Session b = f.b();
+        withdraw(a.http(), true, null, "탈퇴").andExpect(status().isOk());
+        Browser back = relogin(a);
 
         back.perform(post("/api/me/restore").with(csrf())).andExpect(status().isNoContent());
         assertThat(jdbc.queryForMap("SELECT status, withdrawn_at FROM member WHERE id = ?", a.memberId()))
                 .containsEntry("status", "ACTIVE").containsEntry("withdrawn_at", null);
-        b.http().perform(get("/api/posts/" + mine)).andExpect(status().isOk());
-        assertThat(read(b.http().perform(get("/api/posts/" + theirs + "/comments")).andReturn()).toString()).contains("남의 글에 쓴 댓글");
-        assertThat(count("SELECT count(*) FROM post_like WHERE post_id = ?", mine)).isEqualTo(1);
-        assertThat(mailSubjectsTo(email)).anyMatch(s -> s.contains("계정이 복구됐어요"));
+        b.http().perform(get("/api/posts/" + f.mine())).andExpect(status().isOk());
+        assertThat(read(b.http().perform(get("/api/posts/" + f.theirs() + "/comments")).andReturn()).toString()).contains("남의 글에 쓴 댓글");
+        assertThat(count("SELECT count(*) FROM post_like WHERE post_id = ?", f.mine())).isEqualTo(1);
+        assertThat(mailSubjectsTo(f.email())).anyMatch(s -> s.contains("계정이 복구됐어요"));
         assertThat(code(back.perform(post("/api/me/restore").with(csrf())), 409)).isEqualTo("NOT_WITHDRAWN");
     }
 
@@ -233,8 +265,11 @@ class WithdrawalTest extends IntegrationTest {
         assertThat(read(again.perform(get("/api/auth/me")).andReturn()).path("pendingSignup").asBoolean()).isTrue();
     }
 
-    @Test
-    void 삼십일이_지나면_단계_순서대로_정리하고_익명_처리한다() throws Exception {
+    /** 30일 정리 대상 a: 글·휴지통 글·댓글·답글·좋아요·팔로우·친구·신고·알림을 모두 가진다 */
+    private record PurgeTarget(Session a, Session b, long mine, long trashed, long theirs, long rootWithReply, long lonely, long bRoot,
+                               long caseId, long likeBundle) {}
+
+    private PurgeTarget purgeTarget() throws Exception {
         Session a = signup(uniqueLogin("wpa"));
         Session b = signup(uniqueLogin("wpb"));
         Session c = signup(uniqueLogin("wpc"));
@@ -268,7 +303,20 @@ class WithdrawalTest extends IntegrationTest {
                 SELECT n.id FROM notification n JOIN notification_post np ON np.notification_id = n.id
                 WHERE n.receiver_id = ? AND n.type = 'LIKE' AND np.post_id = ?
                 """, Long.class, b.memberId(), theirs);
-        assertThat(count("SELECT count(*) FROM notification_actor WHERE notification_id = ?", likeBundle)).isEqualTo(2);
+        return new PurgeTarget(a, b, mine, trashed, theirs, rootWithReply, lonely, bRoot, caseId, likeBundle);
+    }
+
+    /** 탈퇴하고 30일이 지난 것으로 만든다 */
+    private void withdrawnLongAgo(Session a) throws Exception {
+        withdraw(a.http(), true, null, "탈퇴").andExpect(status().isOk());
+        overdue(a.memberId());
+    }
+
+    @Test
+    void 삼십일이_지나면_단계_순서대로_정리하고_한_단계라도_실패하면_되돌린다() throws Exception {
+        PurgeTarget t = purgeTarget();
+        Session a = t.a();
+        assertThat(count("SELECT count(*) FROM notification_actor WHERE notification_id = ?", t.likeBundle())).isEqualTo(2);
         assertThat(count("SELECT count(*) FROM notification WHERE receiver_id = ?", a.memberId())).isPositive();
 
         withdraw(a.http(), true, null, "탈퇴").andExpect(status().isOk());
@@ -285,25 +333,41 @@ class WithdrawalTest extends IntegrationTest {
         assertThat(purgeJob.run()).isEqualTo(1);
         // (10) 내 글 전부와 거기 달린 남의 댓글·좋아요
         assertThat(count("SELECT count(*) FROM post WHERE author_id = ?", a.memberId())).isZero();
-        assertThat(count("SELECT count(*) FROM comment WHERE post_id IN (?, ?)", mine, trashed)).isZero();
+        assertThat(count("SELECT count(*) FROM comment WHERE post_id IN (?, ?)", t.mine(), t.trashed())).isZero();
         // (20) 답글 달린 내 댓글은 자리만, 혼자인 댓글·내 답글은 삭제
-        assertThat(jdbc.queryForMap("SELECT content, deleted_at IS NOT NULL AS gone FROM comment WHERE id = ?", rootWithReply))
+        assertThat(jdbc.queryForMap("SELECT content, deleted_at IS NOT NULL AS gone FROM comment WHERE id = ?", t.rootWithReply()))
                 .containsEntry("content", "").containsEntry("gone", true);
-        assertThat(count("SELECT count(*) FROM comment WHERE id = ?", lonely)).isZero();
+        assertThat(count("SELECT count(*) FROM comment WHERE id = ?", t.lonely())).isZero();
         assertThat(count("SELECT count(*) FROM comment WHERE author_id = ? AND parent_id IS NOT NULL", a.memberId())).isZero();
-        assertThat(count("SELECT count(*) FROM comment WHERE id = ?", bRoot)).isEqualTo(1);
+        assertThat(count("SELECT count(*) FROM comment WHERE id = ?", t.bRoot())).isEqualTo(1);
+    }
+
+    @Test
+    void 삼십일이_지나면_좋아요_관계_로그인_수단_알림을_정리한다() throws Exception {
+        PurgeTarget t = purgeTarget();
+        Session a = t.a();
+        withdrawnLongAgo(a);
+        assertThat(purgeJob.run()).isEqualTo(1);
         // (30) 내가 누른 좋아요, (60)(65) 관계
         assertThat(count("SELECT count(*) FROM post_like WHERE member_id = ?", a.memberId())).isZero();
-        assertThat(count("SELECT count(*) FROM post_like WHERE post_id = ?", theirs)).isEqualTo(1);
+        assertThat(count("SELECT count(*) FROM post_like WHERE post_id = ?", t.theirs())).isEqualTo(1);
         assertThat(count("SELECT count(*) FROM follow WHERE follower_id = ? OR followee_id = ?", a.memberId(), a.memberId())).isZero();
         assertThat(count("SELECT count(*) FROM friendship WHERE member_a_id = ? OR member_b_id = ?", a.memberId(), a.memberId())).isZero();
         // (50) 로그인 수단, (70) 받은 알림과 묶음에서 나 빼기
         assertThat(count("SELECT count(*) FROM auth_identity WHERE member_id = ?", a.memberId())).isZero();
         assertThat(count("SELECT count(*) FROM notification WHERE receiver_id = ?", a.memberId())).isZero();
         assertThat(count("SELECT count(*) FROM notification_actor WHERE actor_id = ?", a.memberId())).isZero();
-        assertThat(count("SELECT count(*) FROM notification_actor WHERE notification_id = ?", likeBundle)).isEqualTo(1);
+        assertThat(count("SELECT count(*) FROM notification_actor WHERE notification_id = ?", t.likeBundle())).isEqualTo(1);
+    }
+
+    @Test
+    void 삼십일이_지나면_신고를_정리하고_익명_처리한다() throws Exception {
+        PurgeTarget t = purgeTarget();
+        Session a = t.a();
+        withdrawnLongAgo(a);
+        assertThat(purgeJob.run()).isEqualTo(1);
         // (80) 내 콘텐츠의 대기 신고는 "대상 없음", 내가 쓴 신고의 설명은 비움
-        assertThat(jdbc.queryForMap("SELECT status, handled_by FROM report_case WHERE id = ?", caseId))
+        assertThat(jdbc.queryForMap("SELECT status, handled_by FROM report_case WHERE id = ?", t.caseId()))
                 .containsEntry("status", "CLOSED_NO_TARGET").containsEntry("handled_by", null);
         assertThat(count("SELECT count(*) FROM report WHERE reporter_id = ? AND detail IS NOT NULL", a.memberId())).isZero();
         assertThat(count("SELECT count(*) FROM report WHERE reporter_id = ?", a.memberId())).isEqualTo(1);
@@ -316,7 +380,7 @@ class WithdrawalTest extends IntegrationTest {
         assertThat(m.get("deleted_at")).isNotNull();
         assertThat(count("SELECT count(*) FROM member_agreement WHERE member_id = ?", a.memberId())).isPositive();
         // 남은 자리 댓글은 탈퇴한 사용자로 보인다 (FR-033)
-        assertThat(read(b.http().perform(get("/api/posts/" + theirs + "/comments")).andReturn()).toString())
+        assertThat(read(t.b().http().perform(get("/api/posts/" + t.theirs() + "/comments")).andReturn()).toString())
                 .doesNotContain("답글 달린 내 댓글");
         // 같은 GitHub 계정으로 다시 오면 새 가입이고 옛 주소는 쓸 수 없다 (FR-034)
         Browser again = githubAuthenticated(a.githubId(), a.handle().substring(3), "again", "again" + a.memberId() + "@example.com");

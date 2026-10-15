@@ -44,6 +44,10 @@ public class OAuthServer {
 
     public record Client(String clientId, String clientName, List<String> redirectUris) {}
 
+    /** 앱이 보낸 인가 요청 매개변수 그대로 (검사 전) */
+    public record Authorize(String clientId, String redirectUri, String responseType, String codeChallenge,
+                            String challengeMethod, String scope, String state, String resource) {}
+
     /** 동의 화면에 보일 요청. 검사를 통과한 값만 담는다 */
     public record Request(Client client, String redirectUri, String codeChallenge, AccessTokens.Scope scope, String state) {}
 
@@ -111,20 +115,22 @@ public class OAuthServer {
     }
 
     /** 인가 요청 검사. 앱과 돌아갈 주소가 맞아야 그 뒤 오류를 앱으로 돌려보낼 수 있다. */
-    public Request validate(String clientId, String redirectUri, String responseType, String codeChallenge,
-                            String challengeMethod, String scope, String state, String resource) {
-        Client client = client(clientId).orElseThrow(() -> new OAuthError("invalid_client", "등록되지 않은 앱이에요.", false));
+    public Request validate(Authorize a) {
+        String redirectUri = a.redirectUri();
+        String codeChallenge = a.codeChallenge();
+        String resource = a.resource();
+        Client client = client(a.clientId()).orElseThrow(() -> new OAuthError("invalid_client", "등록되지 않은 앱이에요.", false));
         if (redirectUri == null || !client.redirectUris().contains(redirectUri)) {
             throw new OAuthError(INVALID_REQUEST, "등록되지 않은 돌아갈 주소예요.", false);
         }
-        if (!"code".equals(responseType)) throw new OAuthError("unsupported_response_type", "response_type=code만 받아요.", true);
-        if (codeChallenge == null || !codeChallenge.matches(PKCE_PATTERN) || !"S256".equals(challengeMethod)) {
+        if (!"code".equals(a.responseType())) throw new OAuthError("unsupported_response_type", "response_type=code만 받아요.", true);
+        if (codeChallenge == null || !codeChallenge.matches(PKCE_PATTERN) || !"S256".equals(a.challengeMethod())) {
             throw new OAuthError(INVALID_REQUEST, "PKCE(S256)가 필요해요.", true);
         }
         if (resource != null && !resource.isBlank() && !resource.equals(resource())) {
             throw new OAuthError("invalid_target", "이 서버의 자원이 아니에요.", true);
         }
-        return new Request(client, redirectUri, codeChallenge, parseScope(scope), state);
+        return new Request(client, redirectUri, codeChallenge, parseScope(a.scope()), a.state());
     }
 
     /** 회원이 [허용]을 누르면 코드를 만들어 돌아갈 주소를 돌려준다. */
