@@ -27,7 +27,9 @@ public final class SecretScanner {
 
     /** 주소 안의 비밀번호 (postgres://user:pass@host). 자리표시자(${...}, <...>, ****, password)는 넘긴다 */
     private static final Pattern URL_PASSWORD = Pattern.compile("\\b[a-zA-Z][a-zA-Z0-9+.-]*://[^\\s:/@]+:([^\\s/@]+)@");
-    private static final Pattern PLACEHOLDER = Pattern.compile("(?i)^(?:\\$\\{?.*|<.*>|\\*+|x+|password|passwd|pass|pw|secret|changeme|example)$");
+    private static final Pattern PLACEHOLDER = Pattern.compile("(?i)^(?:\\$.*|<.*>|\\*+|x+|password|passwd|pass|pw|secret|changeme|example)$");
+
+    private static final String URL_PASSWORD_LABEL = "주소 속 비밀번호";
 
     private SecretScanner() {}
 
@@ -39,15 +41,18 @@ public final class SecretScanner {
             for (Rule r : RULES) {
                 if (!found.contains(r.label()) && r.pattern().matcher(text).find()) found.add(r.label());
             }
-            Matcher m = URL_PASSWORD.matcher(text);
-            while (m.find()) {
-                if (!PLACEHOLDER.matcher(m.group(1)).matches()) {
-                    if (!found.contains("주소 속 비밀번호")) found.add("주소 속 비밀번호");
-                    break;
-                }
-            }
+            if (!found.contains(URL_PASSWORD_LABEL) && hasUrlPassword(text)) found.add(URL_PASSWORD_LABEL);
         }
         return found;
+    }
+
+    /** 주소 속 비밀번호 가운데 자리표시자가 아닌 것이 하나라도 있는가 */
+    private static boolean hasUrlPassword(String text) {
+        Matcher m = URL_PASSWORD.matcher(text);
+        while (m.find()) {
+            if (!PLACEHOLDER.matcher(m.group(1)).matches()) return true;
+        }
+        return false;
     }
 
     /** AI에게 돌려줄 안내 문장 */

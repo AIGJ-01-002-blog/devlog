@@ -90,7 +90,7 @@ class McpToolsPlusTest extends IntegrationTest {
     }
 
     @Test
-    void 발행한_글은_작업본에만_고쳐지고_허용했을_때만_AI가_다시_발행한다() throws Exception {
+    void 발행한_글은_작업본에만_고쳐지고_독자는_발행본을_본다() throws Exception {
         Session me = signup(uniqueLogin("mcped"));
         String t = token(me, "WRITE");
         long id = publish(me, "처음 제목", "PUBLIC");
@@ -113,6 +113,19 @@ class McpToolsPlusTest extends IntegrationTest {
         // 본인이 읽으면 고치는 중인 내용이 보인다
         assertThat(text(call(t, "get_post", Map.of("post_id", id)))).contains("고친 본문");
 
+        // 남의 글은 고칠 수 없다
+        Session other = signup(uniqueLogin("mcped2"));
+        assertThat(call(token(other, "WRITE"), "update_draft", Map.of("post_id", id, "title", "남의 글")).path("isError").asBoolean()).isTrue();
+    }
+
+    @Test
+    void 고친_발행_글은_허용했을_때만_AI가_다시_발행한다() throws Exception {
+        Session me = signup(uniqueLogin("mcpre"));
+        String t = token(me, "WRITE");
+        long id = publish(me, "처음 제목", "PUBLIC");
+        JsonNode edit = call(t, "update_draft", Map.of("post_id", id, "title", "고친 제목", "content_md", "고친 본문"));
+        assertThat(edit.path("isError").asBoolean()).as(text(edit)).isFalse();
+
         // 허용하지 않았으면 다시 발행도 막힌다
         assertThat(call(t, "publish_post", Map.of("post_id", id)).path("isError").asBoolean()).isTrue();
         assertThat(jdbc.queryForObject("SELECT title FROM post WHERE id = ?", String.class, id)).isEqualTo("처음 제목");
@@ -124,10 +137,6 @@ class McpToolsPlusTest extends IntegrationTest {
         assertThat(jdbc.queryForObject("SELECT title FROM post WHERE id = ?", String.class, id)).isEqualTo("고친 제목");
         assertThat(jdbc.queryForObject("SELECT content_md FROM post WHERE id = ?", String.class, id)).isEqualTo("고친 본문");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM post_draft WHERE post_id = ?", Integer.class, id)).isZero();
-
-        // 남의 글은 고칠 수 없다
-        Session other = signup(uniqueLogin("mcped2"));
-        assertThat(call(token(other, "WRITE"), "update_draft", Map.of("post_id", id, "title", "남의 글")).path("isError").asBoolean()).isTrue();
     }
 
     @Test

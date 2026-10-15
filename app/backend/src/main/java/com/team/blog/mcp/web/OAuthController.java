@@ -103,7 +103,8 @@ public class OAuthController {
                                               @RequestParam(required = false) String scope,
                                               @RequestParam(required = false) String state,
                                               @RequestParam(required = false) String resource) {
-        OAuthServer.Request req = oauth.validate(clientId, redirectUri, responseType, challenge, method, scope, state, resource);
+        OAuthServer.Request req = oauth.validate(
+                new OAuthServer.Authorize(clientId, redirectUri, responseType, challenge, method, scope, state, resource));
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())
                 .body(new AuthorizeView(req.client().clientName(), java.net.URI.create(req.redirectUri()).getHost(), req.scope()));
     }
@@ -113,8 +114,8 @@ public class OAuthController {
     public Map<String, String> decide(@CurrentMember MemberPrincipal me, @RequestBody AuthorizeRequest body) {
         OAuthServer.Request req;
         try {
-            req = oauth.validate(body.clientId(), body.redirectUri(), body.responseType(), body.codeChallenge(),
-                    body.codeChallengeMethod(), body.scope(), body.state(), body.resource());
+            req = oauth.validate(new OAuthServer.Authorize(body.clientId(), body.redirectUri(), body.responseType(), body.codeChallenge(),
+                    body.codeChallengeMethod(), body.scope(), body.state(), body.resource()));
         } catch (OAuthServer.OAuthError e) {
             if (!e.redirectable) throw e;
             return Map.of("redirect", oauth.errorRedirect(body.redirectUri(), e.error, body.state()));

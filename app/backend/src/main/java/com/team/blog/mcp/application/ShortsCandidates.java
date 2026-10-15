@@ -27,9 +27,11 @@ class ShortsCandidates {
     static final Duration VIEW_WINDOW = Duration.ofDays(30);
 
     private static final Pattern CODE_BLOCK = Pattern.compile("(?s)```.*?```");
+    /** 숫자 덩어리의 맨 앞에서만 시작하고 되돌아가지 않게(*+, ++) 해서 긴 숫자열에서도 한 번만 훑는다 */
     private static final Pattern NUMBER = Pattern.compile(
-            "\\d+(?:[.,]\\d+)?\\s*(?:%|배|초|ms|분|시간|일|명|개|건|번|줄|원|MB|GB|KB|TB|fps|rps|qps)", Pattern.CASE_INSENSITIVE);
-    private static final Pattern PROBLEM = Pattern.compile("문제|오류|에러|버그|실패|원인|막혔|느려|느린|안 ?되|안 ?돼|해결|고쳤");
+            "(?<!\\d)\\d\\d*+(?:[.,]\\d++)?+\\s*+(?:[%배초분일명개건번줄원]|ms|시간|[mgkt]b|[fqr]ps)",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE | Pattern.CANON_EQ);
+    private static final Pattern PROBLEM = Pattern.compile("문제|오류|에러|버그|실패|원인|막혔|느려|느린|안 ?되|안 ?돼|해결|고쳤", Pattern.CANON_EQ);
 
     /** @param reasons 쇼츠로 좋은 점 (글에 있는 것만) */
     record Fit(boolean fit, List<String> reasons) {}

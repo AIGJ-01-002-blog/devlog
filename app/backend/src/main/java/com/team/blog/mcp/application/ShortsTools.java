@@ -65,6 +65,9 @@ class ShortsTools {
             + "그 시각에 매매하는 사람처럼 \"지금 사는 이유\"를 현재형으로 말하되, 체결 이유와 사용자 메모에 있는 것만 쓰고 지어내지 마세요. "
             + "투자 권유 고지는 대본에 넣지 마세요. 영상 맨 끝에 짧은 고지 카드 한 장이 자동으로 붙어요. 추천·확실한 수익 같은 표현은 쓰지 마세요.";
 
+    private static final String POST_ID = "post_id";
+    private static final String TITLE = "title";
+
     static final int CANDIDATES_DEFAULT = 5;
     static final int CANDIDATES_MAX = 10;
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneId.of("Asia/Seoul"));
@@ -100,11 +103,11 @@ class ShortsTools {
 
     /** 근거(글·맥락)를 작은 주제로 나눈 묶음을 만든다 (#276). 대본은 주제마다 create_shorts_script로 쓴다 */
     McpTools.Result plan(AccessTokens.Caller caller, JsonNode a) {
-        Long postId = a.path("post_id").canConvertToLong() ? a.path("post_id").asLong() : null;
+        Long postId = a.path(POST_ID).canConvertToLong() ? a.path(POST_ID).asLong() : null;
         List<ShortsBatches.Topic> topics = new ArrayList<>();
-        for (JsonNode n : a.path("topics")) topics.add(new ShortsBatches.Topic(text(n, "title"), text(n, "hook"), text(n, "scope")));
+        for (JsonNode n : a.path("topics")) topics.add(new ShortsBatches.Topic(text(n, TITLE), text(n, "hook"), text(n, "scope")));
         try {
-            ShortsBatches.Batch b = batches.plan(caller.memberId(), new ShortsBatches.Plan(postId, text(a, "source_text"), text(a, "title"), topics));
+            ShortsBatches.Batch b = batches.plan(caller.memberId(), new ShortsBatches.Plan(postId, text(a, "source_text"), text(a, TITLE), topics));
             StringBuilder sb = new StringBuilder("쇼츠 묶음을 만들었어요 (묶음 번호 " + b.id() + ", 주제 " + b.topics().size() + "개).\n");
             for (ShortsBatches.TopicView t : b.topics()) {
                 sb.append(t.number()).append(". ").append(t.title()).append(" · 첫 질문: ").append(t.hook());
@@ -121,13 +124,13 @@ class ShortsTools {
     }
 
     McpTools.Result create(AccessTokens.Caller caller, JsonNode a) {
-        Long postId = a.path("post_id").canConvertToLong() ? a.path("post_id").asLong() : null;
+        Long postId = a.path(POST_ID).canConvertToLong() ? a.path(POST_ID).asLong() : null;
         Long batchId = a.path("batch_id").canConvertToLong() ? a.path("batch_id").asLong() : null;
         Integer topic = a.path("topic").canConvertToInt() ? a.path("topic").asInt() : null;
         try {
             ShortsService.Item item = batchId != null
-                    ? batches.create(caller.memberId(), batchId, topic, text(a, "title"), scenes(a))
-                    : shorts.create(caller.memberId(), new ShortsService.Draft(postId, text(a, "title"), scenes(a), null, null, text(a, "source_text")));
+                    ? batches.create(caller.memberId(), batchId, topic, text(a, TITLE), scenes(a))
+                    : shorts.create(caller.memberId(), new ShortsService.Draft(postId, text(a, TITLE), scenes(a), null, null, text(a, "source_text")));
             return McpTools.Result.ok("쇼츠 대본을 저장했어요 (쇼츠 번호 " + item.id() + ", 예상 " + Math.round(item.estimatedSeconds()) + "초).\n"
                     + lengthHint(item.estimatedSeconds()) + report(shorts.check(caller.memberId(), item.id()))
                     + "\n영상은 사용자가 이 화면에서 대본을 확인하고 [영상 만들기]를 눌러야 만들어져요: " + studioUrl(item.id()));
@@ -147,7 +150,7 @@ class ShortsTools {
         JsonNode idNode = a.path("shorts_id");
         if (!idNode.canConvertToLong()) return McpTools.Result.fail("쇼츠 번호(shorts_id)가 필요해요.");
         long id = idNode.asLong();
-        String title = a.has("title") ? text(a, "title") : null;
+        String title = a.has(TITLE) ? text(a, TITLE) : null;
         List<ShortsScript.Scene> scenes = a.has("scenes") ? scenes(a) : null;
         if (title == null && scenes == null) return McpTools.Result.fail("바꿀 제목(title)이나 장면(scenes)을 주세요.");
         try {
@@ -285,24 +288,31 @@ class ShortsTools {
     private static List<ShortsScript.Scene> scenes(JsonNode a) {
         List<ShortsScript.Scene> out = new ArrayList<>();
         for (JsonNode n : a.path("scenes")) {
-            // visual은 "typing"이나 {"action":"typing"} 둘 다 받는다 (#277 워커와 같은 모양)
-            JsonNode v = n.path("visual");
-            String visual = v.isString() ? v.asString() : v.isObject() ? text(v, "action") : null;
+            String visual = visual(n.path("visual"));
+            // 도식이 빠졌거나 null이면 장면에 도식을 두지 않는다
+            JsonNode d = n.path("diagram");
+            java.util.Map<String, Object> diagram = d.isMissingNode() || d.isNull() ? null : diagram(d);
             List<ShortsScript.Effect> effects = new ArrayList<>();
             for (JsonNode e : n.path("effects")) {
                 effects.add(new ShortsScript.Effect(text(e, "sound"), e.path("at").asDouble(0),
                         e.path("volume").isNumber() ? e.path("volume").asDouble() : null));
             }
             out.add(new ShortsScript.Scene(text(n, "caption"), text(n, "narration"), n.has("code") ? text(n, "code") : null,
-                    n.has("image") ? text(n, "image") : null, visual, effects, diagram(n.path("diagram"))));
+                    n.has("image") ? text(n, "image") : null, visual, effects, diagram));
         }
         return out;
+    }
+
+    /** visual은 "typing"이나 {"action":"typing"} 둘 다 받는다 (#277 워커와 같은 모양). 그 밖의 값은 null */
+    private static String visual(JsonNode v) {
+        if (v.isString()) return v.asString();
+        if (v.isObject()) return text(v, "action");
+        return null;
     }
 
     /** 설명 도식은 모양 검사(ShortsScript)만 하고 그대로 워커에 넘긴다. 객체가 아닌 값은 빈 도식으로 넘겨 검사에서 거절되게 한다 */
     @SuppressWarnings("unchecked")
     private static java.util.Map<String, Object> diagram(JsonNode n) {
-        if (n.isMissingNode() || n.isNull()) return null;
         return n.isObject() ? DIAGRAM_JSON.convertValue(n, java.util.Map.class) : java.util.Map.of();
     }
 
