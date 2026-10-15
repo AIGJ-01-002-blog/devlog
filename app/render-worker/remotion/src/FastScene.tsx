@@ -5,7 +5,7 @@ import React from 'react';
 import {AbsoluteFill, spring, useCurrentFrame, useVideoConfig} from 'remotion';
 import {Act, Presenter} from './actions';
 import {Background} from './Background';
-import {allItems, DiagramStage} from './Diagram';
+import {allItems, DIAGRAM_H, DiagramStage} from './Diagram';
 import {CodeLine} from './props';
 import {accent, card, theme} from './theme';
 import type {Page, SceneData} from './types';
@@ -18,7 +18,7 @@ const BOTTOM = 1030;
 const CHAR_SCALE = 0.75;
 /** 도식 장면의 발표자는 혼자 아래 칸을 쓰므로 크게(발 아래 끝이 y 1575) */
 const PRESENTER_FEET = 1575;
-const PRESENTER_SCALE = 1.5;
+const PRESENTER_SCALE = 1.95; // 발표자 기본 크기(PRESENTER_SIZE 230)를 아래 칸에 맞게 키운다
 
 /** 컷마다 바꾸는 구도: 위 그림 확대·기준점, 아래 캐릭터 확대 */
 const FRAMES = [
@@ -54,8 +54,8 @@ export const FastScene: React.FC<{scene: SceneData; index: number; title: string
       <div style={{position: 'absolute', top: TOP, left: 36, right: 36, height: TOP_H, overflow: 'hidden', ...card({background: '#ffffffee'})}}>
         <div style={{position: 'absolute', inset: 0, scale: String(f.scale), transformOrigin: f.origin}}>
           {d ? (
-            // 도식은 원래 왼쪽에 발표자 자리를 비워 두므로, 발표자가 아래로 내려간 여기서는 그만큼 왼쪽으로 당긴다
-            <div style={{position: 'absolute', left: d.type === 'stack' || d.type === 'steps' ? -150 : -36, top: 110, width: 1080, height: 720}}>
+            // 도식 칸(DIAGRAM_H)을 위 그림 칸 가운데에 둔다
+            <div style={{position: 'absolute', left: -36, top: (TOP_H - DIAGRAM_H) / 2, width: 1080, height: DIAGRAM_H}}>
               <DiagramStage scene={scene} tint={tint} presenter={false} />
             </div>
           ) : (
