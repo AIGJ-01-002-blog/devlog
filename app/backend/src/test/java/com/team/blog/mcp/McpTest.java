@@ -116,8 +116,8 @@ class McpTest extends IntegrationTest {
     }
 
     @Test
-    void 연결하고_개발_일지를_쓰면_임시글이_되고_발행은_사람이_한다() throws Exception {
-        Session me = signup(uniqueLogin("devlog"));
+    void 연결하면_서버_정보와_발행_도구를_뺀_도구_목록을_돌려준다() throws Exception {
+        Session me = signup(uniqueLogin("devlogi"));
         String t = token(me, "WRITE");
 
         JsonNode init = read(rpc(t, "initialize", Map.of("protocolVersion", "2025-06-18", "capabilities", Map.of(),
@@ -130,12 +130,23 @@ class McpTest extends IntegrationTest {
         JsonNode tools = read(rpc(t, "tools/list", null).andReturn()).path("result").path("tools");
         assertThat(tools.findValuesAsString("name")).contains("write_devlog", "request_publish", "get_post", "list_tags")
                 .doesNotContain("publish_post", "delete_post");
+    }
 
+    /** write_devlog로 임시글을 만들고 그 글 번호를 돌려준다 */
+    long writeDevlog(Session me, String t) throws Exception {
         JsonNode r = call(t, "write_devlog", Map.of("title", "MCP 서버 붙인 날", "content_md", "## 오늘 한 일\n토큰 인증",
                 "tags", List.of("Spring", "MCP", "mcp")));
         assertThat(r.path("isError").asBoolean()).isFalse();
         long id = jdbc.queryForObject("SELECT id FROM post WHERE author_id = ? ORDER BY id DESC LIMIT 1", Long.class, me.memberId());
         assertThat(text(r)).contains("/write/" + id).contains("공개되지 않았어요");
+        return id;
+    }
+
+    @Test
+    void 연결하고_개발_일지를_쓰면_임시글이_되고_발행은_사람이_한다() throws Exception {
+        Session me = signup(uniqueLogin("devlog"));
+        String t = token(me, "WRITE");
+        long id = writeDevlog(me, t);
         assertThat(jdbc.queryForObject("SELECT status FROM post WHERE id = ?", String.class, id)).isEqualTo("DRAFT");
 
         // 편집 화면이 태그 제안을 받는다
@@ -150,6 +161,12 @@ class McpTest extends IntegrationTest {
         assertThat(read(me.http().perform(get("/api/posts/" + id + "/ai-hint")).andReturn()).path("publishRequestedAt").isNull()).isFalse();
         assertThat(text(call(t, "list_my_posts", Map.of()))).contains("MCP 서버 붙인 날 (수정)");
         assertThat(text(call(t, "get_post", Map.of("post_id", id)))).contains("토큰 인증");
+    }
+
+    @Test
+    void 다른_회원은_AI가_쓴_임시글과_글_제안을_볼_수_없다() throws Exception {
+        Session me = signup(uniqueLogin("devlogo"));
+        long id = writeDevlog(me, token(me, "WRITE"));
 
         // 다른 회원의 글 제안은 볼 수 없다
         Session other = signup(uniqueLogin("devlog2"));

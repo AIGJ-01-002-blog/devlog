@@ -32,7 +32,9 @@ import com.team.blog.shorts.application.ShortsService;
 /**
  * 매매 일지 (#243). 집 컴퓨터의 매매 봇이 MCP 도구 record_trade로 체결을 보내면 남기고, 하루(한국 시간) 단위로 묶어 보여 준다.
  * 하루 기록으로 요약 임시글과 쇼츠 대본을 만든다. 공개 여부는 회원이 글·쇼츠마다 정한다(여기서는 임시글·대본까지만 만든다).
- * 실제 주문은 devlog가 하지 않는다. 증권사 접속 정보도 받지 않는다.
+ * 실제 주문은 devlog가 하지 않는다. 증권사·거래소 접속 정보도 받지 않는다.
+ * 코인 거래소(#254)는 원화와 USDT가 섞이므로 손익·수수료 합계를 통화별로 따로 낸다({@link Money}).
+ * 선물(#260)은 포지션 방향이 있어 롱 진입 BUY, 롱 청산 SELL, 숏 진입 SELL, 숏 청산 BUY로 읽는다. 실현 손익은 청산에만 붙는다.
  */
 @Service
 public class TradeJournal {
@@ -44,33 +46,101 @@ public class TradeJournal {
     public static final int MEMO_MAX = 2000;
     /** 한 번에 보는 날 수 */
     public static final int DAYS_MAX = 120;
-    /** numeric(18, 4)에 들어가는 값 */
+    public static final int EXCHANGE_MAX = 20;
+    /** numeric(28, 10)에 넉넉히 들어가는 값 */
     private static final BigDecimal AMOUNT_MAX = new BigDecimal("99999999999999");
     private static final Pattern SYMBOL = Pattern.compile("[A-Za-z0-9._-]{1," + SYMBOL_MAX + "}");
+    private static final Pattern CURRENCY = Pattern.compile("[A-Z]{2,10}");
+    private static final Pattern EXCHANGE = Pattern.compile("[A-Z0-9_]{0," + EXCHANGE_MAX + "}");
+    private static final String INVALID = "INVALID";
+    private static final String REQUIRED = "REQUIRED";
+    private static final String TOO_LONG = "TOO_LONG";
+    private static final String UP_TO_CHARS = "자까지예요.";
+    private static final String EXTERNAL_ID = "external_id";
+    private static final String EXECUTED_AT = "executed_at";
+    private static final String CURRENCY_FIELD = "currency";
+    private static final String REALIZED_PNL = "realized_pnl";
+    private static final String POSITION_SIDE = "position_side";
+    private static final String LEVERAGE = "leverage";
+    /** 선물 레버리지 상한 (블로그 주인 결정 2026-10-14) */
+    public static final int LEVERAGE_MAX = 7;
+    /** 봇이 판단하는 봉 */
+    public static final List<String> INTERVALS = List.of("1m", "5m", "15m", "1h", "4h", "1d");
+
+    private static final String UPSERT_POST_LINK = """
+            INSERT INTO trade_day (member_id, day, post_id, updated_at) VALUES (?, ?, ?, ?)
+            ON CONFLICT (member_id, day) DO UPDATE SET post_id = EXCLUDED.post_id, updated_at = EXCLUDED.updated_at
+            """;
+    private static final String UPSERT_SHORTS_LINK = """
+            INSERT INTO trade_day (member_id, day, shorts_id, updated_at) VALUES (?, ?, ?, ?)
+            ON CONFLICT (member_id, day) DO UPDATE SET shorts_id = EXCLUDED.shorts_id, updated_at = EXCLUDED.updated_at
+            """;
 
     public enum Mode { PAPER, LIVE }
 
     public enum Side { BUY, SELL }
 
-    /** 봇이 보내는 체결 하나 */
+    public enum Market { SPOT, FUTURES }
+
+    public enum PositionSide { LONG, SHORT }
+
+    /**
+     * 봇이 보내는 체결 하나.
+     * @param exchange 거래소 코드(BINANCE·UPBIT…). 비우면 알리지 않은 것
+     * @param currency 가격·수수료·손익의 통화. 비우면 KRW
+     * @param market 비우면 SPOT. positionSide·leverage는 FUTURES에만 (leverage를 비우면 1배)
+     * @param interval 봇이 판단한 봉(1m·5m·15m·1h·4h·1d). 비워도 된다
+     */
     public record Input(String externalId, Mode mode, String symbol, String symbolName, Side side, BigDecimal quantity, BigDecimal price,
-                        BigDecimal fee, BigDecimal realizedPnl, String strategy, String reason, Instant executedAt) {}
+                        BigDecimal fee, BigDecimal realizedPnl, String strategy, String reason, Instant executedAt, String exchange,
+                        String currency, Market market, PositionSide positionSide, Integer leverage, String interval) {
+
+        /** 현물 체결 */
+        public Input(String externalId, Mode mode, String symbol, String symbolName, Side side, BigDecimal quantity, BigDecimal price,
+                     BigDecimal fee, BigDecimal realizedPnl, String strategy, String reason, Instant executedAt, String exchange,
+                     String currency) {
+            this(externalId, mode, symbol, symbolName, side, quantity, price, fee, realizedPnl, strategy, reason, executedAt, exchange,
+                    currency, null, null, null, "");
+        }
+    }
 
     /** @param duplicate 같은 externalId로 이미 남긴 체결이면 true (새로 남기지 않았다) */
     public record Recorded(long id, boolean duplicate, LocalDate day) {}
 
-    public record Fill(long id, String externalId, String mode, String symbol, String symbolName, String side, BigDecimal quantity,
-                       BigDecimal price, BigDecimal fee, BigDecimal realizedPnl, String strategy, String reason, Instant executedAt) {}
+    /** @param positionSide·leverage 선물만 (현물은 null), interval 비어 있으면 알리지 않은 것 */
+    public record Fill(long id, String externalId, String mode, String exchange, String symbol, String symbolName, String side,
+                       BigDecimal quantity, BigDecimal price, String currency, BigDecimal fee, BigDecimal realizedPnl, String strategy,
+                       String reason, Instant executedAt, String market, String positionSide, Integer leverage, String interval) {
 
-    /** @param wins 손익이 0보다 큰 매도 수, losses 0보다 작은 매도 수 */
-    public record Summary(int trades, int buys, int sells, int wins, int losses, BigDecimal realizedPnl, BigDecimal fees) {}
+        /** 포지션을 닫는 체결인가: 현물 매도, 선물 롱 청산(SELL)·숏 청산(BUY) */
+        public boolean closes() {
+            return closes(market, positionSide, side);
+        }
 
-    public record DayRow(LocalDate date, Summary summary, BigDecimal cumulativePnl, boolean memo, Long postId, Long shortsId) {}
+        static boolean closes(String market, String positionSide, String side) {
+            if (Market.FUTURES.name().equals(market)) return PositionSide.SHORT.name().equals(positionSide) ? side.equals("BUY") : side.equals("SELL");
+            return side.equals("SELL");
+        }
+    }
 
-    /** @param cumulativePnl 첫 기록부터 이 날까지 실현 손익 합 */
-    public record Overview(LocalDate from, LocalDate to, List<DayRow> days, Summary total, BigDecimal cumulativePnl, boolean live) {}
+    /**
+     * 손익·수수료는 통화별 금액(통화 코드 → 금액, KRW 먼저).
+     * @param closes 포지션을 닫은 체결 수(현물 매도, 선물 청산)
+     * @param wins 손익이 0보다 큰 청산 수, losses 0보다 작은 청산 수
+     * @param realizedPnl 청산이 있었던 통화마다 실현 손익 합
+     * @param modes PAPER와 LIVE가 섞였을 때만 모드별 요약(PAPER 먼저). 한 모드뿐이면 비어 있다
+     */
+    public record Summary(int trades, int buys, int sells, int closes, int wins, int losses, Map<String, BigDecimal> realizedPnl,
+                          Map<String, BigDecimal> fees, Map<String, Summary> modes) {}
 
-    public record Day(LocalDate date, List<Fill> fills, Summary summary, BigDecimal cumulativePnl, String memo, Long postId, Long shortsId) {}
+    public record DayRow(LocalDate date, Summary summary, Map<String, BigDecimal> cumulativePnl, boolean memo, Long postId, Long shortsId) {}
+
+    /** @param cumulativePnl 첫 기록부터 이 날까지 통화별 실현 손익 합 */
+    public record Overview(LocalDate from, LocalDate to, List<DayRow> days, Summary total, Map<String, BigDecimal> cumulativePnl,
+                           boolean live) {}
+
+    public record Day(LocalDate date, List<Fill> fills, Summary summary, Map<String, BigDecimal> cumulativePnl, String memo, Long postId,
+                      Long shortsId) {}
 
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
@@ -103,7 +173,7 @@ public class TradeJournal {
     }
 
     /** 체결 하나를 남긴다. 같은 externalId면 처음 것을 그대로 두고 duplicate로 알린다 */
-    public Recorded record(long memberId, Input in) {
+    public Recorded recordFill(long memberId, Input in) {
         requireEnabled();
         Input v = validate(in);
         try {
@@ -119,18 +189,24 @@ public class TradeJournal {
                     throw ApiException.conflict("TRADE_DAILY_LIMIT", "체결 기록은 하루 " + props.dailyRecords() + "건까지예요. 봇이 같은 주문을 되풀이하고 있지 않은지 확인해 주세요.");
                 }
                 Long id = jdbc.queryForObject("""
-                        INSERT INTO trade (member_id, external_id, mode, symbol, symbol_name, side, quantity, price, fee, realized_pnl,
-                                           strategy, reason, executed_at, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
-                        """, Long.class, memberId, v.externalId(), v.mode().name(), v.symbol(), v.symbolName(), v.side().name(), v.quantity(),
-                        v.price(), v.fee(), v.realizedPnl(), v.strategy(), v.reason(), Timestamp.from(v.executedAt()),
-                        Timestamp.from(Times.now(clock)));
+                        INSERT INTO trade (member_id, external_id, mode, exchange, symbol, symbol_name, side, quantity, price, currency, fee,
+                                           realized_pnl, strategy, reason, executed_at, created_at, market, position_side, leverage, timeframe)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
+                        """, Long.class, memberId, v.externalId(), v.mode().name(), v.exchange(), v.symbol(), v.symbolName(), v.side().name(),
+                        v.quantity(), v.price(), v.currency(), v.fee(), v.realizedPnl(), v.strategy(), v.reason(), Timestamp.from(v.executedAt()),
+                        Timestamp.from(Times.now(clock)), v.market().name(), v.positionSide() == null ? null : v.positionSide().name(),
+                        v.leverage(), v.interval());
                 return new Recorded(id, false, LocalDate.ofInstant(v.executedAt(), TradeTexts.KST));
             });
         } catch (DuplicateKeyException e) {
             // 잠금 밖(탈퇴 정리 등)에서 같은 번호가 먼저 들어온 드문 경우
             return findByExternal(memberId, v.externalId()).orElseThrow(() -> e);
         }
+    }
+
+    /** 체결 수량의 단위: 주식 "주", 코인 "BTC" 같은 코인 이름 */
+    public static String unit(Fill f) {
+        return Money.unit(f.exchange(), f.symbol(), f.currency());
     }
 
     /** 이 회원의 매매 일지 쓰기를 트랜잭션이 끝날 때까지 한 줄로 세운다 */
@@ -140,7 +216,7 @@ public class TradeJournal {
 
     private Optional<Recorded> findByExternal(long memberId, String externalId) {
         return jdbc.query("SELECT id, executed_at FROM trade WHERE member_id = ? AND external_id = ?",
-                (rs, i) -> new Recorded(rs.getLong("id"), true, LocalDate.ofInstant(rs.getTimestamp("executed_at").toInstant(), TradeTexts.KST)),
+                (rs, i) -> new Recorded(rs.getLong("id"), true, LocalDate.ofInstant(rs.getTimestamp(EXECUTED_AT).toInstant(), TradeTexts.KST)),
                 memberId, externalId).stream().findFirst();
     }
 
@@ -151,27 +227,77 @@ public class TradeJournal {
         String symbolName = trim(in.symbolName());
         String strategy = trim(in.strategy());
         String reason = trim(in.reason()).replaceAll("\\s+", " ");
-        if (externalId.isEmpty()) errors.add(new FieldErrorItem("external_id", "REQUIRED", "봇의 주문·체결 번호(external_id)가 필요해요."));
-        else if (externalId.length() > EXTERNAL_ID_MAX) errors.add(new FieldErrorItem("external_id", "TOO_LONG", "external_id는 " + EXTERNAL_ID_MAX + "자까지예요."));
-        if (!SYMBOL.matcher(symbol).matches()) errors.add(new FieldErrorItem("symbol", "INVALID", "종목 코드(symbol)는 영문·숫자 " + SYMBOL_MAX + "자까지예요. 예: 005930"));
-        if (symbolName.length() > SYMBOL_NAME_MAX) errors.add(new FieldErrorItem("symbol_name", "TOO_LONG", "종목 이름은 " + SYMBOL_NAME_MAX + "자까지예요."));
-        if (in.side() == null) errors.add(new FieldErrorItem("side", "REQUIRED", "매수(BUY)·매도(SELL)를 알려 주세요."));
-        if (in.quantity() == null || in.quantity().signum() <= 0 || in.quantity().compareTo(AMOUNT_MAX) > 0) {
-            errors.add(new FieldErrorItem("quantity", "INVALID", "수량(quantity)은 0보다 커야 해요."));
+        String exchange = trim(in.exchange()).toUpperCase(Locale.ROOT);
+        String currency = trim(in.currency()).toUpperCase(Locale.ROOT);
+        if (currency.isEmpty()) currency = Money.KRW;
+        validateCodes(errors, externalId, symbol, symbolName, exchange, currency);
+        validateAmounts(errors, in);
+        Market market = in.market() == null ? Market.SPOT : in.market();
+        Integer leverage = validatePosition(errors, in, market);
+        String interval = trim(in.interval()).toLowerCase(Locale.ROOT);
+        if (!interval.isEmpty() && !INTERVALS.contains(interval)) {
+            errors.add(new FieldErrorItem("interval", INVALID, "봉(interval)은 " + String.join(", ", INTERVALS) + " 가운데 하나예요."));
         }
-        if (in.price() == null || in.price().signum() < 0 || in.price().compareTo(AMOUNT_MAX) > 0) errors.add(new FieldErrorItem("price", "INVALID", "가격(price)은 0 이상이어야 해요."));
-        if (in.fee() != null && (in.fee().signum() < 0 || in.fee().compareTo(AMOUNT_MAX) > 0)) errors.add(new FieldErrorItem("fee", "INVALID", "수수료(fee)는 0 이상이어야 해요."));
-        if (in.realizedPnl() != null && in.realizedPnl().abs().compareTo(AMOUNT_MAX) > 0) errors.add(new FieldErrorItem("realized_pnl", "INVALID", "실현 손익이 너무 커요."));
-        if (in.realizedPnl() != null && in.side() == Side.BUY) errors.add(new FieldErrorItem("realized_pnl", "INVALID", "실현 손익은 매도(SELL)에만 적어요."));
-        if (strategy.length() > STRATEGY_MAX) errors.add(new FieldErrorItem("strategy", "TOO_LONG", "전략 이름은 " + STRATEGY_MAX + "자까지예요."));
-        if (reason.length() > REASON_MAX) errors.add(new FieldErrorItem("reason", "TOO_LONG", "이유는 " + REASON_MAX + "자까지예요."));
+        validatePnlSide(errors, in, market);
+        if (strategy.length() > STRATEGY_MAX) errors.add(new FieldErrorItem("strategy", TOO_LONG, "전략 이름은 " + STRATEGY_MAX + UP_TO_CHARS));
+        if (reason.length() > REASON_MAX) errors.add(new FieldErrorItem("reason", TOO_LONG, "이유는 " + REASON_MAX + UP_TO_CHARS));
         Instant now = Times.now(clock);
         Instant at = in.executedAt() == null ? now : in.executedAt();
         // 시계가 조금 어긋난 것은 받되, 내일 이후로 적힌 기록은 받지 않는다
-        if (at.isAfter(now.plusSeconds(600))) errors.add(new FieldErrorItem("executed_at", "FUTURE", "체결 시각(executed_at)이 지금보다 뒤예요."));
+        if (at.isAfter(now.plusSeconds(600))) errors.add(new FieldErrorItem(EXECUTED_AT, "FUTURE", "체결 시각(executed_at)이 지금보다 뒤예요."));
         if (!errors.isEmpty()) throw ApiException.validation(errors);
         return new Input(externalId, in.mode() == null ? Mode.PAPER : in.mode(), symbol, symbolName, in.side(), in.quantity(), in.price(),
-                in.fee() == null ? BigDecimal.ZERO : in.fee(), in.realizedPnl(), strategy, reason, at);
+                in.fee() == null ? BigDecimal.ZERO : in.fee(), in.realizedPnl(), strategy, reason, at, exchange, currency, market,
+                market == Market.FUTURES ? in.positionSide() : null, market == Market.FUTURES ? leverage : null, interval);
+    }
+
+    private static void validateCodes(List<FieldErrorItem> errors, String externalId, String symbol, String symbolName, String exchange,
+                                      String currency) {
+        if (externalId.isEmpty()) errors.add(new FieldErrorItem(EXTERNAL_ID, REQUIRED, "봇의 주문·체결 번호(external_id)가 필요해요."));
+        else if (externalId.length() > EXTERNAL_ID_MAX) errors.add(new FieldErrorItem(EXTERNAL_ID, TOO_LONG, "external_id는 " + EXTERNAL_ID_MAX + UP_TO_CHARS));
+        if (!SYMBOL.matcher(symbol).matches()) errors.add(new FieldErrorItem("symbol", INVALID, "종목 코드(symbol)는 영문·숫자 " + SYMBOL_MAX + "자까지예요. 예: BTCUSDT, KRW-BTC, 005930"));
+        if (!CURRENCY.matcher(currency).matches()) errors.add(new FieldErrorItem(CURRENCY_FIELD, INVALID, "통화(currency)는 KRW, USDT처럼 영문 대문자로 적어요."));
+        if (!EXCHANGE.matcher(exchange).matches()) {
+            errors.add(new FieldErrorItem("exchange", INVALID, "거래소(exchange)는 BINANCE, UPBIT처럼 영문 " + EXCHANGE_MAX + UP_TO_CHARS));
+        }
+        if (symbolName.length() > SYMBOL_NAME_MAX) errors.add(new FieldErrorItem("symbol_name", TOO_LONG, "종목 이름은 " + SYMBOL_NAME_MAX + UP_TO_CHARS));
+    }
+
+    private static void validateAmounts(List<FieldErrorItem> errors, Input in) {
+        if (in.side() == null) errors.add(new FieldErrorItem("side", REQUIRED, "매수(BUY)·매도(SELL)를 알려 주세요."));
+        if (in.quantity() == null || in.quantity().signum() <= 0 || in.quantity().compareTo(AMOUNT_MAX) > 0) {
+            errors.add(new FieldErrorItem("quantity", INVALID, "수량(quantity)은 0보다 커야 해요."));
+        }
+        if (in.price() == null || in.price().signum() < 0 || in.price().compareTo(AMOUNT_MAX) > 0) errors.add(new FieldErrorItem("price", INVALID, "가격(price)은 0 이상이어야 해요."));
+        if (in.fee() != null && (in.fee().signum() < 0 || in.fee().compareTo(AMOUNT_MAX) > 0)) errors.add(new FieldErrorItem("fee", INVALID, "수수료(fee)는 0 이상이어야 해요."));
+        if (in.realizedPnl() != null && in.realizedPnl().abs().compareTo(AMOUNT_MAX) > 0) errors.add(new FieldErrorItem(REALIZED_PNL, INVALID, "실현 손익이 너무 커요."));
+    }
+
+    /** 현물·선물에 맞는 포지션 방향·레버리지인지 본다. 선물의 레버리지를 비우면 1배로 돌려준다 */
+    private static Integer validatePosition(List<FieldErrorItem> errors, Input in, Market market) {
+        Integer leverage = in.leverage();
+        if (market == Market.SPOT) {
+            if (in.positionSide() != null) errors.add(new FieldErrorItem(POSITION_SIDE, INVALID, "포지션 방향(position_side)은 선물(market=FUTURES)에만 적어요."));
+            if (leverage != null) errors.add(new FieldErrorItem(LEVERAGE, INVALID, "레버리지(leverage)는 선물(market=FUTURES)에만 적어요."));
+            return leverage;
+        }
+        if (in.positionSide() == null) errors.add(new FieldErrorItem(POSITION_SIDE, REQUIRED, "선물은 포지션 방향(position_side: LONG·SHORT)이 필요해요."));
+        if (leverage == null) return 1;
+        if (leverage < 1 || leverage > LEVERAGE_MAX) {
+            errors.add(new FieldErrorItem(LEVERAGE, INVALID, "레버리지(leverage)는 1~" + LEVERAGE_MAX + "배예요."));
+        }
+        return leverage;
+    }
+
+    /** 실현 손익은 포지션을 닫는 체결에만 */
+    private static void validatePnlSide(List<FieldErrorItem> errors, Input in, Market market) {
+        if (in.realizedPnl() == null || in.side() == null) return;
+        if (market == Market.FUTURES && in.positionSide() == null) return;
+        String positionSide = in.positionSide() == null ? null : in.positionSide().name();
+        if (Fill.closes(market.name(), positionSide, in.side().name())) return;
+        errors.add(new FieldErrorItem(REALIZED_PNL, INVALID, market == Market.SPOT
+                ? "실현 손익은 매도(SELL)에만 적어요."
+                : "실현 손익은 청산에만 적어요. 롱 청산은 SELL, 숏 청산은 BUY예요."));
     }
 
     private static String trim(String s) {
@@ -186,16 +312,18 @@ public class TradeJournal {
         Map<LocalDate, Summary> byDay = new LinkedHashMap<>();
         Map<LocalDate, List<Fill>> fills = groupByDay(fills(memberId, from, to));
         for (var e : fills.entrySet()) byDay.put(e.getKey(), summarize(e.getValue()));
-        BigDecimal before = pnlBefore(memberId, from);
+        Map<String, BigDecimal> before = pnlBefore(memberId, from);
         Map<LocalDate, DayMeta> meta = meta(memberId, from, to);
         List<LocalDate> dates = new ArrayList<>(byDay.keySet());
-        for (LocalDate d : meta.keySet()) if (!byDay.containsKey(d) && meta.get(d).hasContent()) dates.add(d);
+        for (Map.Entry<LocalDate, DayMeta> e : meta.entrySet()) {
+            if (!byDay.containsKey(e.getKey()) && e.getValue().hasContent()) dates.add(e.getKey());
+        }
         dates.sort(null);
         List<DayRow> rows = new ArrayList<>();
-        BigDecimal running = before;
+        Map<String, BigDecimal> running = before;
         for (LocalDate d : dates) {
             Summary s = byDay.getOrDefault(d, summarize(List.of()));
-            running = running.add(s.realizedPnl());
+            running = Money.plus(running, s.realizedPnl());
             DayMeta m = meta.getOrDefault(d, DayMeta.EMPTY);
             rows.add(new DayRow(d, s, running, !m.memo().isBlank(), m.postId(), m.shortsId()));
         }
@@ -210,14 +338,14 @@ public class TradeJournal {
         List<Fill> list = fills(memberId, date, date);
         Summary s = summarize(list);
         DayMeta m = meta(memberId, date, date).getOrDefault(date, DayMeta.EMPTY);
-        BigDecimal cumulative = pnlBefore(memberId, date).add(s.realizedPnl());
+        Map<String, BigDecimal> cumulative = Money.plus(pnlBefore(memberId, date), s.realizedPnl());
         return new Day(date, list, s, cumulative, m.memo(), m.postId(), m.shortsId());
     }
 
     public Day saveMemo(long memberId, LocalDate date, String memo) {
         requireEnabled();
         String m = memo == null ? "" : memo.strip();
-        if (m.length() > MEMO_MAX) throw ApiException.validation(List.of(new FieldErrorItem("memo", "TOO_LONG", "메모는 " + MEMO_MAX + "자까지예요.")));
+        if (m.length() > MEMO_MAX) throw ApiException.validation(List.of(new FieldErrorItem("memo", TOO_LONG, "메모는 " + MEMO_MAX + UP_TO_CHARS)));
         jdbc.update("""
                 INSERT INTO trade_day (member_id, day, memo, updated_at) VALUES (?, ?, ?, ?)
                 ON CONFLICT (member_id, day) DO UPDATE SET memo = EXCLUDED.memo, updated_at = EXCLUDED.updated_at
@@ -242,7 +370,7 @@ public class TradeJournal {
             Day current = day(memberId, date);
             if (current.postId() != null && livePost(current.postId())) return current;
             long postId = posts.create(memberId, TradeTexts.draftTitle(current), TradeTexts.draftBody(current)).id();
-            upsertLink(memberId, date, "post_id", postId);
+            jdbc.update(UPSERT_POST_LINK, memberId, date, postId, Timestamp.from(Times.now(clock)));
             return day(memberId, date);
         });
     }
@@ -265,7 +393,7 @@ public class TradeJournal {
             if (current.shortsId() != null && liveShorts(current.shortsId())) return current;
             Long postId = current.postId() != null && livePost(current.postId()) ? current.postId() : null;
             long shortsId = shorts.create(memberId, new ShortsService.Draft(postId, TradeTexts.shortsTitle(current), TradeTexts.shortsScenes(current))).id();
-            upsertLink(memberId, date, "shorts_id", shortsId);
+            jdbc.update(UPSERT_SHORTS_LINK, memberId, date, shortsId, Timestamp.from(Times.now(clock)));
             return day(memberId, date);
         });
     }
@@ -289,25 +417,28 @@ public class TradeJournal {
         return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM shorts WHERE id = ?)", Boolean.class, shortsId));
     }
 
-    private void upsertLink(long memberId, LocalDate date, String column, long id) {
-        // column은 이 클래스 안의 고정 값(post_id·shorts_id)만 온다
-        jdbc.update("INSERT INTO trade_day (member_id, day, " + column + ", updated_at) VALUES (?, ?, ?, ?) "
-                + "ON CONFLICT (member_id, day) DO UPDATE SET " + column + " = EXCLUDED." + column + ", updated_at = EXCLUDED.updated_at",
-                memberId, date, id, Timestamp.from(Times.now(clock)));
-    }
-
     private List<Fill> fills(long memberId, LocalDate from, LocalDate to) {
         return jdbc.query("""
-                SELECT id, external_id, mode, symbol, symbol_name, side, quantity, price, fee, realized_pnl, strategy, reason, executed_at
+                SELECT id, external_id, mode, exchange, symbol, symbol_name, side, quantity, price, currency, fee, realized_pnl, strategy,
+                       reason, executed_at, market, position_side, leverage, timeframe
                 FROM trade WHERE member_id = ? AND executed_at >= ? AND executed_at < ?
                 ORDER BY executed_at, id
                 """, TradeJournal::fill, memberId, Timestamp.from(start(from)), Timestamp.from(start(to.plusDays(1))));
     }
 
     private static Fill fill(ResultSet rs, int i) throws SQLException {
-        return new Fill(rs.getLong("id"), rs.getString("external_id"), rs.getString("mode"), rs.getString("symbol"), rs.getString("symbol_name"),
-                rs.getString("side"), rs.getBigDecimal("quantity"), rs.getBigDecimal("price"), rs.getBigDecimal("fee"),
-                rs.getBigDecimal("realized_pnl"), rs.getString("strategy"), rs.getString("reason"), rs.getTimestamp("executed_at").toInstant());
+        return new Fill(rs.getLong("id"), rs.getString(EXTERNAL_ID), rs.getString("mode"), rs.getString("exchange"), rs.getString("symbol"),
+                rs.getString("symbol_name"), rs.getString("side"), plain(rs.getBigDecimal("quantity")), plain(rs.getBigDecimal("price")),
+                rs.getString(CURRENCY_FIELD), plain(rs.getBigDecimal("fee")), plain(rs.getBigDecimal(REALIZED_PNL)), rs.getString("strategy"),
+                rs.getString("reason"), rs.getTimestamp(EXECUTED_AT).toInstant(), rs.getString("market"), rs.getString(POSITION_SIDE),
+                rs.getObject(LEVERAGE, Integer.class), rs.getString("timeframe"));
+    }
+
+    /** numeric(28, 10)의 꼬리 0을 지운다 (1.5000000000 → 1.5) */
+    private static BigDecimal plain(BigDecimal v) {
+        if (v == null) return null;
+        BigDecimal s = v.stripTrailingZeros();
+        return s.scale() < 0 ? s.setScale(0) : s;
     }
 
     private static Map<LocalDate, List<Fill>> groupByDay(List<Fill> fills) {
@@ -316,30 +447,48 @@ public class TradeJournal {
         return out;
     }
 
+    /** 모의투자와 실계좌 성적이 섞이지 않게, 둘 다 있으면 모드별 요약도 낸다 (#260) */
     static Summary summarize(List<Fill> fills) {
+        Map<String, Summary> modes = new LinkedHashMap<>();
+        for (Mode m : Mode.values()) {
+            List<Fill> of = fills.stream().filter(f -> f.mode().equals(m.name())).toList();
+            if (!of.isEmpty()) modes.put(m.name(), tally(of, Map.of()));
+        }
+        return tally(fills, modes.size() < 2 ? Map.of() : modes);
+    }
+
+    private static Summary tally(List<Fill> fills, Map<String, Summary> modes) {
         int buys = 0;
         int sells = 0;
+        int closes = 0;
         int wins = 0;
         int losses = 0;
-        BigDecimal pnl = BigDecimal.ZERO;
-        BigDecimal fees = BigDecimal.ZERO;
+        Map<String, BigDecimal> pnl = Money.empty();
+        Map<String, BigDecimal> fees = Money.empty();
         for (Fill f : fills) {
             if (f.side().equals("BUY")) buys++;
             else sells++;
-            fees = fees.add(f.fee());
+            if (f.closes()) {
+                closes++;
+                Money.add(pnl, f.currency(), f.realizedPnl());
+            }
+            Money.add(fees, f.currency(), f.fee());
             if (f.realizedPnl() != null) {
-                pnl = pnl.add(f.realizedPnl());
                 if (f.realizedPnl().signum() > 0) wins++;
                 else if (f.realizedPnl().signum() < 0) losses++;
             }
         }
-        return new Summary(fills.size(), buys, sells, wins, losses, pnl, fees);
+        return new Summary(fills.size(), buys, sells, closes, wins, losses, pnl, fees, modes);
     }
 
-    private BigDecimal pnlBefore(long memberId, LocalDate date) {
-        BigDecimal v = jdbc.queryForObject("SELECT coalesce(sum(realized_pnl), 0) FROM trade WHERE member_id = ? AND executed_at < ?",
-                BigDecimal.class, memberId, Timestamp.from(start(date)));
-        return v == null ? BigDecimal.ZERO : v;
+    private Map<String, BigDecimal> pnlBefore(long memberId, LocalDate date) {
+        Map<String, BigDecimal> out = Money.empty();
+        jdbc.query("""
+                SELECT currency, sum(realized_pnl) AS pnl FROM trade
+                WHERE member_id = ? AND executed_at < ? AND realized_pnl IS NOT NULL GROUP BY currency
+                """, (RowCallbackHandler) rs -> out.put(rs.getString(CURRENCY_FIELD), plain(rs.getBigDecimal("pnl"))), memberId,
+                Timestamp.from(start(date)));
+        return out;
     }
 
     private record DayMeta(String memo, Long postId, Long shortsId) {

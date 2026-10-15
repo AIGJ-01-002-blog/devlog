@@ -48,10 +48,10 @@ class ViewRecorderOutageTest {
         when(props.view()).thenReturn(new BlogProperties.View(Duration.ofHours(24), 1, 60, "bot"));
         ViewRecorder recorder = new ViewRecorder(jdbc, redis, policy, limiter, props, Clock.systemUTC());
 
-        assertThat(recorder.record(10L, new ViewRecorder.Visit(2L, false, null, null, "203.0.113.1", "Mozilla/5.0", false)))
+        assertThat(recorder.recordView(10L, new ViewRecorder.Visit(2L, false, null, null, "203.0.113.1", "Mozilla/5.0", false)))
                 .isEqualTo(Outcome.SKIPPED);
         // 쿠키 없는 비회원은 그날 비밀값을 못 읽으므로 판정 없이 건너뛴다
-        assertThat(recorder.record(10L, new ViewRecorder.Visit(null, false, null, null, "203.0.113.1", "Mozilla/5.0", false)))
+        assertThat(recorder.recordView(10L, new ViewRecorder.Visit(null, false, null, null, "203.0.113.1", "Mozilla/5.0", false)))
                 .isEqualTo(Outcome.SKIPPED);
     }
 }

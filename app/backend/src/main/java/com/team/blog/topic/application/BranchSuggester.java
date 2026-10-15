@@ -68,28 +68,36 @@ public class BranchSuggester {
         double total = tags.publicPostTotal();
         Scorer scorer = new Scorer(mine, usage, total);
 
-        Suggestion bestSeries = null;
-        double seriesScore = props.suggestMinScore();
+        Suggestion bestSeries = bestSeries(memberId, scorer);
+        Suggestion bestTopic = current == null && !optedOut ? bestTopic(scorer) : null;
+        return new Result(current, bestSeries, bestTopic, optedOut);
+    }
+
+    private Suggestion bestSeries(long memberId, Scorer scorer) {
+        Suggestion best = null;
+        double bestScore = props.suggestMinScore();
         for (SeriesQuery.TagProfile p : series.tagProfiles(memberId)) {
             double s = scorer.score(p.tags());
-            if (s >= seriesScore && (bestSeries == null || s > seriesScore)) {
-                seriesScore = s;
-                bestSeries = new Suggestion("SERIES", "s" + p.id(), p.id(), p.name(), null, scorer.shared(p.tags()));
+            if (s >= bestScore && (best == null || s > bestScore)) {
+                bestScore = s;
+                best = new Suggestion("SERIES", "s" + p.id(), p.id(), p.name(), null, scorer.shared(p.tags()));
             }
         }
-        Suggestion bestTopic = null;
-        if (current == null && !optedOut) {
-            double topicScore = props.suggestMinScore();
-            for (TopicQuery.TagProfile p : topics.tagProfiles()) {
-                if (p.postCount() >= props.maxSize()) continue; // 가득 찬 브랜치에는 더 붙지 않는다
-                double s = scorer.score(p.tags());
-                if (s >= topicScore && (bestTopic == null || s > topicScore)) {
-                    topicScore = s;
-                    bestTopic = new Suggestion("TOPIC", "t" + p.key(), null, p.name(), "/?branch=t" + p.key(), scorer.shared(p.tags()));
-                }
+        return best;
+    }
+
+    private Suggestion bestTopic(Scorer scorer) {
+        Suggestion best = null;
+        double bestScore = props.suggestMinScore();
+        for (TopicQuery.TagProfile p : topics.tagProfiles()) {
+            if (p.postCount() >= props.maxSize()) continue; // 가득 찬 브랜치에는 더 붙지 않는다
+            double s = scorer.score(p.tags());
+            if (s >= bestScore && (best == null || s > bestScore)) {
+                bestScore = s;
+                best = new Suggestion("TOPIC", "t" + p.key(), null, p.name(), "/?branch=t" + p.key(), scorer.shared(p.tags()));
             }
         }
-        return new Result(current, bestSeries, bestTopic, optedOut);
+        return best;
     }
 
     /** 희소도 = ln((공개 글 수 + 1) ÷ (그 태그를 쓴 공개 글 수 + 1)) + 1. 처음 쓰는 태그가 가장 무겁다 */

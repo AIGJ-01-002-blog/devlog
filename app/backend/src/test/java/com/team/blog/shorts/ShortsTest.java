@@ -57,7 +57,7 @@ class ShortsTest extends IntegrationTest {
                 .andExpect(status().isCreated()).andReturn()).path("id").asLong();
     }
 
-    private JsonNode create(Session s, Long postId, String title, List<Map<String, String>> scenes) throws Exception {
+    private JsonNode create(Session s, Long postId, String title, List<? extends Map<String, ?>> scenes) throws Exception {
         Map<String, Object> body = new HashMap<>();
         body.put("title", title);
         body.put("scenes", scenes);
@@ -70,8 +70,27 @@ class ShortsTest extends IntegrationTest {
         return r.getResponse().getStatus() == 204 ? null : read(r);
     }
 
+    /** 대본을 쓰고 영상 만들기 대기열에 넣는다 */
+    private long queue(Session me, long postId) throws Exception {
+        long id = create(me, postId, "  배포하면 왜 로그아웃될까  ", GOOD).path("id").asLong();
+        me.http().perform(post("/api/me/shorts/" + id + "/render").with(csrf())).andExpect(status().isOk());
+        return id;
+    }
+
+    /** 워커가 받은 작업의 claim */
+    private String claimOf(long id) throws Exception {
+        JsonNode job = claim();
+        assertThat(job.path("id").asLong()).isEqualTo(id);
+        return job.path("claim").asString();
+    }
+
+    private void upload(long id, String claim) throws Exception {
+        mvc.perform(put("/api/render/jobs/" + id + "/video").param("claim", claim).header("X-Render-Token", TOKEN)
+                .header("X-Duration-Ms", "31500").contentType("video/mp4").content(MP4)).andExpect(status().isOk());
+    }
+
     @Test
-    void 대본을_검사하고_영상을_만들어_미리볼_수_있다() throws Exception {
+    void 대본을_검사하고_영상_만들기_대기열에_넣으면_워커가_받는다() throws Exception {
         Session me = signup(uniqueLogin("shorts"));
         long postId = writePost(me, POST_BODY);
         JsonNode item = create(me, postId, "  배포하면 왜 로그아웃될까  ", GOOD);
@@ -94,8 +113,14 @@ class ShortsTest extends IntegrationTest {
         assertThat(job.path("scenes")).hasSize(4);
         assertThat(job.path("scenes").get(2).path("code").asString()).contains("serializer");
         assertThat(job.path("postUrl").asString()).isEqualTo("/@" + me.handle() + "/posts/" + postId);
-        String claim = job.path("claim").asString();
         assertThat(claim()).as("받은 작업은 다른 워커가 또 받지 않는다").isNull();
+    }
+
+    @Test
+    void 워커는_claim이_맞는_MP4만_올리고_완성된_영상을_미리볼_수_있다() throws Exception {
+        Session me = signup(uniqueLogin("shorts"));
+        long id = queue(me, writePost(me, POST_BODY));
+        String claim = claimOf(id);
 
         // claim이 틀리면 결과를 받지 않는다
         mvc.perform(put("/api/render/jobs/" + id + "/video").param("claim", "wrong").header("X-Render-Token", TOKEN)
@@ -120,6 +145,15 @@ class ShortsTest extends IntegrationTest {
         assertThat(overview.path("items").get(0).path("id").asLong()).isEqualTo(id);
         assertThat(overview.path("workerSeenAt").isNull()).isFalse();
         assertThat(overview.path("rendersToday").asInt()).isEqualTo(1);
+    }
+
+    @Test
+    void 완성된_대본을_고치면_영상이_지워지고_대본_상태로_돌아간다() throws Exception {
+        Session me = signup(uniqueLogin("shorts"));
+        long id = queue(me, writePost(me, POST_BODY));
+        upload(id, claimOf(id));
+        JsonNode ready = read(me.http().perform(get("/api/me/shorts/" + id)).andExpect(status().isOk()).andReturn());
+        String key = jdbc.queryForObject("SELECT video_key FROM shorts WHERE id = ?", String.class, id);
 
         // 대본을 고치면 영상이 지워지고 대본 상태로 돌아간다
         JsonNode edited = read(me.http().perform(asJson(put("/api/me/shorts/" + id),
@@ -133,6 +167,87 @@ class ShortsTest extends IntegrationTest {
 
         me.http().perform(delete("/api/me/shorts/" + id).with(csrf())).andExpect(status().isNoContent());
         me.http().perform(get("/api/me/shorts/" + id)).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void 장면_그림과_연출과_효과음은_워커가_아는_것만_받는다() throws Exception {
+        Session me = signup(uniqueLogin("shortsimg"));
+        long postId = writePost(me, POST_BODY);
+
+        // 바깥 주소는 워커가 아무 곳에나 요청하게 되니 막는다
+        List<Map<String, String>> outside = new java.util.ArrayList<>(GOOD);
+        outside.set(1, Map.of("caption", "범인은 직렬화", "narration", GOOD.get(1).get("narration"), "image", "https://evil.example/x.png"));
+        Map<String, Object> body = Map.of("postId", postId, "title", "그림 있는 쇼츠", "scenes", outside);
+        JsonNode bad = read(me.http().perform(asJson(post("/api/me/shorts"), body)).andExpect(status().isBadRequest()).andReturn());
+        assertThat(bad.toString()).contains("scenes[1].image");
+
+        // 연출 이름과 효과음은 워커가 아는 것만 받는다
+        List<Map<String, ?>> badVisual = new java.util.ArrayList<>(GOOD);
+        badVisual.set(0, Map.of("caption", "배포하면 다 로그아웃?", "narration", GOOD.get(0).get("narration"), "visual", "explode",
+                "effects", List.of(Map.of("sound", "airhorn", "at", 0.5))));
+        JsonNode badBody = read(me.http().perform(asJson(post("/api/me/shorts"), Map.of("title", "연출", "scenes", badVisual)))
+                .andExpect(status().isBadRequest()).andReturn());
+        assertThat(badBody.toString()).contains("scenes[0].visual", "scenes[0].effects");
+    }
+
+    /** 그림·연출·도식·효과음을 넣은 대본을 대기열에 넣고 워커가 받은 작업. key는 장면 그림의 저장소 키 */
+    private record ImageJob(long id, String key, JsonNode job) {}
+
+    private ImageJob claimWithImage() throws Exception {
+        Session me = signup(uniqueLogin("shortsimg"));
+        long postId = writePost(me, POST_BODY);
+        String key = "images/2026/10/" + java.util.UUID.randomUUID() + ".webp";
+        long resource = jdbc.queryForObject("""
+                INSERT INTO resource (uploader_id, storage_key, content_type, size_bytes, kind)
+                VALUES (?, ?, 'image/webp', 10, 'IMAGE') RETURNING id
+                """, Long.class, me.memberId(), key);
+        jdbc.update("INSERT INTO resource_image (resource_id, kind) VALUES (?, 'IMAGE')", resource);
+        jdbc.update("INSERT INTO post_image (post_id, resource_id, position) VALUES (?, ?, 0)", postId, resource);
+
+        List<Map<String, ?>> withImage = new java.util.ArrayList<>(GOOD);
+        withImage.set(0, Map.of("caption", "배포하면 다 로그아웃?", "narration", GOOD.get(0).get("narration"), "visual", "THINK",
+                "effects", List.of(Map.of("sound", "pop", "at", 0.4, "volume", 0.6))));
+        withImage.set(1, Map.of("caption", "범인은 직렬화", "narration", GOOD.get(1).get("narration"), "image", "/media/" + key,
+                "visual", "typing", "effects", List.of(Map.of("sound", "typing", "at", 1.0))));
+        withImage.set(2, Map.of("caption", GOOD.get(2).get("caption"), "narration", GOOD.get(2).get("narration"), "code", GOOD.get(2).get("code"),
+                "diagram", Map.of("type", "stack", "items", List.of("세션", Map.of("label", "직렬화", "icon", "code"), "Redis"), "highlight", 1)));
+        JsonNode item = create(me, postId, "그림 있는 쇼츠", withImage);
+        assertThat(item.path("scenes").get(1).path("image").asString()).isEqualTo("/media/" + key);
+        long id = item.path("id").asLong();
+        me.http().perform(post("/api/me/shorts/" + id + "/render").with(csrf())).andExpect(status().isOk());
+        return new ImageJob(id, key, claim());
+    }
+
+    @Test
+    void 장면_그림과_연출과_도식은_작업에_실어_보낸다() throws Exception {
+        ImageJob r = claimWithImage();
+        JsonNode job = r.job();
+        assertThat(job.path("id").asLong()).isEqualTo(r.id());
+        assertThat(job.path("scenes").get(1).path("image").asString()).isEqualTo("/media/" + r.key());
+        assertThat(job.path("scenes").get(0).path("image").isNull()).isTrue();
+        assertThat(job.path("coverImage").asString()).endsWith("/" + r.key());
+        assertThat(job.path("scenes").get(0).path("visual").asString()).isEqualTo("think");
+        assertThat(job.path("scenes").get(1).path("visual").asString()).isEqualTo("typing");
+        assertThat(job.path("scenes").get(2).path("visual").isNull()).isTrue();
+        assertThat(job.path("scenes").get(2).path("diagram").path("type").asString()).isEqualTo("stack");
+        assertThat(job.path("scenes").get(2).path("diagram").path("items").get(1).path("icon").asString()).isEqualTo("code");
+        assertThat(job.path("scenes").get(2).path("diagram").path("highlight").asInt()).isEqualTo(1);
+        assertThat(job.path("scenes").get(0).path("diagram").isNull()).isTrue();
+    }
+
+    @Test
+    void 효과음은_작업_단위로_펼쳐_보낸다() throws Exception {
+        ImageJob r = claimWithImage();
+        JsonNode job = r.job();
+        assertThat(job.path("id").asLong()).isEqualTo(r.id());
+        assertThat(job.path("scenes").get(0).has("effects")).as("효과음은 작업 단위로만 보낸다").isFalse();
+        JsonNode effects = job.path("effects");
+        assertThat(effects).hasSize(2);
+        assertThat(effects.get(0).path("scene").asInt()).isZero();
+        assertThat(effects.get(0).path("sound").asString()).isEqualTo("pop");
+        assertThat(effects.get(0).path("volume").asDouble()).isEqualTo(0.6);
+        assertThat(effects.get(1).path("scene").asInt()).isEqualTo(1);
+        assertThat(effects.get(1).path("at").asDouble()).isEqualTo(1.0);
     }
 
     @Test
@@ -269,7 +384,7 @@ class ShortsTest extends IntegrationTest {
         long id = create(me, writePost(me, POST_BODY), "배포하면 로그아웃", GOOD).path("id").asLong();
         me.http().perform(post("/api/me/shorts/" + id + "/render").with(csrf())).andExpect(status().isOk());
         JsonNode queued = read(a.perform(get("/api/admin/dashboard")).andExpect(status().isOk()).andReturn()).path("worker");
-        assertThat(queued.path("queued").asLong()).isGreaterThanOrEqualTo(1);
+        assertThat(queued.path("queued").asLong()).isPositive();
         assertThat(queued.path("oldestQueuedAt").isNull()).isFalse();
 
         // 옛 토큰으로 받아 가면 받되, 하루 동안 옛 토큰을 쓰는 워커가 있다고 보여 준다
@@ -277,7 +392,7 @@ class ShortsTest extends IntegrationTest {
         JsonNode after = read(a.perform(get("/api/admin/dashboard")).andExpect(status().isOk()).andReturn()).path("worker");
         assertThat(after.path("lastSeen").isNull()).isFalse();
         assertThat(after.path("previousToken").asBoolean()).isTrue();
-        assertThat(after.path("rendering").asLong()).isGreaterThanOrEqualTo(1);
+        assertThat(after.path("rendering").asLong()).isPositive();
     }
 
     @Test

@@ -58,6 +58,16 @@ public class PasswordPolicy {
         String p = password == null ? "" : password;
         int len = p.codePointCount(0, p.length());
         if (len < MIN || len > MAX) out.add(Code.PASSWORD_LENGTH);
+        addCharViolations(p, out);
+        String lower = p.toLowerCase(Locale.ROOT);
+        String local = localPart(email);
+        if (local.length() >= 3 && lower.contains(local)) out.add(Code.PASSWORD_CONTAINS_EMAIL);
+        if (common.contains(lower)) out.add(Code.PASSWORD_TOO_COMMON);
+        return out;
+    }
+
+    /** 영문·숫자·특수문자가 하나씩 있는지, 쓸 수 없는 글자가 있는지 */
+    private static void addCharViolations(String p, List<Code> out) {
         boolean letter = false;
         boolean digit = false;
         boolean special = false;
@@ -73,11 +83,6 @@ public class PasswordPolicy {
         if (!digit) out.add(Code.PASSWORD_DIGIT);
         if (!special) out.add(Code.PASSWORD_SPECIAL);
         if (other) out.add(Code.PASSWORD_CHARS);
-        String lower = p.toLowerCase(Locale.ROOT);
-        String local = localPart(email);
-        if (local.length() >= 3 && lower.contains(local)) out.add(Code.PASSWORD_CONTAINS_EMAIL);
-        if (common.contains(lower)) out.add(Code.PASSWORD_TOO_COMMON);
-        return out;
     }
 
     /** 위반 규칙을 필드 오류로. 비어 있으면 통과. */

@@ -78,17 +78,7 @@ public class ProfileService {
         String nickname = null;
         if (patch.nicknameSet()) {
             nickname = NicknamePolicy.normalize(patch.nickname());
-            if (!nickname.equals(m.getNickname())) {
-                NicknamePolicy.Code code = nicknamePolicy.check(nickname, memberId);
-                if (code != null) {
-                    errors.add(new FieldErrorItem(NICKNAME_FIELD, code == NicknamePolicy.Code.NICKNAME_DUPLICATE ? "NICKNAME_TAKEN" : code.name(),
-                            code.message()));
-                } else if (m.getNicknameChangedAt() != null
-                        && m.getNicknameChangedAt().plus(props.nickname().changeCooldown()).isAfter(now)) {
-                    nextChangeableAt = m.getNicknameChangedAt().plus(props.nickname().changeCooldown());
-                    errors.add(new FieldErrorItem(NICKNAME_FIELD, "NICKNAME_CHANGE_TOO_SOON", "닉네임은 바꾼 뒤 30일 동안 다시 바꿀 수 없어요."));
-                }
-            }
+            nextChangeableAt = checkNickname(m, memberId, nickname, now, errors);
         }
 
         String bio = null;
@@ -112,6 +102,22 @@ public class ProfileService {
         if (patch.imageSet()) profileImages.attach(memberId, patch.profileImageId());
         members.flush();
         return view(m);
+    }
+
+    /** 바꿀 닉네임을 검사해 errors에 더한다. 아직 바꿀 수 없는 기간이면 다시 바꿀 수 있는 때를 돌려준다 */
+    private Instant checkNickname(Member m, long memberId, String nickname, Instant now, List<FieldErrorItem> errors) {
+        if (nickname.equals(m.getNickname())) return null;
+        NicknamePolicy.Code code = nicknamePolicy.check(nickname, memberId);
+        if (code != null) {
+            errors.add(new FieldErrorItem(NICKNAME_FIELD, code == NicknamePolicy.Code.NICKNAME_DUPLICATE ? "NICKNAME_TAKEN" : code.name(),
+                    code.message()));
+            return null;
+        }
+        if (m.getNicknameChangedAt() != null && m.getNicknameChangedAt().plus(props.nickname().changeCooldown()).isAfter(now)) {
+            errors.add(new FieldErrorItem(NICKNAME_FIELD, "NICKNAME_CHANGE_TOO_SOON", "닉네임은 바꾼 뒤 30일 동안 다시 바꿀 수 없어요."));
+            return m.getNicknameChangedAt().plus(props.nickname().changeCooldown());
+        }
+        return null;
     }
 
     private Profile view(Member m) {

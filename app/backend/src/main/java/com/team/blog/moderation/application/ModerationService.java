@@ -39,6 +39,11 @@ public class ModerationService {
 
     @Transactional
     public void resolve(long adminId, long caseId, Action action, String hideReason) {
+        resolveCase(adminId, caseId, action, hideReason);
+    }
+
+    /** resolve의 본문. 같은 트랜잭션 안의 다른 처리(hidePost)도 이것을 부른다 */
+    private void resolveCase(long adminId, long caseId, Action action, String hideReason) {
         if (action == null) throw invalid("action", "INVALID_ACTION", "처리 방법을 골라 주세요.");
         ReportReason reason = action == Action.HIDE
                 ? ReportReason.parse(hideReason).orElseThrow(() -> invalid("reason", "INVALID_REASON", "숨기는 사유를 골라 주세요."))
@@ -65,6 +70,11 @@ public class ModerationService {
     /** 처리됨 탭의 [숨김 해제] (FR-026·FR-027). 목록 위치는 처음 공개된 시각 그대로라 따로 고칠 것이 없다. 작성자에게 알리지 않는다. */
     @Transactional
     public void unhide(long adminId, long caseId) {
+        unhideCase(adminId, caseId);
+    }
+
+    /** unhide의 본문. 같은 트랜잭션 안의 다른 처리(unhidePost)도 이것을 부른다 */
+    private void unhideCase(long adminId, long caseId) {
         CaseRow c = lock(caseId);
         if (!"HIDDEN".equals(c.status()) || c.targetId() == null) throw new NotFoundException();
         if (c.authorId() == adminId) throw ApiException.badRequest(CANNOT_HANDLE_OWN, "자기 글·댓글의 숨김은 바꿀 수 없어요.");
@@ -96,7 +106,7 @@ public class ModerationService {
         Long pending = jdbc.query("SELECT id FROM report_case WHERE post_id = ? AND status = 'PENDING'", (rs, i) -> rs.getLong(1), postId)
                 .stream().findFirst().orElse(null);
         if (pending != null) {
-            resolve(adminId, pending, Action.HIDE, reason.name());
+            resolveCase(adminId, pending, Action.HIDE, reason.name());
             return pending;
         }
         long caseId = Objects.requireNonNull(jdbc.queryForObject("""
@@ -114,7 +124,7 @@ public class ModerationService {
         Long caseId = jdbc.query("SELECT id FROM report_case WHERE post_id = ? AND status = 'HIDDEN' ORDER BY handled_at DESC, id DESC LIMIT 1",
                 (rs, i) -> rs.getLong(1), postId).stream().findFirst().orElse(null);
         if (caseId != null) {
-            unhide(adminId, caseId);
+            unhideCase(adminId, caseId);
             return;
         }
         // 사건 없이 숨겨진 글(예전 데이터)도 풀 수 있게 한다

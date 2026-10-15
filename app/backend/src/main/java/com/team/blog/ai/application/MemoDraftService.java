@@ -118,6 +118,11 @@ public class MemoDraftService {
         } else if (!local.configured()) {
             return null;
         }
+        return callLocal(memo);
+    }
+
+    /** 외부 AI를 쓸 수 없을 때 집 PC로 다듬는다. 바쁘거나 실패하면 null */
+    private Draft callLocal(String memo) {
         if (!localSlots.tryAcquire()) return null;
         try {
             return parse(local.complete(prompt(memo, local.maxChars()), SCHEMA, MAX_TOKENS, 0.3));

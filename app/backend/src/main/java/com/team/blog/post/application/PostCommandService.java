@@ -143,7 +143,7 @@ public class PostCommandService {
         Instant now = Times.now(clock);
         SaveResult r;
         try {
-            r = autosave.save(postId, memberId, baseVersion, dbVersion, in.title(), in.contentMd(), now, rules.autosaveTtl(), true);
+            r = autosave.save(new AutosaveStore.Entry(postId, memberId, baseVersion, dbVersion, in.title(), in.contentMd()), now, rules.autosaveTtl(), true);
         } catch (RuntimeException e) {
             log.warn("자동 저장 버퍼를 쓸 수 없어 DB에 바로 저장합니다 (post {}): {}", postId, e.getMessage());
             return saveToDatabase(memberId, postId, in, baseVersion, false);
@@ -180,8 +180,8 @@ public class PostCommandService {
         long dbVersion = editorState.dbVersion(post, draft);
         if (useRedis) {
             try {
-                SaveResult r = autosave.save(post.getId(), post.getAuthorId(), baseVersion, dbVersion,
-                        in.title(), in.contentMd(), now, rules.autosaveTtl(), true);
+                SaveResult r = autosave.save(new AutosaveStore.Entry(post.getId(), post.getAuthorId(), baseVersion, dbVersion,
+                        in.title(), in.contentMd()), now, rules.autosaveTtl(), true);
                 return switch (r) {
                     case SaveResult.Saved(long savedVersion) -> savedVersion;
                     case SaveResult.NotOwner n -> throw new NotFoundException();
@@ -227,8 +227,8 @@ public class PostCommandService {
             PostInput published = new PostInput(post.getTitle(), post.getContentMd());
             long version;
             try {
-                SaveResult r = autosave.save(postId, memberId, current.version(), editorState.dbVersion(post, draft),
-                        published.title(), published.contentMd(), now, rules.autosaveTtl(), false);
+                SaveResult r = autosave.save(new AutosaveStore.Entry(postId, memberId, current.version(), editorState.dbVersion(post, draft),
+                        published.title(), published.contentMd()), now, rules.autosaveTtl(), false);
                 version = r instanceof SaveResult.Saved(long savedVersion) ? savedVersion : current.version() + 1;
                 if (!(r instanceof SaveResult.Saved)) autosave.delete(postId);
             } catch (RuntimeException e) {

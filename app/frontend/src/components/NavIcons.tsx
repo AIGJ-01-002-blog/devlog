@@ -45,6 +45,9 @@ const PATHS = {
   arrowUp: <path d="M12 19V5M5 12l7-7 7 7" />,
   wrap: <><path d="M3 6h18M3 12h15a3 3 0 0 1 0 6h-4" /><path d="m16 16-2 2 2 2M3 18h7" /></>,
   check: <path d="M20 6 9 17l-5-5" />,
+  coin: <><circle cx="12" cy="12" r="9" /><path d="M14.8 9.2A3 3 0 0 0 12 8c-1.7 0-3 .9-3 2s1.3 1.7 3 2 3 .9 3 2-1.3 2-3 2a3 3 0 0 1-2.8-1.2M12 6.5V8M12 16v1.5" /></>,
+  // 봉 차트: 포인트 모의투자 (#267)
+  candle: <><path d="M7 3v4M7 15v6M17 3v6M17 17v4" /><rect x="5" y="7" width="4" height="8" rx="1" /><rect x="15" y="9" width="4" height="8" rx="1" /></>,
   video: <><rect x="6" y="2" width="12" height="20" rx="2" /><path d="m10 9 5 3-5 3z" /></>,
 } as const
 

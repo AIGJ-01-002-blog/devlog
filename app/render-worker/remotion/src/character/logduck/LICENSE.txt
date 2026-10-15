@@ -1,0 +1,36 @@
+LOGDUCK — CREATION AND USAGE NOTES
+2026-10-15 / Created for the requester of this devlog character project
+
+1. Character artwork and animation
+The editable vector paths and animation rig in this package were newly
+constructed for this request with AI assistance. No third-party character
+pack, stock character artwork, traced reference character, font, or Google
+emoji artwork is embedded in the delivered SVG or Lottie animation files.
+
+No additional creator attribution, royalty, non-commercial restriction,
+or no-derivatives restriction is imposed by this package on the newly
+generated character artwork and source. The requester may use it in
+commercial videos, edit it, recolor it, and distribute it in their product.
+
+Rights in outputs are governed by the OpenAI terms applicable to the
+requester's account. This file records the provenance of this delivery;
+it does not label third-party software as original artwork or CC0.
+Reference: https://openai.com/policies/row-terms-of-use/
+
+2. Concept reference
+reference/concept.png was generated with the built-in image_gen tool as
+a design reference. The final editable vector artwork was constructed
+separately. The generated reference is not embedded in the Lottie files.
+
+3. Third-party player
+preview/lottie.min.js: lottie-web 5.13.0, MIT License.
+Copyright (c) 2015 Bodymovin, as stated in its bundled notice.
+Preserve licenses/lottie-web-LICENSE.md when redistributing the player.
+Official repository: https://github.com/airbnb/lottie-web
+Downloaded distribution:
+https://cdn.jsdelivr.net/npm/lottie-web@5.13.0/build/player/lottie.min.js
+
+4. Generated documentation and helper code
+README.md, integration/controller.mjs, source/build.mjs, source/validate.mjs,
+and the authored preview/QA pages were written for this request. No added
+attribution requirement is imposed on their use and modification.

@@ -80,21 +80,26 @@ final class CjkEmphasis {
         if (innerStart < lit.length() && lit.charAt(innerStart) == '*') return null;
         for (Node n = openText; n != null; n = n.getNext()) {
             if (!(n instanceof Text t)) continue;
-            String s = t.getLiteral();
-            int searchFrom = n == openText ? innerStart + 1 : 0;
-            int c = s.indexOf(MARK, searchFrom);
-            while (c >= 0) {
-                char insideEnd = c > 0 ? s.charAt(c - 1) : lastCharBefore(t);
-                char after = c + MARK.length() < s.length() ? s.charAt(c + MARK.length()) : charAfter(t);
-                boolean innerOk = insideEnd != 0 && !Character.isWhitespace(insideEnd) && insideEnd != '*';
-                boolean cjk = isCjk(before) || isCjk(after);
-                if (innerOk && cjk && (n != openText || c > innerStart)) {
-                    return wrap(openText, at, t, c);
-                }
-                c = s.indexOf(MARK, c + 1);
-            }
+            boolean same = n == openText;
+            int c = findClose(t, same ? innerStart + 1 : 0, same ? innerStart : -1, before);
+            if (c >= 0) return wrap(openText, at, t, c);
         }
         return null;
+    }
+
+    /** t 안 searchFrom부터 닫는 표시가 될 수 있는 **의 자리를 찾는다. minExclusive보다 뒤여야 한다. 없으면 -1. */
+    private static int findClose(Text t, int searchFrom, int minExclusive, char before) {
+        String s = t.getLiteral();
+        int c = s.indexOf(MARK, searchFrom);
+        while (c >= 0) {
+            char insideEnd = c > 0 ? s.charAt(c - 1) : lastCharBefore(t);
+            char after = c + MARK.length() < s.length() ? s.charAt(c + MARK.length()) : charAfter(t);
+            boolean innerOk = insideEnd != 0 && !Character.isWhitespace(insideEnd) && insideEnd != '*';
+            boolean cjk = isCjk(before) || isCjk(after);
+            if (innerOk && cjk && c > minExclusive) return c;
+            c = s.indexOf(MARK, c + 1);
+        }
+        return -1;
     }
 
     /** openText[at]의 **부터 closeText[c]의 **까지를 StrongEmphasis 하나로 묶는다. */

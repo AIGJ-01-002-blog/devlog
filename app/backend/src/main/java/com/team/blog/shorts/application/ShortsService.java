@@ -7,7 +7,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -34,6 +34,7 @@ import com.team.blog.shared.error.FieldErrorItem;
 import com.team.blog.shared.error.NotFoundException;
 import com.team.blog.shared.markdown.ImageUrls;
 import com.team.blog.shared.stats.Counts;
+import com.team.blog.shared.text.TextCleaner;
 import com.team.blog.shared.time.Times;
 import com.team.blog.shorts.application.ShortsScript.Scene;
 
@@ -51,10 +52,10 @@ public class ShortsService {
     public record Item(long id, Long postId, String postTitle, String postUrl, String title, List<Scene> scenes, Status status,
                        int attempts, String videoUrl, Integer durationMs, Long videoBytes, String error, double estimatedSeconds,
                        Instant queuedAt, Instant renderedAt, Instant createdAt, Instant updatedAt, int version,
-                       List<String> postTags, List<Upload> uploads) {
+                       List<String> postTags, List<Upload> uploads, Long batchId, Integer topic, TradeReplay replay) {
         Item with(List<String> tags, List<Upload> ups) {
             return new Item(id, postId, postTitle, postUrl, title, scenes, status, attempts, videoUrl, durationMs, videoBytes, error,
-                    estimatedSeconds, queuedAt, renderedAt, createdAt, updatedAt, version, tags, ups);
+                    estimatedSeconds, queuedAt, renderedAt, createdAt, updatedAt, version, tags, ups, batchId, topic, replay);
         }
     }
 
@@ -66,7 +67,15 @@ public class ShortsService {
     /** @param workerSeenAt 렌더 워커가 마지막으로 일을 받으러 온 시각. 없으면 아직 한 번도 오지 않았거나 오래 전 */
     public record Overview(List<Item> items, Instant workerSeenAt, int rendersToday, int dailyRenders) {}
 
-    public record Draft(Long postId, String title, List<Scene> scenes) {}
+    /**
+     * @param batchId·topic 주제 묶음(#276)에서 만들 때만. 근거 확인은 ShortsBatches가 한다
+     * @param sourceText MCP로 받은 맥락 근거(선택). 양산형 검사가 원문 복사를 비교한다
+     */
+    public record Draft(Long postId, String title, List<Scene> scenes, Long batchId, Integer topic, String sourceText) {
+        public Draft(Long postId, String title, List<Scene> scenes) {
+            this(postId, title, scenes, null, null, null);
+        }
+    }
 
     public record Edit(String title, List<Scene> scenes, Integer version) {}
 
@@ -78,6 +87,13 @@ public class ShortsService {
             FROM shorts s
             LEFT JOIN post p ON p.id = s.post_id AND p.deleted_at IS NULL
             LEFT JOIN member m ON m.id = p.author_id
+            """;
+    /** 대본을 고치면 대기·완성 상태를 비우고 대본 상태로 돌린다 */
+    private static final String RESET_TO_DRAFT = """
+            UPDATE shorts SET title = ?, scenes = ?::jsonb, status = 'DRAFT', attempts = 0, claim_token = NULL, queued_at = NULL,
+                   claimed_at = NULL, video_key = NULL, video_bytes = NULL, duration_ms = NULL, rendered_at = NULL, error = NULL,
+                   version = version + 1, updated_at = ?
+            WHERE id = ?
             """;
 
     private final JdbcTemplate jdbc;
@@ -122,16 +138,35 @@ public class ShortsService {
     }
 
     public Item create(long memberId, Draft draft) {
+        return create(memberId, draft, null);
+    }
+
+    /**
+     * 매매 재현 쇼츠 (#265). 고른 체결과 차트 구간을 대본과 함께 남긴다. 체결을 고르고 구간을 정하는 일은 매매 일지(TradeReplays)가 한다.
+     * 대본을 고쳐도 체결·구간은 그대로다(다른 체결로 만들려면 새로 만든다).
+     */
+    public Item createReplay(long memberId, Draft draft, TradeReplay replay) {
+        return create(memberId, draft, Objects.requireNonNull(replay));
+    }
+
+    private Item create(long memberId, Draft draft, TradeReplay replay) {
         requireEnabled();
         String title = ShortsScript.cleanTitle(draft.title());
         List<Scene> scenes = scenes(draft.scenes());
-        reject(ShortsScript.checkSave(title, scenes));
+        String source = draft.sourceText() == null ? "" : TextCleaner.cleanMultiline(draft.sourceText());
+        List<FieldErrorItem> errors = new ArrayList<>(ShortsScript.checkSave(title, scenes));
+        errors.addAll(imageErrors(scenes));
+        if (source.length() > ShortsBatches.SOURCE_MAX) {
+            errors.add(new FieldErrorItem("sourceText", "TOO_LONG", "맥락 근거는 " + ShortsBatches.SOURCE_MAX + "자까지예요."));
+        }
+        reject(errors);
         if (draft.postId() != null) ownPost(memberId, draft.postId());
         Instant now = Times.now(clock);
         Long id = jdbc.queryForObject("""
-                INSERT INTO shorts (member_id, post_id, title, scenes, created_at, updated_at)
-                VALUES (?, ?, ?, ?::jsonb, ?, ?) RETURNING id
-                """, Long.class, memberId, draft.postId(), title, json.writeValueAsString(scenes), Timestamp.from(now), Timestamp.from(now));
+                INSERT INTO shorts (member_id, post_id, title, scenes, batch_id, topic, source_text, replay, created_at, updated_at)
+                VALUES (?, ?, ?, ?::jsonb, ?, ?, ?, ?::jsonb, ?, ?) RETURNING id
+                """, Long.class, memberId, draft.postId(), title, json.writeValueAsString(scenes), draft.batchId(), draft.topic(), source,
+                replay == null ? null : json.writeValueAsString(replay), Timestamp.from(now), Timestamp.from(now));
         return get(memberId, id);
     }
 
@@ -141,7 +176,7 @@ public class ShortsService {
      */
     public Item update(long memberId, long id, Edit edit) {
         requireEnabled();
-        String oldVideo = tx.execute(s -> {
+        Optional<String> oldVideo = tx.execute(s -> {
             Item cur = lock(memberId, id);
             if (cur.status() == Status.RENDERING) throw ApiException.conflict("SHORTS_RENDERING", "영상을 만드는 중이에요. 다 만들어진 뒤에 고쳐 주세요.");
             if (edit.version() != null && edit.version() != cur.version()) {
@@ -149,17 +184,14 @@ public class ShortsService {
             }
             String title = edit.title() == null ? cur.title() : ShortsScript.cleanTitle(edit.title());
             List<Scene> scenes = edit.scenes() == null ? cur.scenes() : scenes(edit.scenes());
-            reject(ShortsScript.checkSave(title, scenes));
-            String video = jdbc.queryForObject("SELECT video_key FROM shorts WHERE id = ?", String.class, id);
-            jdbc.update("""
-                    UPDATE shorts SET title = ?, scenes = ?::jsonb, status = 'DRAFT', attempts = 0, claim_token = NULL, queued_at = NULL,
-                           claimed_at = NULL, video_key = NULL, video_bytes = NULL, duration_ms = NULL, rendered_at = NULL, error = NULL,
-                           version = version + 1, updated_at = ?
-                    WHERE id = ?
-                    """, title, json.writeValueAsString(scenes), Timestamp.from(Times.now(clock)), id);
+            List<FieldErrorItem> errors = new ArrayList<>(ShortsScript.checkSave(title, scenes));
+            errors.addAll(imageErrors(scenes));
+            reject(errors);
+            Optional<String> video = videoKey(id);
+            jdbc.update(RESET_TO_DRAFT, title, json.writeValueAsString(scenes), Timestamp.from(Times.now(clock)), id);
             return video;
         });
-        if (oldVideo != null) storage.delete(oldVideo);
+        oldVideo.ifPresent(storage::delete);
         return get(memberId, id);
     }
 
@@ -222,7 +254,7 @@ public class ShortsService {
         jdbc.query("""
                 SELECT u.platform, count(*) FROM shorts_upload u JOIN shorts s ON s.id = u.shorts_id
                 WHERE s.member_id = ? GROUP BY u.platform
-                """, rs -> { uploads.put(UploadLink.Platform.valueOf(rs.getString(1)), rs.getLong(2)); }, memberId);
+                """, (RowCallbackHandler) rs -> uploads.put(UploadLink.Platform.valueOf(rs.getString(1)), rs.getLong(2)), memberId);
         List<UploadLine> recent = jdbc.query("""
                 SELECT s.id, s.title, u.platform, u.url, u.uploaded_at FROM shorts_upload u JOIN shorts s ON s.id = u.shorts_id
                 WHERE s.member_id = ? ORDER BY u.uploaded_at DESC, s.id DESC LIMIT ?
@@ -263,13 +295,18 @@ public class ShortsService {
 
     public void delete(long memberId, long id) {
         requireEnabled();
-        String video = tx.execute(s -> {
+        Optional<String> video = tx.execute(s -> {
             lock(memberId, id);
-            String key = jdbc.queryForObject("SELECT video_key FROM shorts WHERE id = ?", String.class, id);
+            Optional<String> key = videoKey(id);
             jdbc.update("DELETE FROM shorts WHERE id = ?", id);
             return key;
         });
-        if (video != null) storage.delete(video);
+        video.ifPresent(storage::delete);
+    }
+
+    /** 잠근 쇼츠의 영상 파일 키. 아직 영상이 없으면 비어 있다 */
+    private Optional<String> videoKey(long id) {
+        return Optional.ofNullable(jdbc.queryForObject("SELECT video_key FROM shorts WHERE id = ?", String.class, id));
     }
 
     /**
@@ -277,8 +314,9 @@ public class ShortsService {
      * 뒤 단계가 실패해 롤백되면 행과 파일이 함께 남아 다음 정리 때 다시 한다(롤백된 행이 지운 파일을 가리키지 않게).
      */
     public void purge(long memberId) {
-        List<String> keys = jdbc.queryForList("SELECT video_key FROM shorts WHERE member_id = ? AND video_key IS NOT NULL", String.class, memberId);
+        List<String> keys = jdbc.query("SELECT video_key FROM shorts WHERE member_id = ? AND video_key IS NOT NULL", (rs, i) -> rs.getString(1), memberId);
         jdbc.update("DELETE FROM shorts WHERE member_id = ?", memberId);
+        jdbc.update("DELETE FROM shorts_batch WHERE member_id = ?", memberId);
         if (keys.isEmpty()) return;
         afterCommit(() -> keys.forEach(this::deleteQuietly));
     }
@@ -304,15 +342,32 @@ public class ShortsService {
         });
     }
 
+    /** 근거는 바탕 글 본문과 MCP로 받은 맥락(#276)을 함께 본다. 같은 묶음의 다른 편은 따로 표시해 겹침을 더 낮은 기준으로 본다 */
     OriginalityCheck.Report originality(long memberId, Item item) {
-        String source = item.postId() == null ? null : jdbc.query(
-                "SELECT content_md FROM post WHERE id = ? AND author_id = ? AND deleted_at IS NULL",
-                rs -> rs.next() ? rs.getString(1) : null, item.postId(), memberId);
+        String post = item.postId() == null ? null : postBody(memberId, item.postId());
+        String context = jdbc.queryForObject("SELECT source_text FROM shorts WHERE id = ?", String.class, item.id());
+        String source = source(post, context);
         List<OriginalityCheck.OtherScript> others = new ArrayList<>();
-        jdbc.query("SELECT id, title, scenes::text FROM shorts WHERE member_id = ? AND id <> ? ORDER BY updated_at DESC LIMIT " + LIST_MAX,
-                rs -> { others.add(new OriginalityCheck.OtherScript(rs.getLong(1), rs.getString(2), parse(rs.getString(3)))); },
+        jdbc.query("SELECT id, title, scenes::text, batch_id FROM shorts WHERE member_id = ? AND id <> ? ORDER BY updated_at DESC LIMIT " + LIST_MAX,
+                rs -> {
+                    long batch = rs.getLong(4);
+                    boolean sibling = !rs.wasNull() && item.batchId() != null && batch == item.batchId();
+                    others.add(new OriginalityCheck.OtherScript(rs.getLong(1), rs.getString(2), parse(rs.getString(3)), sibling));
+                },
                 memberId, item.id());
         return OriginalityCheck.check(item.scenes(), source, others);
+    }
+
+    private String postBody(long memberId, long postId) {
+        return jdbc.query("SELECT content_md FROM post WHERE id = ? AND author_id = ? AND deleted_at IS NULL",
+                rs -> rs.next() ? rs.getString(1) : null, postId, memberId);
+    }
+
+    /** 근거가 하나도 없으면 null */
+    private static String source(String post, String context) {
+        boolean noContext = context == null || context.isEmpty();
+        if (post == null && noContext) return null;
+        return String.join("\n\n", Objects.toString(post, ""), Objects.toString(context, ""));
     }
 
     int rendersToday(long memberId) {
@@ -341,30 +396,25 @@ public class ShortsService {
         Map<Long, List<String>> tags = new HashMap<>();
         List<Long> postIds = items.stream().map(Item::postId).filter(Objects::nonNull).distinct().toList();
         if (!postIds.isEmpty()) {
-            jdbc.query("SELECT pt.post_id, t.name FROM post_tag pt JOIN tag t ON t.id = pt.tag_id WHERE pt.post_id IN (" + marks(postIds.size())
-                            + ") ORDER BY pt.post_id, pt.position",
-                    rs -> { tags.computeIfAbsent(rs.getLong(1), k -> new ArrayList<>()).add(rs.getString(2)); }, postIds.toArray());
+            jdbc.query("SELECT pt.post_id, t.name FROM post_tag pt JOIN tag t ON t.id = pt.tag_id WHERE pt.post_id = ANY (?) ORDER BY pt.post_id, pt.position",
+                    (RowCallbackHandler) rs -> tags.computeIfAbsent(rs.getLong(1), k -> new ArrayList<>()).add(rs.getString(2)),
+                    (Object) postIds.toArray(Long[]::new));
         }
         Map<Long, List<Upload>> uploads = new HashMap<>();
         List<Long> ids = items.stream().map(Item::id).toList();
-        jdbc.query("SELECT shorts_id, platform, url, uploaded_at FROM shorts_upload WHERE shorts_id IN (" + marks(ids.size()) + ") ORDER BY platform",
-                rs -> {
-                    uploads.computeIfAbsent(rs.getLong(1), k -> new ArrayList<>()).add(new Upload(
-                            UploadLink.Platform.valueOf(rs.getString(2)), rs.getString(3), rs.getTimestamp(4).toInstant()));
-                }, ids.toArray());
+        jdbc.query("SELECT shorts_id, platform, url, uploaded_at FROM shorts_upload WHERE shorts_id = ANY (?) ORDER BY platform",
+                (RowCallbackHandler) rs -> uploads.computeIfAbsent(rs.getLong(1), k -> new ArrayList<>()).add(new Upload(
+                        UploadLink.Platform.valueOf(rs.getString(2)), rs.getString(3), rs.getTimestamp(4).toInstant())),
+                (Object) ids.toArray(Long[]::new));
         return items.stream().map(it -> it.with(
                 it.postId() == null ? List.of() : List.copyOf(tags.getOrDefault(it.postId(), List.of())),
                 List.copyOf(uploads.getOrDefault(it.id(), List.of())))).toList();
     }
 
-    private static String marks(int n) {
-        return String.join(", ", Collections.nCopies(n, "?"));
-    }
-
     private Item lock(long memberId, long id) {
-        Long locked = jdbc.query("SELECT id FROM shorts WHERE id = ? AND member_id = ? FOR UPDATE",
-                rs -> rs.next() ? rs.getLong(1) : null, id, memberId);
-        if (locked == null) throw new NotFoundException();
+        List<Long> locked = jdbc.query("SELECT id FROM shorts WHERE id = ? AND member_id = ? FOR UPDATE",
+                (rs, i) -> rs.getLong(1), id, memberId);
+        if (locked.isEmpty()) throw new NotFoundException();
         return find(memberId, id).orElseThrow(NotFoundException::new);
     }
 
@@ -376,7 +426,25 @@ public class ShortsService {
 
     private static List<Scene> scenes(List<Scene> raw) {
         if (raw == null) return List.of();
-        return raw.stream().map(s -> s == null ? new Scene("", "", null) : new Scene(s.caption(), s.narration(), s.code())).toList();
+        return raw.stream().map(s -> s == null ? new Scene("", "", null) : new Scene(s.caption(), s.narration(), s.code(), s.image(), s.visual(), s.effects(), s.diagram())).toList();
+    }
+
+    /**
+     * 장면 그림은 렌더 워커가 내려받으므로 우리 그림만 받는다: devlog에 올린 그림 주소이거나 "/"로 시작하는 사이트 경로.
+     * 바깥 주소를 받으면 워커가 아무 곳에나 요청을 보내게 된다.
+     */
+    private List<FieldErrorItem> imageErrors(List<Scene> scenes) {
+        List<FieldErrorItem> errors = new ArrayList<>();
+        for (int i = 0; i < scenes.size(); i++) {
+            String image = scenes.get(i).image();
+            if (image == null) continue;
+            boolean sitePath = image.startsWith("/") && !image.startsWith("//") && image.chars().noneMatch(c -> Character.isWhitespace(c) || c == '\\');
+            if (image.length() > ShortsScript.IMAGE_MAX || !(sitePath || urls.keyOf(image) != null)) {
+                errors.add(new FieldErrorItem("scenes[" + i + "].image", "INVALID",
+                        (i + 1) + "번 장면 그림은 devlog에 올린 그림 주소나 /로 시작하는 사이트 경로만 쓸 수 있어요."));
+            }
+        }
+        return errors;
     }
 
     private static void reject(List<FieldErrorItem> errors) {
@@ -403,7 +471,21 @@ public class ShortsService {
                 urls.urlOf(rs.getString("video_key")), durationMs, videoBytes, rs.getString("error"),
                 Math.round(ShortsScript.estimateSeconds(scenes) * 10) / 10.0,
                 instant(rs, "queued_at"), instant(rs, "rendered_at"), instant(rs, "created_at"), instant(rs, "updated_at"),
-                rs.getInt("version"), List.of(), List.of());
+                rs.getInt("version"), List.of(), List.of(), nullableLong(rs, "batch_id"), nullableInt(rs, "topic"), replay(rs.getString("replay")));
+    }
+
+    private TradeReplay replay(String raw) {
+        return raw == null ? null : json.readValue(raw, TradeReplay.class);
+    }
+
+    private static Long nullableLong(ResultSet rs, String column) throws SQLException {
+        long v = rs.getLong(column);
+        return rs.wasNull() ? null : v;
+    }
+
+    private static Integer nullableInt(ResultSet rs, String column) throws SQLException {
+        int v = rs.getInt(column);
+        return rs.wasNull() ? null : v;
     }
 
     private static Instant instant(ResultSet rs, String column) throws SQLException {

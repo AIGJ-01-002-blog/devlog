@@ -55,14 +55,7 @@ final class FileInspector {
      * 압축 끝의 중앙 목록(central directory)에서 이름만 읽는다. 내용을 풀지 않으므로 압축 폭탄이어도 비용이 없다.
      */
     private static boolean officeEntries(byte[] b, String dir) {
-        int eocd = -1;
-        // 끝 레코드는 22바이트 + 주석(최대 65535바이트)
-        for (int i = b.length - 22; i >= Math.max(0, b.length - 22 - 0xFFFF); i--) {
-            if (b[i] == 'P' && b[i + 1] == 'K' && b[i + 2] == 5 && b[i + 3] == 6) {
-                eocd = i;
-                break;
-            }
-        }
+        int eocd = findEndRecord(b);
         if (eocd < 0) return false;
         int count = u16(b, eocd + 10);
         long offset = u32(b, eocd + 16);
@@ -70,7 +63,7 @@ final class FileInspector {
         boolean folder = false;
         int p = (int) Math.min(offset, Integer.MAX_VALUE);
         for (int n = 0; n < Math.min(count, MAX_ENTRIES); n++) {
-            if (p < 0 || p + 46 > b.length || b[p] != 'P' || b[p + 1] != 'K' || b[p + 2] != 1 || b[p + 3] != 2) return false;
+            if (!isCentralHeader(b, p)) return false;
             int nameLen = u16(b, p + 28);
             int extraLen = u16(b, p + 30);
             int commentLen = u16(b, p + 32);
@@ -82,6 +75,20 @@ final class FileInspector {
             p += 46 + nameLen + extraLen + commentLen;
         }
         return false;
+    }
+
+    /** 끝 레코드(PK 5 6)의 자리. 없으면 -1 */
+    private static int findEndRecord(byte[] b) {
+        // 끝 레코드는 22바이트 + 주석(최대 65535바이트)
+        for (int i = b.length - 22; i >= Math.max(0, b.length - 22 - 0xFFFF); i--) {
+            if (b[i] == 'P' && b[i + 1] == 'K' && b[i + 2] == 5 && b[i + 3] == 6) return i;
+        }
+        return -1;
+    }
+
+    /** p 자리에 중앙 목록 항목(PK 1 2)이 온전히 있는가 */
+    private static boolean isCentralHeader(byte[] b, int p) {
+        return p >= 0 && p + 46 <= b.length && b[p] == 'P' && b[p + 1] == 'K' && b[p + 2] == 1 && b[p + 3] == 2;
     }
 
     private static int u16(byte[] b, int i) {

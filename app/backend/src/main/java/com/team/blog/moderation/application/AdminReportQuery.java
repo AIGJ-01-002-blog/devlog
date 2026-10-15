@@ -76,7 +76,7 @@ public class AdminReportQuery {
         String after = "";
         if (tab == Tab.PENDING) {
             long[] k = cursors.decode(cursor, list, 3);
-            if (k != null) {
+            if (k.length > 0) {
                 after = " WHERE (report_count, latest_at, id) < (?, ?, ?)";
                 args.add(k[0]);
                 args.add(Timestamp.from(Times.fromEpochMicros(k[1])));
@@ -84,7 +84,7 @@ public class AdminReportQuery {
             }
         } else {
             long[] k = cursors.decode(cursor, list, 2);
-            if (k != null) {
+            if (k.length > 0) {
                 after = " WHERE (handled_at, id) < (?, ?)";
                 args.add(Timestamp.from(Times.fromEpochMicros(k[0])));
                 args.add(k[1]);

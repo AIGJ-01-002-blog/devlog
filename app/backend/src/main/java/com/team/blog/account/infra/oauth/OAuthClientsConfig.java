@@ -25,7 +25,8 @@ import org.springframework.util.StringUtils;
 @Configuration
 @EnableConfigurationProperties(OAuth2ClientProperties.class)
 public class OAuthClientsConfig {
-    private static final String REDIRECT_PATH = "/login/oauth2/code/{registrationId}";
+    /** 콜백 주소의 뒷부분 기본값. blog.oauth.callback으로 바꿀 수 있다 */
+    private static final String DEFAULT_CALLBACK = "/login/oauth2/code/{registrationId}";
 
     @Bean
     ClientRegistrationRepository clientRegistrationRepository(OAuth2ClientProperties properties, Environment env) {
@@ -36,7 +37,7 @@ public class OAuthClientsConfig {
                     .clientId(googleId)
                     .clientSecret(env.getProperty("GOOGLE_CLIENT_SECRET", ""))
                     .scope("openid", "profile", "email")
-                    .redirectUri(siteBaseUrl(env) + REDIRECT_PATH)
+                    .redirectUri(redirectUri(env))
                     .build());
         }
         String kakaoId = env.getProperty("KAKAO_CLIENT_ID");
@@ -67,7 +68,7 @@ public class OAuthClientsConfig {
                 .clientSecret(env.getProperty("KAKAO_CLIENT_SECRET", ""))
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
-                .redirectUri(siteBaseUrl(env) + REDIRECT_PATH)
+                .redirectUri(redirectUri(env))
                 .scope(StringUtils.commaDelimitedListToSet(scopes.replace(" ", "")))
                 .authorizationUri("https://kauth.kakao.com/oauth/authorize")
                 .tokenUri("https://kauth.kakao.com/oauth/token")
@@ -90,7 +91,7 @@ public class OAuthClientsConfig {
                 .clientSecret(env.getProperty("FACEBOOK_CLIENT_SECRET", ""))
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
-                .redirectUri(siteBaseUrl(env) + REDIRECT_PATH)
+                .redirectUri(redirectUri(env))
                 .scope("public_profile", "email")
                 .authorizationUri("https://www.facebook.com/v26.0/dialog/oauth")
                 .tokenUri(FACEBOOK_GRAPH + "/oauth/access_token")
@@ -111,13 +112,17 @@ public class OAuthClientsConfig {
                 .clientSecret(env.getProperty("NAVER_CLIENT_SECRET", ""))
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
-                .redirectUri(siteBaseUrl(env) + REDIRECT_PATH)
+                .redirectUri(redirectUri(env))
                 .authorizationUri("https://nid.naver.com/oauth2.0/authorize")
                 .tokenUri("https://nid.naver.com/oauth2.0/token")
                 .userInfoUri("https://openapi.naver.com/v1/nid/me")
                 .userNameAttributeName("response")
                 .clientName("Naver")
                 .build();
+    }
+
+    private static String redirectUri(Environment env) {
+        return siteBaseUrl(env) + env.getProperty("blog.oauth.callback", DEFAULT_CALLBACK);
     }
 
     /** 콜백 주소의 앞부분. 프록시 뒤의 안쪽 요청(http)이 아니라 사이트 주소(SITE_BASE_URL, https)를 쓴다. */

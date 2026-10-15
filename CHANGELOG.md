@@ -10,6 +10,118 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-15
+
+**목표: v2.1.0 devlog 2.0 완성: 코인 매매 일지·매매 재현 숏폼·블로그 포인트** ([목표 이슈 #253](https://github.com/AIGJ-01-002-blog/devlog/issues/253))
+
+devlog 2.0을 한 번에 마무리한다. 매매 일지가 코인 현물·선물 체결을 통화별로 남기고, 고른 체결로 실시간 매매처럼 흘러가는 재현 숏폼을 만든다. 출석·글 발행·모의투자 수익으로 크레딧을 모아 티어 상점에서 블로그를 꾸미고, 포인트로 코인 모의투자를 한다. 쇼츠 화면은 Remotion과 신경망 음성으로 새로 그리고, 봇이 알린 모의 계좌를 `/trade`에서 본다. 운영에서 숏폼·매매 일지·포인트를 켠다. 함께 쓰는 매매 봇은 [trade-bot v1.0.0](https://github.com/AIGJ-01-002-blog/trade-bot/releases/tag/v1.0.0)이다.
+
+### 화면
+| 내 포인트 (PC) | 출석한 뒤 (휴대폰) | 휴대폰 · 다크 |
+|---|---|---|
+| ![내 포인트 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/points-before-pc.webp) | ![내 포인트 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/points-after-m.webp) | ![내 포인트 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/points-after-m-dark.webp) |
+
+| 출석 알림 (PC) | 출석 알림 (휴대폰) | 1년 휘장을 단 블로그 |
+|---|---|---|
+| ![출석 알림 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/nudge-pc.webp) | ![출석 알림 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/nudge-m.webp) | ![1년 휘장 블로그](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/blog-1year-pc.webp) |
+
+| 크레딧 상점 · 테두리 탭 (PC) | 챌린저로 꾸민 블로그 (PC) | 챌린저 블로그 (휴대폰 · 다크) |
+|---|---|---|
+| ![크레딧 상점](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/shop-frame-pc.webp) | ![챌린저 블로그](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/blog-challenger-pc.webp) | ![챌린저 블로그 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/blog-challenger-m-dark.webp) |
+
+| 효과 탭 (PC) | 표지 탭 (휴대폰 · 다크) | 관리자 상점 아이템 (PC) |
+|---|---|---|
+| ![효과 탭](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/shop-effect-pc.webp) | ![표지 탭 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/shop-banner-m-dark.webp) | ![관리자 상점](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/admin-shop-pc.webp) |
+
+| 연속 출석 휘장 탭 (PC) | 휘장 탭 (휴대폰 · 다크) |
+|---|---|
+| ![휘장 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/badges-many-pc.webp) | ![휘장 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/badges-many-m-dark.webp) |
+
+| 포인트 모의투자 사기 (PC) | 팔기 (PC) | 휴대폰 · 다크 |
+|---|---|---|
+| ![포인트 모의투자](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/paper-pc.webp) | ![포인트 모의투자 팔기](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/paper-sell-pc.webp) | ![포인트 모의투자 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/paper-m-dark.webp) |
+
+| 관리자 포인트 규칙 (PC) | 내 메뉴의 [내 포인트] |
+|---|---|
+| ![관리자 포인트 규칙](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/admin-rules-pc.webp) | ![내 메뉴](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/menu-pc.webp) |
+
+| 매매 일지 코인 (PC) | 휴대폰 | 휴대폰 · 다크 |
+|---|---|---|
+| ![매매 일지 코인 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/trades-coin-pc.webp) | ![매매 일지 코인 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/trades-coin-m.webp) | ![매매 일지 코인 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/trades-coin-m-dark.webp) |
+
+| 재현 영상 체결 고르기 (PC) | 휴대폰 | 휴대폰 · 다크 |
+|---|---|---|
+| ![재현 체결 고르기 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/replay-picker-pc.webp) | ![재현 체결 고르기 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/replay-picker-m.webp) | ![재현 체결 고르기 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/replay-picker-m-dark.webp) |
+
+| 재현 대본 편집 (PC) | 휴대폰 · 다크 |
+|---|---|
+| ![재현 대본 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/replay-editor-pc.webp) | ![재현 대본 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/replay-editor-m-dark.webp) |
+
+![재현 영상 장면: 도입 → 매수 → 추가 매수 → 매도 → 배운 점(끝에 짧은 고지)](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/replay-video-frames.webp)
+
+| 매매 일지 선물 (PC) | 휴대폰 · 다크 | 360px · 재현 영상 만들기 |
+|---|---|---|
+| ![매매 일지 선물 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/trades-futures-pc.webp) | ![매매 일지 선물 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/trades-futures-m-dark.webp) | ![재현 영상 만들기 버튼](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/trades-futures-360.webp) |
+
+| 쇼츠 주제 묶음 (PC) | 휴대폰 · 다크 | 360px |
+|---|---|---|
+| ![쇼츠 주제 묶음 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/studio-batch-pc.webp) | ![쇼츠 주제 묶음 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/studio-batch-m-dark.webp) | ![쇼츠 주제 묶음 360px](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/studio-batch-360.webp) |
+
+쇼츠 견본 영상 개선 전(위)·후(아래) (#277)
+
+![쇼츠 품질 전후: 도커 볼륨](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/shorts-quality-docker-volume.webp)
+![쇼츠 품질 전후: useEffect](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/shorts-quality-react-effect.webp)
+![쇼츠 품질 전후: 인덱스](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/shorts-quality-pg-index.webp)
+![고양이 연기 11가지](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/shorts-character-actions.webp)
+![CS 설명 도식: 캐시는 왜 빠를까](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.1.0/shorts-cs-diagram.webp)
+
+### 추가
+- 자동매매 모의 화면 `/trade`: 매매 봇이 MCP `report_trade_bot`으로 알린 모의 계좌(현금·보유 포지션·평가 손익·적용 중인 규칙), 최근 체결과 이유, Gemini 진입 판단(허락·막음), 하루 요약을 본인만 본다. 첫 탭은 코인 5종(BTC·ETH·XRP·SOL·DOGE)의 바이낸스 현물·업비트 원화 실시간 차트(1m~1d, 10초마다)다. 종목을 골라 한 차트로 크게 보고(PC는 넓게, 휴대폰은 화면 폭에 맞춘 세로 비율), 봇의 모의 체결을 ▲▼로 찍고 차트 아래에 목록으로도 보인다(캔들은 서버가 공개 API에서 받아 10초씩 들고 있어 CSP를 넓히지 않는다, `GET /api/me/trade-bot/charts`). 차트·계좌·체결·Gemini 판단·하루 요약을 왼쪽 탭으로 나누고 휴대폰에서는 탭이 위에서 옆으로 밀린다(`/trade#fills`처럼 바로 열림). 구조는 규칙형(내 AI가 기준, 봇 코드가 5분마다 주문, Gemini는 필터·요약). 매매 일지와 섞지 않는 전용 표에 두고 실계좌는 받지 않으며 30일 지나면 지운다. 화면에 주문 버튼은 없다. 내 메뉴 [자동매매 (모의)]. DB에 `trade_bot_status`·`trade_bot_account`·`trade_bot_event`가 생긴다(V48). 사진: `assets/releases/v2.1.0/trade-bot-*.webp` (spec 101)
+- 매매 일지가 코인 거래소 체결을 받는다. `record_trade`에 거래소(`exchange`)와 통화(`currency`)를 적고, 0.00012345 BTC 같은 소수 수량·가격을 그대로 남긴다. 원화와 USDT는 더하지 않고 손익·수수료를 통화별로 따로 보여 준다. DB `trade`에 `exchange`·`currency` 열이 생기고 금액 자릿수가 넓어진다(V40). (#254)
+- 매매 재현 숏폼: 스튜디오의 [매매 재현 영상]에서 매매 일지의 체결(같은 거래소·종목, 1~6개, 메모를 남긴 날)을 고르면 대본이 생긴다. 렌더 워커가 바이낸스·업비트 공개 캔들(API 키 없음)을 가능한 한 1분봉으로 받아, 짧은 검은 연기 제목 카드 뒤로, 거래소 화면을 녹화해 빨리감기한 것처럼 지금 가격을 화면 가운데에 두고 카메라가 부드럽게 따라가는 차트가 끊김 없이 흐르며 체결 시각에 매수·매도가 찍히는 9:16 영상을 만든다. 체결 순간에만 아래 가운데 작은 자막(진입 흰색, 익절 초록·손절 빨강, 둘째 줄 손익 | 누적)과 체결 알림이 뜨고, 끝은 화면을 어둡게 눌러 결산을 띄운다. 배경음은 136bpm 다크 트랩(워커 합성)으로 제목 카드 뒤에 들어와 결산에서 작아진다. 차트는 Remotion 맞춤 장면(`remotion/src/Replay.tsx`)으로 그려 신경망 목소리·배경음·장면 전환이 다른 쇼츠와 같다. 봉은 자동 또는 1분~1일. 대본은 내 AI가 MCP `get_shorts`로 체결·메모를 읽고 `update_shorts_script`로 "지금 사는 이유" 식으로 다시 쓴다. 체결·익절·손절 효과음은 음악 밑에 작게, 워커가 직접 합성한다(음원 파일 없음). 투자 권유 고지는 대본에 넣지 않고 영상 맨 끝에 1.3초 카드 한 장으로 붙인다. 양산형 검사·하루 한도·직접 올리기 안내는 다른 쇼츠와 같다. DB `shorts`에 `replay` 열이 생긴다(V47). (#265)
+- 블로그 포인트 1단계: 포인트 원장(지갑 두 개: 투자 전용·상점), 가입 첫 지급 10,000,000P(모의투자 전용), 출석 보상(100 × 연속 출석 일수², 365일에 하루 13,322,500크레딧으로 멈춤)과 출석 알림(오늘 출석 전이면 화면 위에 한 줄), 연속 출석 휘장(20일 동·50일 은·100일 금·150일 비취·200일 청옥·300일 자수정 메달과 365일 햇살 별 특별 휘장, 블로그 이름 옆에 보임), 활동으로 번 포인트를 "크레딧"으로 표시, 처음 전체 공개한 글 적립(하루 3편·300자 이상), 모의투자 수익 적립 규칙, 내 포인트 화면(`/points`, 내 설정처럼 왼쪽 탭: 출석·휘장·크레딧 얻는 법·내역), 관리자 포인트 규칙 화면(`/admin/points`). `POINTS_ENABLED`로 켠다(기본 꺼짐). DB에 `point_ledger`·`point_attendance`·`point_rule`·`point_badge`가 생긴다(V43). ([#266](https://github.com/AIGJ-01-002-blog/devlog/issues/266), 목표 [#253](https://github.com/AIGJ-01-002-blog/devlog/issues/253))
+- 매매 일지가 선물 체결을 받는다. `record_trade`에 `market`(SPOT·FUTURES), `position_side`(LONG·SHORT), `leverage`(1~7배), `interval`(1m·5m·15m·1h·4h·1d)을 적는다. 롱 진입 BUY·롱 청산 SELL·숏 진입 SELL·숏 청산 BUY로 읽고, 숏 청산(BUY)의 실현 손익도 합계에 더한다. 화면·요약 글·쇼츠 대본에 "선물 숏 3배", "숏 청산"처럼 보인다. 예전 봇이 이유 앞머리("[선물 숏 진입 3x]")로 알린 선물 체결은 열로 옮긴다(V41). (#260)
+- 같은 날 모의투자와 실계좌 체결이 섞이면 실현 손익을 더하지 않고 나눠 보여 준다. 화면(기간 합계·날짜 목록·하루 상세), 요약 글 제목과 본문, 쇼츠 제목과 대본에서 "모의투자 +12.00 USDT · 실계좌 -4.00 USDT"처럼 적는다. (#260)
+- 쇼츠 주제 묶음: 글 하나나 AI와 나눈 맥락 하나를 작은 주제 2~5개로 나눠 주제마다 쇼츠 한 편씩 만든다. MCP `plan_shorts`가 주제(제목·첫 질문·다룰 범위)를 남기고, `create_shorts_script`는 `batch_id`·`topic`이나 맥락 근거 `source_text`를 받는다. 양산형 검사는 맥락 근거와도 비교하고, 같은 묶음의 다른 편과 겹치면 경고한다. 스튜디오는 묶음별로 대본을 모아 보여 주고 [묶음 영상 모두 만들기]로 통과한 편을 한 번에 대기열에 넣는다(막힌 편은 이유와 함께 건너뜀). DB `shorts_batch` 표와 `shorts`의 `batch_id`·`topic`·`source_text` 열(V42). 장면마다 배경 그림(`image`, devlog에 올린 그림이나 사이트 경로만)을 고를 수 있고, 렌더 워커가 받는 작업에 장면 그림과 원본 글 대표 사진(`coverImage`)이 함께 간다. 장면마다 연출(`visual`: explain·shock·typing·panic·restore·wait·fast·idea·protect·think·celebrate, 비우면 워커가 고름)과 효과음(`effects`: pop·ding·whoosh·boing·tick·typing, 장면당 3개)을 고를 수 있고, 워커에는 작업 단위 `effects[]`로 펼쳐 보낸다(#277 워커와 짝). (#276)
+- 쇼츠 장면 설명 그림: CS 개념을 설명하는 장면에 도식(`diagram`: flow 흐름·stack 층·steps 순서·compare 비교)을 담아 렌더 워커가 그림으로 풀어 그린다. MCP `create_shorts_script`가 받고, 저장할 때 type·칸 수(flow 4, 나머지 5, compare 쪽마다 4)·이름표 20자만 검사한 뒤 작업 `scenes[].diagram`으로 그대로 넘긴다. 스튜디오 편집기는 [설명 그림 있음]으로 표시하고 고쳐 저장해도 도식을 지키며, DB 변경은 없다(장면 JSON). (#277)
+- 매매 일지의 날마다 [재현 영상 만들기]로 그날 체결을 스튜디오의 매매 재현 영상으로 넘긴다(`/studio?replay=날짜`). (#265)
+- 크레딧 상점과 블로그 꾸미기: 아이언·브론즈·실버·골드·플래티넘·다이아·마스터·그랜드마스터·챌린저 9티어의 테마 색·프로필 테두리·블로그 표지와 빛·반짝임 효과를 크레딧으로 사서 내 블로그에 적용한다. 가격은 아이언 100에서 티어마다 10배(챌린저 100억)이고, 아래 티어를 사야 윗 티어가 열린다. 다이아부터 빛나고 챌린저는 반짝인다. 가입 첫 지급 포인트로는 못 산다. 관리자는 아이템을 티어와 함께 추가·가격 변경·내리기 한다. DB에 `shop_item`·`member_item`·`member_decoration`이 생긴다(V44). ([#268](https://github.com/AIGJ-01-002-blog/devlog/issues/268), 목표 [#253](https://github.com/AIGJ-01-002-blog/devlog/issues/253))
+- 포인트 모의투자: 업비트 원화 시세로 비트코인·이더리움·리플·솔라나·도지코인을 포인트로 사고판다(시장가·현물, 수수료 0.05%, 최소 5,000P). 투자 전용 포인트를 먼저 쓰고 고르면 상점 포인트도 쓰며, 판 돈의 원금은 낸 지갑으로 돌아가고 수익은 모두 크레딧으로 쌓인다. 체결은 매매 일지에 모의투자(PAPER)로 남는다. 오름·이익은 초록, 내림·손실은 빨강. 화면은 `/paper`, 포인트와 매매 일지가 둘 다 켜져야 보인다. DB에 `paper_position`·`paper_order`가 생긴다(V45). ([#267](https://github.com/AIGJ-01-002-blog/devlog/issues/267), 목표 [#253](https://github.com/AIGJ-01-002-blog/devlog/issues/253))
+
+### 바꿈
+- 배포 전 SonarQube 점검: 이슈 209건과 보안 핫스팟 10건을 동작을 바꾸지 않고 코드로 정리했다. 동적으로 만들던 SQL(`IN (?, ?, …)` 목록, 열 이름 이어 붙이기)은 상수 문장과 `= ANY(?)` 배열 바인딩으로, 백트래킹이 생길 수 있던 정규식은 선형 패턴으로 바꿨다. 복잡한 메서드를 작게 나누고, 단언이 많은 테스트를 나눴다. 가입·약관 API는 `SignupController`로 옮겼다(주소는 그대로). ([#299](https://github.com/AIGJ-01-002-blog/devlog/issues/299))
+- 쇼츠 영상 품질을 올렸다. 화면은 이제 [Remotion](https://www.remotion.dev)(React로 영상을 만드는 도구)으로 그린다. 장면마다 캐릭터(기본은 블로그 주인이 만든 로그냥, 대본 `character`로 로그덕이나 Noto 고양이)가 대본 상황을 연기하고(자료가 사라지면 깜짝 놀라 울먹이고, 코드는 모니터에 써지고, 요청이 쏟아지면 머리를 감싸고, 빨라지면 환호. 숨 쉬고 눈을 깜빡이며 입은 목소리에 맞춰 움직인다), 요점 자막은 단어마다 튀어 오르며 형광펜이 그어지고, 내레이션 자막은 지금 읽는 단어를 노랗게 키운다. 장면 사이는 밀기 전환. 음성은 무료 신경망 한국어 음성(edge-tts SunHi, 실패하면 기기 음성), 연기에 맞춘 효과음, 직접 합성한 배경음(말할 때 낮춤), 소리 -14 LUFS. 렌더 워커에 Node 18 이상이 필요하고, 없으면 예전 Pillow 화면으로 내려간다. 대본 장면의 `custom`으로 고양이 대신 다른 화면(매매 재현 등)을 끼울 수 있다. 화면은 밝은 바탕의 깔끔한 스타일이고 공통 테마(`remotion/src/theme.ts`)로 묶었다. 대본 장면에 `diagram`(흐름·층·순서·비교)을 주면 CS 개념을 아이콘 도식으로 풀어 보여 주고, 칸은 내레이션이 그 이름을 말할 때 나타난다. 쇼츠 길이 한도를 60초에서 90초로, 장면 수를 16개까지 늘렸고(매매 재현·매매 일지 자동 대본은 그대로 60초), MCP 대본 안내는 후킹(첫 3초)→본론(핵심 1~3개)→반전·정리→CTA 하나 구조와 AI 티 안 나게 쓰는 규칙(말투 맞추기, 후킹 후보 5개 중 고르기, 상투어 빼기, 실제 경험·숫자 한 줄)을 따른다. 양산형 검사는 "여러분", "오늘은 ~에 대해 알아볼게요" 같은 상투어를 경고(CLICHE)하고, 결론 숫자로 여는 첫 장면도 후킹으로 본다. (#277)
+- 모의투자 수익을 모두 크레딧으로 준다(블로그 주인 결정). 투자 전용은 가입 첫 지급뿐이고, 팔아서 확정된 수익과 봇이 남긴 원화 모의투자 수익도 상점에서 쓴다. 봇 수익은 스스로 알린 값이라 하루 1,000만 크레딧까지(관리자가 바꿈) 내 포인트·상점을 열 때 정산한다. 수익 1% 규칙은 없앴다. 글 발행 크레딧은 미지급 목록(outbox)에 남겨 서버가 멈춰도 빠짐없이 준다. DB에 `point_outbox`가 생긴다(V46). ([#267](https://github.com/AIGJ-01-002-blog/devlog/issues/267), [#266](https://github.com/AIGJ-01-002-blog/devlog/issues/266))
+- 운영(devlog.life)에서 숏폼 스튜디오와 매매 일지를 켰다(`SHORTS_ENABLED`, `TRADES_ENABLED`). 렌더 워커 토큰은 GitHub Secret `SHORTS_WORKER_TOKEN`으로 넣고, 없으면 대본까지만 만들고 영상은 만들지 않는다. (#256)
+- 운영(devlog.life)에서 블로그 포인트·크레딧 상점·포인트 모의투자를 켰다(`POINTS_ENABLED`). 이미 가입한 회원도 포인트 화면을 처음 열 때 가입 첫 지급을 한 번 받는다. ([#253](https://github.com/AIGJ-01-002-blog/devlog/issues/253))
+- 매매 일지 손익 색을 거래소 차트처럼 바꿨다: 이익·매수 초록, 손실·매도 빨강. (#254)
+- 매매 기록 하루 상한을 계정당 500건에서 2,000건으로 올리고 운영 설정 `TRADES_DAILY_LIMIT`로 바꿀 수 있게 했다. 승률 칸은 "이긴 매도"에서 "이긴 청산"으로 바뀐다. (#260)
+
+### 고침
+- 보안: 계정 상태 필터와 로그인 입구 필터가 퍼센트 디코딩한 경로로 비교한다. 전에는 `/api/%70osts`처럼 인코딩하면 이메일 인증 전 글쓰기 막기와 같은 IP 1분 20회 로그인 한도를 건너뛰었다. ([#292](https://github.com/AIGJ-01-002-blog/devlog/issues/292))
+- 보안: 클러스터 안 Cloudflare 터널 뒤에서 X-Forwarded-For가 모두 신뢰 대역이면 `CLIENT_IP_HEADER`(운영·시험은 `CF-Connecting-IP`)를 사용자 IP로 쓴다. 전에는 모든 방문자가 인그레스 파드 주소 하나로 묶여 IP별 한도가 사이트 전체 한도가 될 수 있었다. ([#293](https://github.com/AIGJ-01-002-blog/devlog/issues/293))
+- spec 목록(`specs/README.md`)에 빠져 있던 099 쇼츠 스튜디오와 100 블로그 포인트를 더한다. ([#289](https://github.com/AIGJ-01-002-blog/devlog/issues/289))
+
+### 포함된 작업
+| 이슈 | 브랜치 | PR |
+|---|---|---|
+| #254 매매 일지 코인 거래소·통화·소수 수량, 손익 색 | - | #257 |
+| #256 운영에서 숏폼·매매 일지 켜기 | - | #271 |
+| #260 매매 일지 선물 기록 | - | #275 |
+| #265 매매 재현 숏폼 | - | #273 |
+| #266 포인트 원장과 적립 규칙 | - | #272, #286 |
+| #267 회원 포인트 모의투자 | - | #281, #286, #295 |
+| #268 상점과 블로그 꾸미기 아이템 | - | #280 |
+| #276 쇼츠 주제 묶음 | - | #279 |
+| #277 쇼츠 영상 품질 | - | #287, #288, #278 |
+| #289 spec 목록 보충 | - | #290 |
+| #292·#293 보안: 인코딩 주소로 필터 건너뛰기, 터널 뒤 사용자 IP | - | #294 |
+| #296 자동매매 모의 화면 `/trade` (spec 101) | - | #297 |
+| #253 운영에서 포인트·상점·모의투자 켜기 | `claude/project-thread-fob3lk` | #298 |
+| #299 릴리스 전 SonarQube 점검 | `claude/project-thread-fob3lk` | #300, #301, #302, #303 |
+
+**비교:** [v2.0.0...v2.1.0](https://github.com/AIGJ-01-002-blog/devlog/compare/v2.0.0...v2.1.0)
+
 ## [2.0.0] - 2026-10-14
 
 **목표: v2.0.0 숏폼 스튜디오** ([목표 이슈 #236](https://github.com/AIGJ-01-002-blog/devlog/issues/236))
@@ -42,7 +154,7 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 | ![렌더 워커 칸 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/worker-pc.webp) | ![워커 알림 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/worker-alert-pc.webp) | ![렌더 워커 칸 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/worker-m.webp) | ![렌더 워커 칸 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.0.0/worker-m-dark.webp) |
 
 ### 추가
-- 매매 일지(`/trades`, 기본 꺼짐 `TRADES_ENABLED=false`): 집 컴퓨터의 매매 봇이 쓰기 토큰으로 MCP `record_trade`를 부르면 체결(모의투자·실계좌, 종목, 수량·가격·수수료, 실현 손익, 신호)이 남고, 7·30·90일 실현 손익·누적 손익·날별 막대와 그날 체결을 본다. 그날 메모를 남기면 체결 표·고지가 들어간 요약 임시글과 쇼츠 대본을 한 번에 만든다(메모 없는 쇼츠는 만들지 않음). devlog는 주문을 내지 않는다. 표준 라이브러리만 쓰는 모의 체결 봇 예제 [app/trade-bot](app/trade-bot/README.md)을 함께 넣었다. DB에 `trade`·`trade_day` 표가 생긴다 (목표 v2.0.0 [#236](https://github.com/AIGJ-01-002-blog/devlog/issues/236) · spec 099, #243)
+- 매매 일지(`/trades`, 기본 꺼짐 `TRADES_ENABLED=false`): 집 컴퓨터의 매매 봇이 쓰기 토큰으로 MCP `record_trade`를 부르면 체결(모의투자·실계좌, 종목, 수량·가격·수수료, 실현 손익, 신호)이 남고, 7·30·90일 실현 손익·누적 손익·날별 막대와 그날 체결을 본다. 그날 메모를 남기면 체결 표·고지가 들어간 요약 임시글과 쇼츠 대본을 한 번에 만든다(메모 없는 쇼츠는 만들지 않음). devlog는 주문을 내지 않는다. 매매 봇은 비공개 저장소 [AIGJ-01-002-blog/trade-bot](https://github.com/AIGJ-01-002-blog/trade-bot)에서 따로 버전을 매긴다(v0.1.0부터, #259). DB에 `trade`·`trade_day` 표가 생긴다 (목표 v2.0.0 [#236](https://github.com/AIGJ-01-002-blog/devlog/issues/236) · spec 099, #243)
 - 관리자 대시보드에 쇼츠 렌더 워커 칸: 쇼츠를 켠 서버에서 워커가 마지막으로 온 시각, 대기·만드는 중·오늘 실패 수, 가장 오래 기다린 영상을 보이고, 기다리는 영상이 있는데 워커가 5분 넘게 안 오면 "처리할 일"에 띄운다. 워커 토큰은 `SHORTS_WORKER_TOKEN_PREVIOUS`에 옛 값을 두면 둘 다 받아서 워커를 멈추지 않고 바꿀 수 있고, 옛 토큰을 쓰는 워커가 있으면 대시보드가 알려 준다. 순서는 [app/render-worker/README.md](app/render-worker/README.md). DB 변경은 없다 (목표 v2.0.0 [#236](https://github.com/AIGJ-01-002-blog/devlog/issues/236) · spec 099, #241)
 - 집 컴퓨터로 옮기기(`deploy/home/`): 학교 서버의 DB(pg_dump)와 파일 저장소(사진·첨부·쇼츠 영상)를 폴더 하나로 받는 `fetch-backup.sh`·`backup.sh`와, 그 폴더로 Windows·맥에서 Docker로 다시 띄우는 `restore.ps1`·`restore.sh`·`compose.yaml`. 되살릴 때 `https://devlog.life` 주소를 이 컴퓨터 주소로 바꾸고, 소셜 로그인 대신 주인 계정 이메일·비밀번호 로그인을 만든다. 순서는 [deploy/home/README.md](deploy/home/README.md) (목표 v2.0.0 [#236](https://github.com/AIGJ-01-002-blog/devlog/issues/236), #241)
 - MCP 기록 자동화: AI가 개발 일지(`write_devlog`·`create_draft`)와 일기 메모(`add_note`)에 커밋·PR·이슈 주소를 `links`로 함께 남기면, 일지는 본문 끝 `## 근거`에, 일기는 주제 문단 아래 `근거:` 줄에 "PR #246 (devlog)"처럼 이름 붙은 링크로 들어간다. 글을 쓰거나 공개로 발행했을 때 겪은 문제·숫자로 된 결과·코드 가운데 둘 이상이 있으면 AI에게 쇼츠로 만들지 사용자에게 한 번 물어보라고 알리고, 새 도구 `list_shorts_candidates`로 아직 쇼츠가 없는 공개 글 가운데 후보를 본다. DB에 `ai_note.links` 열이 생긴다 (목표 v2.0.0 [#236](https://github.com/AIGJ-01-002-blog/devlog/issues/236) · spec 099, #240)

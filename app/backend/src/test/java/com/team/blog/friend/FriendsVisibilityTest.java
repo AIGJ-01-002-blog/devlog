@@ -55,14 +55,32 @@ class FriendsVisibilityTest extends IntegrationTest {
         return (s == null ? browser().perform(req) : s.http().perform(req)).andReturn().getResponse().getStatus();
     }
 
-    @Test
-    void 친구_공개_글은_작성자와_친구만_보고_공개_목록에는_나오지_않는다() throws Exception {
+    /** 작성자와 친구, 남. 같은 태그로 전체 공개·친구 공개·나만 보기 글을 하나씩 발행했다 */
+    record Posts(Session author, Session friend, Session stranger, String tag, long pub, long fr, long pri) {
+        String blog() {
+            return "/api/members/" + author.handle() + "/posts";
+        }
+
+        String profile() {
+            return "/api/members/" + author.handle();
+        }
+    }
+
+    Posts posts() throws Exception {
         Session author = signup(uniqueLogin("fva")), friend = signup(uniqueLogin("fvb")), stranger = signup(uniqueLogin("fvc"));
         befriend(author, friend);
         String tag = "fv-" + UUID.randomUUID().toString().substring(0, 6);
         long pub = publish(author, "전체 공개", "PUBLIC", List.of(tag));
         long fr = publish(author, "친구 공개", "FRIENDS", List.of(tag));
         long pri = publish(author, "나만 보기", "PRIVATE", List.of(tag));
+        return new Posts(author, friend, stranger, tag, pub, fr, pri);
+    }
+
+    @Test
+    void 친구_공개_글은_작성자와_친구만_보고_홈과_태그에는_나오지_않는다() throws Exception {
+        Posts p = posts();
+        Session author = p.author(), friend = p.friend(), stranger = p.stranger();
+        long pub = p.pub(), fr = p.fr(), pri = p.pri();
 
         // 상세
         assertThat(detailStatus(author, fr)).isEqualTo(200);
@@ -79,18 +97,25 @@ class FriendsVisibilityTest extends IntegrationTest {
         // 홈·태그는 누구에게나 공개 글만
         for (Session s : new Session[] {null, friend, author}) {
             assertThat(ids(get200(s, "/api/posts"))).contains(pub).doesNotContain(fr, pri);
-            JsonNode t = get200(s, "/api/tags/" + tag + "/posts");
+            JsonNode t = get200(s, "/api/tags/" + p.tag() + "/posts");
             assertThat(ids(t)).containsExactly(pub);
             assertThat(t.path("postCount").asLong()).isEqualTo(1);
         }
+    }
+
+    @Test
+    void 블로그_목록과_글_수에는_친구만_친구_공개_글까지_본다() throws Exception {
+        Posts p = posts();
+        Session author = p.author(), friend = p.friend(), stranger = p.stranger();
+        long pub = p.pub(), fr = p.fr();
 
         // 블로그 목록과 글 수: 친구만 친구 공개 글까지 (발행 최신순)
-        String blog = "/api/members/" + author.handle() + "/posts";
+        String blog = p.blog();
         assertThat(ids(get200(friend, blog))).containsExactly(fr, pub);
         assertThat(ids(get200(stranger, blog))).containsExactly(pub);
         assertThat(ids(get200(null, blog))).containsExactly(pub);
         assertThat(ids(get200(author, blog))).containsExactly(pub); // 작성자도 블로그에는 공개 글만 (내 글 관리에서 봄)
-        assertThat(ids(get200(friend, blog + "?tag=" + tag))).containsExactly(fr, pub);
+        assertThat(ids(get200(friend, blog + "?tag=" + p.tag()))).containsExactly(fr, pub);
         assertThat(friend.http().perform(get(blog)).andReturn().getResponse().getHeader("Cache-Control")).contains("no-store");
         assertThat(stranger.http().perform(get(blog)).andReturn().getResponse().getHeader("Cache-Control")).doesNotContain("no-store");
         JsonNode card = get200(friend, blog).path("items").get(0);
@@ -99,10 +124,17 @@ class FriendsVisibilityTest extends IntegrationTest {
         assertThat(card.path("publishedAt").isNull()).isFalse();
         assertThat(get200(friend, blog).has("friendsView")).isFalse();
 
-        String profile = "/api/members/" + author.handle();
+        String profile = p.profile();
         assertThat(get200(friend, profile).path("publicPostCount").asLong()).isEqualTo(2);
         assertThat(get200(stranger, profile).path("publicPostCount").asLong()).isEqualTo(1);
         assertThat(get200(null, profile).path("publicPostCount").asLong()).isEqualTo(1);
+    }
+
+    @Test
+    void 친구_공개_글은_첫_화면과_댓글에서도_친구만_보고_친구를_끊으면_바로_볼_수_없다() throws Exception {
+        Posts p = posts();
+        Session author = p.author(), friend = p.friend(), stranger = p.stranger();
+        long pub = p.pub(), fr = p.fr();
 
         // 첫 화면 HTML
         String html = friend.http().perform(get("/@" + author.handle())).andReturn().getResponse().getContentAsString();
@@ -121,8 +153,8 @@ class FriendsVisibilityTest extends IntegrationTest {
         // 친구를 끊으면 그 순간부터 볼 수 없다
         friend.http().perform(delete("/api/me/friends/" + author.handle()).with(csrf())).andExpect(status().is2xxSuccessful());
         assertThat(detailStatus(friend, fr)).isEqualTo(404);
-        assertThat(ids(get200(friend, blog))).containsExactly(pub);
-        assertThat(get200(friend, profile).path("publicPostCount").asLong()).isEqualTo(1);
+        assertThat(ids(get200(friend, p.blog()))).containsExactly(pub);
+        assertThat(get200(friend, p.profile()).path("publicPostCount").asLong()).isEqualTo(1);
     }
 
     @Test

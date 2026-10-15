@@ -88,7 +88,7 @@ public class ViewRecorder {
      * @throws NotFoundException 볼 수 없는 글 (상세와 같은 판정, FR-010)
      * @return 결과. 응답은 결과와 상관없이 같아야 하므로 컨트롤러는 이 값을 내보내지 않는다(FR-017)
      */
-    public Outcome record(long postId, Visit visit) {
+    public Outcome recordView(long postId, Visit visit) {
         Long authorId = readableAuthor(postId, new Viewer(visit.memberId(), visit.admin()));
         if (authorId == null) throw new NotFoundException();
         if (excluded(visit, authorId)) return Outcome.EXCLUDED;

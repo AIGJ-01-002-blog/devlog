@@ -22,8 +22,9 @@ final class EvidenceLinks {
     static final int DRAFT_MAX = 5;
     static final int NOTE_MAX = 3;
 
-    private static final Pattern GITHUB = Pattern.compile("^/[^/]+/([^/]+)/(commit|pull|issues|compare|releases/tag)/([^/?#]+).*$");
-    private static final Pattern GITLAB = Pattern.compile("^/.+?/-/(commit|merge_requests|issues)/([^/?#]+).*$");
+    /** 경로 앞부분만 본다(lookingAt). 뒤에 붙은 나머지는 상관없고, ++로 되돌아가지 않게 해서 긴 경로에도 한 번만 훑는다 */
+    private static final Pattern GITHUB = Pattern.compile("^/[^/]++/([^/]++)/(commit|pull|issues|compare|releases/tag)/([^/?#]++)");
+    private static final Pattern GITLAB = Pattern.compile("^/.+?/-/(commit|merge_requests|issues)/([^/?#]++)");
 
     record Link(String label, String url) {
         String markdown() {
@@ -94,11 +95,11 @@ final class EvidenceLinks {
         String site = host.startsWith("www.") ? host.substring(4) : host;
         if (site.equals("github.com")) {
             Matcher m = GITHUB.matcher(path);
-            if (m.matches()) return kind(m.group(2), m.group(3), m.group(1));
+            if (m.lookingAt()) return kind(m.group(2), m.group(3), m.group(1));
         }
         if (site.equals("gitlab.com")) {
             Matcher m = GITLAB.matcher(path);
-            if (m.matches()) return kind(m.group(1), m.group(2), null);
+            if (m.lookingAt()) return kind(m.group(1), m.group(2), null);
         }
         return site;
     }

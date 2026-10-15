@@ -100,6 +100,7 @@ public class McpTools {
     private static final String POSITION = "position";
     private static final String PORTFOLIO = "portfolio";
     private static final String STATUS = "status";
+    private static final String NO_SUCH_TOOL = "없는 도구예요: ";
     private static final String POST_ID_SCHEMA = "{\"type\":\"object\",\"properties\":{\"post_id\":{\"type\":\"integer\"}},\"required\":[\"post_id\"]}";
     private static final String NO_ARGS_SCHEMA = "{\"type\":\"object\",\"properties\":{}}";
 
@@ -252,16 +253,31 @@ public class McpTools {
                       "team_work":{"type":"string","description":"우리 팀이 한 일 (2,000자까지)"},
                       "my_role":{"type":"string","description":"제 역할: 사용자가 맡은 부분만 (2,000자까지)"}},
                      "required":["series_id"]}""", Gate.AI_PUBLISH, false),
+            new Tool("plan_shorts", "쇼츠 주제 나누기",
+                    "devlog 글(post_id) 하나나 대화로 받은 맥락(source_text) 하나를 작은 주제 2~5개로 나눈 쇼츠 묶음을 만든다. "
+                            + "주제마다 제목·첫 질문(hook)·다룰 범위(scope)를 적는다. 대본은 만들지 않는다: 이어서 주제마다 create_shorts_script(batch_id, topic)로 한 편씩 쓴다. "
+                            + ShortsTools.PLAN_GUIDE, true, """
+                    {"type":"object","properties":{
+                      "title":{"type":"string","description":"묶음 이름 (60자까지)"},
+                      "post_id":{"type":"integer","description":"근거가 될 내 devlog 글 번호"},
+                      "source_text":{"type":"string","description":"근거가 될 맥락 본문: 작업 기록·대화 요약 등 (20,000자까지). 글이 없으면 필수"},
+                    """ + ShortsTools.TOPICS_SCHEMA + """
+                    },
+                     "required":["title","topics"]}""", Gate.SHORTS, false),
             new Tool("create_shorts_script", "쇼츠 대본 만들기",
-                    "사용자의 devlog 글(post_id, 선택)을 YouTube Shorts·Instagram Reels·TikTok용 세로 영상 대본으로 저장한다. "
+                    "사용자의 devlog 글(post_id, 선택)이나 받은 맥락(source_text, 선택)을 YouTube Shorts·Instagram Reels·TikTok용 세로 영상 대본으로 저장한다. "
+                            + "plan_shorts로 만든 묶음의 한 주제라면 batch_id와 topic을 주고, 근거는 묶음 것을 쓴다(post_id·source_text는 무시). "
                             + "장면마다 화면 자막(caption)과 읽을 문장(narration)을 쓴다. 저장하면 양산형 방지 검사 결과와 고칠 점을 돌려준다. "
                             + ShortsTools.GUIDE + " 영상은 만들지 않는다: 사용자가 devlog 스튜디오에서 확인하고 직접 [영상 만들기]를 누른다.", true, """
                     {"type":"object","properties":{
                       "post_id":{"type":"integer","description":"원본 devlog 글 번호 (내 글만). 있으면 영상 설명에 근거로 이어진다"},
-                      "title":{"type":"string","description":"쇼츠 제목 (60자까지)"},
+                      "source_text":{"type":"string","description":"글이 아닌 맥락에서 쓸 때 그 맥락 본문 (20,000자까지). 원문을 그대로 읽는지 검사하는 데 쓴다"},
+                      "batch_id":{"type":"integer","description":"plan_shorts로 만든 묶음 번호"},
+                      "topic":{"type":"integer","minimum":1,"maximum":5,"description":"묶음 안 주제 번호 (batch_id와 함께)"},
+                      "title":{"type":"string","description":"쇼츠 제목 (60자까지). 묶음에서 비우면 주제 제목"},
                     """ + ShortsTools.SCENES_SCHEMA + """
                     },
-                     "required":["title","scenes"]}""", Gate.SHORTS, false),
+                     "required":["scenes"]}""", Gate.SHORTS, false),
             new Tool("update_shorts_script", "쇼츠 대본 고치기",
                     "쇼츠 대본의 제목이나 장면을 고친다. 장면을 주면 통째로 바꾼다. 만들어 둔 영상이 있으면 지워지고 대본 상태로 돌아간다. "
                             + "고친 뒤 양산형 방지 검사 결과를 돌려준다. " + ShortsTools.GUIDE, true, """
@@ -273,6 +289,13 @@ public class McpTools {
                      "required":["shorts_id"]}""", Gate.SHORTS, false),
             new Tool("list_shorts", "내 쇼츠 보기",
                     "사용자의 쇼츠 목록(번호·제목·상태·장면 수·예상 길이·원본 글)과 오늘 영상 만들기 횟수를 돌려준다.", false, NO_ARGS_SCHEMA, Gate.SHORTS, false),
+            new Tool("get_shorts", "쇼츠 대본 보기",
+                    "쇼츠 하나의 제목·장면·상태를 돌려준다. 매매 재현 영상이면 고른 체결(시각·매수/매도·가격·이유), 차트 구간, 그날 사용자 메모와 "
+                            + "대본을 다시 쓰는 규칙을 함께 준다. 사용자가 스튜디오에서 [AI에게 대본 부탁]으로 번호를 알려 주면 이 도구로 읽고 update_shorts_script로 고친다.",
+                    false, """
+                    {"type":"object","properties":{
+                      "shorts_id":{"type":"integer"}},
+                     "required":["shorts_id"]}""", Gate.SHORTS, false),
             new Tool("list_shorts_candidates", "쇼츠 후보 보기",
                     "아직 쇼츠가 없는 사용자의 공개 글 가운데 쇼츠로 만들 만한 글(직접 겪은 문제·숫자로 된 결과·코드 중 둘 이상)을 좋은 점이 많은 순으로 돌려준다. "
                             + "최근 30일 조회수와 좋은 점을 함께 준다. 사용자가 쇼츠 거리를 물을 때 쓰고, 사용자가 고른 글로만 대본을 만든다.", false, """
@@ -287,6 +310,11 @@ public class McpTools {
                             + "투자 권유로 읽히는 표현은 쓰지 않는다.", false, """
                     {"type":"object","properties":{
                       "date":{"type":"string","description":"날짜 (예: 2026-10-14). 없으면 오늘"}}}""", Gate.TRADES, false),
+            new Tool("report_trade_bot", "자동매매 모의 상태 알리기",
+                    "매매 봇이 모의(--dry-run) 계좌의 현금·보유 포지션·지금 적용 중인 규칙, AI(Gemini) 필터 켜짐 여부, "
+                            + "새 모의 체결(이유 포함)·Gemini 진입 판단·하루 요약을 사용자의 devlog 자동매매 화면(/trade)에 알린다. "
+                            + "매매 일지와 섞이지 않고 공개되지 않는다. 실계좌는 보내지 않는다. 주문을 내지 않는다. 같은 사건 id는 한 번만 남는다.",
+                    true, TradeTools.REPORT_SCHEMA, Gate.TRADES, false),
             new Tool("list_tags", "태그 보기",
                     "사용자가 자주 쓴 태그와 devlog 인기 태그를 돌려준다. 태그를 제안할 때 이 목록의 표기를 따르면 좋다.", false, NO_ARGS_SCHEMA),
             new Tool("report_bug", "devlog 버그 신고",
@@ -389,59 +417,89 @@ public class McpTools {
     public Result call(AccessTokens.Caller caller, String name, JsonNode args) {
         Optional<Tool> tool = TOOLS.stream().filter(t -> t.name().equals(name)).findFirst();
         // 관리자 도구는 관리자가 아니면 없는 도구와 같다 (있는지도 알리지 않는다)
-        if (tool.isEmpty() || tool.get().gate() == Gate.ADMIN && !caller.admin() || off(tool.get().gate())) return Result.fail("없는 도구예요: " + name);
+        if (tool.isEmpty() || tool.get().gate() == Gate.ADMIN && !caller.admin() || off(tool.get().gate())) return Result.fail(NO_SUCH_TOOL + name);
         if (!rateLimiter.tryAcquire("mcp:" + caller.memberId(), CALLS_PER_MINUTE, Duration.ofMinutes(1))) {
             return Result.fail("요청이 너무 많아요. 1분 뒤에 다시 시도해 주세요.");
         }
         if (tool.get().write()) {
-            if (!caller.canWrite()) return Result.fail("이 토큰은 읽기 전용이에요. devlog 설정 › AI 연결에서 쓰기 권한 토큰을 만들어 주세요.");
-            // 목록에서 숨겨도 이름을 알면 부를 수 있으니 부를 때 다시 확인한다
-            if (tool.get().gate() == Gate.AI_PUBLISH && !caller.aiPublishAllowed()) return Result.fail(AI_PUBLISH_OFF);
-            if (tool.get().gate() == Gate.DIARY && !caller.aiDiaryEnabled()) return Result.fail(AiJournal.AI_DIARY_OFF);
-            if (!caller.emailVerified()) return Result.fail("이메일 인증을 마친 뒤 글을 쓸 수 있어요. devlog에서 인증 메일을 확인해 주세요.");
-            // 일기 메모(하루 60개)와 체결 기록(하루 상한, #243)은 상한이 따로 있어 글쓰기 한도를 쓰지 않는다
-            if (tool.get().gate() != Gate.DIARY && tool.get().gate() != Gate.TRADES
-                    && !rateLimiter.tryAcquire("mcp-write:" + caller.memberId(), WRITES_PER_HOUR, Duration.ofHours(1))) {
-                return Result.fail("글쓰기 요청은 한 시간에 " + WRITES_PER_HOUR + "번까지예요. 잠시 뒤 다시 시도해 주세요.");
-            }
+            Optional<Result> denied = writeDenied(caller, tool.get().gate());
+            if (denied.isPresent()) return denied.get();
         }
         JsonNode a = args == null || args.isNull() ? json.createObjectNode() : args;
         try {
-            return switch (name) {
-                case "write_devlog", "create_draft" -> createDraft(caller, a);
-                case "update_draft" -> updateDraft(caller, a);
-                case "request_publish" -> requestPublish(caller, a);
-                case "publish_post" -> publishPost(caller, a);
-                case "delete_post" -> deletePost(caller, a);
-                case "search_posts" -> searchPosts(caller, a);
-                case "get_post" -> getPost(caller, a);
-                case "list_my_posts" -> listMyPosts(caller, a);
-                case "list_tags" -> listTags(caller);
-                case "list_series" -> listSeries(caller);
-                case "create_series" -> createSeries(caller, a);
-                case "add_to_series" -> addToSeries(caller, a);
-                case "set_series_project" -> setSeriesProject(caller, a);
-                case "propose_post" -> proposePost(caller, a);
-                case "list_post_proposals" -> listProposals(caller);
-                case "suggest_topics" -> suggestTopics(caller, a);
-                case "add_note" -> addNote(caller, a);
-                case "upload_image" -> uploadImage(caller, a);
-                case "create_image_upload_link" -> createUploadLink(caller, a);
-                case "report_bug" -> reportBug(caller, a);
-                case "list_inquiries" -> listInquiries(a);
-                case "get_inquiry" -> getInquiry(a);
-                case "update_inquiry" -> updateInquiry(caller, a);
-                case "create_shorts_script" -> shorts.create(caller, a);
-                case "update_shorts_script" -> shorts.update(caller, a);
-                case "list_shorts" -> shorts.list(caller);
-                case "list_shorts_candidates" -> shorts.candidates(caller, a);
-                case "record_trade" -> trades.record(caller, a);
-                case "get_trade_day" -> trades.day(caller, a);
-                default -> Result.fail("없는 도구예요: " + name);
-            };
+            return dispatch(caller, tool.get(), a);
         } catch (ApiException e) {
             return Result.fail(message(e));
         }
+    }
+
+    /** 쓰기 도구를 부를 수 없으면 그 까닭 */
+    private Optional<Result> writeDenied(AccessTokens.Caller caller, Gate gate) {
+        if (!caller.canWrite()) return Optional.of(Result.fail("이 토큰은 읽기 전용이에요. devlog 설정 › AI 연결에서 쓰기 권한 토큰을 만들어 주세요."));
+        // 목록에서 숨겨도 이름을 알면 부를 수 있으니 부를 때 다시 확인한다
+        if (gate == Gate.AI_PUBLISH && !caller.aiPublishAllowed()) return Optional.of(Result.fail(AI_PUBLISH_OFF));
+        if (gate == Gate.DIARY && !caller.aiDiaryEnabled()) return Optional.of(Result.fail(AiJournal.AI_DIARY_OFF));
+        if (!caller.emailVerified()) return Optional.of(Result.fail("이메일 인증을 마친 뒤 글을 쓸 수 있어요. devlog에서 인증 메일을 확인해 주세요."));
+        // 일기 메모(하루 60개)와 체결 기록(하루 상한, #243)은 상한이 따로 있어 글쓰기 한도를 쓰지 않는다
+        if (gate != Gate.DIARY && gate != Gate.TRADES
+                && !rateLimiter.tryAcquire("mcp-write:" + caller.memberId(), WRITES_PER_HOUR, Duration.ofHours(1))) {
+            return Optional.of(Result.fail("글쓰기 요청은 한 시간에 " + WRITES_PER_HOUR + "번까지예요. 잠시 뒤 다시 시도해 주세요."));
+        }
+        return Optional.empty();
+    }
+
+    /** 쇼츠·체결 도구는 묶음별로 따로 나눠 부른다 */
+    private Result dispatch(AccessTokens.Caller caller, Tool tool, JsonNode a) {
+        String name = tool.name();
+        if (tool.gate() == Gate.SHORTS) return shortsTool(caller, name, a);
+        if (tool.gate() == Gate.TRADES) return tradeTool(caller, name, a);
+        return switch (name) {
+            case "write_devlog", "create_draft" -> createDraft(caller, a);
+            case "update_draft" -> updateDraft(caller, a);
+            case "request_publish" -> requestPublish(caller, a);
+            case "publish_post" -> publishPost(caller, a);
+            case "delete_post" -> deletePost(caller, a);
+            case "search_posts" -> searchPosts(caller, a);
+            case "get_post" -> getPost(caller, a);
+            case "list_my_posts" -> listMyPosts(caller, a);
+            case "list_tags" -> listTags(caller);
+            case "list_series" -> listSeries(caller);
+            case "create_series" -> createSeries(caller, a);
+            case "add_to_series" -> addToSeries(caller, a);
+            case "set_series_project" -> setSeriesProject(caller, a);
+            case "propose_post" -> proposePost(caller, a);
+            case "list_post_proposals" -> listProposals(caller);
+            case "suggest_topics" -> suggestTopics(caller, a);
+            case "add_note" -> addNote(caller, a);
+            case "upload_image" -> uploadImage(caller, a);
+            case "create_image_upload_link" -> createUploadLink(caller, a);
+            case "report_bug" -> reportBug(caller, a);
+            case "list_inquiries" -> listInquiries(a);
+            case "get_inquiry" -> getInquiry(a);
+            case "update_inquiry" -> updateInquiry(caller, a);
+            default -> Result.fail(NO_SUCH_TOOL + name);
+        };
+    }
+
+    private Result shortsTool(AccessTokens.Caller caller, String name, JsonNode a) {
+        return switch (name) {
+            case "plan_shorts" -> shorts.plan(caller, a);
+            case "create_shorts_script" -> shorts.create(caller, a);
+            case "update_shorts_script" -> shorts.update(caller, a);
+            case "list_shorts" -> shorts.list(caller);
+            case "get_shorts" -> shorts.get(caller, a);
+            case "list_shorts_candidates" -> shorts.candidates(caller, a);
+            default -> Result.fail(NO_SUCH_TOOL + name);
+        };
+    }
+
+    private Result tradeTool(AccessTokens.Caller caller, String name, JsonNode a) {
+        return switch (name) {
+            case "record_trade" -> trades.recordTrade(caller, a);
+            case "get_trade_day" -> trades.day(caller, a);
+            case "report_trade_bot" -> trades.report(caller, a);
+            default -> Result.fail(NO_SUCH_TOOL + name);
+        };
     }
 
     /** 서버 설정으로 꺼진 도구 묶음인가 (SHORTS_ENABLED·TRADES_ENABLED) */
@@ -544,17 +602,12 @@ public class McpTools {
         }
         List<String> tagList;
         if (a.has("tags")) {
-            JsonNode raw = a.path("tags");
-            if (!raw.isArray()) return Result.fail("태그(tags)는 문자열 배열이어야 해요. 태그를 비우려면 []를 주세요.");
-            tagList = new ArrayList<>();
-            for (JsonNode n : raw) {
-                if (!n.isString()) return Result.fail("태그(tags)에는 문자열만 넣을 수 있어요.");
-                tagList.add(n.asString());
-            }
-        } else if (!view.tags().isEmpty()) {
-            tagList = view.tags();
+            Strings given = strings(a.path("tags"), "태그(tags)는 문자열 배열이어야 해요. 태그를 비우려면 []를 주세요.",
+                    "태그(tags)에는 문자열만 넣을 수 있어요.");
+            if (given.error() != null) return Result.fail(given.error());
+            tagList = given.values();
         } else {
-            tagList = hints.find(id).map(AiDraftHints.Hint::tags).orElse(List.of());
+            tagList = currentTags(view, id);
         }
         String summary = a.has(SUMMARY) ? text(a, SUMMARY) : view.summary();
         // 사람이 읽지 않고 공개되는 길이라 비밀값이 보이면 발행하지 않는다 (086)
@@ -570,6 +623,25 @@ public class McpTools {
                 + baseUrl + r.url()
                 + (saved.isEmpty() ? "" : "\n태그: " + String.join(", ", saved))
                 + shorts.afterPublish(id, view.contentMd(), r.visibility() == Visibility.PUBLIC));
+    }
+
+    /** 태그를 주지 않으면 글의 태그, 그것도 없으면 AI가 제안해 둔 태그 */
+    private List<String> currentTags(PostEditorQuery.EditorView view, long id) {
+        if (!view.tags().isEmpty()) return view.tags();
+        return hints.find(id).map(AiDraftHints.Hint::tags).orElse(List.of());
+    }
+
+    /** 문자열 배열 인자를 읽은 값. 형식이 틀리면 error에 안내 문장이 있다 */
+    private record Strings(List<String> values, String error) {}
+
+    private static Strings strings(JsonNode raw, String notArray, String notString) {
+        if (!raw.isArray()) return new Strings(List.of(), notArray);
+        List<String> values = new ArrayList<>();
+        for (JsonNode n : raw) {
+            if (!n.isString()) return new Strings(List.of(), notString);
+            values.add(n.asString());
+        }
+        return new Strings(values, null);
     }
 
     /** 웹의 [삭제]와 같다 (053): 휴지통으로 옮기고 30일 뒤 완전 삭제. 빈 임시글은 바로 지운다. */
@@ -630,12 +702,9 @@ public class McpTools {
         SeriesProjects.Fields now = projects.get(caller.memberId(), seriesId);
         List<String> tech = now.tech();
         if (a.has("tech")) {
-            if (!a.path("tech").isArray()) return Result.fail("쓴 기술(tech)은 문자열 배열이어야 해요.");
-            tech = new ArrayList<>();
-            for (JsonNode n : a.path("tech")) {
-                if (!n.isString()) return Result.fail("쓴 기술(tech)에는 문자열만 넣을 수 있어요.");
-                tech.add(n.asString());
-            }
+            Strings given = strings(a.path("tech"), "쓴 기술(tech)은 문자열 배열이어야 해요.", "쓴 기술(tech)에는 문자열만 넣을 수 있어요.");
+            if (given.error() != null) return Result.fail(given.error());
+            tech = given.values();
         }
         if (a.has(PORTFOLIO) && !a.path(PORTFOLIO).isBoolean()) return Result.fail("portfolio는 true나 false예요.");
         SeriesProjects.Fields saved = projects.save(caller.memberId(), seriesId, new SeriesProjects.Fields(

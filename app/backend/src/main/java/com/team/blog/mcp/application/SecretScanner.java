@@ -2,6 +2,8 @@ package com.team.blog.mcp.application;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -27,7 +29,10 @@ public final class SecretScanner {
 
     /** 주소 안의 비밀번호 (postgres://user:pass@host). 자리표시자(${...}, <...>, ****, password)는 넘긴다 */
     private static final Pattern URL_PASSWORD = Pattern.compile("\\b[a-zA-Z][a-zA-Z0-9+.-]*://[^\\s:/@]+:([^\\s/@]+)@");
-    private static final Pattern PLACEHOLDER = Pattern.compile("(?i)^(?:\\$\\{?.*|<.*>|\\*+|x+|password|passwd|pass|pw|secret|changeme|example)$");
+    /** 자리표시자로 흔히 쓰는 낱말 (소문자) */
+    private static final Set<String> PLACEHOLDER_WORDS = Set.of("pass", "passwd", "password", "pw", "secret", "changeme", "example");
+
+    private static final String URL_SECRET_LABEL = "주소 속 비밀번호";
 
     private SecretScanner() {}
 
@@ -39,15 +44,33 @@ public final class SecretScanner {
             for (Rule r : RULES) {
                 if (!found.contains(r.label()) && r.pattern().matcher(text).find()) found.add(r.label());
             }
-            Matcher m = URL_PASSWORD.matcher(text);
-            while (m.find()) {
-                if (!PLACEHOLDER.matcher(m.group(1)).matches()) {
-                    if (!found.contains("주소 속 비밀번호")) found.add("주소 속 비밀번호");
-                    break;
-                }
-            }
+            if (!found.contains(URL_SECRET_LABEL) && hasUrlPassword(text)) found.add(URL_SECRET_LABEL);
         }
         return found;
+    }
+
+    /** 주소 속 비밀번호 가운데 자리표시자가 아닌 것이 하나라도 있는가 */
+    private static boolean hasUrlPassword(String text) {
+        Matcher m = URL_PASSWORD.matcher(text);
+        while (m.find()) {
+            if (!isPlaceholder(m.group(1))) return true;
+        }
+        return false;
+    }
+
+    /** ${...}, <...>, ****, xxxx, password 같은 자리표시자인가 */
+    private static boolean isPlaceholder(String value) {
+        if (isEnvReference(value)) return true;
+        if (value.length() >= 2 && value.startsWith("<") && value.endsWith(">")) return true;
+        if (value.chars().allMatch(c -> c == '*') || value.chars().allMatch(c -> c == 'x' || c == 'X')) return true;
+        return PLACEHOLDER_WORDS.contains(value.toLowerCase(Locale.ROOT));
+    }
+
+    /** ${DB_PASSWORD} 또는 $DB_PASSWORD 처럼 환경 변수를 가리키는가. $uperSecret1 같은 값은 비밀번호로 본다 */
+    private static boolean isEnvReference(String value) {
+        if (value.length() > 3 && value.startsWith("${") && value.endsWith("}")) return true;
+        return value.length() > 1 && value.charAt(0) == '$'
+                && value.chars().skip(1).allMatch(c -> (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_');
     }
 
     /** AI에게 돌려줄 안내 문장 */

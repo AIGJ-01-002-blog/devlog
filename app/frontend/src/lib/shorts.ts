@@ -8,12 +8,13 @@ import { t } from './i18n'
  */
 export const LIMITS = {
   title: 60,
-  scenesMax: 10,
+  scenesMax: 16,
   scenesMinRender: 3,
   caption: 40,
   narration: 200,
   code: 300,
-  seconds: 60,
+  image: 500,
+  seconds: 90,
 } as const
 
 const CHARS_PER_SECOND = 6.5
@@ -27,7 +28,18 @@ export interface Scene {
   caption: string
   narration: string
   code: string | null
+  /** 장면 배경 그림 (선택, devlog에 올린 그림 주소나 /로 시작하는 사이트 경로) */
+  image?: string | null
+  /** 장면 연출 이름 (선택, 비우면 렌더 워커가 고름) */
+  visual?: SceneVisual | null
+  /** 장면 안 효과음 (선택, 연결한 AI가 넣음. 편집기는 그대로 보존) */
+  effects?: { sound: string; at: number; volume?: number | null }[]
+  /** 설명 도식 (선택, 연결한 AI가 넣음: flow·stack·steps·compare). 편집기는 그대로 보존 */
+  diagram?: { type: string; [key: string]: unknown } | null
 }
+
+export const SCENE_VISUALS = ['explain', 'shock', 'typing', 'panic', 'restore', 'wait', 'fast', 'idea', 'protect', 'think', 'celebrate'] as const
+export type SceneVisual = (typeof SCENE_VISUALS)[number]
 
 export interface ShortsItem {
   id: number
@@ -52,6 +64,74 @@ export interface ShortsItem {
   postTags: string[]
   /** 직접 올린 뒤 남긴 영상 주소 */
   uploads: ShortsUpload[]
+  /** 매매 재현 영상(#265)이면 고른 체결과 차트 구간. 글 쇼츠는 null */
+  replay: TradeReplay | null
+  /** 주제 묶음(#276)에서 만든 편이면 묶음 번호와 주제 번호(1부터) */
+  batchId: number | null
+  topic: number | null
+}
+
+/** 주제 묶음의 한 주제. 아직 대본이 없으면 shortsId·status가 null */
+export interface BatchTopic {
+  number: number
+  title: string
+  hook: string
+  scope: string
+  shortsId: number | null
+  status: ShortsStatus | null
+}
+
+/** 글 하나나 MCP로 받은 맥락 하나를 작은 주제 여러 개로 나눈 묶음 (#276). AI가 plan_shorts로 만든다 */
+export interface ShortsBatch {
+  id: number
+  postId: number | null
+  postTitle: string | null
+  title: string
+  /** MCP로 받은 맥락 근거가 있는가 */
+  hasSource: boolean
+  topics: BatchTopic[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface BatchRenderResult {
+  queued: number[]
+  skipped: { shortsId: number; title: string; reason: string }[]
+}
+
+/** 고를 수 있는 봉. 서버 TradeReplay.Interval과 같은 이름 */
+export type ReplayInterval = '1m' | '5m' | '15m' | '1h' | '4h' | '1d'
+export const REPLAY_INTERVALS: ReplayInterval[] = ['1m', '5m', '15m', '1h', '4h', '1d']
+/** 한 영상에 담는 체결 수 (서버 TradeReplay.FILLS_MAX) */
+export const REPLAY_FILLS_MAX = 6
+
+export function intervalLabel(i: string): string {
+  const labels: Record<string, string> = {
+    '1m': t('1분봉'), '5m': t('5분봉'), '15m': t('15분봉'), '1h': t('1시간봉'), '4h': t('4시간봉'), '1d': t('일봉'),
+  }
+  return labels[i] ?? i
+}
+
+export interface TradeReplayFill {
+  tradeId: number
+  side: 'BUY' | 'SELL'
+  price: number
+  quantity: number
+  realizedPnl: number | null
+  executedAt: string
+  reason: string
+}
+
+export interface TradeReplay {
+  exchange: string
+  symbol: string
+  symbolName: string
+  currency: string
+  mode: 'PAPER' | 'LIVE'
+  interval: ReplayInterval
+  from: string
+  to: string
+  fills: TradeReplayFill[]
 }
 
 export type Platform = 'YOUTUBE' | 'INSTAGRAM' | 'TIKTOK'
@@ -133,10 +213,29 @@ export function reportOf(err: unknown): OriginalityReport | null {
 }
 
 export const listShorts = () => api<ShortsOverview>('/api/me/shorts')
+export const listBatches = () => api<ShortsBatch[]>('/api/me/shorts/batches')
+export const renderBatch = (id: number) => api<BatchRenderResult>(`/api/me/shorts/batches/${id}/render`, { method: 'POST' })
+export const deleteBatch = (id: number) => api<void>(`/api/me/shorts/batches/${id}`, { method: 'DELETE' })
+
+/** 대본을 다 쓴 주제 수 */
+export const writtenTopics = (b: ShortsBatch) => b.topics.filter((t) => t.shortsId !== null).length
+
+/** 목록을 묶음별로 나눈다: 묶음마다 주제 순서로, 묶음에 없는 대본은 따로 */
+export function groupByBatch(items: ShortsItem[], batches: ShortsBatch[]): { batch: ShortsBatch; items: ShortsItem[] }[] {
+  return batches.map((batch) => ({
+    batch,
+    items: items.filter((it) => it.batchId === batch.id).sort((a, b) => (a.topic ?? 0) - (b.topic ?? 0)),
+  }))
+}
 export const createShorts = (body: { postId: number | null; title: string; scenes: Scene[] }) =>
   api<ShortsItem>('/api/me/shorts', { method: 'POST', body })
 export const saveShorts = (id: number, body: { title: string; scenes: Scene[]; version: number }) =>
   api<ShortsItem>(`/api/me/shorts/${id}`, { method: 'PUT', body })
+export const createReplay = (tradeIds: number[], interval: ReplayInterval | null) =>
+  api<ShortsItem>('/api/me/shorts/replay', { method: 'POST', body: { tradeIds, interval } })
+/** 내 AI에게 보낼 부탁. AI가 get_shorts로 체결·메모를 읽고 update_shorts_script로 대본을 다시 쓴다 */
+export const replayPrompt = (id: number) =>
+  t('devlog 쇼츠 {0}번은 매매 재현 영상이에요. get_shorts로 고른 체결과 메모를 읽고, 그 시각에 매매하는 것처럼 "지금 사는 이유"를 말하는 대본으로 update_shorts_script 해 줘.', { 0: id })
 export const checkShorts = (id: number) => api<OriginalityReport>(`/api/me/shorts/${id}/check`, { method: 'POST' })
 export const renderShorts = (id: number) => api<ShortsItem>(`/api/me/shorts/${id}/render`, { method: 'POST' })
 export const deleteShorts = (id: number) => api<void>(`/api/me/shorts/${id}`, { method: 'DELETE' })
@@ -148,7 +247,7 @@ export const deleteUpload = (id: number, platform: Platform) =>
 
 /**
  * 플랫폼별 직접 올리기 안내 (#238). devlog는 아무 데도 올리지 않고, 올릴 때 붙여 넣을 문구와 순서만 준다.
- * 제한 값은 2026년 10월에 확인한 각 플랫폼 안내 기준이다. 우리 영상은 60초 이하 9:16이라 길이·비율은 늘 맞고,
+ * 제한 값은 2026년 10월에 확인한 각 플랫폼 안내 기준이다. 우리 영상은 90초 이하 9:16이라 길이·비율은 늘 맞고,
  * 글자 수와 해시태그 수만 문구에 따라 넘칠 수 있다. 넘치면 화면이 알려 주고 문구는 잘라 두지 않는다(내가 고쳐 쓰게).
  */
 export interface PlatformSpec {

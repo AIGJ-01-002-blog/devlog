@@ -103,22 +103,27 @@ public class SignupService {
             if (!emailVerified) verification.sendAfterSignup(principal.id(), finalEmail);
             return principal;
         } catch (DataIntegrityViolationException e) {
-            String msg = String.valueOf(e.getMostSpecificCause().getMessage());
-            if (msg.contains("uq_auth_identity")) {
-                // 같은 소셜 계정으로 두 번 제출: 이미 만들어진 계정으로 로그인한다 (계정은 하나뿐)
-                return tx.execute(status -> loggedInExisting(profile));
-            }
-            if (msg.contains("uq_member_handle")) {
-                String suggestion = suggester.firstFree(profile.provider(), body);
-                throw new ApiException(HttpStatus.CONFLICT, "HANDLE_TAKEN",
-                        "방금 다른 분이 이 주소를 사용했어요. " + suggestion + "는 어떠세요?", List.of(),
-                        Map.of("suggestion", HandlePolicy.bodyOf(suggestion)));
-            }
-            if (msg.contains("uq_member_nickname")) {
-                throw ApiException.conflict("NICKNAME_TAKEN", "방금 다른 분이 이 닉네임을 사용했어요.");
-            }
-            throw e;
+            return afterConflict(e, profile, body);
         }
+    }
+
+    /** 가입 중 겹친 고유 값: 같은 소셜 계정이면 그 계정으로 로그인하고, 주소·닉네임이면 알맞은 오류를 낸다 */
+    private MemberPrincipal afterConflict(DataIntegrityViolationException e, SocialProfile profile, String body) {
+        String msg = String.valueOf(e.getMostSpecificCause().getMessage());
+        if (msg.contains("uq_auth_identity")) {
+            // 같은 소셜 계정으로 두 번 제출: 이미 만들어진 계정으로 로그인한다 (계정은 하나뿐)
+            return tx.execute(status -> loggedInExisting(profile));
+        }
+        if (msg.contains("uq_member_handle")) {
+            String suggestion = suggester.firstFree(profile.provider(), body);
+            throw new ApiException(HttpStatus.CONFLICT, "HANDLE_TAKEN",
+                    "방금 다른 분이 이 주소를 사용했어요. " + suggestion + "는 어떠세요?", List.of(),
+                    Map.of("suggestion", HandlePolicy.bodyOf(suggestion)));
+        }
+        if (msg.contains("uq_member_nickname")) {
+            throw ApiException.conflict("NICKNAME_TAKEN", "방금 다른 분이 이 닉네임을 사용했어요.");
+        }
+        throw e;
     }
 
     private MemberPrincipal create(SocialProfile profile, String handle, String nickname, String email, boolean emailVerified,

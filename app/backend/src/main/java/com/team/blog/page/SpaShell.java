@@ -97,28 +97,7 @@ public class SpaShell {
             head.append("<meta name=\"description\" content=\"").append(esc(meta.description())).append(TAG_END);
         }
         if (!meta.indexable()) head.append("<meta name=\"robots\" content=\"noindex, nofollow\">\n");
-        if (meta.indexable() && meta.canonical() != null) {
-            head.append("<link rel=\"canonical\" href=\"").append(esc(meta.canonical())).append(TAG_END);
-            if (rssPath != null) {
-                head.append("<link rel=\"alternate\" type=\"application/rss+xml\" title=\"RSS\" href=\"").append(esc(rssPath)).append(TAG_END);
-            }
-            head.append("<meta property=\"og:type\" content=\"").append(esc(meta.ogType())).append(TAG_END);
-            head.append("<meta property=\"og:url\" content=\"").append(esc(meta.canonical())).append(TAG_END);
-            head.append("<meta property=\"og:title\" content=\"").append(esc(meta.title())).append(TAG_END);
-            if (meta.description() != null && !meta.description().isBlank()) {
-                head.append("<meta property=\"og:description\" content=\"").append(esc(meta.description())).append(TAG_END);
-            }
-            if (meta.ogImage() != null) head.append("<meta property=\"og:image\" content=\"").append(esc(meta.ogImage())).append(TAG_END);
-            if (meta.publishedTime() != null) {
-                head.append("<meta property=\"article:published_time\" content=\"").append(meta.publishedTime()).append(TAG_END);
-            }
-            if (meta.modifiedTime() != null) {
-                head.append("<meta property=\"article:modified_time\" content=\"").append(meta.modifiedTime()).append(TAG_END);
-            }
-            // X(트위터)·슬랙 등은 twitter:card가 있어야 큰 미리보기를 그린다. 제목·사진은 og 값을 읽는다 (spec 097)
-            head.append("<meta name=\"twitter:card\" content=\"").append(meta.ogImage() != null ? "summary_large_image" : "summary").append(TAG_END);
-            if ("article".equals(meta.ogType())) head.append(articleJsonLd(meta));
-        }
+        if (meta.indexable() && meta.canonical() != null) appendShareMeta(head, meta, rssPath);
         if (initialData != null) {
             // </script> 탈출을 막기 위해 <, >, &를 유니코드 이스케이프로 바꾼다 (JSON 문자열 안에서만 나타나므로 의미는 같다)
             String data = json.writeValueAsString(initialData)
@@ -126,6 +105,30 @@ public class SpaShell {
             head.append("<script id=\"initial-data\" type=\"application/json\">").append(data).append("</script>\n");
         }
         return page.replace(HEAD_MARK, head.toString()).replace(BODY_MARK, bodyHtml == null ? "" : bodyHtml);
+    }
+
+    /** 수집하는 화면의 정규 주소·RSS·링크 미리보기(og·twitter) 머리말 */
+    private void appendShareMeta(StringBuilder head, HeadMeta meta, String rssPath) {
+        head.append("<link rel=\"canonical\" href=\"").append(esc(meta.canonical())).append(TAG_END);
+        if (rssPath != null) {
+            head.append("<link rel=\"alternate\" type=\"application/rss+xml\" title=\"RSS\" href=\"").append(esc(rssPath)).append(TAG_END);
+        }
+        head.append("<meta property=\"og:type\" content=\"").append(esc(meta.ogType())).append(TAG_END);
+        head.append("<meta property=\"og:url\" content=\"").append(esc(meta.canonical())).append(TAG_END);
+        head.append("<meta property=\"og:title\" content=\"").append(esc(meta.title())).append(TAG_END);
+        if (meta.description() != null && !meta.description().isBlank()) {
+            head.append("<meta property=\"og:description\" content=\"").append(esc(meta.description())).append(TAG_END);
+        }
+        if (meta.ogImage() != null) head.append("<meta property=\"og:image\" content=\"").append(esc(meta.ogImage())).append(TAG_END);
+        if (meta.publishedTime() != null) {
+            head.append("<meta property=\"article:published_time\" content=\"").append(meta.publishedTime()).append(TAG_END);
+        }
+        if (meta.modifiedTime() != null) {
+            head.append("<meta property=\"article:modified_time\" content=\"").append(meta.modifiedTime()).append(TAG_END);
+        }
+        // X(트위터)·슬랙 등은 twitter:card가 있어야 큰 미리보기를 그린다. 제목·사진은 og 값을 읽는다 (spec 097)
+        head.append("<meta name=\"twitter:card\" content=\"").append(meta.ogImage() != null ? "summary_large_image" : "summary").append(TAG_END);
+        if ("article".equals(meta.ogType())) head.append(articleJsonLd(meta));
     }
 
     /**

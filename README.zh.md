@@ -131,7 +131,7 @@ cd app/frontend && npm install && npm run dev            # http://localhost:5173
 
 ### 互动与连接
 
-- **点赞、评论、回复**：点赞点击后立即生效，评论支持一层回复。点赞过的文章可以在单独的列表中查看。
+- **点赞、评论、回复**：点赞点击后立即生效，可以回复回复，连续的回复像 Git 分支一样用线连起来。回复不超过 5 条时，不用点“更多”就全部显示。点赞过的文章可以在单独的列表中查看。
 - **浏览数**：同一个人浏览同一篇文章，24 小时内只计一次。原始 IP 地址不会保存在任何地方。
 - **关注与动态**：`/feed` 只显示你关注的人发布的所有人可见文章。
 - **好友**：好友申请与接受、好友的最近动态、仅好友可见的文章。
@@ -144,6 +144,15 @@ cd app/frontend && npm install && npm run dev            # http://localhost:5173
 - **举报、隐藏、封禁**：举报文章和评论（6 种理由），管理员的举报处理页面，从 1 天到永久的封禁。
 - **注销与恢复**：在 30 天宽限期内登录即可恢复账号。之后每天逐个账号在一个事务中删除。
 
+### 创作与记录
+
+- **短视频工作室**：按场景（字幕、朗读文本、代码）修改你的 AI 通过 MCP 写的短视频脚本。点击［制作视频］后，你自己电脑上的渲染程序会把它做成 9:16 的 MP4 并上传。制作前用量产检查拦下与其他脚本重复或照搬文章的脚本。
+- **发布指南**：为 YouTube Shorts、Instagram Reels、TikTok 分别给出带复制按钮的标题、说明和置顶评论，并说明发布步骤。没有自动发布，发布后记录视频网址。
+- **我的仪表盘**：按 7、30、90 天查看自己文章的浏览量、点赞和收到的评论，并与上一个周期比较。阅读最多的文章和短视频情况也集中在一个页面。
+- **交易日志**：家里电脑上的交易机器人通过 MCP 记录的成交按每日盈亏显示，用当天的笔记生成摘要草稿和短视频脚本。devlog 不会下单。
+- **AI 记录的依据链接**：AI 在开发日志和日记笔记中附上提交、PR、Issue 网址时，会作为链接出现在文章末尾的 `## 근거`（依据）和日记段落下方。
+- **迁移到家里电脑**：把数据库和文件存储下载到一个文件夹，再在 Windows、Mac 上用 Docker 恢复同一个博客的备份与恢复脚本（`deploy/home/`）。
+
 ## 架构
 
 devlog 是一个 **模块化单体**。一个 Spring Boot 应用同时提供 React 界面（静态文件）和 API，功能按包划分为模块。模块之间通过领域事件（例如：收到点赞 → 发送通知）松散地连接。设计依据见 [docs/02-architecture.md](https://github.com/AIGJ-01-002-blog/docs/blob/main/design/02-architecture.md)（韩语）。
@@ -154,7 +163,7 @@ flowchart LR
     T[Telegram] -->|Bot API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>多个 Pod]
     I -->|/blog-images| M[(MinIO / S3<br/>图片 · 附件)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V39)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V48)]
     A --> R[(Redis<br/>会话 · 限流 · 浏览数 · 缓存)]
     A --> M
     A -.可选.-> G[Google Gemini]
@@ -179,6 +188,9 @@ flowchart LR
 | **telegram** | 账号关联、发送通知、速记 → 草稿 | PostgreSQL |
 | **moderation** | 举报、隐藏、封禁、管理页面 | PostgreSQL |
 | **admin** | 管理仪表盘、文章与会员管理（组装各模块统计，不含 SQL） | - |
+| **shorts** | 短视频脚本、量产检查、渲染队列、发布记录 | PostgreSQL、MinIO/S3（视频） |
+| **trade · dashboard** | 交易日志、自己文章与短视频的成果仪表盘 | PostgreSQL |
+| **mcp** | AI 连接（MCP）工具：草稿、笔记、依据链接、短视频脚本 | PostgreSQL |
 | **shared** | Markdown 渲染与 HTML 净化、限流、定时任务锁、错误格式、邮件 | Redis |
 
 ### 请求流程
@@ -246,11 +258,12 @@ sequenceDiagram
 
 | 路径 | 说明 |
 | --- | --- |
-| [app/backend](app/backend) | 后端：Spring Boot 4.1、Java 21。功能模块、Flyway 迁移（V1~V39）、测试 |
+| [app/backend](app/backend) | 后端：Spring Boot 4.1、Java 21。功能模块、Flyway 迁移（V1~V48）、测试 |
 | [app/frontend](app/frontend) | 前端：React 19 SPA、TypeScript、Vite。界面、自动保存（IndexedDB）、深色模式 |
 | [deploy](deploy) | 部署：Dockerfile、Kubernetes 清单（base、selfhosted、nhn、local），部署、回滚、密钥检查脚本 |
+| [app/render-worker](app/render-worker) | 短视频渲染程序：Python 3.10、ffmpeg。在你自己的电脑上把队列中的脚本做成 9:16 的 MP4 并上传 |
 | [.github](.github) | CI/CD：后端与界面测试、镜像构建与部署、版本发布、Discord 与 Telegram 通知 |
-| [specs](specs) | 功能规格：按 [GitHub Spec Kit](https://github.com/github/spec-kit) 流程编写的各功能 spec、plan、tasks（001~044） |
+| [specs](specs) | 功能规格：按 [GitHub Spec Kit](https://github.com/github/spec-kit) 流程编写的各功能 spec、plan、tasks（001~100） |
 | [docs](https://github.com/AIGJ-01-002-blog/docs) | 设计文档：通用需求、架构、整合 ERD、各功能设计、权限表 |
 | [erd](erd) · [scripts](scripts) | 基准模式及其运行测试、设计验证脚本与报告 |
 
@@ -326,7 +339,7 @@ npm run dev        # http://localhost:5173
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub、Google、Kakao、Naver、Facebook 登录，会话，CSRF，按路径的权限 |
 | Spring Data JPA (Hibernate) | Boot 4.1 | 所有领域 | 保存会员、文章、评论等领域数据 |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | 会话、限流、浏览数、缓存 | 多个 Pod 共享同一会话，并发请求也由一个 Redis 脚本判定 |
-| Flyway | Boot 4.1 | 数据库 | 用 V1~V39 迁移管理模式，启动时自动应用 |
+| Flyway | Boot 4.1 | 数据库 | 用 V1~V48 迁移管理模式，启动时自动应用 |
 | commonmark-java (+ GFM 扩展) | 0.30.0 | 正文渲染 | Markdown → HTML。表格、删除线、任务清单、自动链接、标题锚点 |
 | OWASP Java HTML Sanitizer | 20260924.2 | 正文净化 | 按白名单净化渲染后的 HTML，防止 XSS |
 | AWS SDK for Java (S3) | 2.55.12 | media | 把图片和附件上传到 MinIO、S3 |
@@ -350,6 +363,7 @@ npm run dev        # http://localhost:5173
 | PostgreSQL 16 · 17 | 本地 · 集群 | 服务数据库。有 `pg_trgm` 和 `pgvector` 时用于搜索 |
 | Redis 7 · 7.4 | 本地 · 集群 | 会话、限流、浏览数汇总、渲染缓存、自动保存、定时任务锁 |
 | MinIO | 集群 | 图片与附件存储（兼容 S3）。首次部署时创建存储桶，公开访问只允许读取 |
+| Python 3.10 · ffmpeg | 渲染程序（自己的电脑） | 制作短视频。只使用设备内置语音（Mac 的 `say`、Windows 默认语音），没有费用 |
 | Docker · GHCR | 镜像 | 构建界面并放进后端，打成一个镜像。以非 root 用户运行 |
 | Kubernetes · kustomize | 部署 | Deployment、HPA、PDB、NetworkPolicy，3 种 overlay（selfhosted、nhn、local） |
 | nginx Ingress | 入口 | TLS 和按路径分流（`/blog-images` 转到 MinIO） |
@@ -360,10 +374,10 @@ npm run dev        # http://localhost:5173
 
 | 技术 | 使用位置 | 作用 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | 后端 | 单元与集成测试 572 个（截至 v1.64.2） |
+| JUnit 5 · Spring Boot Test · Spring Security Test | 后端 | 单元与集成测试 665 个（截至 v2.0.0） |
 | Testcontainers (PostgreSQL) | 后端 | 在真实的 PostgreSQL 上验证迁移、查询和并发 |
 | JaCoCo | 后端 | 在 CI 中检查 40% 行覆盖率的门槛 |
-| Vitest · Testing Library · jsdom | 前端 | 界面与逻辑测试 312 个（截至 v1.64.2） |
+| Vitest · Testing Library · jsdom | 前端 | 界面与逻辑测试 375 个（截至 v2.0.0） |
 | fake-indexeddb | 前端 | 离线自动保存的测试 |
 
 ## 版本发布
@@ -372,6 +386,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v2.1.0 | 2026-10-15 | devlog 2.0 完成：加密货币现货与合约交易日志（按币种汇总）、用所选成交制作的交易回放短视频、博客积分（签到、连续签到徽章、发布文章获得积分）与分段位商店装饰博客、用积分进行加密货币模拟交易、自动交易模拟页面 `/trade`、用 Remotion 和神经语音生成短视频，并在生产环境开启短视频、交易日志和积分 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.1.0) |
 | v2.0.0 | 2026-10-14 | 短视频工作室：把文章打磨成短视频脚本并用自己电脑上的渲染程序生成 MP4、生成前的批量内容检查、YouTube·Instagram·TikTok 手动上传指南、我的仪表板、MCP 依据链接与短视频候选、自动交易机器人的交易日志、迁移到家用电脑的备份与恢复（短视频和交易日志默认关闭） | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.0.0) |
 | v1.70.0 | 2026-10-14 | 恢复混合搜索并打磨注册与文章管理：修复搜索索引让语义结果重新混入、首次登录的 AI 连接引导、昵称实时检查、我的文章默认打开已发布标签、头像裁剪显示圆形边界、回复不超过 5 条时全部显示、接收 Naver 邮箱与头像 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.70.0) |
 | v1.69.0 | 2026-10-14 | 阅读体验打磨：不存在的地址显示应用内 404 页面、修复后接韩语助词的粗体、代码块复制与换行、手机可折叠目录、图片放大、最近阅读、搜索起始页 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.69.0) |

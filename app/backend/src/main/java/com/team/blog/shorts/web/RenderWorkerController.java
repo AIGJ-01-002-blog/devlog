@@ -64,7 +64,7 @@ public class RenderWorkerController {
         if (request.getContentLengthLong() > max) throw tooLarge(max);
         byte[] body;
         try (InputStream in = request.getInputStream()) {
-            body = in.readNBytes((int) Math.min(Integer.MAX_VALUE - 8, max + 1));
+            body = in.readNBytes((int) Math.min(Integer.MAX_VALUE - 8L, max + 1));
         }
         if (body.length > max) throw tooLarge(max);
         if (!isMp4(body)) throw ApiException.badRequest("NOT_MP4", "MP4 영상만 올릴 수 있어요.");

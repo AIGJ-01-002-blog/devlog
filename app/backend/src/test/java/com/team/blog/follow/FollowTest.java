@@ -226,6 +226,17 @@ class FollowTest extends IntegrationTest {
         List<Long> sorted = new ArrayList<>(seen);
         sorted.sort((x, y) -> Long.compare(y, x));
         assertThat(seen).isEqualTo(sorted); // 같은 시각이 없으면 처음 공개 순서 = 번호 순서
+    }
+
+    @Test
+    void 피드는_팔로우를_끊거나_탈퇴한_사람의_글을_빼고_잘못된_커서는_막는다() throws Exception {
+        Session me = signup(uniqueLogin("fk")), b = signup(uniqueLogin("fl")), c = signup(uniqueLogin("fm"));
+        follow(me, b.handle(), true);
+        follow(me, c.handle(), true);
+        for (int i = 0; i < 2; i++) {
+            publish(b, "B" + i, "PUBLIC");
+            publish(c, "C" + i, "PUBLIC");
+        }
 
         follow(me, c.handle(), false);
         assertThat(feed(me, null).path("items")).allSatisfy(n -> assertThat(n.path("author").path("handle").asString()).isEqualTo(b.handle()));

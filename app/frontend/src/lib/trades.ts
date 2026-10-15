@@ -2,40 +2,60 @@ import { api } from './api'
 import { num } from './dashboard'
 import { t } from './i18n'
 
-/** 매매 일지 (#243). 서버 TradeJournal과 같은 모양. 금액은 원 단위 숫자 */
+/**
+ * 매매 일지 (#243). 서버 TradeJournal과 같은 모양.
+ * 코인 거래소(#254)는 원화와 USDT가 섞이므로 손익·수수료는 통화별 금액({ KRW: 1200, USDT: 3.5 })으로 온다.
+ * 선물(#260)은 롱 진입 BUY, 롱 청산 SELL, 숏 진입 SELL, 숏 청산 BUY로 읽고, 실현 손익은 청산(closes)에만 붙는다.
+ */
 export type TradePeriod = 7 | 30 | 90
 export const TRADE_PERIODS: TradePeriod[] = [7, 30, 90]
+
+/** 통화 코드 → 금액. 서버가 KRW를 먼저, 나머지는 이름 순으로 보낸다 */
+export type Money = Record<string, number>
 
 export interface TradeSummary {
   trades: number
   buys: number
   sells: number
+  /** 포지션을 닫은 체결 수(현물 매도, 선물 청산) */
+  closes: number
   wins: number
   losses: number
-  realizedPnl: number
-  fees: number
+  realizedPnl: Money
+  fees: Money
+  /** 모의투자와 실계좌가 섞였을 때만 모드별 요약(PAPER 먼저). 한 모드뿐이면 비어 있다 */
+  modes?: Partial<Record<'PAPER' | 'LIVE', TradeSummary>>
 }
 
 export interface TradeFill {
   id: number
   externalId: string
   mode: 'PAPER' | 'LIVE'
+  /** BINANCE·UPBIT 같은 거래소 코드. 비어 있으면 알리지 않은 기록 */
+  exchange: string
   symbol: string
   symbolName: string
   side: 'BUY' | 'SELL'
   quantity: number
   price: number
+  currency: string
   fee: number
   realizedPnl: number | null
   strategy: string
   reason: string
   executedAt: string
+  market: 'SPOT' | 'FUTURES'
+  /** 선물만. 현물은 null */
+  positionSide: 'LONG' | 'SHORT' | null
+  leverage: number | null
+  /** 봇이 판단한 봉 (1m·5m·15m·1h·4h·1d). 비어 있으면 알리지 않은 기록 */
+  interval: string
 }
 
 export interface TradeDayRow {
   date: string
   summary: TradeSummary
-  cumulativePnl: number
+  cumulativePnl: Money
   memo: boolean
   postId: number | null
   shortsId: number | null
@@ -46,7 +66,7 @@ export interface TradeOverview {
   to: string
   days: TradeDayRow[]
   total: TradeSummary
-  cumulativePnl: number
+  cumulativePnl: Money
   live: boolean
 }
 
@@ -54,7 +74,7 @@ export interface TradeDay {
   date: string
   fills: TradeFill[]
   summary: TradeSummary
-  cumulativePnl: number
+  cumulativePnl: Money
   memo: string
   postId: number | null
   shortsId: number | null
@@ -79,18 +99,74 @@ export function isDate(raw: string | null): raw is string {
   return raw !== null && /^\d{4}-\d{2}-\d{2}$/.test(raw)
 }
 
-/** 원 단위 금액. sign이면 이익에 +를 붙인다 (색만으로 구분하지 않게) */
-export function won(n: number, sign = false): string {
-  const v = Math.round(n)
-  const body = t('{0}원', { 0: num(Math.abs(v)) })
-  if (v < 0) return `-${body}`
-  return sign && v > 0 ? `+${body}` : body
+/** 화면에 보이는 자릿수로 반올림: 원화는 원 단위, 다른 통화는 1 이상이면 소수 둘째 자리, 1보다 작으면 여덟째 자리 */
+function rounded(n: number, currency: string): { value: number; digits: number } {
+  if (currency === 'KRW') return { value: Math.round(n), digits: 0 }
+  const digits = Math.abs(n) >= 1 || n === 0 ? 2 : 8
+  const value = Number(n.toFixed(digits))
+  // 꼬리 0은 지우되 소수 둘째 자리까지는 남긴다 (0.000123 USDT, 12.50 USDT)
+  const shown = Math.max(2, Math.min(digits, (String(Math.abs(value)).split('.')[1] ?? '').length))
+  return { value, digits: shown }
 }
 
-/** 손익의 색 이름: 이익 good, 손해 bad, 0 flat */
-export function pnlClass(n: number): 'good' | 'bad' | 'flat' {
-  const v = Math.round(n)
+/** 금액 하나. 원화는 1,234원, 다른 통화는 12.34 USDT. sign이면 이익에 +를 붙인다 (색만으로 구분하지 않게) */
+export function money(n: number, currency = 'KRW', sign = false): string {
+  const { value, digits } = rounded(n, currency)
+  const abs = Math.abs(value)
+  const body = currency === 'KRW'
+    ? t('{0}원', { 0: num(abs) })
+    : `${abs.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits })} ${currency}`
+  if (value < 0) return `-${body}`
+  return sign && value > 0 ? `+${body}` : body
+}
+
+/** 원 단위 금액 (money의 원화) */
+export function won(n: number, sign = false): string {
+  return money(n, 'KRW', sign)
+}
+
+/** 통화별 금액을 " · "로 잇는다. 비어 있으면 fallback 통화의 0 */
+export function moneys(m: Money, fallback = 'KRW', sign = false): string {
+  const entries = Object.entries(m)
+  if (entries.length === 0) return money(0, fallback, sign)
+  return entries.map(([c, v]) => money(v, c, sign)).join(' · ')
+}
+
+/** 기간·날의 대표 통화: 수수료가 있는 첫 통화, 없으면 원화 */
+export function mainCurrency(s: TradeSummary): string {
+  return Object.keys(s.fees)[0] ?? 'KRW'
+}
+
+/** 손익의 색 이름: 이익 good, 손해 bad, 0 flat. 보이는 자릿수로 반올림한 값으로 정한다 */
+export function pnlClass(n: number, currency = 'KRW'): 'good' | 'bad' | 'flat' {
+  const v = rounded(n, currency).value
   return v > 0 ? 'good' : v < 0 ? 'bad' : 'flat'
+}
+
+/** 통화가 여럿이면 모두 같은 쪽일 때만 색을 칠한다 (원화 이익·USDT 손실이 섞이면 flat) */
+export function moneyClass(m: Money): 'good' | 'bad' | 'flat' {
+  const classes = new Set(Object.entries(m).map(([c, v]) => pnlClass(v, c)).filter((k) => k !== 'flat'))
+  return classes.size === 1 ? [...classes][0] : 'flat'
+}
+
+const CRYPTO = new Set(['BINANCE', 'UPBIT', 'BYBIT', 'BITHUMB', 'OKX', 'COINBASE', 'KRAKEN', 'BITGET', 'KORBIT', 'COINONE'])
+/** 거래소 이름. 모르는 거래소는 코드 그대로 */
+export function exchangeName(code: string): string {
+  const names: Record<string, string> = {
+    BINANCE: t('바이낸스'), UPBIT: t('업비트'), BYBIT: t('바이비트'), BITHUMB: t('빗썸'), KIS: t('한국투자증권'),
+  }
+  return names[code] ?? code
+}
+
+/** 수량 단위: 주식은 null(화면이 "주"로 읽는다), 코인은 BTC 같은 코인 이름. 서버 Money.unit과 같은 규칙 */
+export function coinUnit(f: Pick<TradeFill, 'exchange' | 'symbol' | 'currency'>): string | null {
+  if (!CRYPTO.has(f.exchange)) return null
+  const s = f.symbol.toUpperCase()
+  if (s.includes('-')) {
+    const [a, b] = s.split('-', 2)
+    return a === f.currency ? b : a
+  }
+  return s.endsWith(f.currency) && s.length > f.currency.length ? s.slice(0, -f.currency.length) : s
 }
 
 /** 이긴 매도 비율(%). 매도가 없으면 null */
@@ -106,5 +182,33 @@ export function fillTime(iso: string): string {
 
 /** 수량. 소수점 아래 0은 지운다 */
 export function qty(n: number): string {
-  return num(Number(n.toFixed(4)))
+  return Number(n.toFixed(10)).toLocaleString('en-US', { maximumFractionDigits: 10 })
+}
+
+type FillSide = Pick<TradeFill, 'market' | 'positionSide' | 'side'>
+
+/** 포지션을 닫는 체결인가: 현물 매도, 선물 롱 청산(SELL)·숏 청산(BUY). 서버 Fill.closes와 같은 규칙 */
+export function closes(f: FillSide): boolean {
+  if (f.market === 'FUTURES') return f.positionSide === 'SHORT' ? f.side === 'BUY' : f.side === 'SELL'
+  return f.side === 'SELL'
+}
+
+/** 체결 구분: 현물 매수·매도, 선물 롱 진입·롱 청산·숏 진입·숏 청산 */
+export function actionLabel(f: FillSide): string {
+  if (f.market !== 'FUTURES') return f.side === 'BUY' ? t('매수') : t('매도')
+  const short = f.positionSide === 'SHORT'
+  if (closes(f)) return short ? t('숏 청산') : t('롱 청산')
+  return short ? t('숏 진입') : t('롱 진입')
+}
+
+/** 선물 포지션 "선물 롱 3배". 현물은 null */
+export function positionLabel(f: Pick<TradeFill, 'market' | 'positionSide' | 'leverage'>): string | null {
+  if (f.market !== 'FUTURES') return null
+  const x = f.leverage ?? 1
+  return f.positionSide === 'SHORT' ? t('선물 숏 {0}배', { 0: x }) : t('선물 롱 {0}배', { 0: x })
+}
+
+/** 그날 기록으로 매매 재현 영상을 만드는 스튜디오 주소 (#265) */
+export function replayHref(date: string): string {
+  return `/studio?replay=${date}`
 }
