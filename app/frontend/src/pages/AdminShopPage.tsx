@@ -9,6 +9,14 @@ import { TierEmblem } from '../components/TierEmblem'
 import { Preview } from './ShopPage'
 
 const EMPTY = { kind: 'THEME' as ItemKind, tier: '1', name: '', description: '', price: '100', value: '#', imageUrl: '' }
+const HEX = /^#[0-9a-fA-F]{6}$/
+const EFFECT_NAMES: Record<string, string> = { glow: '빛무리', stardust: '별가루', radiance: '광휘' }
+/** 색 칸의 처음 색: 아직 안 골랐으면 회색에서 시작한다 */
+const pickable = (v: string) => (HEX.test(v) ? v : '#5c5f66')
+const kindFromHash = (): ItemKind => {
+  const h = window.location.hash.slice(1).toUpperCase()
+  return (ITEM_KINDS as readonly string[]).includes(h) ? (h as ItemKind) : 'THEME'
+}
 
 /** 종류·티어를 바꾸면 모양 칸의 기본값: 테마는 색을 직접, 테두리·표지는 그 티어 모양, 효과는 빛무리 */
 function defaultValue(kind: ItemKind, tier: number): string {
@@ -25,6 +33,9 @@ export function AdminShopPage() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
+  // 목록은 종류별 탭으로 나눠 한 번에 한 종류만 보여 준다 (블로그 주인 요청). 주소 #theme 등으로 남겨 새로 고쳐도 그 탭에 있는다
+  const [tab, setTab] = useState<ItemKind>(kindFromHash)
+  const openTab = (k: ItemKind) => { setTab(k); window.history.replaceState(null, '', `#${k.toLowerCase()}`) }
 
   useEffect(() => { document.title = '상점 아이템 - 관리자 - devlog' }, [])
   const reload = () => adminShopItems().then(setItems).catch(() => setMessage({ ok: false, text: '아이템을 불러오지 못했어요.' }))
@@ -44,6 +55,7 @@ export function AdminShopPage() {
     try {
       await createShopItem({ kind: form.kind, tier: Number(form.tier), name: form.name, description: form.description, price: Number(form.price),
         value: form.value === '#' ? '' : form.value, imageUrl: form.imageUrl || undefined })
+      openTab(form.kind)
       setForm(EMPTY)
       setMessage({ ok: true, text: '아이템을 올렸어요.' })
       await reload()
@@ -59,7 +71,9 @@ export function AdminShopPage() {
     } catch (e) { fail(e) }
   }
 
-  const presets: readonly string[] = form.kind === 'FRAME' || form.kind === 'BANNER' ? TIER_PRESETS : form.kind === 'EFFECT' ? EFFECT_PRESETS : []
+  const setValue = (value: string) => setForm((f) => ({ ...f, value }))
+  const frameColor = form.kind === 'FRAME' && !TIER_PRESETS.includes(form.value)
+  const shown = items?.filter((it) => it.kind === tab) ?? []
   return (
     <main className="container narrow admin">
       <h1 className="page-title">상점 아이템</h1>
@@ -80,7 +94,7 @@ export function AdminShopPage() {
             <label htmlFor="shop-tier" data-tip="윗 티어는 바로 아래 티어를 가진 회원만 살 수 있어요. 바꾸면 가격이 티어 기본값으로 바뀌어요">티어</label>
             <select id="shop-tier" value={form.tier} onChange={(e) => {
               const tier = Number(e.target.value)
-              setForm((f) => ({ ...f, tier: e.target.value, price: String(tierPrice(tier)), value: f.kind === 'THEME' || f.kind === 'EFFECT' ? f.value : tierKey(tier) }))
+              setForm((f) => ({ ...f, tier: e.target.value, price: String(tierPrice(tier)), value: f.kind === 'THEME' || f.kind === 'EFFECT' || HEX.test(f.value) ? f.value : tierKey(tier) }))
             }} aria-invalid={errors.tier ? true : undefined}>
               {TIERS.map((x) => <option key={x.tier} value={x.tier}>{x.tier}. {x.name}</option>)}
             </select>
@@ -96,12 +110,30 @@ export function AdminShopPage() {
             <input id="shop-price" type="number" min={1} value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} aria-invalid={errors.price ? true : undefined} />
             {errors.price && <span className="error small">{errors.price}</span>}
           </div>
-          <div className="field">
-            <label htmlFor="shop-value" data-tip={form.kind === 'THEME' ? '#2f9e44처럼 여섯 자리 색' : form.kind === 'FRAME' ? '티어 모양(iron~challenger)을 고르거나 #RRGGBB 색' : form.kind === 'EFFECT' ? 'glow(빛무리)·stardust(별가루)·radiance(광휘)' : '티어 표지(iron~challenger). 사진을 붙이면 사진 뒤 바탕'}>
-              {form.kind === 'THEME' ? '색' : '모양'}
-            </label>
-            <input id="shop-value" list="shop-presets" value={form.value} onChange={(e) => setForm((f) => ({ ...f, value: e.target.value }))} aria-invalid={errors.value ? true : undefined} />
-            <datalist id="shop-presets">{presets.map((p) => <option key={p} value={p} />)}</datalist>
+          <div className="field shop-value-field">
+            <label htmlFor="shop-value">{form.kind === 'THEME' ? '색' : form.kind === 'EFFECT' ? '효과' : '모양'}</label>
+            {form.kind === 'EFFECT' ? (
+              <select id="shop-value" value={form.value} onChange={(e) => setValue(e.target.value)} aria-invalid={errors.value ? true : undefined}>
+                {EFFECT_PRESETS.map((p) => <option key={p} value={p}>{EFFECT_NAMES[p]}</option>)}
+              </select>
+            ) : form.kind === 'THEME' ? null : (
+              <select id="shop-value" value={frameColor ? 'color' : form.value} aria-invalid={errors.value ? true : undefined}
+                onChange={(e) => setValue(e.target.value === 'color' ? pickable(form.value) : e.target.value)}>
+                {TIERS.map((x) => <option key={x.key} value={x.key}>{x.name} 모양</option>)}
+                {form.kind === 'FRAME' && <option value="color">한 가지 색 (직접 고르기)</option>}
+              </select>
+            )}
+            {(form.kind === 'THEME' || frameColor) && (
+              <span className="shop-color">
+                <input type="color" aria-label="색 고르기" value={pickable(form.value)} onChange={(e) => setValue(e.target.value)} />
+                <input id={form.kind === 'THEME' ? 'shop-value' : 'shop-color'} value={form.value} maxLength={7} placeholder="#2f9e44" spellCheck={false}
+                  aria-label="색 코드" onChange={(e) => setValue(e.target.value)} aria-invalid={errors.value ? true : undefined} />
+              </span>
+            )}
+            <span className="muted small">{form.kind === 'THEME' ? '색 칸을 눌러 고르거나 #2f9e44처럼 # 뒤에 여섯 자리를 적어요. 이 색이 블로그의 버튼·탭·링크 색이 돼요.'
+              : form.kind === 'FRAME' ? '티어 모양은 그 티어의 금속 테두리예요. 한 가지 색을 고르면 그 색 테두리가 돼요.'
+              : form.kind === 'EFFECT' ? '효과는 블로그 머리에 빛을 더해요. 아래 미리보기에서 바로 볼 수 있어요.'
+              : '고른 티어 무늬가 표지가 돼요. 사진 주소를 붙이면 사진이 표지가 되고 무늬는 사진 뒤 바탕이 돼요.'}</span>
             {errors.value && <span className="error small">{errors.value}</span>}
           </div>
           {form.kind === 'BANNER' && (
@@ -127,13 +159,21 @@ export function AdminShopPage() {
       </section>
       <section className="admin-card">
         <h2>아이템 목록</h2>
-        {!items ? <p className="muted">불러오는 중…</p> : (
+        <nav className="tabs shop-admin-tabs" aria-label="아이템 종류">
+          {ITEM_KINDS.map((k) => (
+            <a key={k} href={`#${k.toLowerCase()}`} aria-current={k === tab ? 'page' : undefined} title={`${kindLabel(k)} 아이템만 보기`}
+              onClick={(e) => { e.preventDefault(); openTab(k) }}>
+              {kindLabel(k)} <span className="muted small">{items?.filter((it) => it.kind === k).length ?? ''}</span>
+            </a>
+          ))}
+        </nav>
+        {!items ? <p className="muted">불러오는 중…</p> : shown.length === 0 ? <p className="muted">이 종류의 아이템이 아직 없어요.</p> : (
           <ul className="shop-admin-list">
-            {items.map((it) => (
+            {shown.map((it) => (
               <li key={it.id}>
-                <Preview item={it} kind={it.kind} seed="preview" name="미" image={null} />
+                <Preview item={it} kind={it.kind} seed="preview" name="미" image={null} small />
                 <span>
-                  <TierEmblem tier={it.tier} /> <b>{it.name}</b> <span className="muted small">{kindLabel(it.kind)} · {num(it.price)}크레딧{it.active ? '' : ' · 내림'}</span>
+                  <TierEmblem tier={it.tier} /> <b>{it.name}</b> <span className="muted small">{num(it.price)}크레딧{it.active ? '' : ' · 내림'}</span>
                 </span>
                 <span className="shop-actions">
                   <button type="button" className="btn btn-outline btn-small" data-tip="가격을 바꿔요. 이미 산 사람에게는 영향이 없어요" onClick={() => {
