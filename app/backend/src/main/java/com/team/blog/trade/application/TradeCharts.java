@@ -98,6 +98,20 @@ public class TradeCharts {
         return new Chart(exchange.name(), interval, exchange == Exchange.UPBIT ? "KRW" : "USDT", coins, c.at());
     }
 
+    /**
+     * 서버 모의 봇(spec 102)이 쓰는 닫힌 봉. 차트와 같은 캐시를 함께 써서 회원 수가 늘어도 거래소 호출은 늘지 않는다.
+     * 거래소가 주는 마지막 봉은 아직 열려 있을 수 있어, 닫힌 시각(열린 시각 + 봉 간격)이 지난 봉만 돌려준다.
+     */
+    public List<Coin> closed(Exchange exchange, String interval, Duration step) {
+        long now = Times.now(clock).toEpochMilli();
+        List<Coin> out = new ArrayList<>();
+        for (Coin coin : candles(exchange, interval).coins()) {
+            List<Candle> done = coin.candles().stream().filter(c -> c.t() + step.toMillis() <= now).toList();
+            out.add(new Coin(coin.coin(), coin.name(), coin.symbol(), done, List.of(), coin.error()));
+        }
+        return out;
+    }
+
     /** 모든 회원이 함께 쓰는 캔들. 체결 표시는 회원마다 따로 붙인다 */
     private Cached candles(Exchange exchange, String interval) {
         String key = exchange + ":" + interval;

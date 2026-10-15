@@ -3,11 +3,14 @@ package com.team.blog.trade.web;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.team.blog.shared.security.CurrentMember;
 import com.team.blog.shared.security.MemberPrincipal;
+import com.team.blog.trade.application.PaperBot;
 import com.team.blog.trade.application.TradeBotSim;
 import com.team.blog.trade.application.TradeCharts;
 
@@ -19,10 +22,24 @@ import com.team.blog.trade.application.TradeCharts;
 public class TradeBotController {
     private final TradeBotSim bot;
     private final TradeCharts charts;
+    private final PaperBot paper;
 
-    public TradeBotController(TradeBotSim bot, TradeCharts charts) {
+    public TradeBotController(TradeBotSim bot, TradeCharts charts, PaperBot paper) {
         this.bot = bot;
         this.charts = charts;
+        this.paper = paper;
+    }
+
+    /** 서버가 돌리는 모의 봇(spec 102)이 켜져 있는지 */
+    @GetMapping("/api/me/trade-bot/paper")
+    public ResponseEntity<PaperBot.Switch> paper(@CurrentMember MemberPrincipal me) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(paper.get(me.id()));
+    }
+
+    /** 켜면 바로 한 바퀴 돌고, 그 뒤로 5분마다 돈다. 끄면 다음 바퀴부터 멈추고 기록은 남는다 */
+    @PutMapping("/api/me/trade-bot/paper")
+    public PaperBot.Switch setPaper(@CurrentMember MemberPrincipal me, @RequestBody PaperBot.Switch body) {
+        return paper.set(me.id(), body.enabled());
     }
 
     @GetMapping("/api/me/trade-bot")

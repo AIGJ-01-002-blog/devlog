@@ -4,7 +4,7 @@ import { TradeBotCharts } from '../components/TradeBotCharts'
 import { t } from '../lib/i18n'
 import { Link } from '../lib/router'
 import {
-  accountInterval, eventTime, isStale, loadTradeBot, sideLabel, sideUp, type BotAccount, type BotEvent, type BotView,
+  accountInterval, eventTime, isStale, loadPaperBot, loadTradeBot, setPaperBot, sideLabel, sideUp, type BotAccount, type BotEvent, type BotView,
 } from '../lib/tradeBot'
 import { exchangeName, money, pnlClass, qty } from '../lib/trades'
 
@@ -36,8 +36,22 @@ export function TradeBotPage() {
   const [error, setError] = useState(false)
   const [tab, setTab] = useState<TradeBotTab>(() => tradeBotTabFromHash(location.hash))
 
+  const [paper, setPaper] = useState<boolean | null>(null)
+  const [switching, setSwitching] = useState(false)
+  const [switchError, setSwitchError] = useState(false)
+
   const reload = () => {
     loadTradeBot().then((d) => { setData(d); setError(false) }).catch(() => setError(true))
+    loadPaperBot().then((p) => setPaper(p.enabled)).catch(() => setPaper(null))
+  }
+  const togglePaper = () => {
+    if (paper === null || switching) return
+    setSwitching(true)
+    setSwitchError(false)
+    setPaperBot(!paper)
+      .then((p) => { setPaper(p.enabled); reload() })
+      .catch(() => setSwitchError(true))
+      .finally(() => setSwitching(false))
   }
   useEffect(() => { document.title = t('자동매매 - devlog') }, [])
   useEffect(() => {
@@ -65,15 +79,25 @@ export function TradeBotPage() {
     <main className="container dashboard-page tradebot-page">
       <div className="points-title">
         <h1 className="page-title">{t('자동매매')} <span className="badge tradebot-paper" data-tip={t('모의 매매만 보여 줘요. 실계좌 주문은 이 화면과 상관없어요')}>{t('모의')}</span></h1>
+        <div className="tradebot-actions">
+        {paper !== null && (
+          <button type="button" className={`btn btn-small ${paper ? 'btn-outline' : 'btn-primary'}`} onClick={togglePaper} disabled={switching}
+            data-tip={t('devlog 서버가 5분마다 거래소 공개 시세로 모의 봇을 돌려요. 끄면 다음 바퀴부터 멈추고 기록은 남아요')}>
+            {paper ? t('모의 봇 끄기') : t('모의 봇 켜기')}
+          </button>
+        )}
         <button type="button" className="btn btn-text btn-small" onClick={reload} data-tip={t('봇이 알린 내용을 다시 받아요. 1분마다 저절로 바뀌어요')}>{t('새로 고침')}</button>
+        </div>
       </div>
       <p className="muted small trades-notice">{t('매매 기준은 내 AI가 정하고, 봇이 그 기준대로 5분마다 모의 주문을 내요. Gemini는 진입 직전 필터와 하루 요약만 맡아요. 투자 권유가 아니에요.')}</p>
+      <TradeBotGuide />
+      {switchError && <p className="error" role="alert">{t('모의 봇을 바꾸지 못했어요. 다시 시도해 주세요.')}</p>}
       {error && <p className="error" role="alert">{t('자동매매 기록을 불러오지 못했어요.')}</p>}
       {!data && !error && <p className="muted center">{t('불러오는 중…')}</p>}
       {data && status && status.reportedAt === null && (
         <section className="tradebot-empty">
           <h2>{t('아직 봇이 알린 내용이 없어요')}</h2>
-          <p className="muted">{t('매매 봇이 MCP 도구 report_trade_bot으로 모의 계좌와 체결을 보내면 여기에 보여요. 매매 일지와는 따로 저장되고 공개되지 않아요.')}</p>
+          <p className="muted">{t('위의 [모의 봇 켜기]를 누르면 devlog 서버가 바로 모의 매매를 시작해요. 내 컴퓨터의 매매 봇이 report_trade_bot으로 보내도 여기에 보여요. 매매 일지와는 따로 저장되고 공개되지 않아요.')}</p>
           <Link to="/trades" className="btn btn-outline btn-small" data-tip={t('매매 봇이 보낸 체결을 날짜별로 보고 글·쇼츠로 남기기')}>{t('매매 일지')}</Link>
         </section>
       )}
@@ -170,6 +194,21 @@ export function TradeBotPage() {
         </>
       )}
     </main>
+  )
+}
+
+/** 봇이 어떻게 도는지 (블로그 주인 요청 2026-10-15 "이런 내용을 매매 관련 사이트에 공지"). 규칙형 프로그램이고 AI는 거들기만 한다는 것 */
+function TradeBotGuide() {
+  return (
+    <details className="tradebot-guide">
+      <summary>{t('이 봇은 어떻게 도나요?')}</summary>
+      <ul className="small">
+        <li>{t('정해진 규칙으로 도는 자동 프로그램이에요. 5분마다 시세를 보고 이동평균 교차·손절 같은 규칙대로 모의로 사고팔아요. 같은 시세면 늘 같은 결정을 내려요.')}</li>
+        <li>{t('AI는 거들기만 해요. 내 AI(Claude·Codex 등)가 MCP로 기준을 정하고, 켜 두면 Gemini가 진입 직전에 한 번 더 걸러요. 주문은 언제나 봇 코드가 상한 안에서 내요.')}</li>
+        <li>{t('[모의 봇 켜기]를 누르면 devlog 서버가 거래소 공개 시세로 바이낸스·업비트 모의 계좌를 돌려요. 거래소 키는 받지 않아요. 내 컴퓨터에서 봇을 직접 돌리면 그 계좌도 함께 보여요.')}</li>
+        <li>{t('이 화면은 모의 매매만 보여 줘요. 실제 돈으로 따라 하는 건 각자의 판단과 책임이고, 투자 권유가 아니에요.')}</li>
+      </ul>
+    </details>
   )
 }
 
