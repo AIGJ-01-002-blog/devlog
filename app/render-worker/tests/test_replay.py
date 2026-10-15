@@ -108,6 +108,17 @@ class TimelineTest(unittest.TestCase):
         self.assertLess(line.lo, min(c.l for c in cs[100:260]))
         self.assertGreater(line.hi, max(c.h for c in cs[100:260]))
 
+    def test_camera_keeps_the_current_price_near_the_middle(self):
+        cs = series(400, 60)
+        r = self.replay([replay.Fill("BUY", 92_100, T0 + 100 * 60), replay.Fill("SELL", 92_400, T0 + 250 * 60, 3.0)], cs, "1m")
+        line = replay.timeline(r, [0.0, 5.0, 11.0, 16.0], 22.0)
+        heads = [line.head(g / 30) for g in range(22 * 30)]
+        span, centers = replay.camera(r, line, heads, 30)
+        self.assertLess(span, line.hi - line.lo)  # 줌아웃 화면보다 확대한다
+        for h, c in zip(heads, centers):
+            self.assertLessEqual(abs(replay._price_at(cs, h) - c), span * 0.35 + 1e-6)
+        self.assertTrue(all(abs(b - a) < span * 0.05 for a, b in zip(centers, centers[1:])), "카메라는 튀지 않고 부드럽게 따라간다")
+
     def test_more_fills_than_scenes_stay_in_order(self):
         fills = [replay.Fill("BUY", 92_000, T0 + k * 600) for k in range(5, 10)]
         r = self.replay(fills)

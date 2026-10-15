@@ -33,12 +33,15 @@ LEAD = 1.0
 TITLE = 1.6
 #: 체결 장면 하나의 최소 길이(초). 말이 짧아도 거래 하나는 이만큼 보여 준다
 MIN_TRADE = 4.0
-#: 한 화면에 보이는 캔들 수: 첫 체결부터 마지막 체결까지 폭의 SPAN_MARGIN배(줌아웃해 매수~매도가 한 화면에 들어온다)
-MIN_VISIBLE = 90
-MAX_VISIBLE = 360
-SPAN_MARGIN = 1.4
-#: 지금 캔들 오른쪽에 비워 두는 칸(화면 폭 대비)
-AHEAD_SHARE = 0.03
+#: 한 화면에 보이는 캔들 수: 첫 체결부터 마지막 체결까지 폭의 SPAN_MARGIN배. 지금 캔들은 화면 가운데에 둔다
+MIN_VISIBLE = 80
+MAX_VISIBLE = 300
+SPAN_MARGIN = 1.1
+#: 카메라 세로 폭: 지금 캔들 앞 반 화면의 가격 폭 가운데 이 백분위 × CAMERA_ROOM
+CAMERA_PERCENTILE = 0.8
+CAMERA_ROOM = 1.35
+#: 카메라가 지금 가격을 따라가는 느림(초). 클수록 부드럽다
+CAMERA_LAG = 0.6
 #: 체결 자막이 떠 있는 시간(초)
 SUBTITLE = 3.0
 #: 결산 장면이 시작하고 결산이 뜨기까지(초)
@@ -263,10 +266,45 @@ def title_data(r: Replay, title: str) -> dict:
             "line": f"{EXCHANGE_NAMES.get(r.exchange, r.exchange)} {r.symbol} · 체결 {len(r.fills)}번", "date": day}
 
 
+def _price_at(candles: list[Candle], head: float) -> float:
+    """차트 위치 head의 대략적인 지금 가격(그리는 중인 캔들의 시가→종가)"""
+    i = min(len(candles) - 1, max(0, math.floor(head)))
+    c = candles[i]
+    u = min(1.0, max(0.0, head - i))
+    return c.o + (c.c - c.o) * u
+
+
+def camera(r: Replay, line: Timeline, heads: list[float], fps: int) -> tuple[float, list[float]]:
+    """카메라 세로 폭(가격, 영상 내내 고정)과 프레임마다 화면 가운데 가격.
+    가운데는 지금 가격을 CAMERA_LAG초 늦게 부드럽게 따라가고, 지금 가격이 화면 위아래 15% 안쪽을 벗어나지 않게 붙잡는다."""
+    candles = r.candles
+    if not candles:
+        return 1.0, [0.0] * len(heads)
+    half = line.visible // 2
+    widths = []
+    for h in heads[:: max(1, fps // 6)]:
+        i = min(len(candles), math.floor(h) + 1)
+        window = candles[max(0, i - half):i] or candles[:1]
+        widths.append(max(c.h for c in window) - min(c.l for c in window))
+    widths.sort()
+    span = widths[min(len(widths) - 1, int(len(widths) * CAMERA_PERCENTILE))] * CAMERA_ROOM
+    span = min(span, line.hi - line.lo) or abs(candles[0].c) * 0.002 or 1.0
+    alpha = 1 - math.exp(-1 / (CAMERA_LAG * fps))
+    centers: list[float] = []
+    center = _price_at(candles, heads[0])
+    for h in heads:
+        price = _price_at(candles, h)
+        center += (price - center) * alpha
+        center = min(max(center, price - span * 0.35), price + span * 0.35)
+        centers.append(center)
+    return span, centers
+
+
 def chart_data(r: Replay, starts: list[float], end: float, fps: int, title: str = "") -> dict:
     """Remotion 매매 재현 장면(remotion/src/Replay.tsx의 ReplayData)에 넘길 차트 전체 데이터. 시각은 영상 전체 프레임.
     head는 프레임마다 차트 위치(캔들 단위 실수)라, 화면은 이 값만 보고 캔들을 자라게 하고 지금 캔들을 그리는 중으로 보여 준다.
-    화면 하나에 visible개 캔들이 들어가고 가격 눈금(lo~hi)은 영상 내내 고정이라, 거래소 화면을 녹화한 것처럼 보인다.
+    화면 하나에 visible개 캔들이 들어가고 지금 캔들은 가로 가운데에 있다. 세로는 폭(span)이 고정이고 가운데(center[프레임])가
+    지금 가격을 부드럽게 따라가, 거래소 화면을 녹화하며 지금 가격에 초점을 맞춘 것처럼 보인다.
     처음 titleUntil 프레임은 제목 카드가 덮는다. 금액 글자는 서버와 같은 표기(money)로 여기서 만들어 넘긴다."""
     sec = INTERVAL_SECONDS.get(r.interval, 900)
     candles = r.candles
@@ -276,6 +314,8 @@ def chart_data(r: Replay, starts: list[float], end: float, fps: int, title: str 
     def frame(t: float) -> int:
         return round(t * fps)
 
+    heads = [line.head(g / fps) for g in range(frames + 1)]
+    span, centers = camera(r, line, heads, fps)
     fills = []
     for k, (f, t, sub) in enumerate(zip(r.fills, line.fills, subtitles(r))):
         close = None
@@ -298,14 +338,13 @@ def chart_data(r: Replay, starts: list[float], end: float, fps: int, title: str 
         "digits": 0 if krw else 2,
         "unit": "원" if krw else "",
         "visible": line.visible,
-        "ahead": max(2, round(line.visible * AHEAD_SHARE)),
-        "lo": line.lo,
-        "hi": line.hi,
+        "span": span,
+        "center": [round(c, 4) for c in centers],
         "minutes": sec // 60,
         "subtitleFrames": frame(SUBTITLE),
         "titleUntil": frame(TITLE),
         "title": title_data(r, title),
-        "head": [round(line.head(g / fps), 3) for g in range(frames + 1)],
+        "head": [round(h, 3) for h in heads],
         "candles": [{"o": c.o, "h": c.h, "l": c.l, "c": c.c, "time": _clock(c.t, sec)} for c in candles],
         "fills": fills,
         "summary": summary,

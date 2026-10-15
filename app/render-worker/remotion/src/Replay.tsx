@@ -1,7 +1,7 @@
 // 매매 재현 장면 (#265): 거래소 차트를 줌아웃한 채 녹화해 빨리감기한 것처럼, 고정된 화면의 오른쪽 끝에서 새 캔들이 자라며 차트가 왼쪽으로 흘러간다.
 // 워커(devlog_render/replay.py의 chart_data)가 차트 전체 데이터와 이 장면이 영상에서 시작하는 프레임(startFrame)을 넘긴다.
 // head[영상 프레임]은 그 순간의 차트 위치(캔들 단위 실수)다. i번 캔들은 head가 i일 때 생기기 시작해 i+1일 때 다 그려진다.
-// 영상 전체 프레임으로 그리므로 장면이 바뀌어도 차트는 끊기지 않는다. 가격 눈금(lo~hi)과 캔들 폭은 영상 내내 고정이다.
+// 영상 전체 프레임으로 그리므로 장면이 바뀌어도 차트는 끊기지 않는다. 지금 캔들은 화면 가운데에 있고, 카메라는 지금 가격을 부드럽게 따라간다.
 // 영상 첫 titleUntil 프레임은 검은 연기 바탕의 제목 카드가 덮는다.
 // 체결 순간에만 아래 가운데에 작은 자막(진입 흰색, 익절 초록, 손절 빨강)과 오른쪽 위 체결 알림이 뜬다. 끝은 화면을 어둡게 눌러 결산을 띄운다.
 import React from 'react';
@@ -40,9 +40,8 @@ export type ReplayData = {
   digits: number;
   unit: string;
   visible: number;
-  ahead: number;
-  lo: number;
-  hi: number;
+  span: number;
+  center: number[];
   minutes: number;
   subtitleFrames: number;
   titleUntil: number;
@@ -96,9 +95,11 @@ export const ReplayScene: React.FC<CustomSceneProps> = ({data}) => {
   const g = local + d.startFrame; // 영상 전체 프레임
   const n = d.candles.length;
   const head = headAt(d, g);
-  // 카메라: 가격 눈금과 캔들 폭은 영상 내내 고정. 지금 캔들이 오른쪽 끝(ahead칸 앞)에 닿으면 차트가 왼쪽으로 밀린다
-  const {lo, hi} = d;
-  const offset = Math.max(0, head - (d.visible - d.ahead));
+  // 카메라: 캔들 폭과 세로 배율은 영상 내내 고정. 지금 캔들은 가로 가운데, 세로는 지금 가격을 부드럽게 따라간다
+  const center = d.center[Math.max(0, Math.min(d.center.length - 1, g))] ?? 0;
+  const lo = center - d.span / 2;
+  const hi = center + d.span / 2;
+  const offset = head - d.visible / 2;
   const slot = (PLOT.x1 - PLOT.x0) / d.visible;
   const cx = (i: number) => PLOT.x0 + (i + 0.5 - offset) * slot;
   const y = (p: number) => PLOT.y1 - ((p - lo) / (hi - lo || 1)) * (PLOT.y1 - PLOT.y0);
@@ -174,13 +175,13 @@ export const ReplayScene: React.FC<CustomSceneProps> = ({data}) => {
         )}
         {fills.map((f, k) => {
           const x = cx(f.index);
-          if (x < PLOT.x0 - 40) return null;
+          if (x < PLOT.x0 + 36) return null; // 왼쪽 끝으로 밀려 나가면 표시도 함께 사라진다
           const buy = f.side === 'BUY';
           const color = buy ? UP : DOWN;
           const pop = spring({frame: g - f.at, fps, config: {damping: 14, stiffness: 200}});
           const labelY = buy ? Math.min(y(f.price) + 64, PLOT.y1 + 6) : Math.max(y(f.price) - 64, PLOT.y0 - 6);
           return (
-            <g key={`f${k}`} opacity={x < PLOT.x0 ? 0.3 : 1}>
+            <g key={`f${k}`}>
               <line x1={x} x2={x} y1={y(f.price)} y2={labelY} stroke={color} strokeWidth={2} />
               <circle cx={x} cy={y(f.price)} r={6 * pop} fill="#fff" stroke={color} strokeWidth={3} />
               <g style={{transformOrigin: `${x}px ${labelY}px`, transform: `scale(${pop})`}}>
