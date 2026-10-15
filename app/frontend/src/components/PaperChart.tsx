@@ -69,7 +69,7 @@ export function PaperChart({ symbol, refresh }: { symbol: string; refresh: numbe
           ))}
         </div>
         {bot !== null && (
-          <label className="paper-chart-bot small" data-tip={t('서버 모의 봇이 5분마다 봇 전용 가상 돈으로 사고팔아요. 포인트는 쓰지 않아요')}>
+          <label className="paper-chart-bot small" data-tip={t('서버 모의 봇이 5분마다 내 기본 크레딧으로 사고팔아요. 상점에서 쓰는 크레딧은 쓰지 않아요')}>
             <input type="checkbox" checked={bot} disabled={botBusy} onChange={() => void toggleBot()} />
             {t('모의 봇 켜기')}
           </label>

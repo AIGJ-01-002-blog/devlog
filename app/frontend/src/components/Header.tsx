@@ -49,7 +49,7 @@ export function toolItems(features: Features): NavItem[] {
     items.push({ to: '/trades', label: t('매매 일지'), tip: t('매매 봇이 보낸 체결을 날짜별로 보고 글·쇼츠로 남기기'), icon: 'trend', on: (p) => p === '/trades' })
     items.push({ to: '/trade', label: t('자동매매'), tip: t('봇이 내 AI의 기준대로 돌리는 모의 자동매매 계좌·체결·Gemini 판단 보기'), icon: 'ai', on: (p) => p === '/trade' })
   }
-  if (f.points && f.trades) items.push({ to: '/paper', label: t('모의투자'), tip: t('포인트로 코인을 사고파는 모의투자'), icon: 'candle', on: (p) => p === '/paper' })
+  if (f.points && f.trades) items.push({ to: '/paper', label: t('모의투자'), tip: t('크레딧으로 코인을 사고파는 모의투자'), icon: 'candle', on: (p) => p === '/paper' })
   return items
 }
 
@@ -198,7 +198,7 @@ export function Header() {
                 // 초점이 메뉴 밖의 다른 요소로 옮겨 가면 닫는다 (빈 곳 클릭은 mousedown이 맡는다)
                 if (open && e.relatedTarget && !e.currentTarget.contains(e.relatedTarget as Node)) setOpen(false)
               }}>
-                <button type="button" ref={buttonRef} className="menu-button" aria-haspopup="menu" aria-expanded={open} data-tip={t('내 메뉴: 내 설정·내 블로그·글 관리·대시보드·포인트')}
+                <button type="button" ref={buttonRef} className="menu-button" aria-haspopup="menu" aria-expanded={open} data-tip={t('내 메뉴: 내 설정·내 블로그·글 관리·대시보드·크레딧')}
                         onClick={() => setOpen((o) => !o)}>
                   <Avatar src={member.profileImageUrl} name={member.nickname} seed={member.handle} />
                   <span className="sr-only">{t('내 메뉴')}</span>
@@ -213,7 +213,7 @@ export function Header() {
                     <Link to={`/@${member.handle}`} role="menuitem"><NavIcon name="blog" />{t('내 블로그')}</Link>
                     <Link to="/manage/posts" role="menuitem"><NavIcon name="posts" />{t('내 글 관리')}</Link>
                     <Link to="/dashboard" role="menuitem" title={t('내 글과 쇼츠가 받은 반응을 기간별로 보기')}><NavIcon name="chart" />{t('내 대시보드')}</Link>
-                    {me?.features?.points && <Link to="/points" role="menuitem" title={t('출석하고 포인트 잔액과 내역 보기')}><NavIcon name="coin" />{t('내 포인트')}</Link>}
+                    {me?.features?.points && <Link to="/points" role="menuitem" title={t('출석하고 크레딧 잔액과 내역 보기')}><NavIcon name="coin" />{t('내 크레딧')}</Link>}
                     {mobileExtra.length > 0 && (
                       <div className="menu-mobile-only" role="none">
                         <div className="menu-sep" role="separator" />

@@ -269,7 +269,7 @@ public class PointLedger {
         if (Boolean.TRUE.equals(has)) return;
         long amount = rule(PointRule.WELCOME);
         if (amount <= 0) return;
-        tx.executeWithoutResult(st -> insert(memberId, Wallet.INVEST_ONLY, amount, PointReason.WELCOME, "welcome", null, "가입 축하 모의투자 포인트"));
+        tx.executeWithoutResult(st -> insert(memberId, Wallet.INVEST_ONLY, amount, PointReason.WELCOME, "welcome", null, "가입 축하 기본 크레딧"));
     }
 
     /** 오늘 출석. 이미 했으면 그대로 돌려준다. 보상은 기준 값(기본 100) × 연속 출석 일수², 하루 상한(기본 13,322,500 = 365일 연속)까지 */
@@ -417,7 +417,7 @@ public class PointLedger {
      */
     public boolean spend(long memberId, Wallet wallet, long amount, PointReason reason, String requestKey, Long refId, String memo) {
         requireEnabled();
-        if (amount <= 0) throw ApiException.badRequest("INVALID_AMOUNT", "쓸 포인트는 0보다 커야 해요.");
+        if (amount <= 0) throw ApiException.badRequest("INVALID_AMOUNT", "쓸 크레딧은 0보다 커야 해요.");
         Boolean done = tx.execute(st -> {
             lock(memberId);
             Boolean dup = jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM point_ledger WHERE member_id = ? AND request_key = ?)", Boolean.class,
@@ -427,7 +427,7 @@ public class PointLedger {
             if (have < amount) {
                 throw ApiException.conflict("POINTS_SHORT", wallet == Wallet.SHOP
                         ? "크레딧이 모자라요. 지금 " + String.format("%,d", have) + "크레딧이에요."
-                        : "투자 전용 포인트가 모자라요. 지금 " + String.format("%,d", have) + "P예요.", Map.of(WALLET, wallet.name(), "balance", have, "need", amount));
+                        : "기본 크레딧이 모자라요. 지금 " + String.format("%,d", have) + "크레딧이에요.", Map.of(WALLET, wallet.name(), "balance", have, "need", amount));
             }
             return insert(memberId, wallet, -amount, reason, requestKey, refId, memo);
         });

@@ -15,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.team.blog.point.application.PointLedger;
@@ -24,6 +25,7 @@ import com.team.blog.shared.error.ApiException;
 import com.team.blog.shared.error.FieldErrorItem;
 import com.team.blog.shared.error.NotFoundException;
 import com.team.blog.shared.time.Times;
+import com.team.blog.trade.application.BotCredits;
 import com.team.blog.trade.application.TradeJournal;
 
 /**
@@ -38,12 +40,14 @@ import com.team.blog.trade.application.TradeJournal;
  * </ul>
  */
 @Service
-public class PaperTrading {
+public class PaperTrading implements BotCredits {
     private static final Pattern ORDER_ID = Pattern.compile("[A-Za-z0-9-]{8,64}");
     private static final int REASON_MAX = 300;
     private static final String TOO_SMALL = "TOO_SMALL";
     private static final String INVALID = "INVALID";
     public static final String STRATEGY = "포인트 모의투자";
+    /** 서버 모의 봇이 기본 크레딧으로 낸 체결의 매매 일지 전략 이름 (#331) */
+    public static final String BOT_STRATEGY = "서버 모의 봇";
 
     public enum Side { BUY, SELL }
 
@@ -71,6 +75,8 @@ public class PaperTrading {
 
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
+    // 봇 주문은 봇 바퀴 트랜잭션과 따로 끝낸다: 크레딧이 모자라 거절돼도 봇 바퀴가 함께 되돌려지지 않는다
+    private final TransactionTemplate botTx;
     private final PointLedger points;
     private final TradeJournal journal;
     private final Quotes quotes;
@@ -81,6 +87,8 @@ public class PaperTrading {
                         PaperProperties props, Clock clock) {
         this.jdbc = jdbc;
         this.tx = new TransactionTemplate(txm);
+        this.botTx = new TransactionTemplate(txm);
+        this.botTx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         this.points = points;
         this.journal = journal;
         this.quotes = quotes;
@@ -185,8 +193,8 @@ public class PaperTrading {
         long fromShop = amount - fromInvest;
         if (fromShop > 0 && (!v.useShop() || b.shop() < fromShop)) {
             throw ApiException.conflict("POINTS_SHORT", v.useShop()
-                    ? "포인트가 모자라요. 투자 전용 " + won(b.invest()) + " + " + String.format("%,d", b.shop()) + "크레딧까지 살 수 있어요."
-                    : "투자 전용 포인트가 모자라요. 지금 " + won(b.invest()) + "예요. 크레딧도 쓰려면 [크레딧도 쓰기]를 켜 주세요.",
+                    ? "크레딧이 모자라요. 기본 " + won(b.invest()) + " + 번 크레딧 " + won(b.shop()) + "까지 살 수 있어요."
+                    : "기본 크레딧이 모자라요. 지금 " + won(b.invest()) + "이에요. 번 크레딧도 쓰려면 [크레딧도 쓰기]를 켜 주세요.",
                     Map.of("invest", b.invest(), "shop", b.shop(), "need", amount));
         }
         String memo = v.coin().name() + " 매수";
@@ -269,7 +277,7 @@ public class PaperTrading {
     private long recordTrade(long memberId, Valid v, TradeJournal.Side side, BigDecimal qty, BigDecimal price, long fee, BigDecimal pnl) {
         String externalId = "paper-" + v.orderId();
         TradeJournal.Recorded r = journal.recordFill(memberId, new TradeJournal.Input(externalId, TradeJournal.Mode.PAPER, v.coin().symbol(), v.coin().name(),
-                side, qty, price, BigDecimal.valueOf(fee), pnl, STRATEGY, v.reason(), Times.now(clock), "UPBIT", "KRW"));
+                side, qty, price, BigDecimal.valueOf(fee), pnl, v.strategy(), v.reason(), Times.now(clock), "UPBIT", "KRW"));
         return r.id();
     }
 
@@ -277,6 +285,69 @@ public class PaperTrading {
         Long tradeId = jdbc.query("SELECT trade_id FROM paper_order WHERE member_id = ? AND client_order_id = ?",
                 rs -> rs.next() ? (Long) rs.getObject(1) : null, memberId, v.orderId());
         return new Filled(true, tradeId, v.side().name(), v.coin().symbol(), null, null, 0, null, 0, state(memberId));
+    }
+
+    // ---- 서버 모의 봇 (#331) ----
+
+    @Override
+    public long invest(long memberId) {
+        // 가입 지급을 봇 바퀴 트랜잭션 밖에서 먼저 끝낸다. 그래야 따로 끝내는 봇 주문(botTx)이 그 지급을 읽는다
+        botTx.executeWithoutResult(st -> points.ensureWelcome(memberId));
+        return points.balance(memberId).invest();
+    }
+
+    @Override
+    public Optional<BotCredits.Filled> buy(long memberId, String coin, long amount, String orderId, String reason) {
+        return botOrder(memberId, new Order(orderId, coin, Side.BUY.name(), amount, null, false, false, reason));
+    }
+
+    @Override
+    public BigDecimal held(long memberId, String coin) {
+        BigDecimal have = jdbc.query("SELECT quantity FROM paper_position WHERE member_id = ? AND symbol = ?",
+                rs -> rs.next() ? rs.getBigDecimal(1) : BigDecimal.ZERO, memberId, coin);
+        return have == null ? BigDecimal.ZERO : have;
+    }
+
+    @Override
+    public Optional<BotCredits.Filled> sell(long memberId, String coin, BigDecimal quantity, String orderId, String reason) {
+        BigDecimal have = held(memberId, coin);
+        if (have.signum() <= 0) return Optional.empty();
+        boolean all = quantity.compareTo(have) >= 0;
+        return botOrder(memberId, new Order(orderId, coin, Side.SELL.name(), null, all ? null : quantity, all, false, reason));
+    }
+
+    /** 봇 주문 하나. 기본 크레딧만 쓰고(상점 크레딧은 쓰지 않는다), 거절되면 빈 값. 이미 낸 주문이면 그때 체결을 돌려준다 */
+    private Optional<BotCredits.Filled> botOrder(long memberId, Order in) {
+        if (!enabled()) return Optional.empty();
+        try {
+            botTx.executeWithoutResult(st -> points.ensureWelcome(memberId));
+            Valid base = validate(in);
+            Valid v = new Valid(base.orderId(), base.coin(), base.side(), base.amount(), base.quantity(), base.all(), false, base.reason(), BOT_STRATEGY);
+            if (ordered(memberId, v.orderId())) return done(memberId, v.orderId());
+            Quotes.Quote quote = quotes.latest().get(v.coin().symbol());
+            if (quote == null) return Optional.empty();
+            Filled f = botTx.execute(st -> {
+                points.lock(memberId);
+                if (ordered(memberId, v.orderId())) return null;
+                Filled r = v.side() == Side.BUY ? buy(memberId, v, quote.price()) : sell(memberId, v, quote.price());
+                jdbc.update("INSERT INTO paper_order (member_id, client_order_id, trade_id, created_at) VALUES (?, ?, ?, ?)", memberId, v.orderId(),
+                        r.tradeId(), Timestamp.from(Times.now(clock)));
+                return r;
+            });
+            if (f == null) return done(memberId, v.orderId());
+            return Optional.of(new BotCredits.Filled(f.quantity(), f.price(), f.pnl() == null ? null : BigDecimal.valueOf(f.pnl())));
+        } catch (ApiException | Quotes.QuotesUnavailable e) {
+            return Optional.empty();
+        }
+    }
+
+    /** 이미 체결한 봇 주문: 매매 일지에 남긴 수량·가격·손익 */
+    private Optional<BotCredits.Filled> done(long memberId, String orderId) {
+        return jdbc.query("""
+                SELECT t.quantity, t.price, t.realized_pnl FROM paper_order o JOIN trade t ON t.id = o.trade_id
+                WHERE o.member_id = ? AND o.client_order_id = ?
+                """, rs -> rs.next() ? Optional.of(new BotCredits.Filled(rs.getBigDecimal(1), rs.getBigDecimal(2), rs.getBigDecimal(3)))
+                : Optional.<BotCredits.Filled>empty(), memberId, orderId);
     }
 
     // ---- 탈퇴 ----
@@ -288,7 +359,8 @@ public class PaperTrading {
 
     // ---- 내부 ----
 
-    private record Valid(String orderId, PaperCoins.Coin coin, Side side, long amount, BigDecimal quantity, boolean all, boolean useShop, String reason) {}
+    private record Valid(String orderId, PaperCoins.Coin coin, Side side, long amount, BigDecimal quantity, boolean all, boolean useShop, String reason,
+                         String strategy) {}
 
     private Valid validate(Order in) {
         if (in == null) throw ApiException.badRequest("EMPTY", "주문 내용을 보내 주세요.");
@@ -309,7 +381,7 @@ public class PaperTrading {
         String reason = in.reason() == null ? "" : in.reason().strip().replaceAll("\\s+", " ");
         if (reason.length() > REASON_MAX) errors.add(new FieldErrorItem("reason", "TOO_LONG", "이유는 " + REASON_MAX + "자까지예요."));
         if (!errors.isEmpty()) throw ApiException.validation(errors);
-        return new Valid(orderId, coin, side, amount, in.quantity(), all, Boolean.TRUE.equals(in.useShop()), reason);
+        return new Valid(orderId, coin, side, amount, in.quantity(), all, Boolean.TRUE.equals(in.useShop()), reason, STRATEGY);
     }
 
     private static Side side(String side, List<FieldErrorItem> errors) {
@@ -326,7 +398,7 @@ public class PaperTrading {
     }
 
     private static String won(long n) {
-        return String.format("%,dP", n);
+        return String.format("%,d크레딧", n);
     }
 
     private boolean ordered(long memberId, String orderId) {
