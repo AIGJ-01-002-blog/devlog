@@ -46,7 +46,7 @@ export function TradesPage() {
       })
       .catch(() => { if (seq.current === id) setError(true) })
   }
-  useEffect(reload, [days, mode]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(reload, [days, mode, chosen]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const date = picked ?? data?.days[0]?.date ?? null
   const href = (p: { days?: TradePeriod; date?: string | null; mode?: TradeMode }) => {

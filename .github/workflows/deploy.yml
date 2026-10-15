@@ -70,7 +70,8 @@ jobs:
       - name: 바깥에 열리는 환경에서 개발용 로그인이 꺼져 있는지 확인
         run: |
           # 개발용 로그인은 비밀번호 없이 아무 계정으로 들어간다. 로컬(overlays/local) 말고는 켜지 않는다 (spec 092 FR-008)
-          if grep -nE '^DEV_LOGIN_ENABLED=(true|TRUE|True|1|yes|on)' deploy/k8s/overlays/{nhn,selfhosted,staging}/app.env; then
+          # 스프링은 true를 대소문자 없이 읽으므로(tRuE도 켜짐) 검사도 대소문자를 가리지 않는다
+          if grep -niE '^DEV_LOGIN_ENABLED=(true|1|yes|on)' deploy/k8s/overlays/{nhn,selfhosted,staging}/app.env; then
             echo "::error::개발용 로그인(DEV_LOGIN_ENABLED)은 local overlay에서만 켤 수 있습니다"; exit 1
           fi
       - name: kustomize 빌드 + 스키마 검사
