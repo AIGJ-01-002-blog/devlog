@@ -58,6 +58,8 @@ MAX_BYTES = 19 * 1024 * 1024
 AUDIO_BITRATE = 160_000
 #: 배경음 크기(내레이션 대비)와 말할 때 얼마나 낮출지
 BGM_VOLUME = 0.22
+#: 매매 재현 결산 화면에서 배경음을 줄이는 배율
+MUSIC_SOFT = 0.4
 #: 글 이미지 받기 한도
 IMAGE_MAX_BYTES = 10 * 1024 * 1024
 IMAGE_TIMEOUT = 15
@@ -238,8 +240,8 @@ class Renderer:
                 # 도식 칸이 나타날 때마다 톡
                 effects += [sfx.Effect(i, timings[i].lead + at / 1000, "pop", 0.35)
                             for i, sc in enumerate(props["scenes"]) if sc["diagram"] for at in diagram.reveal_times(sc["diagram"])]
-                # 장면이 넘어갈 때마다 휙 소리(전환과 같은 때)
-                effects += [sfx.Effect(i, 0.0, "whip", 0.3) for i in range(1, len(script.scenes))]
+                # 장면이 넘어갈 때마다 휙 소리(전환과 같은 때). 점프 컷으로 넘어가는 장면은 소리 없이 끊는다
+                effects += [sfx.Effect(i, 0.0, "whip", 0.3) for i in range(1, len(script.scenes)) if not (script.scenes[i].custom or {}).get("cut")]
                 self._join(work, [video], audios, timings, total, joined, effects, joined_video=True)
             else:
                 stages = self._stages(script, audios, timings)
@@ -282,6 +284,7 @@ class Renderer:
                 "mouth": [round(m, 3) for m in acting.mouth_envelope(audios[i], FPS)],
                 "image": images[i].name if images[i] is not None else None,
                 "custom": scene.custom,
+                "cut": bool((scene.custom or {}).get("cut")),
                 "diagram": diagram.timed(scene.diagram, pages, t.speech) if scene.diagram and scene.custom is None else None,
             })
         if script.fast:
@@ -480,11 +483,13 @@ class Renderer:
                 c.text(comment, 38, CODE_COMMENT, y, x=str(x), mono=True, alpha=draw.fade_in(at, 0.12), enable=draw.after(at))
 
     def _join(self, work: Path, segments: list[Path], audios: list[Path], timings: list[Timing], total: float, out: Path,
-              effects: list | None = None, joined_video: bool = False) -> None:
+              effects: list | None = None, joined_video: bool = False,
+              music_at: float = 0.0, music_soft: float | None = None) -> None:
         """장면을 xfade로 잇고, 내레이션을 제자리에 놓고, 배경음을 깔고, 효과음을 얹어 한 번에 최종 인코딩한다.
 
         효과음(sfx.Effect)은 장면이 화면에 나오기 시작한 시각(timings[scene].start) + at에 놓는다. 같은 소리 파일은 입력 하나를
-        asplit으로 나눠 쓴다. 효과음은 배경음 줄이기(ducking)의 기준에 넣지 않는다(내레이션만 기준)."""
+        asplit으로 나눠 쓴다. 효과음은 배경음 줄이기(ducking)의 기준에 넣지 않는다(내레이션만 기준).
+        배경음은 music_at초에 들어오고, music_soft초부터 MUSIC_SOFT배로 작아진다(매매 재현의 제목 카드·결산 화면)."""
         n = len(audios)
         args: list[str] = []
         if joined_video:  # 이미 이어진 화면 하나(Remotion). 입력 번호를 장면 수에 맞추려고 같은 파일을 한 번만 넣고 나머지 자리는 비운다
@@ -525,8 +530,13 @@ class Renderer:
         graph.append(f"{mixed}amix=inputs={n}:normalize=0:duration=longest,apad[nar]")
         if music:
             graph.append("[nar]asplit=2[nar1][key]")
-            graph.append(f"[{2 * n}:a]aresample=44100,aformat=channel_layouts=stereo,atrim=0:{total:.3f},volume={BGM_VOLUME},"
-                         f"afade=t=in:d=0.6,afade=t=out:st={max(0.0, total - 1.5):.3f}:d=1.5[bgm]")
+            at = min(max(0.0, music_at), max(0.0, total - 1.0))
+            chain = f"[{2 * n}:a]aresample=44100,aformat=channel_layouts=stereo,atrim=0:{total - at:.3f},volume={BGM_VOLUME},afade=t=in:d=0.6"
+            if at > 0:
+                chain += f",adelay={round(at * 1000)}:all=1"
+            if music_soft is not None and music_soft < total:
+                chain += f",volume='1-{1 - MUSIC_SOFT:.2f}*clip((t-{music_soft:.3f})/1.2,0,1)':eval=frame"
+            graph.append(f"{chain},afade=t=out:st={max(0.0, total - 1.5):.3f}:d=1.5[bgm]")
             graph.append("[bgm][key]sidechaincompress=threshold=0.015:ratio=6:attack=30:release=450:makeup=1[duck]")
             graph.append("[nar1][duck]amix=inputs=2:normalize=0:duration=first[mix]")
         else:

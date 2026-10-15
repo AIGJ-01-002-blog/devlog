@@ -75,7 +75,7 @@ class RemotionPathTest(unittest.TestCase):
         props = _fake_remotion.props
         self.assertEqual(set(props), {"title", "footer", "transitionFrames", "totalFrames", "scenes", "style"})
         self.assertEqual(len(props["scenes"]), 3)
-        keys = {"caption", "code", "action", "params", "durationInFrames", "leadFrames", "speechFrames", "pages", "mouth", "image", "custom", "diagram"}
+        keys = {"caption", "code", "action", "params", "durationInFrames", "leadFrames", "speechFrames", "pages", "mouth", "image", "custom", "cut", "diagram"}
         for s in props["scenes"]:
             self.assertEqual(set(s), keys)
             self.assertTrue(all(0 <= m <= 1 for m in s["mouth"]))
