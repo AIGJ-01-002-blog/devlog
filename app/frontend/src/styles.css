@@ -1723,6 +1723,49 @@ a.attachment-name:hover { color: var(--color-brand); }
   .header-link { width: 36px; padding: 0; }
 }
 
+/* 머리말 묶음 (v2.2.0): 피드▾ · 모의투자▾. 마우스를 올리거나 ▾를 누르면 묶인 항목이 아래로 펼쳐진다 */
+.header-group { position: relative; display: flex; align-items: center; }
+.header-group-caret {
+  display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 34px; margin-left: -6px;
+  background: none; border: 0; border-radius: var(--radius); color: var(--color-text-muted); cursor: pointer;
+}
+.header-group-caret svg { transition: transform var(--motion-fast) var(--ease-out); }
+.header-group:hover .header-group-caret svg, .header-group.open .header-group-caret svg { transform: rotate(180deg); }
+.header-group-list {
+  display: none; position: absolute; left: 0; top: 100%; z-index: 30; min-width: 184px; padding: 6px; margin-top: 0;
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+}
+/* 링크와 목록 사이 빈틈에서 마우스가 빠져도 닫히지 않게 위쪽에 투명한 다리를 둔다 */
+.header-group-list::before { content: ''; position: absolute; left: 0; right: 0; top: -10px; height: 10px; }
+.header-group:hover .header-group-list, .header-group.open .header-group-list { display: block; }
+.header-group-list a {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: var(--radius);
+  font-weight: 500; color: var(--color-text); white-space: nowrap; text-decoration: none;
+}
+.header-group-list a .nav-icon { color: var(--color-text-muted); flex-shrink: 0; }
+.header-group-list a:hover { background: var(--color-surface-2); }
+.header-group-list a:hover .nav-icon, .header-group-list a.on .nav-icon { color: var(--color-brand); }
+.header-group-list a.on { color: var(--color-brand); }
+
+/* 도구 줄 (v2.2.0): 휴대폰은 머리말에 도구가 들어가지 않으니 머리말 바로 아래에 옆으로 미는 칩 줄로 둔다.
+   넓은 화면은 머리말 안 링크로 보이므로 숨긴다. 터치에는 툴팁이 없어 이름을 늘 보인다 */
+.tool-strip { display: none; }
+@media (max-width: 640px) {
+  .tool-strip {
+    display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 8px 12px;
+    background: var(--color-bg); border-bottom: 1px solid var(--color-border);
+  }
+  .tool-strip::-webkit-scrollbar { display: none; }
+  .tool-strip a {
+    display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; min-height: 36px; padding: 0 11px;
+    border: 1px solid var(--color-border); border-radius: 999px; font-size: 0.8125rem; font-weight: 600;
+    color: var(--color-text-2); white-space: nowrap; text-decoration: none;
+  }
+  .tool-strip a .nav-icon { width: 16px; height: 16px; flex-shrink: 0; }
+  .tool-strip a.on { color: var(--color-brand); border-color: color-mix(in srgb, var(--color-brand) 45%, var(--color-border)); background: var(--color-surface-2); }
+  .tool-strip a:active { background: var(--color-hover); }
+}
+
 /* 내 메뉴 (063): 내 설정을 맨 위에. 아이콘과 둥근 줄로 */
 .menu-list.profile-menu { min-width: 248px; padding: 6px; }
 .profile-menu a, .profile-menu button {
