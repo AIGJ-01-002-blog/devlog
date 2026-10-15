@@ -1,8 +1,8 @@
-"""매매 재현 배경음 (#265). 차트를 빨리감기하는 영상에 맞춘 빠르고 긴장감 있는 반복 음악을 워커가 직접 합성한다(저작권 걱정 없음).
+"""매매 재현 배경음 (#265). 차트를 빨리감기하는 영상에 맞춘 긴장감 있는 반복 음악을 워커가 직접 합성한다(저작권 걱정 없음).
 
-122bpm, 4마디 진행(Am → F → C → G)을 네 번 도는 약 31초짜리 고리다. 네 박 킥, 2·4박 박수, 16분 하이햇,
-엇박 베이스, 16분 플럭 아르페지오를 두고, 킥마다 나머지 소리를 살짝 눌러(펌핑) 앞으로 달리는 느낌을 낸다.
-마지막 두 마디는 하이햇이 촘촘해지며 다음 고리로 넘어간다. 소리 크기·내레이션 때 줄이기는 다른 쇼츠 배경음과 같은 믹서가 맡는다.
+126bpm 단조, 4마디 진행(Am → Am → F → E)을 네 번 도는 약 30초짜리 고리다. E(딸림화음, G#)에서 풀리지 않고 다시 Am으로 돌아가
+계속 조여 오는 느낌을 낸다. 네 박 킥, 2·4박 박수, 16분 하이햇, 쉬지 않는 8분 베이스, 반음이 섞인 16분 아르페지오,
+낮게 깔린 지속음, 여덟 마디마다 끝에서 올라가는 잡음(라이저)을 두고, 킥마다 나머지 소리를 살짝 눌러(펌핑) 앞으로 밀어붙인다. 소리 크기·내레이션 때 줄이기는 다른 쇼츠 배경음과 같은 믹서가 맡는다.
 품질 스레드(#277)가 고른 배경음 파일이 있으면(--bgm) 그 파일이 우선한다.
 """
 
@@ -17,16 +17,16 @@ import wave
 from array import array
 from pathlib import Path
 
-VERSION = 1
+VERSION = 2
 RATE = 32000
-BPM = 122
+BPM = 126
 BEAT = 60 / BPM
 #: (베이스 MIDI, 아르페지오 MIDI 네 음). 한 마디씩
 PROGRESSION = [
     (45, [69, 72, 76, 81]),  # Am
+    (45, [69, 72, 76, 80]),  # Am(G#를 얹어 불안하게)
     (41, [65, 69, 72, 77]),  # F
-    (48, [67, 72, 76, 79]),  # C
-    (43, [67, 71, 74, 79]),  # G
+    (40, [64, 68, 71, 76]),  # E (G#)
 ]
 LOOPS = 4
 
@@ -79,16 +79,23 @@ def samples() -> array:
                 accent = 0.07 if s == 2 else 0.035
                 if fill or s % 2 == 0 or s == 3:
                     add(drums, at + s * BEAT / 4, 0.04, lambda t, a=accent: a * math.exp(-t * 140) * (rng.random() * 2 - 1))
-            # 엇박 베이스: 몇 개 배음을 겹친 톱니 비슷한 소리
+            # 쉬지 않는 8분 베이스: 몇 개 배음을 겹친 톱니 비슷한 소리, 엇박을 조금 세게
             f = _hz(root)
-            add(music, at + BEAT / 2, BEAT * 0.45, lambda t, f=f: 0.22 * min(1.0, t / 0.005) * math.exp(-t * 6)
-                * sum(math.sin(2 * math.pi * f * h * t) / h for h in (1, 2, 3)))
+            for half in (0, 1):
+                add(music, at + half * BEAT / 2, BEAT * 0.42, lambda t, f=f, a=0.16 + 0.06 * half: a * min(1.0, t / 0.005) * math.exp(-t * 7)
+                    * sum(math.sin(2 * math.pi * f * h * t) / h for h in (1, 2, 3, 4)))
         # 16분 플럭 아르페지오: 위아래로 오간다
         order = [0, 1, 2, 3, 2, 1, 2, 3, 0, 1, 2, 3, 2, 3, 2, 1]
         for k, j in enumerate(order):
             f = _hz(notes[j])
             add(music, t0 + k * BEAT / 4, BEAT * 0.6,
                 lambda t, f=f: 0.06 * min(1.0, t / 0.003) * math.exp(-t * 16) * (math.sin(2 * math.pi * f * t) + 0.3 * math.sin(4 * math.pi * f * t)))
+        # 지속음: 근음 한 옥타브 아래가 낮게 웅웅거린다
+        f = _hz(root - 12)
+        add(music, t0, bar, lambda t, f=f: 0.05 * min(1.0, t / 0.05) * (math.sin(2 * math.pi * f * t) + 0.3 * math.sin(4 * math.pi * f * 1.003 * t)))
+        # 라이저: 여덟 마디마다 마지막 마디에 잡음이 점점 커지며 다음 고리로 넘긴다
+        if b % 8 == 7:
+            add(drums, t0, bar, lambda t: 0.10 * (t / bar) ** 2 * (rng.random() * 2 - 1))
         # 패드: 마디 내내 낮게 깔린다
         for note in notes[:3]:
             f = _hz(note - 12)

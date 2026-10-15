@@ -35,11 +35,12 @@ export type ReplayData = {
 // 무대(1080×720) 안 차트 자리. 오른쪽 150px은 가격 눈금, 아래는 진행 막대
 const BOX = {x: 40, y: 20, w: STAGE_W - 80, h: STAGE_H - 40};
 const PLOT = {x0: BOX.x + 20, x1: BOX.x + BOX.w - 160, y0: BOX.y + 120, y1: BOX.y + BOX.h - 96};
-/** 한 화면에 보이는 캔들 수와, 지금 캔들 오른쪽에 비워 두는 칸 */
-const VISIBLE = 46;
-const AHEAD = 5;
-/** 가격 눈금이 따라가는 부드러움(프레임) */
-const SMOOTH = 10;
+/** 한 화면에 보이는 캔들 수와, 지금 캔들 오른쪽에 비워 두는 칸. 지금 캔들이 화면 가운데쯤(60%)에 머물고 차트가 그 뒤로 흘러간다 */
+const VISIBLE = 40;
+const AHEAD = 16;
+/** 카메라가 지금 가격을 따라가는 부드러움: 최근 CAMERA 프레임의 가운데 값을 CAMERA_STEP 간격으로 평균 낸다 */
+const CAMERA = 45;
+const CAMERA_STEP = 5;
 
 const FLASH = 6;
 const RING = 18;
@@ -56,7 +57,7 @@ const forming = (c: ReplayCandle, f: number, seed: number) => {
   const u = (f - at[k]) / (at[k + 1] - at[k]);
   let price = pts[k] + (pts[k + 1] - pts[k]) * Math.min(1, Math.max(0, u));
   // 실시간 체결처럼 잘게 떨린다. 다 그려질 때는 종가에 정확히 닿는다
-  price += (c.h - c.l) * 0.08 * Math.sin(f * 41 + seed * 1.7) * (1 - f);
+  price += (c.h - c.l) * 0.03 * Math.sin(f * 23 + seed * 1.7) * (1 - f);
   price = Math.min(c.h, Math.max(c.l, price));
   const seen = [...pts.slice(0, k + 1), price];
   return {o: c.o, c: price, h: Math.max(...seen), l: Math.min(...seen)};
@@ -90,6 +91,32 @@ const rangeAt = (d: ReplayData, g: number) => {
   return lo <= hi ? [lo, hi] : [0, 1];
 };
 
+/** 카메라 기본 배율: 한 화면에 들어오는 캔들 구간들의 가격 폭(체결 가격 포함) 가운데 70번째 백분위. 대부분 이 배율로 고정되고, 더 크게 움직일 때만 천천히 물러난다 */
+const spans = new WeakMap<ReplayData, number>();
+const fixedSpan = (d: ReplayData) => {
+  const hit = spans.get(d);
+  if (hit !== undefined) return hit;
+  const w = VISIBLE - AHEAD;
+  const widths: number[] = [];
+  for (let i = 0; i < d.candles.length; i++) {
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (let j = Math.max(0, i - w); j <= i; j++) {
+      lo = Math.min(lo, d.candles[j].l);
+      hi = Math.max(hi, d.candles[j].h);
+    }
+    for (const f of d.fills) if (f.index > i - w && f.index <= i) {
+      lo = Math.min(lo, f.price);
+      hi = Math.max(hi, f.price);
+    }
+    widths.push(hi - lo);
+  }
+  widths.sort((a, b) => a - b);
+  const span = (widths[Math.floor(widths.length * 0.7)] ?? 1) * 1.3 || 1;
+  spans.set(d, span);
+  return span;
+};
+
 const fmt = (v: number, digits: number, unit: string) =>
   v.toLocaleString('en-US', {minimumFractionDigits: digits, maximumFractionDigits: digits}) + unit;
 
@@ -104,25 +131,30 @@ export const ReplayScene: React.FC<CustomSceneProps> = ({data, index = 0}) => {
   const slot = (PLOT.x1 - PLOT.x0) / VISIBLE;
   const cx = (i: number) => PLOT.x0 + (i + 0.5 - offset) * slot;
 
-  // 가격 눈금: 최근 몇 프레임의 범위를 평균 내 부드럽게 따라간다
-  let lo = 0;
-  let hi = 0;
-  for (let k = 0; k < SMOOTH; k++) {
+  // 카메라: 배율은 거의 고정하고, 가운데만 지금 가격 쪽으로 천천히 따라간다(보이는 캔들은 늘 화면 안에 들어온다)
+  let center = 0;
+  let width = 0;
+  let samples = 0;
+  for (let k = 0; k < CAMERA; k += CAMERA_STEP) {
     const [a, b] = rangeAt(d, g - k);
-    lo += a / SMOOTH;
-    hi += b / SMOOTH;
+    center += (a + b) / 2;
+    width = Math.max(width, b - a);
+    samples++;
   }
-  const pad = (hi - lo) * 0.1 || Math.max(Math.abs(hi) * 0.002, 1e-6);
-  lo -= pad;
-  hi += pad;
+  center /= samples;
+  const span = Math.max(fixedSpan(d), width * 1.12);
+  const [nowLo, nowHi] = rangeAt(d, g);
+  center = Math.min(Math.max(center, nowHi - span * 0.46), nowLo + span * 0.46);
+  const lo = center - span / 2;
+  const hi = center + span / 2;
   const y = (p: number) => PLOT.y1 - ((p - lo) / (hi - lo || 1)) * (PLOT.y1 - PLOT.y0);
 
   const live = candles.length > 0 ? candles[candles.length - 1] : null;
   const liveUp = live ? live.c >= live.o : true;
   const clock = d.candles[Math.min(n - 1, Math.floor(head))]?.time ?? '';
   // 빨리감기 배속: 1초 동안 흘러가는 실제 시간
-  const span = 6;
-  const rate = ((headAt(d, g + span) - headAt(d, g - span)) / ((2 * span) / fps)) * d.seconds;
+  const near = 6;
+  const rate = ((headAt(d, g + near) - headAt(d, g - near)) / ((2 * near) / fps)) * d.seconds;
   const speed = rate >= 100 ? Math.round(rate / 10) * 10 : Math.round(rate);
   const playing = speed >= 2 && head < n;
 
