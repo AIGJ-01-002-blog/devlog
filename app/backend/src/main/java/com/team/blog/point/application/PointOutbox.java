@@ -9,6 +9,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.SingleColumnRowMapper;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -89,7 +90,8 @@ public class PointOutbox {
     void failed(long postId, RuntimeException e) {
         log.warn("글 발행 크레딧을 주지 못했습니다 (post {}): {}", postId, e.getClass().getSimpleName());
         try {
-            List<Integer> attempts = jdbc.queryForList("SELECT attempts FROM point_outbox WHERE post_id = ?", Integer.class, postId);
+            List<Integer> attempts = jdbc.query("SELECT attempts FROM point_outbox WHERE post_id = ?", SingleColumnRowMapper.newInstance(Integer.class),
+                    postId);
             if (attempts.isEmpty()) return;
             int n = attempts.getFirst() + 1;
             Duration wait = Duration.ofMinutes(1L << Math.min(n - 1, 6));
