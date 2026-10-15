@@ -146,10 +146,13 @@ cd app/frontend && npm install && npm run dev            # http://localhost:5173
 
 ### 创作与记录
 
-- **短视频工作室**：按场景（字幕、朗读文本、代码）修改你的 AI 通过 MCP 写的短视频脚本。点击［制作视频］后，你自己电脑上的渲染程序会把它做成 9:16 的 MP4 并上传。制作前用量产检查拦下与其他脚本重复或照搬文章的脚本。
+- **短视频工作室**：按场景（字幕、朗读文本、代码、说明图）修改你的 AI 通过 MCP 写的短视频脚本。点击［制作视频］后，你自己电脑上的渲染程序会把它做成由角色表演的 9:16 MP4 并上传。制作前用量产检查拦下与其他脚本重复或照搬文章的脚本。也可以把一篇文章拆成多个小主题。
 - **发布指南**：为 YouTube Shorts、Instagram Reels、TikTok 分别给出带复制按钮的标题、说明和置顶评论，并说明发布步骤。没有自动发布，发布后记录视频网址。
 - **我的仪表盘**：按 7、30、90 天查看自己文章的浏览量、点赞和收到的评论，并与上一个周期比较。阅读最多的文章和短视频情况也集中在一个页面。
-- **交易日志**：家里电脑上的交易机器人通过 MCP 记录的成交按每日盈亏显示，用当天的笔记生成摘要草稿和短视频脚本。devlog 不会下单。
+- **交易日志**：交易机器人通过 MCP 记录的股票、加密货币现货和期货成交，按币种显示每日盈亏，实盘与模拟分开显示。用当天的笔记生成摘要草稿和短视频脚本，用选中的成交生成交易回放短视频。devlog 不会下真实订单。
+- **博客积分与商店**：通过签到（奖励随连续天数增加）、连续签到徽章和发布文章积累积分，在黑铁到王者 9 个段位中购买主题色、头像边框和博客封面来装饰博客。
+- **积分模拟投资**：用注册时获得的模拟投资积分，看着实时图表以市价或限价买卖比特币等 5 种币。卖出收益会变成可在商店使用的积分。
+- **自动交易模拟页面**：在 `/trade` 点击［开启模拟机器人］，服务器会按移动平均规则进行模拟交易，并显示账户、持仓、最近成交及原因。规则由你的 AI 通过 MCP 修改。
 - **AI 记录的依据链接**：AI 在开发日志和日记笔记中附上提交、PR、Issue 网址时，会作为链接出现在文章末尾的 `## 근거`（依据）和日记段落下方。
 - **迁移到家里电脑**：把数据库和文件存储下载到一个文件夹，再在 Windows、Mac 上用 Docker 恢复同一个博客的备份与恢复脚本（`deploy/home/`）。
 
@@ -191,6 +194,7 @@ flowchart LR
 | **shorts** | 短视频脚本、量产检查、渲染队列、发布记录 | PostgreSQL、MinIO/S3（视频） |
 | **trade · dashboard** | 交易日志、自己文章与短视频的成果仪表盘 | PostgreSQL |
 | **mcp** | AI 连接（MCP）工具：草稿、笔记、依据链接、短视频脚本 | PostgreSQL |
+| **point · shop · paper** | 积分账本、签到与徽章、积分商店、积分模拟投资、服务器模拟机器人 | PostgreSQL |
 | **shared** | Markdown 渲染与 HTML 净化、限流、定时任务锁、错误格式、邮件 | Redis |
 
 ### 请求流程
@@ -261,7 +265,7 @@ sequenceDiagram
 | [app/backend](app/backend) | 后端：Spring Boot 4.1、Java 21。功能模块、Flyway 迁移（V1~V52）、测试 |
 | [app/frontend](app/frontend) | 前端：React 19 SPA、TypeScript、Vite。界面、自动保存（IndexedDB）、深色模式 |
 | [deploy](deploy) | 部署：Dockerfile、Kubernetes 清单（base、selfhosted、nhn、local），部署、回滚、密钥检查脚本 |
-| [app/render-worker](app/render-worker) | 短视频渲染程序：Python 3.10、ffmpeg。在你自己的电脑上把队列中的脚本做成 9:16 的 MP4 并上传 |
+| [app/render-worker](app/render-worker) | 短视频渲染程序：Python 3.10、ffmpeg、Remotion（Node）。在你自己的电脑上把队列中的脚本做成 9:16 的 MP4 并上传 |
 | [.github](.github) | CI/CD：后端与界面测试、镜像构建与部署、版本发布、Discord 与 Telegram 通知 |
 | [specs](specs) | 功能规格：按 [GitHub Spec Kit](https://github.com/github/spec-kit) 流程编写的各功能 spec、plan、tasks（001~100） |
 | [docs](https://github.com/AIGJ-01-002-blog/docs) | 设计文档：通用需求、架构、整合 ERD、各功能设计、权限表 |
@@ -363,7 +367,7 @@ npm run dev        # http://localhost:5173
 | PostgreSQL 16 · 17 | 本地 · 集群 | 服务数据库。有 `pg_trgm` 和 `pgvector` 时用于搜索 |
 | Redis 7 · 7.4 | 本地 · 集群 | 会话、限流、浏览数汇总、渲染缓存、自动保存、定时任务锁 |
 | MinIO | 集群 | 图片与附件存储（兼容 S3）。首次部署时创建存储桶，公开访问只允许读取 |
-| Python 3.10 · ffmpeg | 渲染程序（自己的电脑） | 制作短视频。只使用设备内置语音（Mac 的 `say`、Windows 默认语音），没有费用 |
+| Python 3.10 · ffmpeg · Remotion | 渲染程序（自己的电脑） | 制作短视频。画面用 Remotion（用 React 做视频的工具）绘制，语音使用免费神经语音（edge-tts），不可用时改用设备内神经语音（Supertonic），再退回系统语音 |
 | Docker · GHCR | 镜像 | 构建界面并放进后端，打成一个镜像。以非 root 用户运行 |
 | Kubernetes · kustomize | 部署 | Deployment、HPA、PDB、NetworkPolicy，3 种 overlay（selfhosted、nhn、local） |
 | nginx Ingress | 入口 | TLS 和按路径分流（`/blog-images` 转到 MinIO） |
@@ -374,10 +378,10 @@ npm run dev        # http://localhost:5173
 
 | 技术 | 使用位置 | 作用 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | 后端 | 单元与集成测试 665 个（截至 v2.0.0） |
+| JUnit 5 · Spring Boot Test · Spring Security Test | 后端 | 单元与集成测试 788 个（截至 v2.1.3） |
 | Testcontainers (PostgreSQL) | 后端 | 在真实的 PostgreSQL 上验证迁移、查询和并发 |
 | JaCoCo | 后端 | 在 CI 中检查 40% 行覆盖率的门槛 |
-| Vitest · Testing Library · jsdom | 前端 | 界面与逻辑测试 375 个（截至 v2.0.0） |
+| Vitest · Testing Library · jsdom | 前端 | 界面与逻辑测试 405 个（截至 v2.1.3） |
 | fake-indexeddb | 前端 | 离线自动保存的测试 |
 
 ## 版本发布

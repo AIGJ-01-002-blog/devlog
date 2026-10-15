@@ -144,10 +144,13 @@ AI 사용에 동의했다면 AI가 제목을 붙이고 문장을 다듬고, 아�
 
 ### 만들고 남기기
 
-- **쇼츠 스튜디오** — 내 AI가 MCP로 쓴 쇼츠 대본을 장면(자막·읽을 문장·코드)별로 다듬고, [영상 만들기]를 누르면 내 컴퓨터의 렌더 워커가 9:16 MP4로 만들어 올립니다. 만들기 전에 양산형 검사로 다른 대본과 겹치거나 글을 그대로 옮긴 대본을 막습니다.
+- **쇼츠 스튜디오** — 내 AI가 MCP로 쓴 쇼츠 대본을 장면(자막·읽을 문장·코드·설명 도식)별로 다듬고, [영상 만들기]를 누르면 내 컴퓨터의 렌더 워커가 캐릭터가 연기하는 9:16 MP4로 만들어 올립니다. 만들기 전에 양산형 검사로 다른 대본과 겹치거나 글을 그대로 옮긴 대본을 막습니다. 글 하나를 작은 주제 여러 편으로 나눌 수도 있습니다.
 - **올리기 안내** — YouTube Shorts·Instagram Reels·TikTok마다 제목·설명·고정 댓글을 복사 버튼과 함께 보여 주고 올리는 순서를 안내합니다. 자동 업로드는 없고, 올린 뒤 영상 주소를 남깁니다.
 - **내 대시보드** — 내 글의 조회수·좋아요·받은 댓글을 7·30·90일로 보고 이전 기간과 견줍니다. 많이 읽힌 글과 쇼츠 현황도 한 화면에 모읍니다.
-- **매매 일지** — 집 컴퓨터의 매매 봇이 MCP로 남긴 체결을 날별 손익으로 보고, 그날 메모로 요약 임시글과 쇼츠 대본을 만듭니다. devlog는 주문을 내지 않습니다.
+- **매매 일지** — 매매 봇이 MCP로 남긴 주식·코인 현물·선물 체결을 통화별 날짜 손익으로 보고, 실거래와 모의를 나눠 봅니다. 그날 메모로 요약 임시글과 쇼츠 대본을, 고른 체결로 매매 재현 쇼츠를 만듭니다. devlog는 실제 주문을 내지 않습니다.
+- **블로그 포인트와 상점** — 출석(연속 출석일수만큼 커지는 보상)·연속 출석 휘장·글 발행으로 크레딧을 모아, 아이언~챌린저 9티어의 테마 색·프로필 테두리·블로그 표지를 사서 내 블로그를 꾸밉니다.
+- **포인트 모의투자** — 가입 때 받은 모의투자 포인트로 비트코인 등 코인 5종을 실시간 차트를 보며 시장가·지정가로 사고팝니다. 판 수익은 상점에서 쓰는 크레딧이 됩니다.
+- **자동매매 모의 화면** — `/trade`에서 [모의 봇 켜기]를 누르면 서버가 이동평균 규칙으로 모의 매매를 돌리고, 계좌·보유분·최근 체결과 이유를 보여 줍니다. 기준은 내 AI가 MCP로 바꿉니다.
 - **AI 기록의 근거 링크** — AI가 개발 일지와 일기 메모에 커밋·PR·이슈 주소를 함께 남기면 글 끝 `## 근거`와 일기 문단 아래에 링크로 붙습니다.
 - **집 컴퓨터로 옮기기** — DB와 파일 저장소를 폴더 하나로 받아 Windows·맥에서 Docker로 같은 블로그를 되살리는 백업·복원 스크립트(`deploy/home/`).
 
@@ -189,6 +192,7 @@ flowchart LR
 | **shorts** | 쇼츠 대본·양산형 검사·렌더 대기열·올린 기록 | PostgreSQL, MinIO/S3(영상) |
 | **trade · dashboard** | 매매 일지, 내 글·쇼츠 성과 대시보드 | PostgreSQL |
 | **mcp** | AI 연결(MCP) 도구: 임시글·메모·근거 링크·쇼츠 대본 | PostgreSQL |
+| **point · shop · paper** | 포인트 원장·출석·휘장, 크레딧 상점, 포인트 모의투자, 서버 모의 봇 | PostgreSQL |
 | **shared** | Markdown 렌더링과 HTML 정화, 요청 제한, 예약 작업 잠금, 오류 형식, 메일 | Redis |
 
 ### 요청 흐름
@@ -259,7 +263,7 @@ GitHub Actions로 테스트하고 이미지를 만들어 GHCR에 올린 뒤, kus
 | [app/backend](app/backend) | 백엔드 — Spring Boot 4.1, Java 21. 기능 모듈, Flyway 마이그레이션(V1~V52), 테스트 |
 | [app/frontend](app/frontend) | 프론트엔드 — React 19 SPA, TypeScript, Vite. 화면, 자동 저장(IndexedDB), 다크 모드 |
 | [deploy](deploy) | 배포 — Dockerfile, 쿠버네티스 매니페스트(base·selfhosted·nhn·local), 배포·롤백·비밀값 검사 스크립트 |
-| [app/render-worker](app/render-worker) | 쇼츠 렌더 워커 — Python 3.10, ffmpeg. 내 컴퓨터에서 대기열의 대본을 9:16 MP4로 만들어 올립니다 |
+| [app/render-worker](app/render-worker) | 쇼츠 렌더 워커 — Python 3.10, ffmpeg, Remotion(Node). 내 컴퓨터에서 대기열의 대본을 9:16 MP4로 만들어 올립니다 |
 | [.github](.github) | CI/CD — 백엔드·화면 테스트, 이미지 빌드·배포, 릴리스, Discord·텔레그램 알림 |
 | [specs](specs) | 기능 명세 — [GitHub Spec Kit](https://github.com/github/spec-kit) 흐름의 기능별 spec·plan·tasks(001~100) |
 | [docs](https://github.com/AIGJ-01-002-blog/docs) | 설계 문서 — 공통 요구사항, 아키텍처, 통합 ERD, 기능별 설계, 권한 표 |
@@ -361,7 +365,7 @@ npm run dev        # http://localhost:5173
 | PostgreSQL 16 · 17 | 로컬 · 클러스터 | 서비스 DB. 검색에 `pg_trgm`과 `pgvector`가 있으면 씁니다 |
 | Redis 7 · 7.4 | 로컬 · 클러스터 | 세션, 요청 제한, 조회수 집계, 렌더링 캐시, 자동 저장, 예약 작업 잠금 |
 | MinIO | 클러스터 | 사진·첨부 저장(S3 호환). 첫 배포 때 버킷을 만들고 받기만 공개합니다 |
-| Python 3.10 · ffmpeg | 렌더 워커(내 컴퓨터) | 쇼츠 영상 만들기. 음성은 기기 안 음성(맥 `say`, Windows 기본 음성)만 써서 비용이 없습니다 |
+| Python 3.10 · ffmpeg · Remotion | 렌더 워커(내 컴퓨터) | 쇼츠 영상 만들기. 화면은 Remotion(React로 영상 만들기)으로 그리고, 음성은 무료 신경망 음성(edge-tts)을 쓰다가 안 되면 기기 안 신경망 음성(Supertonic)·기기 음성으로 내려갑니다 |
 | Docker · GHCR | 이미지 | 화면 빌드 → 백엔드에 넣어 하나의 이미지로. 루트가 아닌 사용자로 실행합니다 |
 | Kubernetes · kustomize | 배포 | Deployment·HPA·PDB·NetworkPolicy, 오버레이 3종(selfhosted·nhn·local) |
 | nginx 인그레스 | 앞단 | TLS, 경로별 전달(`/blog-images`는 MinIO로) |
@@ -372,10 +376,10 @@ npm run dev        # http://localhost:5173
 
 | 기술 | 쓰는 곳 | 역할 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | 백엔드 | 단위·통합 테스트 665건(v2.0.0 기준) |
+| JUnit 5 · Spring Boot Test · Spring Security Test | 백엔드 | 단위·통합 테스트 788건(v2.1.3 기준) |
 | Testcontainers (PostgreSQL) | 백엔드 | 실제 PostgreSQL로 마이그레이션·쿼리·동시성을 검증합니다 |
 | JaCoCo | 백엔드 | 줄 커버리지 40% 기준을 CI에서 확인합니다 |
-| Vitest · Testing Library · jsdom | 프론트엔드 | 화면과 로직 테스트 375건(v2.0.0 기준) |
+| Vitest · Testing Library · jsdom | 프론트엔드 | 화면과 로직 테스트 405건(v2.1.3 기준) |
 | fake-indexeddb | 프론트엔드 | 오프라인 자동 저장 테스트 |
 
 ## 릴리스
