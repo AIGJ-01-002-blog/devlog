@@ -8,6 +8,7 @@ import {
 } from '../lib/paper'
 import { credits, points } from '../lib/points'
 import { Link } from '../lib/router'
+import { PaperChart } from '../components/PaperChart'
 
 const REFRESH_MS = 10_000
 const QUICK = [10, 25, 50, 100]
@@ -28,6 +29,8 @@ export function PaperPage() {
   const [useShop, setUseShop] = useState(false)
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
+  // 체결될 때마다 늘려 차트가 방금 체결을 바로 찍게 한다 (#324)
+  const [filled, setFilled] = useState(0)
   const [message, setMessage] = useState<{ ok: boolean; text: string; tradeId?: number | null } | null>(null)
   // 같은 주문을 두 번 보내도 한 번만 체결되게, 주문 내용이 바뀔 때만 새 번호를 쓴다
   const orderId = useRef(newOrderId())
@@ -92,6 +95,7 @@ export function PaperPage() {
         : { clientOrderId: orderId.current, symbol, side, quantity: sellAll ? undefined : quantityN, all: sellAll, reason })
       seq.current++
       setState(r.state)
+      setFilled((n) => n + 1)
       orderId.current = newOrderId()
       const name = quote?.name ?? symbol
       setMessage({
@@ -142,6 +146,8 @@ export function PaperPage() {
             </div>
           </div>
           {state.quotesError && <p className="error small" role="alert">{state.quotesError}</p>}
+
+          <PaperChart symbol={symbol} refresh={filled} />
 
           <div className="paper-layout">
             <section className="paper-market" aria-label={t('시세')}>
