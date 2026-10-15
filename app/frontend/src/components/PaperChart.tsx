@@ -20,6 +20,7 @@ export function PaperChart({ symbol, refresh }: { symbol: string; refresh: numbe
   const [error, setError] = useState(false)
   const [bot, setBot] = useState<boolean | null>(null)
   const [botBusy, setBotBusy] = useState(false)
+  const [botError, setBotError] = useState(false)
   // 봉 간격을 빨리 바꿔도 마지막 요청의 응답만 쓴다
   const seq = useRef(0)
 
@@ -44,10 +45,12 @@ export function PaperChart({ symbol, refresh }: { symbol: string; refresh: numbe
   const toggleBot = async () => {
     if (bot === null) return
     setBotBusy(true)
+    setBotError(false)
     try {
       setBot((await setPaperBot(!bot)).enabled)
     } catch {
-      // 바꾸지 못하면 지금 상태를 그대로 둔다
+      // 바꾸지 못하면 지금 상태를 그대로 두고 알린다
+      setBotError(true)
     } finally {
       setBotBusy(false)
     }
@@ -77,6 +80,7 @@ export function PaperChart({ symbol, refresh }: { symbol: string; refresh: numbe
         <span>{t('얇은 ▲▼: 봇 체결')}</span>
         <Link to="/trade" data-tip={t('봇 규칙과 성적은 자동매매 화면에서 봐요')}>{t('봇 자세히')}</Link>
       </p>
+      {botError && <p className="error small" role="alert">{t('모의 봇을 바꾸지 못했어요. 다시 시도해 주세요.')}</p>}
       {error && <p className="error small" role="alert">{t('차트를 불러오지 못했어요. 10초 뒤 다시 받아요.')}</p>}
       {!shown && !error && <p className="muted center">{t('불러오는 중…')}</p>}
       {shown && coin && (coin.error

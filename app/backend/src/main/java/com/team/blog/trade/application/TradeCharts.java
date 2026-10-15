@@ -226,10 +226,11 @@ public class TradeCharts {
     /** 회원이 포인트로 직접 낸 원화 모의 체결. 매매 일지(trade)에 PAPER·UPBIT·이 전략으로 남아 있다 */
     private List<Mark> myFills(long memberId, String coin, String strategy, long fromMillis) {
         if (fromMillis == Long.MAX_VALUE) return List.of();
+        // 많이 사고판 날에도 방금 낸 체결이 보이게 최신 200건을 고른다. 차트에 넣을 때 시간순으로 다시 줄 세운다
         return jdbc.query("""
                 SELECT executed_at, side, price, reason FROM trade
                 WHERE member_id = ? AND mode = 'PAPER' AND exchange = 'UPBIT' AND strategy = ? AND symbol = ? AND executed_at >= ?
-                ORDER BY executed_at, id LIMIT 200
+                ORDER BY executed_at DESC, id DESC LIMIT 200
                 """, (rs, i) -> new Mark(rs.getTimestamp(1).toInstant().toEpochMilli(), rs.getString(2), rs.getBigDecimal(3).stripTrailingZeros(),
                 rs.getString(4), BY_ME), memberId, strategy, coin, Timestamp.from(Instant.ofEpochMilli(fromMillis)));
     }
