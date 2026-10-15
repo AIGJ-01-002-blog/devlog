@@ -64,6 +64,36 @@ class CueTest(unittest.TestCase):
         self.assertEqual(starts, sorted(starts))
 
 
+class FastStyleTest(unittest.TestCase):
+    """빠른 견본 스타일(#277 참고 영상 분석): 한 줄 짧은 자막, 강조 낱말 한 편에 3번까지, 빠른 목소리"""
+
+    def test_short_pages_fit_one_line(self):
+        text = "어제 서버를 정리하다가 블로그 글이 전부 사라졌어요. 원인은 명령 한 줄이었어요."
+        for page in captions.pages(text, 6.0, max_units=captions.FAST_PHRASE_UNITS):
+            line = " ".join(w["text"] for w in page["words"])
+            self.assertLessEqual(len(page["words"]), 6, line)
+            self.assertEqual(len(layout.wrap(line, captions.LINE_UNITS)), 1, line)
+
+    def test_emphasis_limited_and_alternates(self):
+        scene_pages = [captions.pages(n, 3.0) for n in ["캐시가 빨라요", "캐시를 비워요", "캐시가 또 나와요", "캐시 끝"]]
+        captions.emphasize(scene_pages, ["캐시"] * 4)
+        marks = [w["emph"] for pages in scene_pages for page in pages for w in page["words"] if "emph" in w]
+        self.assertEqual(marks, ["red", "yellow", "red"])
+
+    def test_job_style_defaults_to_clean(self):
+        self.assertFalse(Script.from_job({"scenes": []}).fast)
+        self.assertTrue(Script.from_job({"scenes": [], "style": "fast"}).fast)
+        self.assertFalse(Script.from_job({"scenes": [], "style": "weird"}).fast)
+
+    def test_character_must_be_a_known_folder(self):
+        self.assertEqual(Script.from_job({"scenes": [], "character": "lognyang"}).character, "lognyang")
+        self.assertEqual(Script.from_job({"scenes": [], "character": "logduck"}).character, "logduck")
+        self.assertIsNone(Script.from_job({"scenes": [], "character": "../etc"}).character)
+        self.assertIsNone(Script.from_job({"scenes": [], "character": "cat"}).character)
+        self.assertIsNone(Script.from_job({"scenes": [], "character": ["lognyang"]}).character)  # 서버가 문자열이 아닌 값을 보내도 죽지 않는다
+        self.assertEqual(Script.from_job({"scenes": []}).character, render.DEFAULT_CHARACTER)
+
+
 class PlanTest(unittest.TestCase):
     def test_scenes_overlap_by_transition_and_voice_waits_for_fade(self):
         timings = plan([2.0, 3.0, 1.5], [None, None, None], ["가", "나", "다"])

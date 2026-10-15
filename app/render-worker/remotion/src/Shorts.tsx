@@ -6,6 +6,8 @@ import {springTiming, TransitionSeries, type TransitionPresentation} from '@remo
 import {fade} from '@remotion/transitions/fade';
 import {none} from '@remotion/transitions/none';
 import {slide} from '@remotion/transitions/slide';
+import {CharacterName} from './character';
+import {FastScene} from './FastScene';
 import {Scene} from './Scene';
 import './fonts';
 import {theme} from './theme';
@@ -15,16 +17,18 @@ import type {ShortsProps} from './types';
 const presentation = (i: number): TransitionPresentation<any> =>
   [slide({direction: 'from-right'}), fade(), slide({direction: 'from-bottom'})][i % 3];
 
-export const Shorts: React.FC<ShortsProps> = ({title, footer, scenes, transitionFrames}) => {
+export const Shorts: React.FC<ShortsProps> = ({title, footer, scenes, transitionFrames, style = 'clean', character = null}) => {
   const frame = useCurrentFrame();
   const {fps, durationInFrames} = useVideoConfig();
   return (
+    <CharacterName.Provider value={character}>
     <AbsoluteFill style={{background: theme.color.bg}}>
       <TransitionSeries>
         {scenes.flatMap((scene, i) => {
           const items = [
             <TransitionSeries.Sequence key={`s${i}`} name={`장면 ${i + 1}`} durationInFrames={scene.durationInFrames} premountFor={fps}>
-              <Scene scene={scene} index={i} title={title} footer={footer} />
+              {style === 'fast' && !scene.custom ? <FastScene scene={scene} index={i} title={title} footer={footer} last={i === scenes.length - 1} /> :
+                <Scene scene={scene} index={i} title={title} footer={footer} last={i === scenes.length - 1} />}
             </TransitionSeries.Sequence>,
           ];
           if (i < scenes.length - 1 && transitionFrames > 0) {
@@ -40,5 +44,6 @@ export const Shorts: React.FC<ShortsProps> = ({title, footer, scenes, transition
         <div style={{height: '100%', width: `${(frame / Math.max(1, durationInFrames - 1)) * 100}%`, background: theme.color.ink}} />
       </div>
     </AbsoluteFill>
+    </CharacterName.Provider>
   );
 };

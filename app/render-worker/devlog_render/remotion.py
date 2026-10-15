@@ -23,6 +23,12 @@ from pathlib import Path
 log = logging.getLogger("devlog_render")
 
 PROJECT = Path(__file__).resolve().parent.parent / "remotion"
+
+
+def characters() -> set[str]:
+    """고양이 대신 쓸 수 있는 캐릭터 이름(remotion/src/character/<이름>/idle.json이 있는 폴더)"""
+    root = PROJECT / "src" / "character"
+    return {d.name for d in root.iterdir() if (d / "idle.json").is_file()} if root.is_dir() else set()
 COMPOSITION = "Shorts"
 RENDER_TIMEOUT = 1800
 INSTALL_TIMEOUT = 600

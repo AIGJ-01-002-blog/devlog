@@ -40,6 +40,10 @@ FPS = 30
 SCENE_PADDING = 0.15
 #: 장면 사이 전환(xfade) 길이
 TRANSITION = 0.3
+#: 빠른 견본 스타일(참고 영상 분석 #277): 목소리를 빠르게(초당 8~9음절). 컷은 장면 안에서 화면이 끊어 바뀐다(Scene.tsx)
+FAST_VOICE = 1.25
+#: 대본이 캐릭터를 고르지 않았을 때 연기하는 캐릭터(민서님 선택, #277). 지금 고양이는 "character": "cat"
+DEFAULT_CHARACTER = "lognyang"
 TRANSITION_KIND = "fade"
 #: 첫 장면은 바로 말을 시작하고(훅), 나머지는 전환이 거의 끝난 뒤 말한다
 FIRST_LEAD = 0.1
@@ -116,6 +120,14 @@ class Script:
     footer: str = "devlog.life"
     #: 장면별 효과음(다른 연출이 얹는 소리). 캐릭터 연기 효과음은 렌더할 때 따로 더한다
     effects: list = field(default_factory=list)
+    #: 화면 스타일. "clean"(기본, 승인된 깔끔한 스타일) 또는 "fast"(참고 영상 분석 견본: 위 그림·아래 캐릭터, 빠른 컷·자막·목소리)
+    style: str = "clean"
+    #: 연기할 캐릭터 이름(remotion/src/character/<이름>/). None이면 Noto 고양이
+    character: str | None = None
+
+    @property
+    def fast(self) -> bool:
+        return self.style == "fast"
     #: 매매 재현 영상(#265)이면 서버가 준 거래소·종목·봉·구간·체결
     replay: dict | None = None
 
@@ -143,7 +155,11 @@ class Script:
             footer = f"{site}/@{handle}" if handle else site
         effects = [sfx.Effect(int(e["scene"]), float(e.get("at") or 0), str(e["sound"]), 0.6 if e.get("volume") is None else float(e["volume"]))
                    for e in job.get("effects") or [] if isinstance(e, dict) and e.get("sound") in sfx.SOUNDS]
-        return Script(job.get("title") or "", scenes, footer, effects, job.get("replay"))
+        character = job.get("character") or DEFAULT_CHARACTER
+        if not isinstance(character, str) or character not in remotion.characters():  # "cat"이나 모르는 이름이면 기본 고양이(Noto)
+            character = None
+        return Script(job.get("title") or "", scenes, footer, effects, style="fast" if job.get("style") == "fast" else "clean",
+                      character=character, replay=job.get("replay"))
 
 
 @dataclass
@@ -160,7 +176,8 @@ class Timing:
         return self.start + self.lead
 
 
-def plan(speech: list[float], words: list[list[captions.Word] | None], narrations: list[str]) -> list[Timing]:
+def plan(speech: list[float], words: list[list[captions.Word] | None], narrations: list[str],
+         max_units: float = captions.PHRASE_UNITS) -> list[Timing]:
     """장면 길이와 시작 시각. 전환이 겹치는 만큼 다음 장면이 일찍 시작한다."""
     out: list[Timing] = []
     start = 0.0
@@ -169,7 +186,7 @@ def plan(speech: list[float], words: list[list[captions.Word] | None], narration
         lead = FIRST_LEAD if i == 0 else LEAD
         length = lead + seconds + (TAIL if i == last else SCENE_PADDING + TRANSITION)
         length = math.ceil(length * FPS - 1e-6) / FPS  # 프레임 단위로 맞춰 화면(Remotion)과 소리가 어긋나지 않게
-        cues = captions.cues(narrations[i], seconds, words[i], tail=SCENE_PADDING)
+        cues = captions.cues(narrations[i], seconds, words[i], tail=SCENE_PADDING, max_units=max_units)
         out.append(Timing(start, lead, seconds, length, cues))
         start += length - TRANSITION
     return out
@@ -234,14 +251,16 @@ class Renderer:
             # 투자 권유 고지는 대본과 상관없이 맨 끝에 말 없는 짧은 카드 한 장으로 붙인다(AI가 대본을 다시 써도 빠지지 않는다)
             mode = "실계좌" if (script.replay or {}).get("mode") == "LIVE" else "모의투자"
             card = Scene("", "", custom={"kind": "replay-card", "data": {"mode": mode}})
-            script = Script(script.title, [*script.scenes, card], script.footer, list(script.effects), script.replay)
+            script = Script(script.title, [*script.scenes, card], script.footer, list(script.effects), style=script.style,
+                            character=script.character, replay=script.replay)
         with tempfile.TemporaryDirectory(prefix="devlog-render-") as tmp:
             work = Path(tmp)
             shutil.copyfile(self.font, work / ("font" + Path(self.font).suffix))
             shutil.copyfile(self.mono_font, work / ("mono" + Path(self.mono_font).suffix))
             audios, words = self._voices(work, script)
             speech = [probe_ms(a, self.ffmpeg) / 1000 for a in audios]
-            timings = plan(speech, words, [s.narration for s in script.scenes])
+            timings = plan(speech, words, [s.narration for s in script.scenes],
+                           captions.FAST_PHRASE_UNITS if script.fast else captions.PHRASE_UNITS)
             if chart is not None:  # 거래 하나는 말이 짧아도 MIN_TRADE초는 보여 준다
                 body = len(script.scenes) - 1
                 timings = stretch(timings, {replay.fill_scene(k, body) for k in range(len(chart.fills))}, replay.MIN_TRADE + TRANSITION)
@@ -336,7 +355,8 @@ class Renderer:
         scenes = []
         for i, scene in enumerate(script.scenes):
             t, v = timings[i], visuals[i]
-            pages = captions.pages(scene.narration, t.speech, words[i], tail=SCENE_PADDING)
+            pages = captions.pages(scene.narration, t.speech, words[i], tail=SCENE_PADDING,
+                                   max_units=captions.FAST_PHRASE_UNITS if script.fast else captions.PHRASE_UNITS)
             scenes.append({
                 "caption": scene.caption,
                 "code": layout.code_lines(scene.code, 40, 8) if scene.code else [],
@@ -353,8 +373,11 @@ class Renderer:
                 "cut": bool((scene.custom or {}).get("cut")),
                 "diagram": diagram.timed(scene.diagram, pages, t.speech) if scene.diagram and scene.custom is None else None,
             })
+        if script.fast:
+            captions.emphasize([sc["pages"] for sc in scenes], [sc.caption for sc in script.scenes])
         return {"title": script.title, "footer": script.footer, "transitionFrames": round(TRANSITION * FPS),
-                "totalFrames": round(total * FPS), "scenes": scenes}
+                "totalFrames": round(total * FPS), "scenes": scenes, "style": script.style,
+                "character": script.character}
 
     def _voices(self, work: Path, script: Script) -> tuple[list[Path], list[list[captions.Word] | None]]:
         """장면마다 음성. 한 장면이라도 실패하면 다음 엔진으로 처음부터 다시 만든다(목소리가 섞이지 않게).
@@ -375,13 +398,14 @@ class Renderer:
 
     def _synthesize(self, work: Path, script: Script, engine: str, voice: str | None):
         audios, words = [], []
+        speed = {"faster": FAST_VOICE} if script.fast else {}
         for i, scene in enumerate(script.scenes):
             audio = work / f"a{i}.wav"
             if not scene.narration.strip():  # 말 없는 장면(매매 재현 끝 고지 카드)
                 self._ffmpeg(work, ["-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo", "-t", f"{SILENT_SECONDS:.2f}", audio.name])
                 words.append(None)
             else:
-                words.append(tts.synthesize(scene.narration, audio, engine, self.ffmpeg, voice))
+                words.append(tts.synthesize(scene.narration, audio, engine, self.ffmpeg, voice, **speed))
             audios.append(audio)
         return audios, words
 

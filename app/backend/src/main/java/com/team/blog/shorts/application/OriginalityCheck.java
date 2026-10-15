@@ -3,6 +3,7 @@ package com.team.blog.shorts.application;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -12,7 +13,7 @@ import java.util.regex.Pattern;
 /**
  * 양산형 방지 검사 (099 FR-003·FR-004, #242). YouTube는 2025-07-15부터 틀에 찍어낸 대량 생산 영상을 수익 창출에서 뺀다.
  * 영상 만들기 전에 대본이 ① 내 다른 쇼츠의 복사본인지 ② 원본 글을 낭독만 하는지 ③ 장면끼리 같은 틀을 되풀이하는지
- * ④ 내용 없는 장면이 있는지 보고 막는다. 내 경험·결과가 없거나 첫 장면이 약하면 경고만 한다.
+ * ④ 내용 없는 장면이 있는지 보고 막는다. 내 경험·결과가 없거나 첫 장면이 약하거나 AI 티 나는 상투어가 있으면 경고만 한다.
  * <p>
  * 비교는 글자 3개씩 묶은 조각(3-gram)으로 한다. 띄어쓰기·문장 부호·대소문자를 지운 뒤 자르므로 단어를 조금 바꾸거나 띄어 써도 같다고 본다.
  * 외부 서비스를 부르지 않아 비용이 들지 않고, 같은 입력이면 늘 같은 결과다(테스트로 확인한다).
@@ -32,7 +33,11 @@ public final class OriginalityCheck {
 
     private static final Pattern NOT_WORD = Pattern.compile("[^\\p{L}\\p{N}]+");
     private static final Pattern EXPERIENCE = Pattern.compile("제가|저는|저도|저희|내가|나는|우리|직접|해\\s?보니|해\\s?봤|겪|실제로|덕분에|줄었|늘었|빨라|느려|바꿨|고쳤|\\d");
-    private static final Pattern HOOK = Pattern.compile("[?？]\\s*$|왜|어떻게|문제|오류|에러|실패|안\\s?되|막혔|버그|느려|터졌|날아갔");
+    /** 첫 장면: 질문·문제(충격)·결론 숫자 중 하나로 시작해야 한다 (#277 대본 구조) */
+    private static final Pattern HOOK = Pattern.compile("[?？]\\s*$|왜|어떻게|문제|오류|에러|실패|안\\s?되|막혔|버그|느려|터졌|날아갔|사라졌|증발|모르면|손해|비밀"
+            + "|\\d+(\\.\\d+)?\\s?(초|배|분|%|편|개|명|번)");
+    /** 사람이 말할 때는 잘 안 쓰는, AI 대본에 흔한 상투어 (#277). 찾으면 경고만 한다 */
+    private static final Pattern CLICHE = Pattern.compile("여러분|오늘은[^.?!]{0,20}(알아|살펴)(보|볼|봐|봅)|정말\\s?중요한|꿀팁\\s?대방출|구독과\\s?좋아요|좋아요와\\s?구독");
 
     public enum Level { BLOCK, WARN }
 
@@ -117,8 +122,19 @@ public final class OriginalityCheck {
         // 경고: 첫 장면이 약함
         if (!scenes.isEmpty() && !HOOK.matcher(scenes.get(0).narration()).find()) {
             issues.add(new Issue("WEAK_HOOK", Level.WARN,
-                    "첫 장면이 질문이나 문제로 시작하지 않아요.",
-                    "첫 장면에서 \"왜 배포만 하면 서버가 죽을까요?\"처럼 시청자가 겪는 문제를 먼저 던져 주세요."));
+                    "첫 장면이 질문·문제·결론 숫자로 시작하지 않아요.",
+                    "첫 3초에 \"왜 배포만 하면 서버가 죽을까요?\"처럼 문제를 던지거나 \"한 줄로 4초가 0.1초가 됐어요\"처럼 결론부터 말해 주세요."));
+        }
+        // 경고: AI 티 나는 상투어
+        Set<String> cliches = new LinkedHashSet<>();
+        for (ShortsScript.Scene s : scenes) {
+            var m = CLICHE.matcher(s.narration() + " " + s.caption());
+            while (m.find()) cliches.add(m.group());
+        }
+        if (!cliches.isEmpty()) {
+            issues.add(new Issue("CLICHE", Level.WARN,
+                    "AI 대본에 흔한 말이 있어요: " + String.join(", ", cliches.stream().map(c -> "\"" + c + "\"").toList()) + ".",
+                    "그 말을 빼고 바로 내용으로 들어가 주세요. 친구에게 말하듯 쓰면 사람 냄새가 나요."));
         }
         // 경고: 원본 글 없음
         if (sourceBody == null) {

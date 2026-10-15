@@ -47,7 +47,7 @@ class TradeReplayScriptTest {
         String reason = "가".repeat(200);
         List<ShortsScript.Scene> scenes = TradeReplays.scenes(replay(TradeReplay.FILLS_MAX, reason), "메".repeat(500));
         assertThat(scenes).hasSize(TradeReplay.FILLS_MAX + 3);
-        assertThat(ShortsScript.estimateSeconds(scenes)).isLessThanOrEqualTo(ShortsScript.SECONDS_MAX);
+        assertThat(ShortsScript.estimateSeconds(scenes)).isLessThanOrEqualTo(ShortsScript.AUTO_SECONDS_MAX);
         assertThat(ShortsScript.checkSave("t", scenes)).isEmpty();
     }
 
@@ -61,7 +61,7 @@ class TradeReplayScriptTest {
                 new TradeReplay.Fill(3, "SELL", new BigDecimal("93050"), new BigDecimal("0.015"), new BigDecimal("13.2"), t.plusSeconds(11_700), "목표가 1% 도달"));
         TradeReplay r = new TradeReplay("BINANCE", "BTCUSDT", "비트코인", "USDT", "PAPER", "5m", t.minusSeconds(6000), t.plusSeconds(15_000), fills);
         List<ShortsScript.Scene> scenes = TradeReplays.scenes(r, "거래량이 붙은 돌파는 따라가도 됐지만, 두 번째 매수는 너무 서둘렀어요.");
-        assertThat(ShortsScript.estimateSeconds(scenes)).isLessThanOrEqualTo(ShortsScript.SECONDS_MAX - 1);
+        assertThat(ShortsScript.estimateSeconds(scenes)).isLessThanOrEqualTo(ShortsScript.AUTO_SECONDS_MAX - 1);
         assertThat(scenes.get(1).narration()).contains("거래량 두 배", "92,100.50 USDT에 매수했어요");
         assertThat(scenes.get(2).narration()).contains("눌림에서 지지 확인");
         assertThat(scenes.get(3).narration()).contains("목표가 1% 도달", "+13.20 USDT");

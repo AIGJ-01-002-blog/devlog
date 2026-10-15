@@ -197,7 +197,7 @@ public class TradeReplays {
     }
 
     private static boolean fits(List<Scene> scenes) {
-        return ShortsScript.estimateSeconds(scenes) <= ShortsScript.SECONDS_MAX - 1;
+        return ShortsScript.estimateSeconds(scenes) <= ShortsScript.AUTO_SECONDS_MAX - 1;
     }
 
     private static List<Scene> draft(TradeReplay r, String memo, int memoMax, int reasonMax, boolean brief, boolean noPnl) {

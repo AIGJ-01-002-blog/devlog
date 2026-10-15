@@ -120,6 +120,25 @@ class OriginalityCheckTest {
     }
 
     @Test
+    void 결론_숫자로_시작하면_약한_첫_장면이_아니다() {
+        List<Scene> conclusion = List.of(
+                new Scene("한 줄로 40배", "코드 한 줄 붙이고 글 목록이 0.1초가 됐어요. 비밀은 캐시예요.", null),
+                new Scene("디스크가 범인", "제가 재 보니 매번 디스크까지 다녀오느라 4초씩 걸리고 있었어요.", null));
+        assertThat(codes(OriginalityCheck.check(conclusion, POST, List.of()), Level.WARN)).doesNotContain("WEAK_HOOK");
+    }
+
+    @Test
+    void AI_대본에_흔한_상투어는_경고한다() {
+        List<Scene> cliche = List.of(
+                new Scene("배포하면 다 로그아웃?", "여러분, 왜 배포만 하면 전부 로그아웃될까요?", null),
+                new Scene("세션 이야기", "오늘은 세션 직렬화에 대해 알아볼게요. 제가 겪은 정말 중요한 문제예요.", null));
+        OriginalityCheck.Report r = OriginalityCheck.check(cliche, POST, List.of());
+        assertThat(r.passed()).isTrue();
+        assertThat(codes(r, Level.WARN)).containsExactly("CLICHE");
+        assertThat(r.issues().get(0).message()).contains("\"여러분\"", "\"오늘은 세션 직렬화에 대해 알아볼\"", "\"정말 중요한\"");
+    }
+
+    @Test
     void 같은_입력이면_늘_같은_결과다() {
         assertThat(OriginalityCheck.check(GOOD, POST, List.of())).isEqualTo(OriginalityCheck.check(GOOD, POST, List.of()));
     }

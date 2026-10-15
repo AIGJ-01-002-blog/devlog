@@ -1,5 +1,5 @@
 // CS 설명 도식(#277): 흐름·층·순서·비교. 칸은 내레이션이 그 이름을 말할 때 나타나고(atMs), 지금 말하는 칸이 강조된다.
-// 고양이는 왼쪽 아래에서 도식을 가리키며 설명한다(actions.tsx Presenter). 무대는 1080×720, 도식은 위쪽 약 500px을 쓴다.
+// 도식은 무대 위쪽 DIAGRAM_H(440px)에 그리고, 고양이는 그 아래 띠에서 작게 서서 가리킨다(actions.tsx Presenter). 무대는 1080×720.
 import React from 'react';
 import {interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
 import {Presenter} from './actions';
@@ -19,9 +19,12 @@ const appear = (c: Clock, atMs: number) =>
 /** 지금 말하고 있는 칸: 나타난 칸 가운데 마지막 */
 const currentIndex = (items: DiagramItem[], ms: number) => items.reduce((cur, it, k) => (ms >= it.atMs ? k : cur), -1);
 
-const allItems = (d: Diagram): DiagramItem[] => (d.type === 'compare' ? [...d.left.items, ...d.right.items] : d.items);
+export const allItems = (d: Diagram): DiagramItem[] => (d.type === 'compare' ? [...d.left.items, ...d.right.items] : d.items);
 
-export const DiagramStage: React.FC<{scene: SceneData; tint: string}> = ({scene, tint}) => {
+/** 도식 칸의 높이. 그 아래 띠(무대 720 중 나머지)에 발표자가 서서 도식을 가리지 않는다 */
+export const DIAGRAM_H = 440;
+
+export const DiagramStage: React.FC<{scene: SceneData; tint: string; presenter?: boolean}> = ({scene, tint, presenter = true}) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
   const d = scene.diagram;
@@ -33,10 +36,10 @@ export const DiagramStage: React.FC<{scene: SceneData; tint: string}> = ({scene,
   const Body = {flow: Flow, stack: Stack, steps: Steps, compare: Compare}[d.type] as React.FC<{d: Diagram; c: Clock; tint: string}>;
   return (
     <>
-      <div style={{position: 'absolute', left: 40, right: 40, top: 10, height: 500}}>
+      <div style={{position: 'absolute', left: 40, right: 40, top: 0, height: DIAGRAM_H}}>
         <Body d={d} c={c} tint={tint} />
       </div>
-      <Presenter scene={scene} beats={beats} done={done} />
+      {presenter ? <Presenter scene={scene} beats={beats} done={done} /> : null}
     </>
   );
 };
@@ -86,11 +89,11 @@ const Flow: React.FC<{d: Diagram; c: Clock; tint: string}> = ({d, c, tint}) => {
 const Stack: React.FC<{d: Diagram; c: Clock; tint: string}> = ({d, c, tint}) => {
   if (d.type !== 'stack') return null;
   const n = d.items.length;
-  const h = Math.min(110, (480 - (n - 1) * 18) / n);
+  const h = Math.min(100, (DIAGRAM_H - 40 - (n - 1) * 18) / n);
   const cur = currentIndex(d.items, c.ms);
   const allShown = c.ms >= Math.max(...d.items.map((it) => it.atMs)) + 600;
   return (
-    <div style={{position: 'absolute', left: 170, right: 0, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 18}}>
+    <div style={{position: 'absolute', left: 40, right: 40, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 18}}>
       {d.items.map((it, k) => {
         const s = appear(c, it.atMs);
         const on = allShown && d.highlight !== null ? k === d.highlight : k === cur;
@@ -111,11 +114,11 @@ const Stack: React.FC<{d: Diagram; c: Clock; tint: string}> = ({d, c, tint}) => 
 const Steps: React.FC<{d: Diagram; c: Clock; tint: string}> = ({d, c, tint}) => {
   if (d.type !== 'steps') return null;
   const n = d.items.length;
-  const h = Math.min(100, (480 - (n - 1) * 16) / n);
+  const h = Math.min(92, (DIAGRAM_H - 40 - (n - 1) * 16) / n);
   const cur = currentIndex(d.items, c.ms);
   const Check = ICONS.check;
   return (
-    <div style={{position: 'absolute', left: 200, right: 20, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 16}}>
+    <div style={{position: 'absolute', left: 40, right: 40, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 16}}>
       {d.items.map((it, k) => {
         const s = appear(c, it.atMs);
         const passed = k < cur;
@@ -166,7 +169,7 @@ const Compare: React.FC<{d: Diagram; c: Clock; tint: string}> = ({d, c}) => {
     );
   };
   return (
-    <div style={{position: 'absolute', left: 0, right: 0, top: 0, bottom: 30, display: 'flex', gap: 28, alignItems: 'flex-start'}}>
+    <div style={{position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, display: 'flex', gap: 28, alignItems: 'center'}}>
       {col(d.left, false)}
       {col(d.right, true)}
     </div>

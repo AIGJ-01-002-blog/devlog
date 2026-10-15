@@ -17,8 +17,8 @@ describe('shorts', () => {
       '1번 장면에 내레이션이 없어요.',
     ])
     expect(renderProblems('제목', [scene('하나'), scene('둘'), scene('셋')])).toEqual([])
-    const long = Array.from({ length: 3 }, () => scene('가'.repeat(150)))
-    expect(renderProblems('제목', long)).toEqual(['예상 길이가 71초예요. 60초 안으로 줄여 주세요.'])
+    const long = Array.from({ length: 4 }, () => scene('가'.repeat(150)))
+    expect(renderProblems('제목', long)).toEqual(['예상 길이가 95초예요. 90초 안으로 줄여 주세요.'])
   })
 
   it('워커는 최근 6분 안에 봤을 때만 켜진 것으로 본다', () => {

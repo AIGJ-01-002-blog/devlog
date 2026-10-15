@@ -15,7 +15,14 @@ const FEET = STAGE_H - 30;
 const clamp = {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'} as const;
 
 /** 공통 움직임: 숨쉬기, 깜빡임, 목소리에 맞춘 입·몸 들썩임, 구절마다 콩 뛰기, 장면마다 옆에서 뛰어 들어오기 */
-const useLife = (scene: SceneData, enterFrom = -1, beats: number[] = []) => {
+/** 문장(구절)마다 바꾸는 손짓 [왼팔, 오른팔] 각도. 연기가 팔을 정하지 않은 장면에서만 쓴다(참고 쇼츠: 문장마다 손짓을 바꾼다) */
+const GESTURES: [number, number][] = [[18, 18], [18, 100], [95, 22], [60, 60], [20, 125], [110, 110]];
+
+/** 훅·마무리 강조: 첫 장면 첫 구절(훅)과 마지막 장면 마지막 구절(행동 요청)에서 캐릭터를 제자리에서 살짝 키운다.
+ *  가운데로 끌어오거나 기울이면 옆의 그림을 가리고 화면이 흔들려 보여서 크기만 6% 바꾼다(#277 민서님 피드백) */
+export type Emphasis = {hook: boolean; cta: boolean};
+
+const useLife = (scene: SceneData, enterFrom = -1, beats: number[] = [], emphasis: Emphasis = {hook: false, cta: false}) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
   const t = frame / fps;
@@ -26,22 +33,35 @@ const useLife = (scene: SceneData, enterFrom = -1, beats: number[] = []) => {
   const hopAt = [...scene.pages.map((p) => scene.leadFrames + (p.startMs / 1000) * fps), ...beats.map((b) => b * fps)]
     .filter((f) => f <= frame).sort((a, b) => b - a)[0];
   const since = hopAt === undefined ? 99 : (frame - hopAt) / fps;
-  const hop = since < 0.3 ? Math.sin((since / 0.3) * Math.PI) * 26 : 0;
+  const hop = since < 0.3 ? Math.sin((since / 0.3) * Math.PI) * 8 : 0;
   const land = since >= 0.3 && since < 0.45 ? Math.sin(((since - 0.3) / 0.15) * Math.PI) : 0;
   // 뛰어 들어오기: 0→1. enterFrom(-1 왼쪽, 1 오른쪽, 0 없음) 쪽 무대 밖에서 포물선을 그리며 들어온다
   const enter = enterFrom === 0 ? 1 : spring({frame, fps, config: {damping: 15, stiffness: 110}});
+  // 지금 몇 번째 구절인지(목소리 전이면 -1)
+  const ms = ((frame - scene.leadFrames) / fps) * 1000;
+  const pageIdx = scene.pages.reduce((k, pg, i) => (ms >= pg.startMs ? i : k), -1);
+  const pages = scene.pages.length;
+  const lastStart = pages ? scene.leadFrames + (scene.pages[pages - 1].startMs / 1000) * fps : Infinity;
+  // 강조 정도 0→1: 훅은 처음부터 첫 구절이 끝날 때까지, 마무리는 마지막 구절이 시작될 때부터
+  const hookEnd = pages > 1 ? scene.leadFrames + (scene.pages[1].startMs / 1000) * fps : scene.leadFrames + 1.2 * fps;
+  const zoomIn = emphasis.hook ? 1 - spring({frame: frame - hookEnd, fps, config: {damping: 18, stiffness: 120}}) :
+    emphasis.cta ? spring({frame: frame - lastStart, fps, config: {damping: 16, stiffness: 120}}) : 0;
   const live = (over: Partial<Pose>): Pose => {
-    const p = basePose({y: FEET, ...over});
+    const gesture = GESTURES[Math.max(0, pageIdx) % GESTURES.length];
+    const p = basePose({y: FEET, ...(over.armL === undefined && over.armR === undefined ? {armL: gesture[0], armR: gesture[1]} : {}), ...over});
+    if (zoomIn > 0.001) {
+      p.size *= 1 + 0.06 * zoomIn;
+    }
     p.x += (1 - enter) * enterFrom * 520;
-    p.y -= Math.sin(Math.min(1, enter) * Math.PI) * 90 * (enterFrom === 0 ? 0 : 1) + hop + talk * 10;
-    p.squash *= (1 + 0.025 * Math.sin(t * 2.8)) * (1 - 0.08 * land) * (1 + 0.04 * talk);
-    p.bodyTilt += Math.sin(t * 2.1) * 4 + (1 - enter) * enterFrom * -18;
+    p.y -= Math.sin(Math.min(1, enter) * Math.PI) * 30 * (enterFrom === 0 ? 0 : 1) + hop + talk * 3;
+    p.squash *= (1 + 0.012 * Math.sin(t * 2.8)) * (1 - 0.03 * land) * (1 + 0.015 * talk);
+    p.bodyTilt += Math.sin(t * 2.1) * 1.5 + (1 - enter) * enterFrom * -8;
     p.tail += Math.sin(t * 2.4) * 14;
     if (p.eyes === 'open' && blink) p.eyes = 'blink';
     if ((p.mouth === 'smile' || p.mouth === 'talk') && talk > 0.06) {
       p.mouth = 'talk';
       p.talk = talk;
-      p.headTilt += Math.sin(t * 9) * 3 * talk; // 말할 때 고개가 까딱인다
+      p.headTilt += Math.sin(t * 9) * 1 * talk; // 말할 때 고개가 까딱인다
     }
     return p;
   };
@@ -50,10 +70,10 @@ const useLife = (scene: SceneData, enterFrom = -1, beats: number[] = []) => {
   return {frame, fps, t, talk, live, pop};
 };
 
-export const Act: React.FC<{scene: SceneData; first: boolean}> = ({scene, first}) => {
+export const Act: React.FC<{scene: SceneData; first: boolean; last?: boolean}> = ({scene, first, last = false}) => {
   // 첫 장면은 고양이가 통 튀어나오며 시작(훅), 다음 장면부터는 옆에서 뛰어 들어온다
-  const life = useLife(scene, first ? 0 : -1);
-  const enter = first ? life.pop(0, 9) : 1;
+  const life = useLife(scene, first ? 0 : -1, [], {hook: first, cta: last && !first});
+  const enter = first ? life.pop(0, 16) : 1;
   const Body = ACTS[scene.action] ?? Explain;
   return (
     <div style={{position: 'absolute', inset: 0, scale: String(0.55 + 0.45 * enter), transformOrigin: '50% 95%'}}>
@@ -62,19 +82,16 @@ export const Act: React.FC<{scene: SceneData; first: boolean}> = ({scene, first}
   );
 };
 
-/** 도식 장면의 발표자: 왼쪽 아래에서 도식을 손가락으로 가리키며 설명하고, 칸이 나타날 때마다 콩 뛴다 */
-export const Presenter: React.FC<{scene: SceneData; beats: number[]; done: boolean}> = ({scene, beats, done}) => {
+/** 도식 장면의 발표자: 도식 칸(무대 위 DIAGRAM_H) 아래 띠에 서서 손가락으로 가리키며 설명한다. 도식을 가리지 않게 작게 둔다 */
+export const PRESENTER_SIZE = 230;
+export const Presenter: React.FC<{scene: SceneData; beats: number[]; done: boolean; x?: number}> = ({scene, beats, done, x = 150}) => {
   const life = useLife(scene, -1, beats);
   const {t, live, talk} = life;
-  const p = live({x: 150, y: STAGE_H - 10, size: 250, look: [1, -0.6]});
-  const reach = Math.sin(t * 3.2) * 10 + talk * 8;
-  return (
-    <>
-      <Mascot face={done ? 'joy' : talk > 0.06 ? 'grin' : 'smile'} p={p} />
-      {done ? <Emoji name="thumbs" x={p.x + 150} y={p.y - 170} size={120} rotate={-8} /> :
-        <Emoji name="pointR" x={p.x + 150 + reach} y={p.y - 170 - reach * 0.6} size={120} rotate={-28} />}
-    </>
-  );
+  // 오른팔로 도식을 가리키고(말할 때 더 크게 흔든다), 다 나오면 두 팔을 들어 기뻐한다
+  const reach = Math.sin(t * 3.2) * 4 + talk * 6;
+  const p = live({x, y: STAGE_H - 4, size: PRESENTER_SIZE, look: [1, -0.6], bodyTilt: done ? 0 : 6,
+    armR: done ? 115 : 105 + reach, armL: done ? 115 : 18 + Math.sin(t * 2) * 3});
+  return <Mascot face={done ? 'joy' : talk > 0.06 ? 'grin' : 'smile'} p={p} clip={done ? 'happy' : 'point'} />;
 };
 
 type Life = ReturnType<typeof useLife>;
@@ -82,15 +99,14 @@ type ActProps = {scene: SceneData; life: Life};
 
 const Explain: React.FC<ActProps> = ({life}) => {
   const {t, live} = life;
-  const wave = t < 1.6 ? Math.sin(t * 9) * 18 : 0;
-  return <Mascot face="grin" p={live({x: 540, bodyTilt: Math.sin(t * 1.5) * 3 + wave * 0.2, y: FEET - Math.abs(Math.sin(t * 3)) * 12})} />;
+  return <Mascot face="grin" p={live({x: 540, bodyTilt: Math.sin(t * 1.5) * 1})} />;
 };
 
 const Shock: React.FC<ActProps> = ({scene, life}) => {
   const {t, live, pop, fps, frame} = life;
   const hit = 0.9;
   const shocked = t > hit;
-  const jump = shocked ? interpolate(t, [hit, hit + 0.18, hit + 0.42], [0, 70, 0], clamp) : 0;
+  const jump = shocked ? interpolate(t, [hit, hit + 0.18, hit + 0.42], [0, 35, 0], clamp) : 0;
   const papers = [0, 1, 2].map((k) => {
     const start = 1.0 + k * 0.16;
     const f = interpolate(t, [start, start + 0.5], [0, 1], {...clamp, easing: Easing.in(Easing.cubic)});
@@ -159,12 +175,13 @@ const Typing: React.FC<ActProps> = ({scene, life}) => {
           })}
         </div>
       </div>
-      <Mascot face={done && params.good ? 'joy' : done && params.focus !== null ? 'shock' : 'wry'} p={live({x: 230, size: 400, armL: typed < 1 ? 60 + tap * 12 : 12, armR: typed < 1 ? 60 - tap * 12 : done && params.good ? 160 : 12,
+      {/* 캐릭터는 코드 창(아래 끝 y 440) 밑에 작게 서서 코드를 가리지 않는다 */}
+      <Mascot face={done && params.good ? 'joy' : done && params.focus !== null ? 'shock' : 'wry'} p={live({x: 200, y: STAGE_H - 4, size: 230, armL: typed < 1 ? 60 + tap * 12 : 12, armR: typed < 1 ? 60 - tap * 12 : done && params.good ? 160 : 12,
         eyes: done && params.good ? 'happy' : typed < 1 ? 'focus' : 'open', look: [0.6, -0.8],
         sweat: done && !params.good && params.focus !== null ? 1 : 0, brows: done && !params.good && params.focus !== null ? 'worried' : ''})} />
       {done && params.focus !== null ? (
         params.good ? <Badge x={880} y={560} good scale={pop(typeEnd + 0.15, 9)} /> :
-          <Emoji name="thinking" x={470} y={470} size={200} scale={pop(typeEnd + 0.15, 9)} rotate={-10} />
+          <Emoji name="thinking" x={420} y={580} size={180} scale={pop(typeEnd + 0.15, 9)} rotate={-10} />
       ) : null}
     </>
   );
@@ -181,15 +198,15 @@ const Panic: React.FC<ActProps> = ({scene, life}) => {
     const y = 80 + ((k * 53) % 520);
     return <Pill key={k} x={interpolate(phase, [0, 1], [40, 760])} y={y} text="GET" bg={C.blue} size={28} opacity={phase > 0.92 ? 0 : 1} />;
   });
-  const shake = Math.sin(frame * 2.3) * 7 * alert;
+  const shake = Math.sin(frame * 2.3) * 2 * alert;
   return (
     <>
-      <Server x={880} y={400} alert={alert} rotate={Math.sin(frame * 2.7) * 3 * alert} />
+      <Server x={880} y={400} alert={alert} rotate={Math.sin(frame * 2.7) * 1 * alert} />
       {pills}
       <Pill x={880} y={190} text={`${n.toLocaleString()}번`} bg={alert > 0.5 ? C.red : '#fff'} color={alert > 0.5 ? '#fff' : '#0f172a'} size={60} />
       {alert > 0.5 ? <Emoji name="siren" x={600} y={110} size={190} scale={pop(0.9, 8)} /> : null}
       {alert > 0.5 ? <Emoji name="fire" x={880} y={620} size={170} /> : null}
-      <Mascot face={alert > 0.5 ? 'shock' : 'smile'} p={live({x: 340 + shake, eyes: alert > 0.5 ? 'shock' : 'open', mouth: alert > 0.5 && life.talk < 0.06 ? 'o' : 'smile',
+      <Mascot face={alert > 0.5 ? 'shock' : 'smile'} clip={alert > 0.5 ? 'panic' : 'idle'} p={live({x: 340 + shake, eyes: alert > 0.5 ? 'shock' : 'open', mouth: alert > 0.5 && life.talk < 0.06 ? 'o' : 'smile',
         armL: alert > 0.5 ? 168 : 12, armR: alert > 0.5 ? 168 : 12, sweat: alert, brows: alert > 0.5 ? 'worried' : '', look: [1, 0]})} />
     </>
   );
@@ -214,7 +231,7 @@ const Restore: React.FC<ActProps> = ({scene, life}) => {
       {done ? <Emoji name="check" x={860} y={150} size={190} scale={pop(fillEnd, 9)} /> : null}
       {done ? <Emoji name="sparkles" x={640} y={250} size={170} scale={pop(fillEnd + 0.1, 9)} /> : null}
       <Mascot face={done ? 'joy' : 'smile'} p={live({x: 250, eyes: done ? 'happy' : 'open', mouth: done ? 'grin' : 'smile', armL: done ? 165 : 20,
-        armR: done ? 165 : 70 + Math.sin(t * 8) * 25, y: FEET - (done ? Math.abs(Math.sin(t * 8)) * 34 : 0), look: [1, 0]})} />
+        armR: done ? 165 : 70 + Math.sin(t * 8) * 25, y: FEET - (done ? Math.abs(Math.sin(t * 4)) * 8 : 0), look: [1, 0]})} />
     </>
   );
 };
@@ -265,14 +282,16 @@ const Fast: React.FC<ActProps> = ({scene, life}) => {
     <>
       {bar(20, slow, C.red, '전', before)}
       {bar(130, quick, C.green, '후', after)}
-      {cheer ? <Pill x={780} y={360} text={label} bg={C.yellow} size={66} scale={pop(1.0, 8)} /> : null}
       {cheer ? [0, 1, 2, 3, 4].map((k) => {
         const ang = k * 1.3 + t * 2;
         return <Star key={k} x={540 + 380 * Math.cos(ang)} y={470 + 150 * Math.sin(ang)} scale={0.8 + 0.3 * Math.sin(t * 6 + k)} />;
       }) : null}
       {cheer ? <Emoji name="rocket" x={interpolate(t, [1.0, 2.2], [620, 1000], clamp)} y={interpolate(t, [1.0, 2.2], [620, 300], clamp)} size={210} /> : null}
-      <Mascot face={cheer ? 'love' : 'smile'} p={live({x: 300, size: 430, eyes: cheer ? 'happy' : 'open', mouth: cheer ? 'grin' : 'smile', armL: cheer ? 160 : 12, armR: cheer ? 160 : 12,
-        y: FEET - (cheer ? Math.abs(Math.sin(t * 7)) * 46 : 0)})} />
+      {/* 위의 전·후 막대(아래 끝 y 208)에 머리가 닿지 않는 크기 */}
+      <Mascot face={cheer ? 'love' : 'smile'} p={live({x: 300, size: 380, eyes: cheer ? 'happy' : 'open', mouth: cheer ? 'grin' : 'smile', armL: cheer ? 160 : 12, armR: cheer ? 160 : 12,
+        y: FEET - (cheer ? Math.abs(Math.sin(t * 4)) * 10 : 0)})} />
+      {/* 결과 딱지는 캐릭터 위에, 긴 문구도 화면 밖으로 잘리지 않게 가운데 쪽에 둔다 */}
+      {cheer ? <Pill x={700} y={330} text={label} bg={C.yellow} size={58} scale={pop(1.0, 8)} /> : null}
     </>
   );
 };
@@ -283,8 +302,8 @@ const Idea: React.FC<ActProps> = ({life}) => {
   return (
     <>
       {on ? <Emoji name="bulb" x={770} y={180} size={300} scale={pop(0.5, 8)} /> : null}
-      <Mascot face={t > 0.7 ? 'grin' : 'smile'} p={live({x: 450, eyes: t > 0.7 ? 'happy' : 'open', brows: on ? 'up' : '', armR: on ? 150 : 12, look: [0.6, -1],
-        y: FEET - interpolate(t, [0.5, 0.65, 0.85], [0, 40, 0], clamp)})} />
+      <Mascot face={t > 0.7 ? 'grin' : 'smile'} clip={on ? 'idea' : 'idle'} p={live({x: 390, eyes: t > 0.7 ? 'happy' : 'open', brows: on ? 'up' : '', armR: on ? 150 : 12, look: [0.6, -1],
+        y: FEET - interpolate(t, [0.5, 0.65, 0.85], [0, 15, 0], clamp)})} />
     </>
   );
 };
@@ -299,7 +318,7 @@ const Protect: React.FC<ActProps> = ({life}) => {
         const ang = k * 1.57 + t * 1.6;
         return <Star key={k} x={760 + 210 * Math.cos(ang)} y={360 + 190 * Math.sin(ang)} />;
       }) : null}
-      <Mascot face={t > 0.6 ? 'wry' : 'smile'} p={live({x: 330, eyes: t > 0.6 ? 'happy' : 'open', brows: t > 0.6 ? 'angry' : '', armR: on ? 120 : 12, mouth: t > 0.6 ? 'grin' : 'smile'})} />
+      <Mascot face={t > 0.6 ? 'wry' : 'smile'} clip={on ? 'point' : 'idle'} p={live({x: 330, eyes: t > 0.6 ? 'happy' : 'open', brows: t > 0.6 ? 'angry' : '', armR: on ? 120 : 12, mouth: t > 0.6 ? 'grin' : 'smile'})} />
     </>
   );
 };
@@ -308,10 +327,10 @@ const Think: React.FC<ActProps> = ({life}) => {
   const {t, live, pop} = life;
   return (
     <>
-      <Mascot face="kiss" p={live({x: 420, armR: 150, headTilt: 8 * Math.sin(t * 1.3), look: [0.8, -0.8], eyes: 'open', mouth: life.talk > 0.06 ? 'talk' : 'flat'})} />
+      <Mascot face="kiss" p={live({x: 420, armR: 150, headTilt: 4 * Math.sin(t * 1.3), look: [0.8, -0.8], eyes: 'open', mouth: life.talk > 0.06 ? 'talk' : 'flat'})} />
       <Emoji name="thinking" x={800} y={170} size={240} scale={pop(0.3, 8)} />
       {[[960, 80, 90], [660, 70, 80]].map(([x, y, s], k) => (
-        <Mark key={k} x={x} y={y + Math.sin(t * 3 + k) * 10} text="?" color={C.yellow} size={s} scale={pop(0.55 + k * 0.25, 8)} rotate={-10 + k * 20} />
+        <Mark key={k} x={x} y={y + Math.sin(t * 3 + k) * 5} text="?" color={C.yellow} size={s} scale={pop(0.55 + k * 0.25, 8)} rotate={-10 + k * 20} />
       ))}
     </>
   );
@@ -327,7 +346,7 @@ const Celebrate: React.FC<ActProps> = ({life}) => {
       })}
       <Emoji name="party" x={170} y={150} size={220} rotate={-15} />
       <Emoji name="party" x={910} y={150} size={220} rotate={15} />
-      <Mascot face="joy" p={live({x: 540, eyes: 'happy', mouth: 'grin', armL: 160, armR: 160, y: FEET - Math.abs(Math.sin(t * 7)) * 56})} />
+      <Mascot face="joy" p={live({x: 540, eyes: 'happy', mouth: 'grin', armL: 160, armR: 160, y: FEET - Math.abs(Math.sin(t * 4)) * 12})} />
     </>
   );
 };

@@ -11,7 +11,7 @@ import type {SceneData} from './types';
 
 export const STAGE_TOP = theme.layout.stageTop;
 
-export const Scene: React.FC<{scene: SceneData; index: number; title: string; footer: string}> = ({scene, index, title, footer}) => {
+export const Scene: React.FC<{scene: SceneData; index: number; title: string; footer: string; last?: boolean}> = ({scene, index, title, footer, last = false}) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
   const {layout, color, motion} = theme;
@@ -54,7 +54,7 @@ export const Scene: React.FC<{scene: SceneData; index: number; title: string; fo
       <div style={{position: 'absolute', top: layout.stageTop, left: 0, width: layout.stageWidth, height: layout.stageHeight, transformOrigin: '50% 60%',
         scale: String(Custom ? 1 : punch)}}>
         {Custom ? <Custom scene={scene} data={scene.custom?.data} index={index} /> : scene.diagram ? <DiagramStage scene={scene} tint={tint} /> :
-          <Act scene={scene} first={index === 0} />}
+          <Act scene={scene} first={index === 0} last={last} />}
       </div>
       <Captions pages={scene.pages} leadFrames={scene.leadFrames} top={layout.captionTop} color={tint} />
       <div style={{position: 'absolute', top: layout.footerTop, left: 0, right: 0, textAlign: 'center', font: theme.type.footer, color: color.muted}}>

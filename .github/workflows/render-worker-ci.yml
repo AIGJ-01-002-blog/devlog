@@ -76,7 +76,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           for r in remotion-dev/remotion remotion-dev/skills airbnb/lottie-web googlefonts/noto-emoji-animation googlefonts/noto-emoji \
-                   rany2/edge-tts supertone-inc/supertonic myshell-ai/MeloTTS FunAudioLLM/CosyVoice pndurette/gTTS rive-app/rive-wasm; do
+                   rany2/edge-tts supertone-inc/supertonic myshell-ai/MeloTTS FunAudioLLM/CosyVoice pndurette/gTTS rive-app/rive-wasm lucide-icons/lucide miukimiu/react-kawaii rive-app/rive-react EsotericSoftware/spine-runtimes; do
             curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$r" | python -c "import json,sys; d=json.load(sys.stdin); print('$r', d.get('stargazers_count'), d.get('pushed_at'), (d.get('license') or {}).get('spdx_id'), d.get('archived'))"
             curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$r/releases/latest" | python -c "import json,sys; d=json.load(sys.stdin); print('   latest release:', d.get('tag_name'), d.get('published_at'))"
           done

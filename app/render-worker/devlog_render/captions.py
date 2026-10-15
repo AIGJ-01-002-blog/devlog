@@ -15,6 +15,10 @@ from . import layout
 #: 한 구절에 담는 글자 폭(한글 1칸). 두 줄(LINE_UNITS씩) 안에 들어가게 둔다
 PHRASE_UNITS = 22
 LINE_UNITS = 13
+#: 빠른 견본 스타일(참고 영상 분석 #277): 한 줄에 2~6낱말, 1초 안팎으로 바뀌는 자막
+FAST_PHRASE_UNITS = 11
+#: 빠른 견본 스타일에서 영상 한 편에 색으로 강조할 낱말 수(빨강·노랑을 번갈아)
+EMPHASIS_LIMIT = 3
 #: 이보다 짧은 꼬리 구절은 앞 구절에 붙인다
 MIN_TAIL_UNITS = 6
 #: 시각 정보가 없을 때 문장 부호 뒤 쉼을 글자 몇 개로 칠지
@@ -119,9 +123,9 @@ def display_lines(phrase: str) -> list[str]:
     return best[1] if best else layout.wrap(text, LINE_UNITS, 2)
 
 
-def cues(text: str, duration: float, words: list[Word] | None = None, tail: float = 0.0) -> list[Cue]:
+def cues(text: str, duration: float, words: list[Word] | None = None, tail: float = 0.0, max_units: float = PHRASE_UNITS) -> list[Cue]:
     """구절마다 [시작, 끝) 시각. 다음 구절이 뜰 때까지 앞 구절을 남겨 빈 화면이 없게 한다. 마지막 구절은 duration+tail까지."""
-    parts = phrases(text)
+    parts = phrases(text, max_units)
     if not parts:
         return []
     lengths = [len(_compact(p)) for p in parts]
@@ -193,10 +197,11 @@ def _fill_unknown(starts: list[float | None], duration: float) -> list[float]:
     return out  # type: ignore[return-value]
 
 
-def pages(text: str, duration: float, words: list[Word] | None = None, tail: float = 0.0) -> list[dict]:
-    """Remotion 자막용: 구절(cues)마다 낱말과 낱말이 소리 나는 시각(ms). 단어 시각이 없으면 구절 안에서 글자 수로 나눈다."""
-    parts = phrases(text)
-    timed = cues(text, duration, words, tail)
+def pages(text: str, duration: float, words: list[Word] | None = None, tail: float = 0.0, max_units: float = PHRASE_UNITS) -> list[dict]:
+    """Remotion 자막용: 구절(cues)마다 낱말과 낱말이 소리 나는 시각(ms). 단어 시각이 없으면 구절 안에서 글자 수로 나눈다.
+    max_units를 줄이면 한 줄짜리 짧은 자막(빠른 견본 스타일은 FAST_PHRASE_UNITS)이 된다."""
+    parts = phrases(text, max_units)
+    timed = cues(text, duration, words, tail, max_units)
     char_times = _char_times(_compact(text), words) if words else None
     out, pos = [], 0
     for part, cue in zip(parts, timed):
@@ -222,3 +227,18 @@ def pages(text: str, duration: float, words: list[Word] | None = None, tail: flo
             items.append({"text": tok, "startMs": start_ms, "endMs": end_ms, "timestampMs": (start_ms + end_ms) // 2, "confidence": None})
         out.append({"startMs": round(cue.start * 1000), "endMs": round(cue.end * 1000), "words": items})
     return out
+
+
+def emphasize(scene_pages: list[list[dict]], keywords: list[str], limit: int = EMPHASIS_LIMIT) -> None:
+    """빠른 견본 스타일: 장면마다 요점 자막(keywords[i])에 든 낱말이 내레이션에 처음 나올 때 한 번 색을 칠한다.
+    영상 한 편에 limit번까지만, 빨강·노랑을 번갈아 쓴다. 낱말 dict에 "emph"를 더한다(제자리에서 고친다)."""
+    used = 0
+    for pages_, keyword in zip(scene_pages, keywords):
+        if used >= limit:
+            return
+        keys = [_compact(_TRAILING.sub("", k)) for k in keyword.split() if len(_compact(k)) >= 2]
+        hit = next((w for page in pages_ for w in page["words"]
+                    if any(k[:2] in _compact(w["text"]) for k in keys)), None)
+        if hit is not None:
+            hit["emph"] = "red" if used % 2 == 0 else "yellow"
+            used += 1
