@@ -28,7 +28,7 @@ import com.team.blog.trade.application.TradeReplays;
 class ShortsTools {
     private static final Logger log = LoggerFactory.getLogger(ShortsTools.class);
     static final String SCENES_SCHEMA = """
-            "scenes":{"type":"array","maxItems":10,"description":"장면 3~10개. 합쳐서 60초 안(내레이션 약 330자 안)","items":{"type":"object","properties":{
+            "scenes":{"type":"array","maxItems":16,"description":"장면 6~12개가 좋고 3~16개까지. 합쳐서 60~90초(내레이션 약 360~540자), 90초를 넘으면 영상으로 못 만들어요","items":{"type":"object","properties":{
                 "caption":{"type":"string","description":"화면 큰 자막 (40자까지, 한 줄 요점)"},
                 "narration":{"type":"string","description":"읽을 문장 (200자까지, 말하듯이)"},
                 "code":{"type":"string","description":"화면에 보일 짧은 코드 (선택, 300자까지)"},
@@ -42,9 +42,21 @@ class ShortsTools {
                 "diagram":{"type":"object","description":"CS 개념을 풀어 줄 설명 도식 (선택). type은 flow(왼쪽→오른쪽 흐름, 칸 4개까지)·stack(위→아래 층, 5개까지, highlight는 0부터 센 강조 층)·steps(순서, 5개까지)·compare(left·right에 {title, items} 4개까지). 칸은 문자열이나 {label, icon, note}, 이름표는 20자까지. 칸은 내레이션이 이름표 첫 낱말을 말할 때 나타나니 내레이션에 이름표 말을 넣는다. 예 {'type':'flow','items':['브라우저','서버',{'label':'DB','icon':'database','note':'디스크'}]}"}},
               "required":["caption","narration"]}}""";
 
-    static final String GUIDE = "양산형으로 보이지 않게: 원본 글 문장을 그대로 읽지 말고 말로 풀어 쓴다. 첫 장면은 시청자가 겪는 문제나 질문으로 시작한다. "
-            + "사용자가 직접 겪은 일과 결과(숫자)를 한 장면 이상 넣는다. 장면마다 새 정보(원인·시도·결과·배운 점)를 하나씩 넣고 같은 말로 시작하지 않는다. "
-            + "글에 없는 경험이나 수치를 지어내지 않는다. 장면마다 내용에 맞는 visual(연출)을 고르고, 효과음(effects)은 강조할 순간에만 넣는다. "
+    /**
+     * 대본 쓰기 안내 (#277). 길이는 1분~1분 30초. 구조는 블로그 주인이 정한 "잘 되는 쇼츠" 틀(후킹 → 본론 → 반전·정리 → CTA)을
+     * 이 길이에 맞게 늘린 것이고, "AI 티" 줄이는 법(내 말투, 후킹 고르기, 상투어 빼기, 실제 경험·숫자)을 함께 둔다.
+     */
+    static final String GUIDE = "길이는 1분~1분 30초(장면 6~12개)이고, 가볍게 훑지 말고 한 주제를 깊게 판다. 구조: "
+            + "① 후킹(첫 장면, 3초 안): 질문·충격적인 결과·결론을 먼저 말해 스크롤을 멈추게 한다. "
+            + "② 본론(약 50초): 핵심은 1~3개만, 짧은 문장으로 빠르게. 문제 상황(실제 증상·숫자) → 원리(왜 그런지, 도식 장면 2~3개로 단계별로, 처음 듣는 사람도 따라오게 비유 하나) → 해결(코드나 명령) 순서. "
+            + "③ 반전·정리(끝에서 두 번째 장면): \"근데 진짜 중요한 건…\"처럼 한 번 더 붙잡는 반전이나 한 줄 요약. "
+            + "④ CTA(마지막 장면): 행동 하나만 자연스럽게 권한다(예: 전체 코드는 블로그 글에서). 여러 행동을 한꺼번에 권하지 않는다. "
+            + "AI 티가 나지 않게: 대본을 쓰기 전에 사용자 글(get_post)에서 말투를 읽고 그 말투로 쓴다. "
+            + "첫 장면 후킹 문장은 후보 5개를 먼저 사용자에게 보여 주고 고르게 한 뒤 저장한다. "
+            + "\"여러분\", \"오늘은 ~에 대해 알아볼게요\", \"정말 중요한\", \"꿀팁 대방출\" 같은 뻔한 표현과 상투어는 쓰지 않는다. "
+            + "사용자가 직접 겪은 일과 결과 숫자를 한 장면 이상 넣고, 글에 없는 경험이나 수치를 지어내지 않는다. "
+            + "원본 글 문장을 그대로 읽지 말고 말로 풀어 쓰며, 장면마다 새 정보를 하나씩 넣고 같은 말로 시작하지 않는다. "
+            + "장면마다 내용에 맞는 visual(연출)을 고르고, 효과음(effects)은 강조할 순간에만 넣는다. "
             + "CS 개념을 설명하는 장면은 diagram으로 도식(흐름·층·순서·비교)을 주어 그림으로 쉽게 푼다.";
 
     /** 매매 재현 대본(#265) 다시 쓰기 안내. 장면 순서가 영상의 차트 진행과 맞물린다 */
@@ -117,11 +129,18 @@ class ShortsTools {
                     ? batches.create(caller.memberId(), batchId, topic, text(a, "title"), scenes(a))
                     : shorts.create(caller.memberId(), new ShortsService.Draft(postId, text(a, "title"), scenes(a), null, null, text(a, "source_text")));
             return McpTools.Result.ok("쇼츠 대본을 저장했어요 (쇼츠 번호 " + item.id() + ", 예상 " + Math.round(item.estimatedSeconds()) + "초).\n"
-                    + report(shorts.check(caller.memberId(), item.id()))
+                    + lengthHint(item.estimatedSeconds()) + report(shorts.check(caller.memberId(), item.id()))
                     + "\n영상은 사용자가 이 화면에서 대본을 확인하고 [영상 만들기]를 눌러야 만들어져요: " + studioUrl(item.id()));
         } catch (ApiException e) {
             return McpTools.Result.fail(message(e));
         }
+    }
+
+    /** 권장 길이(1분~1분 30초)보다 짧으면 AI가 장면을 더 깊게 쓰도록 알려 준다. 만들기는 막지 않는다 */
+    static String lengthHint(double seconds) {
+        if (seconds >= ShortsScript.SECONDS_TARGET_MIN) return "";
+        return "길이가 " + Math.round(seconds) + "초예요. " + ShortsScript.SECONDS_TARGET_MIN + "~" + ShortsScript.SECONDS_MAX
+                + "초를 권해요: 원리 설명(도식 장면)이나 확인(전후 숫자) 장면을 더해 주제를 더 깊게 풀어 주세요.\n";
     }
 
     McpTools.Result update(AccessTokens.Caller caller, JsonNode a) {
@@ -134,7 +153,7 @@ class ShortsTools {
         try {
             ShortsService.Item item = shorts.update(caller.memberId(), id, new ShortsService.Edit(title, scenes, null));
             return McpTools.Result.ok("쇼츠 " + id + "번 대본을 고쳤어요 (예상 " + Math.round(item.estimatedSeconds()) + "초). 만들어 둔 영상이 있었다면 지워졌어요.\n"
-                    + report(shorts.check(caller.memberId(), id)) + "\n확인 화면: " + studioUrl(id));
+                    + lengthHint(item.estimatedSeconds()) + report(shorts.check(caller.memberId(), id)) + "\n확인 화면: " + studioUrl(id));
         } catch (ApiException e) {
             return McpTools.Result.fail(message(e));
         }
@@ -219,7 +238,7 @@ class ShortsTools {
         if (!enabled()) return "";
         ShortsCandidates.Fit f = ShortsCandidates.fit(content);
         if (!f.fit()) return "";
-        return "\n쇼츠 후보: 이 글에는 " + String.join(", ", f.reasons()) + "이(가) 있어 60초 쇼츠로 만들 만해요. "
+        return "\n쇼츠 후보: 이 글에는 " + String.join(", ", f.reasons()) + "이(가) 있어 1분 안팎 쇼츠로 만들 만해요. "
                 + "지금 묻지 말고, 사용자가 글을 공개로 발행한 뒤에 쇼츠 대본을 만들지 한 번만 물어봐 주세요.";
     }
 
@@ -235,7 +254,7 @@ class ShortsTools {
         }
         ShortsCandidates.Fit f = ShortsCandidates.fit(content);
         if (!f.fit()) return "";
-        return "\n쇼츠 후보: 이 글에는 " + String.join(", ", f.reasons()) + "이(가) 있어 60초 쇼츠로 만들 만해요. "
+        return "\n쇼츠 후보: 이 글에는 " + String.join(", ", f.reasons()) + "이(가) 있어 1분 안팎 쇼츠로 만들 만해요. "
                 + "사용자에게 쇼츠 대본을 만들지 한 번 물어보고, 원하면 create_shorts_script에 post_id " + postId + "를 주어 만들어 주세요. "
                 + "사용자가 넘기면 다시 묻지 마세요.";
     }

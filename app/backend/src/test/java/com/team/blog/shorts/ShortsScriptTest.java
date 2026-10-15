@@ -35,15 +35,23 @@ class ShortsScriptTest {
                 .containsExactly("title:TOO_LONG", "scenes[0].caption:TOO_LONG", "scenes[0].narration:TOO_LONG", "scenes[0].code:TOO_LONG");
         assertThat(codes(ShortsScript.checkRender("", scenes)))
                 .contains("title:REQUIRED", "scenes[1].caption:REQUIRED", "scenes[1].narration:REQUIRED");
-        assertThat(codes(ShortsScript.checkSave("t", Collections.nCopies(11, new Scene("a", "b", null))))).contains("scenes:TOO_MANY");
+        assertThat(codes(ShortsScript.checkSave("t", Collections.nCopies(17, new Scene("a", "b", null))))).contains("scenes:TOO_MANY");
     }
 
     @Test
-    void 예상_길이가_60초를_넘으면_영상으로_못_만든다() {
+    void 예상_길이가_90초를_넘으면_영상으로_못_만든다() {
         List<Scene> ten = Collections.nCopies(10, new Scene("길다", "가".repeat(60), null));
         // 장면마다 60자 ÷ 6.5 + 0.6 ≈ 9.8초, 열 장면이면 약 98초
         assertThat(ShortsScript.estimateSeconds(ten)).isBetween(97.0, 99.0);
         assertThat(codes(ShortsScript.checkRender("제목", ten))).contains("scenes:TOO_LONG");
+    }
+
+    @Test
+    void 일분_이십초_대본은_영상으로_만들_수_있다() {
+        // 장면마다 75자 ÷ 6.5 + 0.6 ≈ 12.1초, 여섯 장면이면 약 73초
+        List<Scene> six = Collections.nCopies(6, new Scene("요점", "가".repeat(75), null));
+        assertThat(ShortsScript.estimateSeconds(six)).isBetween(72.0, 74.0);
+        assertThat(codes(ShortsScript.checkRender("제목", six))).doesNotContain("scenes:TOO_LONG");
     }
 
     @Test

@@ -1,13 +1,111 @@
-{"title": "캐시는 왜 빠를까? 3분 CS", "handle": "minseo",
+{
+ "title": "캐시는 왜 빠를까? 1분 CS",
+ "handle": "minseo",
  "scenes": [
-  {"caption": "글 하나 열 때마다", "narration": "블로그 글 하나를 열면, 브라우저가 서버에 묻고, 서버는 DB에서 글을 꺼내 와요.",
-   "diagram": {"type": "flow", "items": ["브라우저", "서버", {"label": "DB", "note": "디스크에 저장"}]}},
-  {"caption": "디스크는 느려요", "narration": "CPU 가까이 있을수록 빠르고, 메모리보다 디스크는 수백 배 느려요.",
-   "diagram": {"type": "stack", "items": [{"label": "CPU 캐시", "icon": "cpu", "note": "1ns"}, {"label": "메모리", "note": "100ns"}, {"label": "디스크", "note": "100,000ns"}], "highlight": 2}},
-  {"caption": "캐시 = 가까운 메모", "narration": "그래서 자주 찾는 글은 서버 메모리에 잠깐 적어 둬요. 이걸 캐시라고 해요.",
-   "diagram": {"type": "flow", "items": ["서버", {"label": "캐시", "note": "메모리"}, "DB"]}},
-  {"caption": "얼마나 빨라질까", "narration": "캐시가 없으면 매번 DB까지 다녀오지만, 캐시가 있으면 메모리에서 바로 꺼내요.",
-   "diagram": {"type": "compare", "left": {"title": "캐시 없음", "items": ["매번 DB까지 왕복", "목록 4초"]}, "right": {"title": "캐시 있음", "items": ["메모리에서 바로", "목록 0.1초"]}}},
-  {"caption": "글을 고치면 꼭", "narration": "글을 고치면 캐시를 지우고, 새 글로 다시 채워야 옛 글이 안 보여요.",
-   "diagram": {"type": "steps", "items": ["글 고치기", "캐시 지우기", "새 글로 다시 채우기"]}}
- ]}
+  {
+   "caption": "한 줄로 40배 빨라졌어요",
+   "narration": "글 목록이 4초 걸리던 게, 코드 한 줄 붙이고 0.1초가 됐어요. 비밀은 캐시예요.",
+   "visual": "shock"
+  },
+  {
+   "caption": "스무 개에 4초?",
+   "narration": "글은 겨우 스무 개인데 4초나 걸렸어요. 화면을 열 때마다 서버가 DB까지 가서 글을 꺼내 왔거든요.",
+   "diagram": {
+    "type": "flow",
+    "items": [
+     "브라우저",
+     "서버",
+     {
+      "label": "DB",
+      "note": "디스크에 저장"
+     }
+    ]
+   }
+  },
+  {
+   "caption": "범인은 디스크",
+   "narration": "CPU 캐시는 1나노초, 메모리는 100나노초인데, 디스크는 그보다 수천 배 느려요. 멀수록 느린 거죠.",
+   "diagram": {
+    "type": "stack",
+    "items": [
+     {
+      "label": "CPU 캐시",
+      "icon": "cpu",
+      "note": "1ns"
+     },
+     {
+      "label": "메모리",
+      "note": "100ns"
+     },
+     {
+      "label": "디스크",
+      "note": "100,000ns"
+     }
+    ],
+    "highlight": 2
+   }
+  },
+  {
+   "caption": "책상 위 메모 한 장",
+   "narration": "자주 보는 쪽을 책상 위 메모에 적어 두면 도서관까지 안 가도 되죠. 이 메모가 캐시예요.",
+   "visual": "idea"
+  },
+  {
+   "caption": "캐시는 이렇게 끼어들어요",
+   "narration": "서버는 캐시에 먼저 묻기부터 해요. 있으면 바로 응답하고, 없으면 DB에서 꺼내기, 그리고 캐시에 적어 두기.",
+   "diagram": {
+    "type": "steps",
+    "items": [
+     "캐시에 먼저 묻기",
+     "있으면 바로 응답",
+     "없으면 DB에서 꺼내기",
+     "캐시에 적어 두기"
+    ]
+   }
+  },
+  {
+   "caption": "코드는 세 줄이면 돼요",
+   "narration": "스프링에서는 목록 메서드에 캐시 표시 한 줄만 붙이면, 두 번째 요청부터 메모리에서 꺼내요.",
+   "code": "@Cacheable(\"posts\")\nList<Post> recent() {\n  return repo.findTop20();\n}",
+   "visual": "typing"
+  },
+  {
+   "caption": "4초가 0.1초로",
+   "narration": "캐시 없음일 때는 매번 DB까지 다녀와 4초, 캐시 있음일 때는 0.1초. 40배 빨라졌어요.",
+   "diagram": {
+    "type": "compare",
+    "left": {
+     "title": "캐시 없음",
+     "items": [
+      "매번 DB까지 왕복",
+      "목록 4초"
+     ]
+    },
+    "right": {
+     "title": "캐시 있음",
+     "items": [
+      "메모리에서 바로",
+      "목록 0.1초"
+     ]
+    }
+   }
+  },
+  {
+   "caption": "근데 진짜 함정은 따로",
+   "narration": "근데 진짜 함정은 따로 있어요. 글을 고쳤는데 캐시에 옛 글이 남으면 안 바뀐 것처럼 보여요. 고치면 캐시 지우기, 새 글로 다시 채우기.",
+   "diagram": {
+    "type": "steps",
+    "items": [
+     "글 고치기",
+     "캐시 지우기",
+     "새 글로 다시 채우기"
+    ]
+   }
+  },
+  {
+   "caption": "제일 자주 읽는 목록부터",
+   "narration": "내 서비스에서 제일 자주 읽는 목록 하나에만 먼저 붙여 보세요. 응답 시간이 얼마나 줄었는지 직접 재 보면 돼요.",
+   "visual": "celebrate"
+  }
+ ]
+}

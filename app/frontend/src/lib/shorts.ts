@@ -8,13 +8,13 @@ import { t } from './i18n'
  */
 export const LIMITS = {
   title: 60,
-  scenesMax: 10,
+  scenesMax: 16,
   scenesMinRender: 3,
   caption: 40,
   narration: 200,
   code: 300,
   image: 500,
-  seconds: 60,
+  seconds: 90,
 } as const
 
 const CHARS_PER_SECOND = 6.5
@@ -247,7 +247,7 @@ export const deleteUpload = (id: number, platform: Platform) =>
 
 /**
  * 플랫폼별 직접 올리기 안내 (#238). devlog는 아무 데도 올리지 않고, 올릴 때 붙여 넣을 문구와 순서만 준다.
- * 제한 값은 2026년 10월에 확인한 각 플랫폼 안내 기준이다. 우리 영상은 60초 이하 9:16이라 길이·비율은 늘 맞고,
+ * 제한 값은 2026년 10월에 확인한 각 플랫폼 안내 기준이다. 우리 영상은 90초 이하 9:16이라 길이·비율은 늘 맞고,
  * 글자 수와 해시태그 수만 문구에 따라 넘칠 수 있다. 넘치면 화면이 알려 주고 문구는 잘라 두지 않는다(내가 고쳐 쓰게).
  */
 export interface PlatformSpec {
