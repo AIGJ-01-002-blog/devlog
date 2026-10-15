@@ -89,7 +89,8 @@ class FastStyleTest(unittest.TestCase):
         self.assertEqual(Script.from_job({"scenes": [], "character": "lognyang"}).character, "lognyang")
         self.assertEqual(Script.from_job({"scenes": [], "character": "logduck"}).character, "logduck")
         self.assertIsNone(Script.from_job({"scenes": [], "character": "../etc"}).character)
-        self.assertIsNone(Script.from_job({"scenes": []}).character)
+        self.assertIsNone(Script.from_job({"scenes": [], "character": "cat"}).character)
+        self.assertEqual(Script.from_job({"scenes": []}).character, render.DEFAULT_CHARACTER)
 
 
 class PlanTest(unittest.TestCase):

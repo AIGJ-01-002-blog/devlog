@@ -42,6 +42,8 @@ SCENE_PADDING = 0.15
 TRANSITION = 0.3
 #: 빠른 견본 스타일(참고 영상 분석 #277): 목소리를 빠르게(초당 8~9음절). 컷은 장면 안에서 화면이 끊어 바뀐다(Scene.tsx)
 FAST_VOICE = 1.25
+#: 대본이 캐릭터를 고르지 않았을 때 연기하는 캐릭터(민서님 선택, #277). 지금 고양이는 "character": "cat"
+DEFAULT_CHARACTER = "lognyang"
 TRANSITION_KIND = "fade"
 #: 첫 장면은 바로 말을 시작하고(훅), 나머지는 전환이 거의 끝난 뒤 말한다
 FIRST_LEAD = 0.1
@@ -116,7 +118,7 @@ class Script:
     effects: list = field(default_factory=list)
     #: 화면 스타일. "clean"(기본, 승인된 깔끔한 스타일) 또는 "fast"(참고 영상 분석 견본: 위 그림·아래 캐릭터, 빠른 컷·자막·목소리)
     style: str = "clean"
-    #: 고양이 대신 연기할 캐릭터 이름(remotion/src/character/<이름>/). 없거나 모르는 이름이면 기본 고양이
+    #: 연기할 캐릭터 이름(remotion/src/character/<이름>/). None이면 Noto 고양이
     character: str | None = None
 
     @property
@@ -147,8 +149,8 @@ class Script:
             footer = f"{site}/@{handle}" if handle else site
         effects = [sfx.Effect(int(e["scene"]), float(e.get("at") or 0), str(e["sound"]), 0.6 if e.get("volume") is None else float(e["volume"]))
                    for e in job.get("effects") or [] if isinstance(e, dict) and e.get("sound") in sfx.SOUNDS]
-        character = job.get("character")
-        if character not in remotion.characters():
+        character = job.get("character") or DEFAULT_CHARACTER
+        if character not in remotion.characters():  # "cat"이나 모르는 이름이면 기본 고양이(Noto)
             character = None
         return Script(job.get("title") or "", scenes, footer, effects, "fast" if job.get("style") == "fast" else "clean", character)
 
