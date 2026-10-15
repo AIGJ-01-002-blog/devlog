@@ -99,5 +99,14 @@ class ClientIpResolverTest {
         MockHttpServletRequest inner = request("10.42.0.9", "10.42.0.7");
         inner.addHeader("CF-Connecting-IP", "10.42.3.3");
         assertThat(tunnel.resolve(inner)).isEqualTo("10.42.0.9");
+        // 신뢰 대역 밖이어도 루프백·사설·링크 로컬 주소는 사용자 IP로 보지 않는다
+        for (String internal : List.of("127.0.0.1", "192.168.1.1", "172.16.0.5", "169.254.1.1", "::1", "fd12::1", "fe80::1")) {
+            MockHttpServletRequest r = request("10.42.0.9", "10.42.0.7");
+            r.addHeader("CF-Connecting-IP", internal);
+            assertThat(tunnel.resolve(r)).as(internal).isEqualTo("10.42.0.9");
+        }
+        MockHttpServletRequest v6 = request("10.42.0.9", "10.42.0.7");
+        v6.addHeader("CF-Connecting-IP", "2001:db8::7");
+        assertThat(tunnel.resolve(v6)).isEqualTo("2001:db8::7");
     }
 }

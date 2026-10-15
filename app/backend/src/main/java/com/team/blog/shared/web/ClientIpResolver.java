@@ -60,14 +60,25 @@ public class ClientIpResolver {
         return fromHeader(request).orElse(remote);
     }
 
-    /** 숫자 주소이고 신뢰 대역 밖일 때만 쓴다. 이름이나 내부 주소가 오면 접속 주소로 돌아간다. */
+    /** 숫자 주소이고 신뢰 대역 밖의 공인 주소일 때만 쓴다. 이름이나 루프백·사설·링크 로컬 주소가 오면 접속 주소로 돌아간다. */
     private Optional<String> fromHeader(HttpServletRequest request) {
         if (clientIpHeader.isEmpty()) return Optional.empty();
         String value = request.getHeader(clientIpHeader);
         if (value == null) return Optional.empty();
         String ip = value.trim();
-        if (Cidr.toBytes(ip) == null || isTrusted(ip)) return Optional.empty();
+        byte[] bytes = Cidr.toBytes(ip);
+        if (bytes == null || isTrusted(ip) || isInternal(bytes)) return Optional.empty();
         return Optional.of(ip);
+    }
+
+    private static boolean isInternal(byte[] bytes) {
+        try {
+            InetAddress a = InetAddress.getByAddress(bytes);
+            boolean uniqueLocalV6 = bytes.length == 16 && (bytes[0] & 0xFE) == 0xFC;
+            return a.isLoopbackAddress() || a.isSiteLocalAddress() || a.isLinkLocalAddress() || a.isAnyLocalAddress() || uniqueLocalV6;
+        } catch (UnknownHostException e) {
+            return true;
+        }
     }
 
     private boolean isTrusted(String ip) {
