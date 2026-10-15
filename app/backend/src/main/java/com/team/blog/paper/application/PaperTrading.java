@@ -182,7 +182,7 @@ public class PaperTrading {
         long fromShop = amount - fromInvest;
         if (fromShop > 0 && (!v.useShop() || b.shop() < fromShop)) {
             throw ApiException.conflict("POINTS_SHORT", v.useShop()
-                    ? "포인트가 모자라요. 투자 전용 " + won(b.invest()) + " + 크레딧 " + String.format("%,d", b.shop()) + "크레딧까지 살 수 있어요."
+                    ? "포인트가 모자라요. 투자 전용 " + won(b.invest()) + " + " + String.format("%,d", b.shop()) + "크레딧까지 살 수 있어요."
                     : "투자 전용 포인트가 모자라요. 지금 " + won(b.invest()) + "예요. 크레딧도 쓰려면 [크레딧도 쓰기]를 켜 주세요.",
                     Map.of("invest", b.invest(), "shop", b.shop(), "need", amount));
         }
