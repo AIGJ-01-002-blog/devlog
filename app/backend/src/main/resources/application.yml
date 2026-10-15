@@ -221,6 +221,9 @@ blog:
     enabled: ${TRADES_ENABLED:false}
     # 5개 코인을 1분·5분봉으로 돌려도 넘치지 않게 (#260). 시장·봉별로 나누지 않는다
     daily-records: ${TRADES_DAILY_LIMIT:2000}
+    # 자동매매 화면 차트(spec 101): 거래소 공개 캔들(키 없음)을 서버가 받아 10초씩 들고 있다
+    binance-url: ${TRADES_BINANCE_URL:https://data-api.binance.vision}
+    upbit-url: ${TRADES_UPBIT_URL:https://api.upbit.com}
   # 블로그 포인트 (#266, 목표 #253): 출석·글 발행·모의투자 수익으로 쌓고 상점에서 쓴다. devlog 2.0 묶음 릴리스 전까지 꺼 둔다.
   # 적립 규칙 값은 관리자 화면(/admin/points)에서 바꾼다
   points:

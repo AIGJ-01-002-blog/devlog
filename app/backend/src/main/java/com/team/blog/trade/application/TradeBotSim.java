@@ -53,7 +53,7 @@ public class TradeBotSim {
     private static final Pattern SYMBOL = Pattern.compile("[A-Za-z0-9._-]{1,20}");
     private static final Pattern CURRENCY = Pattern.compile("[A-Z]{2,10}");
     private static final Pattern EXCHANGE = Pattern.compile("[A-Z0-9_]{0,20}");
-    private static final Pattern EXTERNAL = Pattern.compile("[A-Za-z0-9:_.-]{1,80}");
+    private static final Pattern EXTERNAL = Pattern.compile("[!-~]{1,120}");
     private static final BigDecimal AMOUNT_MAX = new BigDecimal("99999999999999");
     private static final Set<String> SIDES = Set.of("BUY", "SELL", "LONG", "SHORT", "CLOSE");
 
@@ -259,7 +259,7 @@ public class TradeBotSim {
         Instant now = Times.now(clock);
         for (JsonNode n : arr) {
             String id = n.path("id").asString("").strip();
-            if (!EXTERNAL.matcher(id).matches()) throw bad("사건 id는 영문·숫자·:._- 80자까지예요: " + id);
+            if (!EXTERNAL.matcher(id).matches()) throw bad("사건 id는 빈칸 없는 영문·숫자·기호 120자까지예요: " + id);
             Kind kind;
             try {
                 kind = Kind.valueOf(n.path("kind").asString("").strip().toUpperCase(Locale.ROOT));

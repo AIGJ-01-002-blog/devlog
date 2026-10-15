@@ -39,7 +39,7 @@ COMMENT ON COLUMN trade_bot_account.rules IS '[{label, value}] 지금 적용 중
 CREATE TABLE trade_bot_event (
     id            bigserial PRIMARY KEY,
     member_id     bigint NOT NULL,
-    external_id   varchar(80) NOT NULL,
+    external_id   varchar(120) NOT NULL,
     kind          varchar(8) NOT NULL,
     account       varchar(80) NOT NULL DEFAULT '',
     symbol        varchar(20) NOT NULL DEFAULT '',

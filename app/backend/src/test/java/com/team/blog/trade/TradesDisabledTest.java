@@ -26,6 +26,7 @@ class TradesDisabledTest extends IntegrationTest {
         me.http().perform(get("/api/me/trades")).andExpect(status().isNotFound());
         me.http().perform(get("/api/me/trades/2026-10-14")).andExpect(status().isNotFound());
         me.http().perform(get("/api/me/trade-bot")).andExpect(status().isNotFound());
+        me.http().perform(get("/api/me/trade-bot/charts")).andExpect(status().isNotFound());
 
         String token = read(me.http().perform(asJson(post("/api/me/tokens"), Map.of("name", "trade-bot", "scope", "WRITE")))
                 .andExpect(status().isCreated()).andReturn()).path("secret").asString();

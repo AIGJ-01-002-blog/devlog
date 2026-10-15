@@ -1,5 +1,6 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { NavIcon, type IconName } from '../components/NavIcons'
+import { TradeBotCharts } from '../components/TradeBotCharts'
 import { t } from '../lib/i18n'
 import { Link } from '../lib/router'
 import {
@@ -10,8 +11,9 @@ import { exchangeName, money, pnlClass, qty } from '../lib/trades'
 /** 봇은 5분마다 알리니 화면은 1분마다 다시 받는다 */
 const REFRESH_MS = 60_000
 
-/** 한 화면에 다 쌓으면 휴대폰에서 길어지니 내 포인트처럼 왼쪽 탭으로 나눈다(블로그 주인 요청). 휴대폰에서는 탭이 위에서 옆으로 밀린다. /trade#fills처럼 바로 열린다 */
+/** 한 화면에 다 쌓으면 휴대폰에서 길어지니 내 포인트처럼 왼쪽 탭으로 나눈다(블로그 주인 요청). 휴대폰에서는 탭이 위에서 옆으로 밀린다. /trade#fills처럼 바로 열린다. 첫 탭은 코인 5종 실시간 차트(블로그 주인 요청) */
 export const TRADE_BOT_TABS = [
+  { id: 'chart', label: t('차트'), hint: t('코인 5종의 거래소별 실시간 차트와 봇의 모의 체결 표시'), icon: 'candle' },
   { id: 'accounts', label: t('계좌'), hint: t('모의 계좌의 현금·보유 포지션·적용 중인 규칙'), icon: 'coin' },
   { id: 'fills', label: t('체결'), hint: t('봇이 낸 모의 체결과 이유'), icon: 'trend' },
   { id: 'ai', label: t('Gemini 판단'), hint: t('진입 직전에 Gemini가 허락하거나 막은 기록'), icon: 'ai' },
@@ -21,7 +23,7 @@ export type TradeBotTab = (typeof TRADE_BOT_TABS)[number]['id']
 
 export function tradeBotTabFromHash(hash: string): TradeBotTab {
   const key = hash.replace(/^#/, '')
-  return TRADE_BOT_TABS.find((x) => x.id === key)?.id ?? 'accounts'
+  return TRADE_BOT_TABS.find((x) => x.id === key)?.id ?? 'chart'
 }
 
 /**
@@ -50,7 +52,7 @@ export function TradeBotPage() {
     setTab(id)
   }
   const count = (id: TradeBotTab) => !data ? 0
-    : id === 'accounts' ? data.accounts.length : id === 'fills' ? data.fills.length : id === 'ai' ? data.decisions.length : data.summaries.length
+    : id === 'chart' ? null : id === 'accounts' ? data.accounts.length : id === 'fills' ? data.fills.length : id === 'ai' ? data.decisions.length : data.summaries.length
   useEffect(() => {
     reload()
     const id = window.setInterval(reload, REFRESH_MS)
@@ -104,11 +106,12 @@ export function TradeBotPage() {
                 <a key={x.id} href={`/trade#${x.id}`} aria-current={x.id === tab ? 'page' : undefined} data-tip={x.hint}
                   onClick={(e) => { e.preventDefault(); open(x.id) }}>
                   <NavIcon name={x.icon} /><span>{x.label}</span>
-                  <span className="tradebot-tab-count">{count(x.id)}</span>
+                  {count(x.id) !== null && <span className="tradebot-tab-count">{count(x.id)}</span>}
                 </a>
               ))}
             </nav>
             <div className="settings-panel" role="region" aria-label={TRADE_BOT_TABS.find((x) => x.id === tab)!.label}>
+              {tab === 'chart' && <TradeBotCharts />}
               {tab === 'accounts' && (
                 <section className="tradebot-section">
                   <h2>{t('모의 계좌')}</h2>

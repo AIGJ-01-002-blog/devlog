@@ -97,3 +97,45 @@ export function eventTime(iso: string): string {
     month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Seoul',
   }).format(new Date(iso))
 }
+
+/** 차트 탭 (spec 101): 서버 TradeCharts.Chart와 같은 모양. 캔들은 서버가 10초씩 들고 있는 거래소 공개 캔들이다 */
+export type ChartExchange = 'binance' | 'upbit'
+export const CHART_EXCHANGES: ChartExchange[] = ['binance', 'upbit']
+export const CHART_INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d'] as const
+export type ChartInterval = (typeof CHART_INTERVALS)[number]
+
+export interface ChartCandle { t: number; o: number; h: number; l: number; c: number }
+export interface ChartMark { t: number; side: string; price: number; text: string }
+export interface ChartCoin {
+  coin: string
+  name: string
+  symbol: string
+  candles: ChartCandle[]
+  marks: ChartMark[]
+  /** 캔들을 받지 못했으면 이유 */
+  error: string | null
+}
+export interface CoinChart {
+  exchange: 'BINANCE' | 'UPBIT'
+  interval: ChartInterval
+  currency: string
+  coins: ChartCoin[]
+  fetchedAt: string
+}
+
+export const loadTradeCharts = (exchange: ChartExchange, interval: ChartInterval) =>
+  api<CoinChart>(`/api/me/trade-bot/charts?exchange=${exchange}&interval=${interval}`)
+
+/** 체결을 찍을 봉 번호: 체결 시각이 들어 있는 봉. 차트 범위 밖이면 null */
+export function markIndex(candles: ChartCandle[], t: number): number | null {
+  if (candles.length === 0 || t < candles[0].t) return null
+  let i = candles.length - 1
+  while (i > 0 && candles[i].t > t) i--
+  return i
+}
+
+/** 차트 구간의 등락률(%): 첫 봉 시가 → 마지막 봉 종가 */
+export function changeRate(candles: ChartCandle[]): number | null {
+  if (candles.length === 0 || candles[0].o === 0) return null
+  return ((candles[candles.length - 1].c - candles[0].o) / candles[0].o) * 100
+}

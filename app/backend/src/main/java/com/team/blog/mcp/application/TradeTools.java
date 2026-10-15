@@ -70,7 +70,7 @@ class TradeTools {
                  "required":["account","currency","cash"]}},
               "events":{"type":"array","maxItems":200,"description":"지난 알림 뒤에 생긴 사건",
                 "items":{"type":"object","properties":{
-                  "id":{"type":"string","description":"사건 번호 (80자까지). 다시 보내도 한 번만 남는다"},
+                  "id":{"type":"string","description":"사건 번호 (빈칸 없이 120자까지, 예: fill:paper-…, ai:계좌:심볼:봉시각, sum:2026-10-15). 다시 보내도 한 번만 남는다"},
                   "kind":{"type":"string","enum":["FILL","AI","SUMMARY"],"description":"FILL 모의 체결, AI Gemini 진입 판단, SUMMARY 하루 요약"},
                   "at":{"type":"string","description":"ISO-8601 (예: 2026-10-15T13:05:00+09:00)"},
                   "account":{"type":"string"},"symbol":{"type":"string"},

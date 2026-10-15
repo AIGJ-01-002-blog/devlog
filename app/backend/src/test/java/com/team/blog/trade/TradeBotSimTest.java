@@ -58,7 +58,7 @@ class TradeBotSimTest extends IntegrationTest {
                 "events", List.of(
                         Map.of("id", "f-1", "kind", "FILL", "at", ago(30), "account", "trade-state-binance-spot-1h.json", "symbol", "BTCUSDT",
                                 "side", "BUY", "quantity", "0.0015", "price", "66000", "currency", "USDT", "text", "종가가 20봉 평균 위로"),
-                        Map.of("id", "ai-1", "kind", "AI", "at", ago(31), "symbol", "BTCUSDT", "verdict", "ALLOW", "text", "거래량이 받쳐 줘요"),
+                        Map.of("id", "ai:trade-state-binance-spot-1h.json:BTCUSDT:2026-10-15T13:00:00+09:00", "kind", "AI", "at", ago(31), "symbol", "BTCUSDT", "verdict", "ALLOW", "text", "거래량이 받쳐 줘요"),
                         Map.of("id", "ai-2", "kind", "AI", "at", ago(20), "symbol", "ETHUSDT", "verdict", "BLOCK", "text", "급등 직후라 쉬어요"),
                         Map.of("id", "sum-1", "kind", "SUMMARY", "at", ago(5), "text", "오늘 매수 1건, 막은 진입 1건")));
     }
@@ -121,5 +121,47 @@ class TradeBotSimTest extends IntegrationTest {
         JsonNode empty = read(other.http().perform(get("/api/me/trade-bot")).andExpect(status().isOk()).andReturn());
         assertThat(empty.path("status").path("reportedAt").isNull()).isTrue();
         assertThat(empty.path("accounts").size()).isZero();
+    }
+
+    @Test
+    void 차트는_코인_5종_캔들과_내_봇_체결을_함께_준다() throws Exception {
+        Session me = signup(uniqueLogin("tbotc"));
+        String token = token(me);
+        call(token, Map.of("events", List.of(
+                Map.of("id", "cf-1", "kind", "FILL", "at", ago(20), "symbol", "BTCUSDT", "side", "BUY", "quantity", "0.001", "price", "150",
+                        "currency", "USDT", "text", "돌파"),
+                Map.of("id", "cf-2", "kind", "FILL", "at", ago(10), "symbol", "KRW-ETH", "side", "SELL", "quantity", "1", "price", "120",
+                        "currency", "KRW", "text", "익절"))));
+
+        JsonNode b = read(me.http().perform(get("/api/me/trade-bot/charts").param("exchange", "binance").param("interval", "15m"))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(b.path("currency").asString()).isEqualTo("USDT");
+        assertThat(b.path("coins").findValuesAsString("coin")).containsExactly("BTC", "ETH", "XRP", "SOL", "DOGE");
+        JsonNode btc = b.path("coins").get(0);
+        assertThat(btc.path("symbol").asString()).isEqualTo("BTCUSDT");
+        assertThat(btc.path("candles").size()).isEqualTo(60);
+        assertThat(btc.path("candles").get(59).path("c").decimalValue()).isEqualByComparingTo("159");
+        assertThat(btc.path("marks").size()).isEqualTo(1);
+        assertThat(btc.path("marks").get(0).path("side").asString()).isEqualTo("BUY");
+        // 거래소가 실패한 코인은 이유만 오고 나머지는 그대로
+        assertThat(b.path("coins").get(3).path("error").asString()).contains("시세");
+        assertThat(b.path("coins").get(3).path("candles").size()).isZero();
+
+        JsonNode u = read(me.http().perform(get("/api/me/trade-bot/charts").param("exchange", "upbit").param("interval", "15m"))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(u.path("currency").asString()).isEqualTo("KRW");
+        JsonNode eth = u.path("coins").get(1);
+        assertThat(eth.path("symbol").asString()).isEqualTo("KRW-ETH");
+        // 업비트는 새것부터 오지만 오래된 순으로 바꿔 준다
+        assertThat(eth.path("candles").get(0).path("t").asLong()).isLessThan(eth.path("candles").get(59).path("t").asLong());
+        assertThat(eth.path("marks").findValuesAsString("text")).containsExactly("익절");
+
+        // 10초 안에 다시 부르면 거래소에 가지 않는다
+        int before = com.team.blog.support.FakeExchanges.INSTANCE.calls.get();
+        me.http().perform(get("/api/me/trade-bot/charts").param("exchange", "binance").param("interval", "15m")).andExpect(status().isOk());
+        assertThat(com.team.blog.support.FakeExchanges.INSTANCE.calls.get()).isEqualTo(before);
+
+        me.http().perform(get("/api/me/trade-bot/charts").param("exchange", "bybit")).andExpect(status().isBadRequest());
+        me.http().perform(get("/api/me/trade-bot/charts").param("interval", "2m")).andExpect(status().isBadRequest());
     }
 }

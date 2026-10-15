@@ -2538,6 +2538,16 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 .tradebot-rules summary { cursor: pointer; font-weight: 600; font-size: 0.875rem; }
 .tradebot-rules dl { margin: 6px 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 6px; }
 .tradebot-rules dd { margin: 0; overflow-wrap: anywhere; }
+.tradebot-chart-toolbar { flex-wrap: wrap; gap: 8px; }
+.tradebot-charts { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-top: 8px; }
+.tradebot-chart { padding: 10px 12px; border: 1px solid var(--color-border); border-radius: var(--radius); min-width: 0; }
+.tradebot-chart-price { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tradebot-candles { display: block; width: 100%; height: auto; margin-top: 6px; }
+.tradebot-candles .up { stroke: var(--color-up); fill: var(--color-up); }
+.tradebot-candles .down { stroke: var(--color-down); fill: var(--color-down); }
+.tradebot-candles line { stroke-width: 1; }
+.tradebot-candles .tradebot-last { stroke: var(--color-text-muted); stroke-dasharray: 3 3; opacity: 0.6; }
+.tradebot-mark { stroke: var(--color-surface); stroke-width: 1; cursor: help; }
 .tradebot-text { margin: 4px 0 0; overflow-wrap: anywhere; white-space: pre-line; }
 .tradebot-allow { color: var(--color-up); border-color: var(--color-up); }
 .tradebot-block { color: var(--color-down); border-color: var(--color-down); }
