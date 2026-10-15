@@ -27,6 +27,6 @@
 
 - **FR-001**: 새 표 `trade_paper_bot`(회원, 켜짐, 규칙 JSON, 종목별 마지막 처리 봉, 하루 수익 JSON). 탈퇴 정리 때 지운다.
 - **FR-002**: `@Scheduled` 5분 작업이 켜진 회원마다 1시간봉 닫힌 봉으로 판단하고 `trade_bot_account`·`trade_bot_event`(FILL)에 남긴다. 회원 하나가 실패해도 나머지는 돈다.
-- **FR-003**: `POST /api/me/trade-bot/paper` 켜기·끄기. `TRADES_ENABLED`가 꺼져 있으면 404.
+- **FR-003**: `PUT /api/me/trade-bot/paper` `{enabled}`로 켜기·끄기(`GET`은 지금 상태). `TRADES_ENABLED`가 꺼져 있으면 404.
 - **FR-004 (다음 단계)**: MCP 도구 `paper_bot_rules`(get·set·clear). 상한: 코인 10개, 2~60봉, 손절 0.5~20%, 익절 0(끔)·0.5~50%, 하루 수익 멈춤 0·0.5~20%, 한 번 금액은 기본값 이하.
 - **FR-005**: /trade 안내: 봇은 규칙으로 도는 자동 프로그램이고, AI는 기준을 정하거나(MCP) 진입을 거르는(Gemini) 데만 쓴다는 것, 모의만 보인다는 것, 투자 권유가 아니라는 것을 화면에 적는다.
