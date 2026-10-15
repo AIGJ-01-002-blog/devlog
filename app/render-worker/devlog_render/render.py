@@ -176,7 +176,8 @@ class Timing:
         return self.start + self.lead
 
 
-def plan(speech: list[float], words: list[list[captions.Word] | None], narrations: list[str]) -> list[Timing]:
+def plan(speech: list[float], words: list[list[captions.Word] | None], narrations: list[str],
+         max_units: float = captions.PHRASE_UNITS) -> list[Timing]:
     """장면 길이와 시작 시각. 전환이 겹치는 만큼 다음 장면이 일찍 시작한다."""
     out: list[Timing] = []
     start = 0.0
@@ -185,7 +186,7 @@ def plan(speech: list[float], words: list[list[captions.Word] | None], narration
         lead = FIRST_LEAD if i == 0 else LEAD
         length = lead + seconds + (TAIL if i == last else SCENE_PADDING + TRANSITION)
         length = math.ceil(length * FPS - 1e-6) / FPS  # 프레임 단위로 맞춰 화면(Remotion)과 소리가 어긋나지 않게
-        cues = captions.cues(narrations[i], seconds, words[i], tail=SCENE_PADDING)
+        cues = captions.cues(narrations[i], seconds, words[i], tail=SCENE_PADDING, max_units=max_units)
         out.append(Timing(start, lead, seconds, length, cues))
         start += length - TRANSITION
     return out
@@ -258,7 +259,8 @@ class Renderer:
             shutil.copyfile(self.mono_font, work / ("mono" + Path(self.mono_font).suffix))
             audios, words = self._voices(work, script)
             speech = [probe_ms(a, self.ffmpeg) / 1000 for a in audios]
-            timings = plan(speech, words, [s.narration for s in script.scenes])
+            timings = plan(speech, words, [s.narration for s in script.scenes],
+                           captions.FAST_PHRASE_UNITS if script.fast else captions.PHRASE_UNITS)
             if chart is not None:  # 거래 하나는 말이 짧아도 MIN_TRADE초는 보여 준다
                 body = len(script.scenes) - 1
                 timings = stretch(timings, {replay.fill_scene(k, body) for k in range(len(chart.fills))}, replay.MIN_TRADE + TRANSITION)
