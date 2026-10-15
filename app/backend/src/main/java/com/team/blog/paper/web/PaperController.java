@@ -2,7 +2,9 @@ package com.team.blog.paper.web;
 
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -20,6 +22,8 @@ import com.team.blog.shared.security.MemberPrincipal;
  *   <li>GET /api/me/paper: 다섯 코인 시세, 내 보유분, 지갑 잔액</li>
  *   <li>POST /api/me/paper/orders: 시장가로 사기·팔기. 같은 clientOrderId는 한 번만 체결</li>
  *   <li>GET /api/me/paper/chart?interval=15m: 원화 캔들과 내 체결·봇 체결 표시 (#324)</li>
+ *   <li>POST /api/me/paper/limit-orders: 지정가 주문. 크레딧이나 수량을 묶고 시세가 닿으면 체결 (#332)</li>
+ *   <li>DELETE /api/me/paper/limit-orders/{id}: 미체결 지정가 취소. 묶은 크레딧을 돌려준다 (#332)</li>
  * </ul>
  */
 @RestController
@@ -46,5 +50,15 @@ public class PaperController {
     @PostMapping("/api/me/paper/orders")
     public PaperTrading.Filled order(@CurrentMember MemberPrincipal me, @RequestBody(required = false) PaperTrading.Order order) {
         return paper.order(me.id(), order);
+    }
+
+    @PostMapping("/api/me/paper/limit-orders")
+    public PaperTrading.LimitPlaced limit(@CurrentMember MemberPrincipal me, @RequestBody(required = false) PaperTrading.LimitOrder order) {
+        return paper.placeLimit(me.id(), order);
+    }
+
+    @DeleteMapping("/api/me/paper/limit-orders/{id}")
+    public PaperTrading.State cancel(@CurrentMember MemberPrincipal me, @PathVariable long id) {
+        return paper.cancelLimit(me.id(), id);
     }
 }
