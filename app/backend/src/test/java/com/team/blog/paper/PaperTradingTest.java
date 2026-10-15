@@ -1,10 +1,12 @@
 package com.team.blog.paper;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -57,6 +59,110 @@ class PaperTradingTest extends IntegrationTest {
     long wallet(Session s, String wallet) {
         return jdbc.queryForObject("SELECT COALESCE(SUM(amount), 0) FROM point_ledger WHERE member_id = ? AND wallet = ?", Long.class,
                 s.memberId(), wallet);
+    }
+
+    JsonNode limit(Session s, Map<String, Object> body, int expect) throws Exception {
+        return read(s.http().perform(asJson(post("/api/me/paper/limit-orders"), body)).andExpect(status().is(expect)).andReturn());
+    }
+
+    static Map<String, Object> limitBody(String id, String symbol, String side, String price, String quantity) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("clientOrderId", id);
+        m.put("symbol", symbol);
+        m.put("side", side);
+        m.put("price", new BigDecimal(price));
+        m.put("quantity", new BigDecimal(quantity));
+        return m;
+    }
+
+    JsonNode state(Session s) throws Exception {
+        return read(s.http().perform(get("/api/me/paper")).andExpect(status().isOk()).andReturn());
+    }
+
+    /** #332 지정가 매수: 낼 크레딧(수수료 포함)을 묶고, 시세가 지정가 아래로 오면 더 싼 값에 사고 남은 몫을 돌려준다 */
+    @Test
+    void 지정가_매수는_크레딧을_묶고_시세가_닿으면_싼_값에_체결한다() throws Exception {
+        Session me = signup(uniqueLogin("pplimbuy"));
+        state(me);
+        // BTC 1억일 때 9천만 원에 0.01개: 900,000 + 수수료 450 = 900,450을 묶는다
+        String id = orderId();
+        JsonNode placed = limit(me, limitBody(id, "BTC", "BUY", "90000000", "0.01"), 200);
+        assertThat(placed.path("order").path("status").asString()).isEqualTo("OPEN");
+        assertThat(placed.path("order").path("locked").asLong()).isEqualTo(900_450);
+        assertThat(placed.path("state").path("locked").asLong()).isEqualTo(900_450);
+        assertThat(wallet(me, "INVEST_ONLY")).isEqualTo(9_099_550L);
+        // 같은 주문 번호는 한 번만 묶는다
+        assertThat(limit(me, limitBody(id, "BTC", "BUY", "90000000", "0.01"), 200).path("duplicate").asBoolean()).isTrue();
+        assertThat(wallet(me, "INVEST_ONLY")).isEqualTo(9_099_550L);
+
+        // 8천9백만으로 내려오면 화면을 열 때 체결: 890,000 + 수수료 445, 남은 10,005는 돌려준다
+        upbit.prices.put("BTC", new BigDecimal("89000000"));
+        JsonNode s = state(me);
+        JsonNode order = s.path("orders").get(0);
+        assertThat(order.path("status").asString()).isEqualTo("FILLED");
+        assertThat(order.path("filledPrice").decimalValue()).isEqualByComparingTo("89000000");
+        assertThat(s.path("locked").asLong()).isZero();
+        assertThat(s.path("positions").get(0).path("quantity").decimalValue()).isEqualByComparingTo("0.01");
+        assertThat(s.path("positions").get(0).path("cost").asLong()).isEqualTo(890_445);
+        assertThat(wallet(me, "INVEST_ONLY")).isEqualTo(10_000_000L - 890_445);
+        assertThat(s.path("fills").get(0).path("side").asString()).isEqualTo("BUY");
+        assertThat(s.path("fills").get(0).path("bot").asBoolean()).isFalse();
+        Map<String, Object> trade = jdbc.queryForMap("SELECT strategy, price FROM trade WHERE id = ?", s.path("fills").get(0).path("tradeId").asLong());
+        assertThat(trade).containsEntry("strategy", "포인트 모의투자");
+
+        // 한 번 더 열어도 다시 체결하지 않는다
+        assertThat(state(me).path("positions").get(0).path("quantity").decimalValue()).isEqualByComparingTo("0.01");
+
+        // 아직 닿지 않은 매수는 취소하면 묶은 크레딧이 그대로 돌아온다
+        JsonNode open = limit(me, limitBody(orderId(), "BTC", "BUY", "50000000", "0.02"), 200);
+        assertThat(open.path("order").path("locked").asLong()).isEqualTo(1_000_500);
+        long id2 = open.path("order").path("id").asLong();
+        JsonNode canceled = read(me.http().perform(delete("/api/me/paper/limit-orders/" + id2)).andExpect(status().isOk()).andReturn());
+        assertThat(canceled.path("locked").asLong()).isZero();
+        assertThat(wallet(me, "INVEST_ONLY")).isEqualTo(10_000_000L - 890_445);
+        assertThat(read(me.http().perform(delete("/api/me/paper/limit-orders/" + id2)).andExpect(status().isConflict()).andReturn())
+                .path("code").asString()).isEqualTo("CLOSED");
+        // 남의 주문은 없는 주문이다
+        Session other = signup(uniqueLogin("pplimoth"));
+        other.http().perform(delete("/api/me/paper/limit-orders/" + id2)).andExpect(status().isNotFound());
+    }
+
+    /** #332 지정가 매도: 수량을 묶어 시장가로는 묶인 만큼 못 팔고, 시세가 지정가 위로 오면 높은 값에 팔아 수익을 크레딧으로 넣는다 */
+    @Test
+    void 지정가_매도는_수량을_묶고_시세가_닿으면_팔아_수익을_크레딧으로_넣는다() throws Exception {
+        Session me = signup(uniqueLogin("pplimsell"));
+        order(me, buy(orderId(), "BTC", 1_000_000, false), 200); // 0.009995개, 원금 1,000,000
+        JsonNode placed = limit(me, limitBody(orderId(), "BTC", "SELL", "110000000", "0.005"), 200);
+        assertThat(placed.path("order").path("status").asString()).isEqualTo("OPEN");
+        assertThat(placed.path("state").path("positions").get(0).path("available").decimalValue()).isEqualByComparingTo("0.004995");
+        // 묶인 수량까지 시장가로 팔 수는 없다
+        Map<String, Object> sell = Map.of("clientOrderId", orderId(), "symbol", "BTC", "side", "SELL", "quantity", new BigDecimal("0.006"));
+        assertThat(order(me, sell, 409).path("code").asString()).isEqualTo("NOT_ENOUGH");
+        assertThat(limit(me, limitBody(orderId(), "BTC", "SELL", "110000000", "0.006"), 409).path("code").asString()).isEqualTo("NOT_ENOUGH");
+
+        // 1억 2천이 되면 지정가(1억 1천)보다 높은 값에 판다: 600,000 - 수수료 300 = 599,700, 원금 500,250(비율대로) → 수익 99,450
+        upbit.prices.put("BTC", new BigDecimal("120000000"));
+        JsonNode s = state(me);
+        assertThat(s.path("orders").get(0).path("status").asString()).isEqualTo("FILLED");
+        assertThat(s.path("orders").get(0).path("filledPrice").decimalValue()).isEqualByComparingTo("120000000");
+        assertThat(s.path("positions").get(0).path("quantity").decimalValue()).isEqualByComparingTo("0.004995");
+        assertThat(s.path("fills").get(0).path("side").asString()).isEqualTo("SELL");
+        assertThat(s.path("fills").get(0).path("pnl").decimalValue()).isEqualByComparingTo("99450");
+        assertThat(wallet(me, "SHOP")).isEqualTo(99_450L);
+    }
+
+    @Test
+    void 잘못된_지정가는_거절한다() throws Exception {
+        Session me = signup(uniqueLogin("pplimbad"));
+        Map<String, Object> noPrice = limitBody(orderId(), "BTC", "BUY", "1", "0.01");
+        noPrice.remove("price");
+        limit(me, noPrice, 400);
+        // 최소 주문 5,000 크레딧보다 작다
+        limit(me, limitBody(orderId(), "XRP", "BUY", "800", "1"), 400);
+        // 기본 크레딧 1,000만보다 많이 묶을 수 없다
+        assertThat(limit(me, limitBody(orderId(), "BTC", "BUY", "100000000", "1"), 409).path("code").asString()).isEqualTo("POINTS_SHORT");
+        // 갖고 있지 않은 코인은 지정가로도 못 판다
+        assertThat(limit(me, limitBody(orderId(), "ETH", "SELL", "5000000", "1"), 409).path("code").asString()).isEqualTo("NO_POSITION");
     }
 
     /** #324 모의투자 차트: 원화 캔들 위에 내가 포인트로 낸 체결이 ME로 찍히고, 봇 체결은 BOT으로 따로 찍힌다 */
