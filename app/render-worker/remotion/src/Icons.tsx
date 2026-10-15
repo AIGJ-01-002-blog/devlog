@@ -17,6 +17,9 @@ export const ICONS: Record<string, LucideIcon> = {
 
 /** 이름표 글 → 아이콘. 앞에 있는 규칙이 이긴다 */
 const GUESS: [RegExp, string][] = [
+  // "HTTP 헤더"·"응답 본문"처럼 넓은 말과 함께 와도 헤더·본문이 이긴다
+  [/헤더|header|머리/i, 'list'],
+  [/본문|바디|body|payload|내용/i, 'file-text'],
   [/브라우저|browser|크롬|웹 ?페이지/i, 'globe'],
   [/사용자|유저|user|고객|클라이언트|client/i, 'user'],
   [/캐시|cache|redis/i, 'zap'],
@@ -54,8 +57,6 @@ const GUESS: [RegExp, string][] = [
   [/시간|지연|latency|타이머|대기/i, 'timer'],
   [/성능|속도|빠르|performance/i, 'gauge'],
   [/요청|request|응답|response/i, 'arrow-right-left'],
-  [/헤더|header|머리/i, 'list'],
-  [/본문|바디|body|payload|내용/i, 'file-text'],
   [/다시|재시도|retry|갱신|동기화|sync/i, 'refresh'],
   [/보호|방어|막아|막았/i, 'shield'],
 ];
