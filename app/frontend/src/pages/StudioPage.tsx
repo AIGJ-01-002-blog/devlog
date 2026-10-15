@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, ApiError } from '../lib/api'
+import { useAuth } from '../lib/auth'
 import { fieldErrors } from '../lib/fieldErrors'
 import { t, tNodes } from '../lib/i18n'
 import { Link, navigate, useLocation } from '../lib/router'
@@ -9,6 +10,7 @@ import {
   type BatchRenderResult, type OriginalityReport, type Scene, type SceneVisual, type ShortsBatch, type ShortsItem, type ShortsOverview,
 } from '../lib/shorts'
 import type { ManagePage } from '../lib/types'
+import { ReplayInfo, ReplayPicker } from './StudioReplay'
 import { StudioUploadGuide } from './StudioUploadGuide'
 
 const POLL_MS = 5000
@@ -26,11 +28,15 @@ const VISUAL_LABELS: Record<SceneVisual, string> = {
 export function StudioPage() {
   const { search } = useLocation()
   const selected = Number(search.get('id')) || null
+  const { me } = useAuth()
+  // 매매 재현 영상(#265)은 매매 일지가 켜져 있을 때만. /studio?replay=2026-10-14로 오면 그날 체결을 고르는 화면을 연다
+  const trades = me?.features?.trades ?? false
   const selectedBatch = Number(search.get('batch')) || null
   const [data, setData] = useState<ShortsOverview | null>(null)
   const [batches, setBatches] = useState<ShortsBatch[]>([])
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  const [picking, setPicking] = useState(search.has('replay'))
 
   const load = useCallback(async () => {
     // 묶음 목록이 실패해도 대본 목록과 편집기는 보여 준다 (묶음은 지난 값을 유지)
@@ -71,8 +77,12 @@ export function StudioPage() {
       {error && <p className="error" role="alert">{error}</p>}
       <div className="studio-layout">
         <aside className="studio-list" aria-label={t('내 쇼츠 대본')}>
-          <button type="button" className="btn btn-primary btn-block" onClick={() => setCreating(true)}
+          <button type="button" className="btn btn-primary btn-block" onClick={() => { setPicking(false); setCreating(true) }}
             data-tip={t('글 하나를 골라 새 대본 만들기')}>{t('새 대본')}</button>
+          {trades && (
+            <button type="button" className="btn btn-outline btn-block studio-replay-btn" onClick={() => { setCreating(false); setPicking(true) }}
+              data-tip={t('매매 일지의 체결을 골라 차트가 흘러가는 재현 영상 만들기')}>{t('매매 재현 영상')}</button>
+          )}
           {data && data.items.length === 0 && batches.length === 0 && (
             <p className="muted small">{tNodes('아직 대본이 없어요. AI에게 "이 글로 쇼츠 여러 편 만들어 줘"라고 하면 {0}로 작은 주제를 나누고 주제마다 대본을 써 줘요.', { 0: <code>plan_shorts</code> })}</p>
           )}
@@ -90,7 +100,13 @@ export function StudioPage() {
           <ItemList items={loose} selected={selected} />
         </aside>
         <section className="studio-editor">
-          {creating
+          {picking && trades
+            ? <ReplayPicker initialDate={search.get('replay')} onCancel={() => setPicking(false)} onCreated={(it) => {
+                setPicking(false)
+                setData((d) => d && { ...d, items: [it, ...d.items] })
+                navigate(`/studio?id=${it.id}`)
+              }} />
+            : creating
             ? <NewScript onCancel={() => setCreating(false)} onCreated={(it) => {
                 setCreating(false)
                 setData((d) => d && { ...d, items: [it, ...d.items] })
@@ -116,7 +132,10 @@ function ItemList({ items, selected }: { items: ShortsItem[]; selected: number |
       {items.map((it) => (
         <li key={it.id}>
           <Link to={`/studio?id=${it.id}`} className={`studio-item${it.id === selected ? ' active' : ''}`} aria-current={it.id === selected ? 'true' : undefined}>
-            <span className="studio-item-title">{it.topic !== null && <span className="muted">{it.topic}. </span>}{it.title}</span>
+            <span className="studio-item-title">
+              {it.replay && <span className="studio-kind" title={t('매매 재현 영상')} aria-label={t('매매 재현 영상')}>📈 </span>}
+              {it.topic !== null && <span className="muted">{it.topic}. </span>}{it.title}
+            </span>
             <span className={`badge studio-status studio-status-${it.status.toLowerCase()}`}>{statusLabel(it.status)}</span>
           </Link>
         </li>
@@ -337,6 +356,7 @@ function Editor({ item, onChange, onReload, onDeleted }: {
         {item.postUrl && <Link to={item.postUrl} className="small">{t('바탕 글: {0}', { 0: item.postTitle ?? '' })}</Link>}
       </div>
 
+      {item.replay && <ReplayInfo item={item} replay={item.replay} />}
       {item.status === 'READY' && item.videoUrl && (
         <div className="studio-video">
           <video src={item.videoUrl} controls playsInline preload="metadata" aria-label={t('만든 쇼츠 영상')} />
@@ -381,29 +401,33 @@ function Editor({ item, onChange, onReload, onDeleted }: {
                 <textarea id={`scene-${i}-narration`} rows={3} value={s.narration} maxLength={LIMITS.narration} onChange={(e) => edit(i, { narration: e.target.value })} />
                 {errors[`scenes[${i}].narration`] && <span className="error">{errors[`scenes[${i}].narration`]}</span>}
               </div>
-              <div className="field">
-                <label htmlFor={`scene-${i}-code`}>{t('코드 (선택)')}</label>
-                <textarea id={`scene-${i}-code`} rows={2} className="mono" value={s.code ?? ''} maxLength={LIMITS.code} onChange={(e) => edit(i, { code: e.target.value })} />
-              </div>
-              <div className="field">
-                <label htmlFor={`scene-${i}-image`}>{t('배경 그림 (선택)')}</label>
-                <input id={`scene-${i}-image`} type="text" inputMode="url" value={s.image ?? ''} maxLength={LIMITS.image}
-                  placeholder="/media/images/…" data-tip={t('글에 올린 그림 주소를 넣으면 이 장면 배경으로 깔려요. 비우면 첫 장면에 글 대표 사진이 들어가요.')}
-                  onChange={(e) => edit(i, { image: e.target.value })} />
-                {errors[`scenes[${i}].image`] && <span className="error">{errors[`scenes[${i}].image`]}</span>}
-              </div>
-              <div className="field">
-                <label htmlFor={`scene-${i}-visual`}>{t('장면 연출')}</label>
-                <select id={`scene-${i}-visual`} value={s.visual ?? ''} data-tip={t('장면 내용에 맞는 움직임을 골라요. 자동이면 자막과 내레이션을 보고 정해요.')}
-                  onChange={(e) => edit(i, { visual: (e.target.value || null) as SceneVisual | null })}>
-                  <option value="">{t('자동')}</option>
-                  {SCENE_VISUALS.map((v) => <option key={v} value={v}>{t(VISUAL_LABELS[v])}</option>)}
-                </select>
-                {s.effects && s.effects.length > 0 && <span className="muted">{t('효과음 {0}개', { 0: s.effects.length })}</span>}
-                {s.diagram && <span className="muted" data-tip={t('연결한 AI가 넣은 설명 그림이에요. 영상에서 이 장면을 도식으로 그려요.')}>{t('설명 그림 있음')}</span>}
-                {errors[`scenes[${i}].visual`] && <span className="error">{errors[`scenes[${i}].visual`]}</span>}
-                {errors[`scenes[${i}].effects`] && <span className="error">{errors[`scenes[${i}].effects`]}</span>}
-              </div>
+              {!item.replay && (
+                <>
+                <div className="field">
+                  <label htmlFor={`scene-${i}-code`}>{t('코드 (선택)')}</label>
+                  <textarea id={`scene-${i}-code`} rows={2} className="mono" value={s.code ?? ''} maxLength={LIMITS.code} onChange={(e) => edit(i, { code: e.target.value })} />
+                </div>
+                <div className="field">
+                  <label htmlFor={`scene-${i}-image`}>{t('배경 그림 (선택)')}</label>
+                  <input id={`scene-${i}-image`} type="text" inputMode="url" value={s.image ?? ''} maxLength={LIMITS.image}
+                    placeholder="/media/images/…" data-tip={t('글에 올린 그림 주소를 넣으면 이 장면 배경으로 깔려요. 비우면 첫 장면에 글 대표 사진이 들어가요.')}
+                    onChange={(e) => edit(i, { image: e.target.value })} />
+                  {errors[`scenes[${i}].image`] && <span className="error">{errors[`scenes[${i}].image`]}</span>}
+                </div>
+                <div className="field">
+                  <label htmlFor={`scene-${i}-visual`}>{t('장면 연출')}</label>
+                  <select id={`scene-${i}-visual`} value={s.visual ?? ''} data-tip={t('장면 내용에 맞는 움직임을 골라요. 자동이면 자막과 내레이션을 보고 정해요.')}
+                    onChange={(e) => edit(i, { visual: (e.target.value || null) as SceneVisual | null })}>
+                    <option value="">{t('자동')}</option>
+                    {SCENE_VISUALS.map((v) => <option key={v} value={v}>{t(VISUAL_LABELS[v])}</option>)}
+                  </select>
+                  {s.effects && s.effects.length > 0 && <span className="muted">{t('효과음 {0}개', { 0: s.effects.length })}</span>}
+                  {s.diagram && <span className="muted" data-tip={t('연결한 AI가 넣은 설명 그림이에요. 영상에서 이 장면을 도식으로 그려요.')}>{t('설명 그림 있음')}</span>}
+                  {errors[`scenes[${i}].visual`] && <span className="error">{errors[`scenes[${i}].visual`]}</span>}
+                  {errors[`scenes[${i}].effects`] && <span className="error">{errors[`scenes[${i}].effects`]}</span>}
+                </div>
+                </>
+              )}
             </li>
           ))}
         </ol>

@@ -26,7 +26,7 @@ import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import acting, bgm, captions, diagram, draw, layout, remotion, sfx, tts
+from . import acting, bgm, candles, captions, diagram, draw, layout, remotion, replay, sfx, trade_bgm, trade_sfx, tts
 
 try:  # 캐릭터 무대는 Pillow가 있을 때만. 없으면 글자 화면으로 만든다
     from . import stage
@@ -94,6 +94,10 @@ MONO_CANDIDATES = {
 }
 
 
+#: 말 없는 장면(매매 재현 끝 고지 카드)의 길이. 앞 여유·끝 머묾을 더하면 1.3초 남짓
+SILENT_SECONDS = 0.35
+
+
 @dataclass
 class Scene:
     caption: str
@@ -124,6 +128,8 @@ class Script:
     @property
     def fast(self) -> bool:
         return self.style == "fast"
+    #: 매매 재현 영상(#265)이면 서버가 준 거래소·종목·봉·구간·체결
+    replay: dict | None = None
 
     @staticmethod
     def from_job(job: dict, site: str = "devlog.life") -> "Script":
@@ -152,7 +158,8 @@ class Script:
         character = job.get("character") or DEFAULT_CHARACTER
         if character not in remotion.characters():  # "cat"이나 모르는 이름이면 기본 고양이(Noto)
             character = None
-        return Script(job.get("title") or "", scenes, footer, effects, "fast" if job.get("style") == "fast" else "clean", character)
+        return Script(job.get("title") or "", scenes, footer, effects, style="fast" if job.get("style") == "fast" else "clean",
+                      character=character, replay=job.get("replay"))
 
 
 @dataclass
@@ -184,6 +191,17 @@ def plan(speech: list[float], words: list[list[captions.Word] | None], narration
     return out
 
 
+def stretch(timings: list[Timing], scenes: set[int], minimum: float) -> list[Timing]:
+    """scenes 장면을 minimum초보다 짧지 않게 늘리고 뒤 장면 시작 시각을 민다(목소리는 장면 앞에 그대로 둔다)."""
+    out: list[Timing] = []
+    start = 0.0
+    for i, t in enumerate(timings):
+        length = max(t.length, math.ceil(minimum * FPS - 1e-6) / FPS) if i in scenes else t.length
+        out.append(Timing(start, t.lead, t.speech, length, t.cues))
+        start += length - TRANSITION
+    return out
+
+
 def find_font(explicit: str | None = None, mono: bool = False) -> str:
     if explicit:
         if not Path(explicit).is_file():
@@ -207,7 +225,7 @@ def find_font(explicit: str | None = None, mono: bool = False) -> str:
 
 class Renderer:
     def __init__(self, font: str, mono_font: str, engine: str = "auto", ffmpeg: str = "ffmpeg", voice: str | None = None,
-                 music: str | None = None, character: bool = True, use_remotion: bool | None = None):
+                 music: str | None = None, character: bool = True, use_remotion: bool | None = None, fetch_candles=candles.fetch):
         self.font = font
         self.mono_font = mono_font
         self.engine = tts.pick(engine)
@@ -219,11 +237,21 @@ class Renderer:
         self.character = character
         #: 화면을 Remotion으로 그릴지. None이면 node가 있을 때 쓴다. 못 쓰면 Pillow 무대(또는 글자 화면)로 그린다
         self.use_remotion = remotion.available() if use_remotion is None else use_remotion
+        self.fetch_candles = fetch_candles
 
     def render(self, script: Script, out: Path) -> int:
         """MP4를 만들고 길이(ms)를 돌려준다."""
         if not script.scenes:
             raise ValueError("장면이 없어요.")
+        chart = self._replay(script) if script.replay else None
+        if chart is not None:
+            if not self.use_remotion:
+                raise RuntimeError("매매 재현 영상은 Remotion(Node 18 이상)이 있어야 만들 수 있어요.")
+            # 투자 권유 고지는 대본과 상관없이 맨 끝에 말 없는 짧은 카드 한 장으로 붙인다(AI가 대본을 다시 써도 빠지지 않는다)
+            mode = "실계좌" if (script.replay or {}).get("mode") == "LIVE" else "모의투자"
+            card = Scene("", "", custom={"kind": "replay-card", "data": {"mode": mode}})
+            script = Script(script.title, [*script.scenes, card], script.footer, list(script.effects), style=script.style,
+                            character=script.character, replay=script.replay)
         with tempfile.TemporaryDirectory(prefix="devlog-render-") as tmp:
             work = Path(tmp)
             shutil.copyfile(self.font, work / ("font" + Path(self.font).suffix))
@@ -231,8 +259,13 @@ class Renderer:
             audios, words = self._voices(work, script)
             speech = [probe_ms(a, self.ffmpeg) / 1000 for a in audios]
             timings = plan(speech, words, [s.narration for s in script.scenes])
+            if chart is not None:  # 거래 하나는 말이 짧아도 MIN_TRADE초는 보여 준다
+                body = len(script.scenes) - 1
+                timings = stretch(timings, {replay.fill_scene(k, body) for k in range(len(chart.fills))}, replay.MIN_TRADE + TRANSITION)
             total = timings[-1].start + timings[-1].length
             images = [self._image(work, i, s.image) for i, s in enumerate(script.scenes)]
+            if chart is not None:
+                self._attach_replay(script, chart, timings)
             joined = work / "out.mp4"
             if self.use_remotion:
                 # 화면은 Remotion이 한 번에(전환 포함) 그리고, 소리는 아래 _join이 섞는다
@@ -249,7 +282,12 @@ class Renderer:
                             for i, sc in enumerate(props["scenes"]) if sc["diagram"] for at in diagram.reveal_times(sc["diagram"])]
                 # 장면이 넘어갈 때마다 휙 소리(전환과 같은 때). 점프 컷으로 넘어가는 장면은 소리 없이 끊는다
                 effects += [sfx.Effect(i, 0.0, "whip", 0.3) for i in range(1, len(script.scenes)) if not (script.scenes[i].custom or {}).get("cut")]
-                self._join(work, [video], audios, timings, total, joined, effects, joined_video=True)
+                music = {}
+                if chart is not None:  # 배경음은 제목 카드가 끝나면 들어오고 결산 화면부터 작아진다
+                    soft = replay.result_scene(chart, [t.start for t in timings[:-1]])
+                    music = {"music_at": replay.TITLE,
+                             "music_soft": timings[soft].start if soft is not None else timings[-1].start}
+                self._join(work, [video], audios, timings, total, joined, effects, joined_video=True, upbeat=chart is not None, **music)
             else:
                 stages = self._stages(script, audios, timings)
                 segments = [self._encode(work, i, timings[i], images[i], stages[i],
@@ -263,6 +301,45 @@ class Renderer:
             out.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(joined), str(out))
         return probe_ms(out, self.ffmpeg)
+
+    # ── 매매 재현 (#265) ───────────────────────────────────────────────
+
+    def _replay(self, script: Script) -> replay.Replay:
+        """서버가 준 체결·구간으로 차트를 준비한다. 캔들은 대본에 있으면 그대로, 없으면 거래소 공개 시세에서 받는다."""
+        data = script.replay or {}
+        chart = replay.Replay.from_job(data)
+        if not chart.fills:
+            raise ValueError("재현할 체결이 없어요.")
+        if data.get("candles"):
+            chart.candles = candles.from_json(data["candles"])
+        else:
+            # 서버가 정한 구간을 가능한 한 1분봉으로 빨리감기한다. 짧은 봉을 못 받으면 서버가 고른 봉으로 그린다
+            start, end = replay.window_of(data)
+            play = replay.play_interval(start, end)
+            if play != chart.interval:
+                try:
+                    chart.candles = self.fetch_candles(chart.exchange, chart.symbol, play, replay.history_start(start, end, play), end)
+                    chart.interval = play
+                    return chart
+                except candles.CandleError as e:
+                    log.warning("%s 캔들을 받지 못해 %s로 그려요: %s", play, chart.interval, e)
+            chart.candles = self.fetch_candles(chart.exchange, chart.symbol, chart.interval, replay.history_start(start, end, chart.interval), end)
+        return chart
+
+    @staticmethod
+    def _attach_replay(script: Script, chart: replay.Replay, timings: list[Timing]) -> None:
+        """대본 장면마다 Remotion 매매 재현 장면을 붙이고 체결 효과음을 얹는다. 0번 장면 첫머리는 제목 카드, 마지막 장면은 고지 카드다.
+        차트는 영상 전체 프레임으로 그려 장면이 바뀌어도 끊김 없이 이어진다(장면 사이는 전환 없이 붙인다).
+        큰 요점 자막은 쓰지 않는다(체결 자막은 차트 안에 작게 뜬다)."""
+        body = timings[:-1]
+        starts = [t.start for t in body]
+        end = body[-1].start + body[-1].length
+        data = replay.chart_data(chart, starts, end, FPS, script.scenes[0].caption.strip() or script.title)
+        for i, t in enumerate(body):
+            script.scenes[i].custom = {"kind": "replay", "cut": True, "data": {**data, "startFrame": round(t.start * FPS)}}
+            script.scenes[i].caption = ""
+        for scene, at, kind, volume in trade_sfx.per_scene(replay.cues(chart, starts, end), starts):
+            script.effects.append(sfx.Effect(scene, at, str(trade_sfx.sound_file(kind, trade_sfx.cache_dir())), volume))
 
     def _visuals(self, script: Script) -> list:
         everything = " ".join(f"{s.caption} {s.narration}" for s in script.scenes)
@@ -322,7 +399,11 @@ class Renderer:
         speed = {"faster": FAST_VOICE} if script.fast else {}
         for i, scene in enumerate(script.scenes):
             audio = work / f"a{i}.wav"
-            words.append(tts.synthesize(scene.narration, audio, engine, self.ffmpeg, voice, **speed))
+            if not scene.narration.strip():  # 말 없는 장면(매매 재현 끝 고지 카드)
+                self._ffmpeg(work, ["-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo", "-t", f"{SILENT_SECONDS:.2f}", audio.name])
+                words.append(None)
+            else:
+                words.append(tts.synthesize(scene.narration, audio, engine, self.ffmpeg, voice, **speed))
             audios.append(audio)
         return audios, words
 
@@ -491,7 +572,7 @@ class Renderer:
                 c.text(comment, 38, CODE_COMMENT, y, x=str(x), mono=True, alpha=draw.fade_in(at, 0.12), enable=draw.after(at))
 
     def _join(self, work: Path, segments: list[Path], audios: list[Path], timings: list[Timing], total: float, out: Path,
-              effects: list | None = None, joined_video: bool = False,
+              effects: list | None = None, joined_video: bool = False, upbeat: bool = False,
               music_at: float = 0.0, music_soft: float | None = None) -> None:
         """장면을 xfade로 잇고, 내레이션을 제자리에 놓고, 배경음을 깔고, 효과음을 얹어 한 번에 최종 인코딩한다.
 
@@ -509,7 +590,7 @@ class Renderer:
                 args += ["-i", seg.name]
         for audio in audios:
             args += ["-i", audio.name]
-        music = self._music()
+        music = self._music(upbeat)
         if music:
             args += ["-stream_loop", "-1", "-i", str(music)]
         placed: dict[str, list[tuple[float, float]]] = {}
@@ -571,7 +652,8 @@ class Renderer:
             "-c:a", "aac", "-b:a", str(AUDIO_BITRATE), "-ar", "44100", "-ac", "2",
             "-movflags", "+faststart", out.name], timeout=FINAL_TIMEOUT)
 
-    def _music(self) -> Path | None:
+    def _music(self, upbeat: bool = False) -> Path | None:
+        """upbeat: 매매 재현처럼 빨리감기 영상이면 빠른 배경음(trade_bgm)을 쓴다. --bgm 파일이 있으면 그 파일이 우선한다."""
         if self.music == "none":
             return None
         if self.music:
@@ -579,7 +661,7 @@ class Renderer:
                 raise FileNotFoundError(f"배경음 파일이 없어요: {self.music}")
             return Path(self.music).resolve()
         try:
-            return bgm.path().resolve()
+            return (trade_bgm.path() if upbeat else bgm.path()).resolve()
         except OSError as e:
             log.warning("배경음을 만들지 못해 배경음 없이 만들어요: %s", e)
             return None

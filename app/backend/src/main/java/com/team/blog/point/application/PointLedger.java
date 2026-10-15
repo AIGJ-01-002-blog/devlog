@@ -1,9 +1,8 @@
 package com.team.blog.point.application;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.sql.Timestamp;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -22,6 +21,7 @@ import com.team.blog.shared.error.ApiException;
 import com.team.blog.shared.error.FieldErrorItem;
 import com.team.blog.shared.error.NotFoundException;
 import com.team.blog.shared.time.Times;
+import com.team.blog.trade.application.PaperProfits;
 
 /**
  * 블로그 포인트 원장 (#266, 목표 #253).
@@ -74,7 +74,7 @@ public class PointLedger {
 
     /** 내 포인트 화면 한 번에 */
     /** @param badges 받은 휘장, nextBadge 다음 휘장까지의 연속 일수 기준 (다 받았으면 null) */
-    public record Summary(Balance balance, Attendance attendance, List<RuleView> rules, int postsRewardedToday, long tradeProfitToday,
+    public record Summary(Balance balance, Attendance attendance, List<RuleView> rules, int postsRewardedToday, long botProfitToday,
                           History history, List<Badge> badges, Integer nextBadge) {}
 
     /** @param earned 이번 출석으로 받은 크레딧. 이미 출석했으면 0, streak 오늘까지 이어진 연속 출석 일수, newBadges 이번에 받은 휘장 */
@@ -83,10 +83,12 @@ public class PointLedger {
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
     private final PointProperties props;
+    private final PaperProfits paperProfits;
     private final Clock clock;
 
-    public PointLedger(JdbcTemplate jdbc, PlatformTransactionManager txm, PointProperties props, Clock clock) {
+    public PointLedger(JdbcTemplate jdbc, PlatformTransactionManager txm, PointProperties props, PaperProfits paperProfits, Clock clock) {
         this.jdbc = jdbc;
+        this.paperProfits = paperProfits;
         this.tx = new TransactionTemplate(txm);
         this.props = props;
         this.clock = clock;
@@ -207,6 +209,7 @@ public class PointLedger {
     public Summary summary(long memberId) {
         requireEnabled();
         ensureWelcome(memberId);
+        settleBotProfits(memberId);
         return summaryWithoutWelcome(memberId);
     }
 
@@ -216,7 +219,7 @@ public class PointLedger {
         Instant dayStart = startOf(today);
         Integer posts = jdbc.queryForObject("SELECT count(*) FROM point_ledger WHERE member_id = ? AND reason = 'POST' AND created_at >= ?",
                 Integer.class, memberId, Timestamp.from(dayStart));
-        Long trade = jdbc.queryForObject("SELECT COALESCE(SUM(amount), 0) FROM point_ledger WHERE member_id = ? AND reason = 'TRADE_PROFIT' AND created_at >= ?",
+        Long trade = jdbc.queryForObject("SELECT COALESCE(SUM(amount), 0) FROM point_ledger WHERE member_id = ? AND reason = 'BOT_PROFIT' AND created_at >= ?",
                 Long.class, memberId, Timestamp.from(dayStart));
         List<RuleView> views = new ArrayList<>();
         rules.forEach((r, v) -> views.add(new RuleView(r.name(), r.label(), v, r.defaultValue(), r.max())));
@@ -328,26 +331,60 @@ public class PointLedger {
     }
 
     /**
-     * 모의투자 실현 수익의 일부(기본 1%)를 크레딧(상점 지갑)으로 적립한다. 모의투자(#267)가 매도 체결마다 부른다.
-     * 손실·0은 적립하지 않고, 하루 상한(기본 3,000)을 넘는 만큼은 버린다. 같은 체결은 한 번만.
+     * 포인트 모의투자(#267) 매도 수익을 전부 크레딧(상점 지갑)으로 넣는다 (블로그 주인 결정: 첫 지급만 투자 전용, 수익은 상점에서 쓴다).
+     * 매도 트랜잭션 안에서 부른다. 같은 체결은 한 번만.
      *
-     * @param profit 그 매도의 실현 손익(포인트 = 원 단위)
-     * @return 적립한 포인트
+     * @return 넣은 크레딧 (손실·0이면 0)
      */
-    public long rewardTradeProfit(long memberId, long tradeId, BigDecimal profit) {
-        if (!props.enabled() || profit == null || profit.signum() <= 0) return 0;
-        Map<PointRule, Long> rules = rules();
-        long raw = profit.multiply(BigDecimal.valueOf(rules.get(PointRule.TRADE_PROFIT_PERCENT)))
-                .divide(BigDecimal.valueOf(100), 0, RoundingMode.DOWN).min(BigDecimal.valueOf(Long.MAX_VALUE / 2)).longValue();
-        if (raw <= 0) return 0;
+    public long creditTradeProfit(long memberId, long tradeId, long profit) {
+        if (!props.enabled() || profit <= 0) return 0;
+        Boolean done = tx.execute(st -> {
+            lock(memberId);
+            return insert(memberId, Wallet.SHOP, profit, PointReason.TRADE_PROFIT, "trade:" + tradeId, tradeId, "모의투자 수익");
+        });
+        return Boolean.TRUE.equals(done) ? profit : 0;
+    }
+
+    /** 봇 모의투자 수익을 정산할 때 돌아보는 기간. 그보다 오래 정산하지 못한 체결은 치지 않는다 */
+    static final int BOT_PROFIT_DAYS = 7;
+
+    /**
+     * 매매 봇이 매매 일지에 남긴 원화 모의투자 매도 수익을 크레딧으로 넣는다 (블로그 주인 결정 "봇이 체결했어도 사용 가능").
+     * 봇이 스스로 알린 손익이라 하루 상한(기본 1,000만)을 둔다. 상한에 걸린 체결은 들어간 만큼만 넣고 남은 몫을 다음 날 이어서 넣는다.
+     * 다 넣은 체결은 원장 키 {@code trade:체결 번호}로 끝을 표시하고, 나눠 넣는 동안은 {@code trade:체결 번호:날짜}로 남긴다.
+     * 최근 7일 체결만 보고, 내 포인트·상점 화면을 열 때 부른다. 포인트 모의투자 체결은 매도 때 같은 끝 키로 이미 넣어서 다시 들어가지 않는다.
+     *
+     * @return 이번에 넣은 크레딧
+     */
+    public long settleBotProfits(long memberId) {
+        if (!props.enabled()) return 0;
+        Instant now = Times.now(clock);
+        List<PaperProfits.Profit> trades = paperProfits.krwSellProfits(memberId, now.minus(Duration.ofDays(BOT_PROFIT_DAYS)));
+        if (trades.isEmpty()) return 0;
         Long done = tx.execute(st -> {
             lock(memberId);
-            Long today = jdbc.queryForObject("SELECT COALESCE(SUM(amount), 0) FROM point_ledger WHERE member_id = ? AND reason = 'TRADE_PROFIT' AND created_at >= ?",
-                    Long.class, memberId, Timestamp.from(startOf(today())));
-            long room = rules.get(PointRule.TRADE_PROFIT_DAILY_MAX) - (today == null ? 0 : today);
-            long amount = Math.min(raw, room);
-            if (amount <= 0) return 0L;
-            return insert(memberId, Wallet.SHOP, amount, PointReason.TRADE_PROFIT, "trade:" + tradeId, tradeId, "모의투자 수익") ? amount : 0L;
+            LocalDate today = today();
+            Long sumToday = jdbc.queryForObject("SELECT COALESCE(SUM(amount), 0) FROM point_ledger WHERE member_id = ? AND reason = 'BOT_PROFIT' AND created_at >= ?",
+                    Long.class, memberId, Timestamp.from(startOf(today)));
+            long room = rule(PointRule.BOT_PROFIT_DAILY_MAX) - (sumToday == null ? 0 : sumToday);
+            long total = 0;
+            for (PaperProfits.Profit t : trades) {
+                if (room - total <= 0) break;
+                String doneKey = "trade:" + t.tradeId();
+                // 이미 다 넣었거나(봇·포인트 모의투자 모두 같은 끝 키) 오늘 이미 나눠 넣은 체결은 건너뛴다
+                Map<String, Object> paid = jdbc.queryForMap("""
+                        SELECT COALESCE(BOOL_OR(request_key = ?), false) AS finished, COALESCE(BOOL_OR(request_key = ?), false) AS today,
+                               COALESCE(SUM(amount) FILTER (WHERE reason = 'BOT_PROFIT'), 0) AS paid
+                        FROM point_ledger WHERE member_id = ? AND (request_key = ? OR request_key LIKE ?)
+                        """, doneKey, doneKey + ":" + today, memberId, doneKey, doneKey + ":%");
+                if (Boolean.TRUE.equals(paid.get("finished")) || Boolean.TRUE.equals(paid.get("today"))) continue;
+                long left = t.profit() - ((Number) paid.get("paid")).longValue();
+                if (left <= 0) continue;
+                long amount = Math.min(left, room - total);
+                String key = amount == left ? doneKey : doneKey + ":" + today;
+                if (insert(memberId, Wallet.SHOP, amount, PointReason.BOT_PROFIT, key, t.tradeId(), "봇 모의투자 수익")) total += amount;
+            }
+            return total;
         });
         return done == null ? 0 : done;
     }
@@ -419,6 +456,7 @@ public class PointLedger {
 
     public void purge(long memberId) {
         jdbc.update("DELETE FROM point_ledger WHERE member_id = ?", memberId);
+        jdbc.update("DELETE FROM point_outbox WHERE member_id = ?", memberId);
         jdbc.update("DELETE FROM point_attendance WHERE member_id = ?", memberId);
         jdbc.update("DELETE FROM point_badge WHERE member_id = ?", memberId);
         jdbc.update("UPDATE point_rule SET updated_by = NULL WHERE updated_by = ?", memberId);

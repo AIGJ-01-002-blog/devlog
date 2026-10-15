@@ -17,6 +17,8 @@ import com.team.blog.shorts.application.OriginalityCheck;
 import com.team.blog.shorts.application.ShortsBatches;
 import com.team.blog.shorts.application.ShortsScript;
 import com.team.blog.shorts.application.ShortsService;
+import com.team.blog.shorts.application.TradeReplay;
+import com.team.blog.trade.application.TradeReplays;
 
 /**
  * 쇼츠 MCP 도구 (099 FR-007). 사용자 쪽 AI가 내 글을 쇼츠 대본으로 저장하고 검사 결과를 돌려받는다.
@@ -45,9 +47,16 @@ class ShortsTools {
             + "글에 없는 경험이나 수치를 지어내지 않는다. 장면마다 내용에 맞는 visual(연출)을 고르고, 효과음(effects)은 강조할 순간에만 넣는다. "
             + "CS 개념을 설명하는 장면은 diagram으로 도식(흐름·층·순서·비교)을 주어 그림으로 쉽게 푼다.";
 
+    /** 매매 재현 대본(#265) 다시 쓰기 안내. 장면 순서가 영상의 차트 진행과 맞물린다 */
+    static final String REPLAY_GUIDE = "매매 재현 영상이에요. 1번 장면은 짧은 제목 카드(요점 자막이 제목이 돼요) 뒤로 차트가 흐르기 시작하고, 2번 장면부터 체결 하나에 장면 하나씩 "
+            + "그 체결 시각에 매수·매도 표시가 찍혀요. 체결 수만큼 체결 장면을 두고, 그 뒤에 결과(결산 화면)·배운 점 장면을 두세요. "
+            + "그 시각에 매매하는 사람처럼 \"지금 사는 이유\"를 현재형으로 말하되, 체결 이유와 사용자 메모에 있는 것만 쓰고 지어내지 마세요. "
+            + "투자 권유 고지는 대본에 넣지 마세요. 영상 맨 끝에 짧은 고지 카드 한 장이 자동으로 붙어요. 추천·확실한 수익 같은 표현은 쓰지 마세요.";
+
     static final int CANDIDATES_DEFAULT = 5;
     static final int CANDIDATES_MAX = 10;
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneId.of("Asia/Seoul"));
+    private static final DateTimeFormatter DAY_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.of("Asia/Seoul"));
 
     static final String TOPICS_SCHEMA = """
             "topics":{"type":"array","minItems":2,"maxItems":5,"description":"작은 주제 2~5개. 한 편에 한 주제, 편끼리 겹치지 않게","items":{"type":"object","properties":{
@@ -62,12 +71,14 @@ class ShortsTools {
     private final ShortsService shorts;
     private final ShortsBatches batches;
     private final ShortsCandidates candidates;
+    private final TradeReplays replays;
     private final String baseUrl;
 
-    ShortsTools(ShortsService shorts, ShortsBatches batches, ShortsCandidates candidates, BlogProperties props) {
+    ShortsTools(ShortsService shorts, ShortsBatches batches, ShortsCandidates candidates, TradeReplays replays, BlogProperties props) {
         this.shorts = shorts;
         this.batches = batches;
         this.candidates = candidates;
+        this.replays = replays;
         this.baseUrl = props.site().baseUrl();
     }
 
@@ -137,6 +148,7 @@ class ShortsTools {
             sb.append("- ").append(i.id()).append(" · ").append(i.title()).append(" · ").append(label(i.status()))
                     .append(" · 장면 ").append(i.scenes().size()).append("개 · 예상 ").append(Math.round(i.estimatedSeconds())).append("초");
             if (i.postId() != null) sb.append(" · 원본 글 ").append(i.postId());
+            if (i.replay() != null) sb.append(" · 매매 재현(체결 ").append(i.replay().fills().size()).append("개)");
             if (i.batchId() != null) sb.append(" · 묶음 ").append(i.batchId()).append("의 ").append(i.topic()).append("번 주제");
             if (i.error() != null && i.status() != ShortsService.Status.READY) sb.append(" · 최근 오류: ").append(i.error());
             sb.append('\n');
@@ -147,6 +159,40 @@ class ShortsTools {
             sb.append("묶음 ").append(b.id()).append(" '").append(b.title()).append("'에 대본이 없는 주제: ").append(String.join(", ", missing)).append('\n');
         }
         sb.append("오늘 영상 만들기 ").append(o.rendersToday()).append('/').append(o.dailyRenders()).append("번. 스튜디오: ").append(baseUrl).append("/studio");
+        return McpTools.Result.ok(sb.toString());
+    }
+
+    /** 쇼츠 하나의 대본 전체. 매매 재현 영상(#265)이면 고른 체결·차트 구간·그날 메모와 다시 쓰기 안내를 붙인다 */
+    McpTools.Result get(AccessTokens.Caller caller, JsonNode a) {
+        JsonNode idNode = a.path("shorts_id");
+        if (!idNode.canConvertToLong()) return McpTools.Result.fail("쇼츠 번호(shorts_id)가 필요해요.");
+        ShortsService.Item i;
+        try {
+            i = shorts.get(caller.memberId(), idNode.asLong());
+        } catch (ApiException e) {
+            return McpTools.Result.fail(message(e));
+        }
+        StringBuilder sb = new StringBuilder("쇼츠 ").append(i.id()).append("번 · ").append(i.title()).append(" · ").append(label(i.status()))
+                .append(" · 예상 ").append(Math.round(i.estimatedSeconds())).append("초 · 고칠 때 쓸 버전 ").append(i.version()).append('\n');
+        if (i.postId() != null) sb.append("원본 글 ").append(i.postId()).append(": ").append(i.postTitle()).append('\n');
+        TradeReplay r = i.replay();
+        if (r != null) {
+            TradeReplay.Interval interval = TradeReplay.Interval.parse(r.interval()).orElse(TradeReplay.Interval.M15);
+            sb.append("\n매매 재현: ").append(TradeReplays.exchangeName(r.exchange())).append(' ')
+                    .append(r.symbolName().isBlank() ? r.symbol() : r.symbolName() + "(" + r.symbol() + ")").append(" · ").append(interval.label)
+                    .append(" · ").append("LIVE".equals(r.mode()) ? "실계좌" : "모의투자").append(" · 차트 ").append(DAY_TIME.format(r.from()))
+                    .append(" ~ ").append(DAY_TIME.format(r.to())).append(" (한국 시간)\n고른 체결 (").append(r.fills().size()).append("개, 시간 순):\n");
+            for (String line : TradeReplays.fillLines(r)) sb.append("- ").append(line).append('\n');
+            replays.memos(caller.memberId(), r).forEach((day, memo) ->
+                    sb.append("사용자 메모 ").append(day).append(": ").append(memo.isBlank() ? "(없음)" : memo).append('\n'));
+        }
+        sb.append("\n지금 대본:\n");
+        for (int k = 0; k < i.scenes().size(); k++) {
+            ShortsScript.Scene s = i.scenes().get(k);
+            sb.append(k + 1).append(". [").append(s.caption()).append("] ").append(s.narration()).append('\n');
+        }
+        if (r != null) sb.append('\n').append(REPLAY_GUIDE).append('\n');
+        sb.append("고치려면 update_shorts_script(shorts_id ").append(i.id()).append(")를 쓰세요. 영상은 사용자가 스튜디오에서 만들어요: ").append(studioUrl(i.id()));
         return McpTools.Result.ok(sb.toString());
     }
 
@@ -234,10 +280,11 @@ class ShortsTools {
         return out;
     }
 
-    /** 설명 도식은 모양 검사(ShortsScript)만 하고 그대로 워커에 넘긴다 */
+    /** 설명 도식은 모양 검사(ShortsScript)만 하고 그대로 워커에 넘긴다. 객체가 아닌 값은 빈 도식으로 넘겨 검사에서 거절되게 한다 */
     @SuppressWarnings("unchecked")
     private static java.util.Map<String, Object> diagram(JsonNode n) {
-        return n.isObject() ? DIAGRAM_JSON.convertValue(n, java.util.Map.class) : null;
+        if (n.isMissingNode() || n.isNull()) return null;
+        return n.isObject() ? DIAGRAM_JSON.convertValue(n, java.util.Map.class) : java.util.Map.of();
     }
 
     private static final tools.jackson.databind.json.JsonMapper DIAGRAM_JSON = tools.jackson.databind.json.JsonMapper.builder().build();

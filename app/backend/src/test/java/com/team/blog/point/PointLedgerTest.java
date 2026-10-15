@@ -25,6 +25,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import tools.jackson.databind.JsonNode;
 
 import com.team.blog.point.application.PointLedger;
+import com.team.blog.point.application.PointOutbox;
 import com.team.blog.point.application.PointReason;
 import com.team.blog.point.application.Wallet;
 import com.team.blog.shared.error.ApiException;
@@ -38,6 +39,9 @@ class PointLedgerTest extends IntegrationTest {
 
     @Autowired
     PointLedger points;
+
+    @Autowired
+    PointOutbox outbox;
 
     @AfterEach
     void resetRules() {
@@ -183,16 +187,71 @@ class PointLedgerTest extends IntegrationTest {
     }
 
     @Test
-    void 모의투자_수익은_비율만큼_하루_상한까지_상점_포인트가_되고_손실은_적립하지_않는다() throws Exception {
+    void 모의투자_수익은_전부_크레딧이_되고_손실은_적립하지_않는다() throws Exception {
         Session me = signup(uniqueLogin("pttrade"));
-        assertThat(points.rewardTradeProfit(me.memberId(), 1, new BigDecimal("125000"))).isEqualTo(1250);
-        assertThat(points.rewardTradeProfit(me.memberId(), 1, new BigDecimal("125000"))).isZero();
-        assertThat(points.rewardTradeProfit(me.memberId(), 2, new BigDecimal("-50000"))).isZero();
-        assertThat(points.rewardTradeProfit(me.memberId(), 3, new BigDecimal("99"))).isZero();
-        assertThat(points.rewardTradeProfit(me.memberId(), 4, new BigDecimal("500000"))).isEqualTo(1750);
-        assertThat(points.rewardTradeProfit(me.memberId(), 5, new BigDecimal("500000"))).isZero();
-        assertThat(points.balance(me.memberId()).shop()).isEqualTo(3000);
-        assertThat(summary(me).path("tradeProfitToday").asLong()).isEqualTo(3000);
+        assertThat(points.creditTradeProfit(me.memberId(), 1, 125_000)).isEqualTo(125_000);
+        assertThat(points.creditTradeProfit(me.memberId(), 1, 125_000)).isZero();
+        assertThat(points.creditTradeProfit(me.memberId(), 2, -50_000)).isZero();
+        assertThat(points.balance(me.memberId()).shop()).isEqualTo(125_000);
+    }
+
+    @Test
+    void 봇이_남긴_원화_모의투자_수익도_하루_상한까지_크레딧이_된다() throws Exception {
+        Session me = signup(uniqueLogin("ptbot"));
+        jdbc.update("INSERT INTO point_rule (code, value) VALUES ('BOT_PROFIT_DAILY_MAX', 100000)");
+        java.time.Instant at = java.time.Instant.now();
+        long win = botTrade(me, "bot-1", "PAPER", "SELL", "KRW", "60000", at);
+        botTrade(me, "bot-2", "PAPER", "SELL", "KRW", "-30000", at);    // 손실
+        botTrade(me, "bot-3", "LIVE", "SELL", "KRW", "50000", at);      // 실계좌
+        botTrade(me, "bot-4", "PAPER", "SELL", "USDT", "50000", at);    // 원화가 아님
+        long capped = botTrade(me, "bot-5", "PAPER", "SELL", "KRW", "70000", at);
+        long next = botTrade(me, "bot-6", "PAPER", "SELL", "KRW", "5000", at);
+
+        // 6만 + 7만 중 4만(상한 10만), 그다음 체결은 상한이 차서 다음 날로
+        JsonNode s = summary(me);
+        assertThat(s.path("balance").path("shop").asLong()).isEqualTo(100_000);
+        assertThat(s.path("botProfitToday").asLong()).isEqualTo(100_000);
+        assertThat(jdbc.queryForList("SELECT ref_id FROM point_ledger WHERE member_id = ? AND reason = 'BOT_PROFIT' ORDER BY ref_id", Long.class,
+                me.memberId())).containsExactly(win, capped);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM point_ledger WHERE member_id = ? AND ref_id = ?", Integer.class, me.memberId(), next))
+                .isZero();
+        // 다시 열어도 같은 체결은 한 번만
+        assertThat(points.settleBotProfits(me.memberId())).isZero();
+
+        // 다음 날: 어제 들어간 줄을 하루 전으로 돌리면, 남은 3만과 다음 체결 5천이 들어간다
+        jdbc.update("UPDATE point_ledger SET created_at = created_at - interval '1 day', request_key = request_key || ':y' WHERE member_id = ? AND reason = 'BOT_PROFIT' AND ref_id = ?",
+                me.memberId(), capped);
+        assertThat(points.settleBotProfits(me.memberId())).isEqualTo(35_000);
+        assertThat(jdbc.queryForObject("SELECT SUM(amount) FROM point_ledger WHERE member_id = ? AND ref_id = ?", Long.class, me.memberId(), capped))
+                .isEqualTo(70_000);
+        assertThat(points.settleBotProfits(me.memberId())).isZero();
+    }
+
+    long botTrade(Session s, String id, String mode, String side, String currency, String pnl, java.time.Instant at) {
+        return jdbc.queryForObject("""
+                INSERT INTO trade (member_id, external_id, mode, exchange, symbol, symbol_name, side, quantity, price, currency, fee, realized_pnl,
+                                   strategy, reason, executed_at, created_at)
+                VALUES (?, ?, ?, 'UPBIT', 'BTC', '비트코인', ?, 0.01, 100000000, ?, 0, ?, '봇', '', ?, ?) RETURNING id
+                """, Long.class, s.memberId(), id, mode, side, currency, new BigDecimal(pnl), java.sql.Timestamp.from(at), java.sql.Timestamp.from(at));
+    }
+
+    @Test
+    void 글_발행_크레딧은_미지급_목록에_남았다가_작업이_지급한다() throws Exception {
+        Session me = signup(uniqueLogin("ptbox"));
+        long id = publish(me, "첫 글", LONG_BODY, "PUBLIC");
+        drain();
+        // 커밋 뒤 바로 지급하고 목록에서 지운다
+        assertThat(points.balance(me.memberId()).shop()).isEqualTo(300);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM point_outbox WHERE post_id = ?", Integer.class, id)).isZero();
+
+        // 서버가 지급 전에 멈춘 경우: 목록에만 남은 줄을 작업이 지급한다
+        long lost = publish(me, "둘째 글", LONG_BODY, "PUBLIC");
+        drain();
+        jdbc.update("DELETE FROM point_ledger WHERE member_id = ? AND ref_id = ?", me.memberId(), lost);
+        jdbc.update("INSERT INTO point_outbox (member_id, post_id) VALUES (?, ?)", me.memberId(), lost);
+        assertThat(outbox.drain()).isGreaterThanOrEqualTo(1);
+        assertThat(points.balance(me.memberId()).shop()).isEqualTo(600);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM point_outbox WHERE member_id = ?", Integer.class, me.memberId())).isZero();
     }
 
     @Test
@@ -229,7 +288,7 @@ class PointLedgerTest extends IntegrationTest {
         jdbc.update("UPDATE member SET role = 'ADMIN' WHERE id = ?", admin.memberId());
         admin = new Session(relogin(admin), admin.memberId(), admin.handle(), admin.githubId());
         JsonNode rules = read(admin.http().perform(get("/api/admin/points/rules")).andExpect(status().isOk()).andReturn());
-        assertThat(rules.findValuesAsString("code")).contains("WELCOME", "ATTENDANCE", "ATTENDANCE_MAX", "POST_DAILY_MAX", "TRADE_PROFIT_PERCENT");
+        assertThat(rules.findValuesAsString("code")).contains("WELCOME", "ATTENDANCE", "ATTENDANCE_MAX", "POST_DAILY_MAX", "BOT_PROFIT_DAILY_MAX");
 
         admin.http().perform(asJson(put("/api/admin/points/rules"), Map.of("ATTENDANCE", 999_999_999))).andExpect(status().isBadRequest());
         admin.http().perform(asJson(put("/api/admin/points/rules"), Map.of("NOPE", 1))).andExpect(status().isBadRequest());

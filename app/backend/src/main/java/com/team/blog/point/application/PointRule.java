@@ -12,8 +12,8 @@ public enum PointRule {
     POST("글 발행 한 편", 300, 100_000),
     POST_DAILY_MAX("글 발행 적립 하루 상한 (편)", 3, 50),
     POST_MIN_CHARS("적립되는 글의 최소 글자 수", 300, 20_000),
-    TRADE_PROFIT_PERCENT("모의투자 실현 수익의 적립 비율 (%)", 1, 100),
-    TRADE_PROFIT_DAILY_MAX("모의투자 수익 적립 하루 상한", 3_000, 10_000_000);
+    // 포인트 모의투자 수익은 전부 크레딧이라 규칙이 없다. 봇이 남긴 모의투자 수익은 스스로 알린 값이라 하루 상한만 둔다 (블로그 주인 결정)
+    BOT_PROFIT_DAILY_MAX("봇 모의투자 수익 적립 하루 상한", 10_000_000, 10_000_000_000L);
 
     private final String label;
     private final long defaultValue;
