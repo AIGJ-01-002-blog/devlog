@@ -60,10 +60,17 @@ public final class SecretScanner {
 
     /** ${...}, <...>, ****, xxxx, password 같은 자리표시자인가 */
     private static boolean isPlaceholder(String value) {
-        if (value.startsWith("$")) return true;
+        if (isEnvReference(value)) return true;
         if (value.length() >= 2 && value.startsWith("<") && value.endsWith(">")) return true;
         if (value.chars().allMatch(c -> c == '*') || value.chars().allMatch(c -> c == 'x' || c == 'X')) return true;
         return PLACEHOLDER_WORDS.contains(value.toLowerCase(Locale.ROOT));
+    }
+
+    /** ${DB_PASSWORD} 또는 $DB_PASSWORD 처럼 환경 변수를 가리키는가. $uperSecret1 같은 값은 비밀번호로 본다 */
+    private static boolean isEnvReference(String value) {
+        if (value.length() > 3 && value.startsWith("${") && value.endsWith("}")) return true;
+        return value.length() > 1 && value.charAt(0) == '$'
+                && value.chars().skip(1).allMatch(c -> (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_');
     }
 
     /** AI에게 돌려줄 안내 문장 */
