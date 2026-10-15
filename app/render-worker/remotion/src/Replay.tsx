@@ -1,14 +1,14 @@
-// 매매 재현 장면 (#265): 실시간 분봉 차트를 빨리감기하듯 캔들이 계속 생겨나며 왼쪽으로 흘러가다 체결 시각에 매수·매도 표시가 찍힌다.
+// 매매 재현 장면 (#265): 실시간 분봉 차트를 빨리감기하듯, 고정된 화면의 오른쪽 끝에서 새 캔들이 자라며 차트가 천천히 왼쪽으로 밀린다.
 // 워커(devlog_render/replay.py의 chart_data)가 차트 전체 데이터와 이 장면이 영상에서 시작하는 프레임(startFrame)을 넘긴다.
 // head[영상 프레임]은 그 순간의 차트 위치(캔들 단위 실수)다. i번 캔들은 head가 i일 때 생기기 시작해 i+1일 때 다 그려진다.
-// 그리는 중인 캔들은 시가 → 저가·고가 → 종가로 값이 움직여 실시간처럼 꼬리가 늘어난다. 가격 눈금은 보이는 캔들에 맞춰 부드럽게 따라간다.
-// 색은 거래소 차트처럼 매수·이익 초록, 매도·손실 빨강.
+// 체결 장면마다 가격 눈금(segments)이 고정이라 화면은 흔들리지 않고, 장면끼리는 점프 컷으로 넘어간다.
+// 체결 순간에만 아래 가운데에 작은 자막(진입 흰색, 익절 초록, 손절 빨강)과 오른쪽 위 체결 알림이 뜬다. 끝은 화면을 어둡게 눌러 결산을 띄운다.
 import React from 'react';
-import {AbsoluteFill, Easing, interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
-import {STAGE_H, STAGE_W} from './actions';
+import {AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
+import {STAGE_W} from './actions';
 import type {CustomSceneProps} from './custom';
 import {FONT} from './fonts';
-import {accent, card, theme} from './theme';
+import {card, theme} from './theme';
 
 // 색·글꼴은 쇼츠 공통 테마(theme.ts)를 따른다: 흰 카드 위에 진한 글자, 오르내림만 초록·빨강
 const UP = theme.color.good;
@@ -16,35 +16,43 @@ const DOWN = theme.color.bad;
 const MUTED = theme.color.sub;
 const GRID = theme.color.line;
 const SOFT = theme.color.ink;
+// 어두운 바탕(자막 상자·제목 카드·결산) 위의 글자색
+const NIGHT = '#0b0d12';
+const TONES = {entry: '#ffffff', win: '#4ade80', loss: '#f87171'} as const;
 
 export type ReplayCandle = {o: number; h: number; l: number; c: number; time: string};
-export type ReplayFill = {index: number; at: number; side: 'BUY' | 'SELL'; price: number; banner: string; closeIndex: number | null; good: boolean};
+export type ReplayFill = {
+  index: number;
+  at: number;
+  side: 'BUY' | 'SELL';
+  price: number;
+  closeIndex: number | null;
+  text: string;
+  detail: string | null;
+  tone: keyof typeof TONES;
+};
 export type ReplayData = {
   startFrame: number;
   header: string;
   mode: string;
-  seconds: number;
+  toast: string;
   digits: number;
   unit: string;
+  visible: number;
+  ahead: number;
+  subtitleFrames: number;
   head: number[];
+  segments: {start: number; lo: number; hi: number}[];
   candles: ReplayCandle[];
   fills: ReplayFill[];
-  result: {at: number; until: number | null; label: string; good: boolean} | null;
+  summary: {at: number; count: string; label: string; good: boolean; period: string} | null;
 };
+export type ReplayTitleData = {label: string; title: string; line: string; date: string};
 
-// 무대(1080×720) 안 차트 자리. 오른쪽 150px은 가격 눈금, 아래는 진행 막대
-const BOX = {x: 40, y: 20, w: STAGE_W - 80, h: STAGE_H - 40};
-const PLOT = {x0: BOX.x + 20, x1: BOX.x + BOX.w - 160, y0: BOX.y + 120, y1: BOX.y + BOX.h - 96};
-/** 한 화면에 보이는 캔들 수와, 지금 캔들 오른쪽에 비워 두는 칸. 지금 캔들이 화면 가운데쯤(60%)에 머물고 차트가 그 뒤로 흘러간다 */
-const VISIBLE = 40;
-const AHEAD = 16;
-/** 카메라가 지금 가격을 따라가는 부드러움: 최근 CAMERA 프레임의 가운데 값을 CAMERA_STEP 간격으로 평균 낸다 */
-const CAMERA = 45;
-const CAMERA_STEP = 5;
-
-const FLASH = 6;
-const RING = 18;
-const BANNER = 60;
+// 차트 카드는 요점 자막 자리(무대 위 390px)까지 넓혀 화면 가운데를 크게 쓴다. 아래 구절 자막 자리는 비운다
+const CARD = {x: 40, y: -390, w: STAGE_W - 80, h: 1100};
+const PLOT = {x0: CARD.x + 24, x1: CARD.x + CARD.w - 170, y0: CARD.y + 170, y1: CARD.y + CARD.h - 190};
+const TOAST = 75;
 
 const headAt = (d: ReplayData, g: number) => d.head[Math.max(0, Math.min(d.head.length - 1, g))] ?? 0;
 
@@ -63,145 +71,79 @@ const forming = (c: ReplayCandle, f: number, seed: number) => {
   return {o: c.o, c: price, h: Math.max(...seen), l: Math.min(...seen)};
 };
 
-/** head 위치에서 보이는 캔들(다 그려진 것 + 그리는 중인 것) */
-const visibleCandles = (d: ReplayData, head: number) => {
-  const n = d.candles.length;
-  const offset = Math.max(0, head - (VISIBLE - AHEAD));
-  const cur = Math.min(n, Math.floor(head));
-  const out: {i: number; o: number; h: number; l: number; c: number}[] = [];
-  for (let i = Math.max(0, Math.floor(offset) - 1); i < cur; i++) out.push({i, ...d.candles[i]});
-  if (cur < n) out.push({i: cur, ...forming(d.candles[cur], head - cur, cur)});
-  return {offset, out};
-};
-
-const rangeAt = (d: ReplayData, g: number) => {
-  const {out} = visibleCandles(d, headAt(d, g));
-  let lo = Infinity;
-  let hi = -Infinity;
-  for (const c of out) {
-    lo = Math.min(lo, c.l);
-    hi = Math.max(hi, c.h);
-  }
-  for (const f of d.fills) {
-    if (f.at <= g && out.some((c) => c.i === f.index)) {
-      lo = Math.min(lo, f.price);
-      hi = Math.max(hi, f.price);
-    }
-  }
-  return lo <= hi ? [lo, hi] : [0, 1];
-};
-
-/** 카메라 기본 배율: 한 화면에 들어오는 캔들 구간들의 가격 폭(체결 가격 포함) 가운데 70번째 백분위. 대부분 이 배율로 고정되고, 더 크게 움직일 때만 천천히 물러난다 */
-const spans = new WeakMap<ReplayData, number>();
-const fixedSpan = (d: ReplayData) => {
-  const hit = spans.get(d);
-  if (hit !== undefined) return hit;
-  const w = VISIBLE - AHEAD;
-  const widths: number[] = [];
-  for (let i = 0; i < d.candles.length; i++) {
-    let lo = Infinity;
-    let hi = -Infinity;
-    for (let j = Math.max(0, i - w); j <= i; j++) {
-      lo = Math.min(lo, d.candles[j].l);
-      hi = Math.max(hi, d.candles[j].h);
-    }
-    for (const f of d.fills) if (f.index > i - w && f.index <= i) {
-      lo = Math.min(lo, f.price);
-      hi = Math.max(hi, f.price);
-    }
-    widths.push(hi - lo);
-  }
-  widths.sort((a, b) => a - b);
-  const span = (widths[Math.floor(widths.length * 0.7)] ?? 1) * 1.3 || 1;
-  spans.set(d, span);
-  return span;
-};
-
 const fmt = (v: number, digits: number, unit: string) =>
   v.toLocaleString('en-US', {minimumFractionDigits: digits, maximumFractionDigits: digits}) + unit;
 
-export const ReplayScene: React.FC<CustomSceneProps> = ({data, index = 0}) => {
+/** 눈금 간격: 1·2·5 단위로 4~6칸 */
+const niceTicks = (lo: number, hi: number) => {
+  const raw = (hi - lo) / 5;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw || 1)));
+  const step = [1, 2, 5, 10].map((m) => m * mag).find((s) => s >= raw) ?? raw;
+  const out: number[] = [];
+  for (let p = Math.ceil(lo / step) * step; p <= hi; p += step) out.push(p);
+  return out;
+};
+
+export const ReplayScene: React.FC<CustomSceneProps> = ({data}) => {
   const d = data as ReplayData;
   const local = useCurrentFrame();
   const {fps} = useVideoConfig();
   const g = local + d.startFrame; // 영상 전체 프레임
   const n = d.candles.length;
   const head = headAt(d, g);
-  const {offset, out: candles} = visibleCandles(d, head);
-  const slot = (PLOT.x1 - PLOT.x0) / VISIBLE;
+  // 카메라: 이 장면의 가격 눈금과 캔들 폭은 고정. 지금 캔들이 오른쪽 끝(ahead칸 앞)에 닿으면 차트가 왼쪽으로 밀린다
+  const seg = [...d.segments].reverse().find((s) => s.start <= g) ?? d.segments[0] ?? {lo: 0, hi: 1};
+  const {lo, hi} = seg;
+  const offset = Math.max(0, head - (d.visible - d.ahead));
+  const slot = (PLOT.x1 - PLOT.x0) / d.visible;
   const cx = (i: number) => PLOT.x0 + (i + 0.5 - offset) * slot;
-
-  // 카메라: 배율은 거의 고정하고, 가운데만 지금 가격 쪽으로 천천히 따라간다(보이는 캔들은 늘 화면 안에 들어온다)
-  let center = 0;
-  let width = 0;
-  let samples = 0;
-  for (let k = 0; k < CAMERA; k += CAMERA_STEP) {
-    const [a, b] = rangeAt(d, g - k);
-    center += (a + b) / 2;
-    width = Math.max(width, b - a);
-    samples++;
-  }
-  center /= samples;
-  const span = Math.max(fixedSpan(d), width * 1.12);
-  const [nowLo, nowHi] = rangeAt(d, g);
-  center = Math.min(Math.max(center, nowHi - span * 0.46), nowLo + span * 0.46);
-  const lo = center - span / 2;
-  const hi = center + span / 2;
   const y = (p: number) => PLOT.y1 - ((p - lo) / (hi - lo || 1)) * (PLOT.y1 - PLOT.y0);
 
+  const cur = Math.min(n, Math.floor(head));
+  const candles: {i: number; o: number; h: number; l: number; c: number}[] = [];
+  for (let i = Math.max(0, Math.floor(offset) - 1); i < cur; i++) candles.push({i, ...d.candles[i]});
+  if (cur < n) candles.push({i: cur, ...forming(d.candles[cur], head - cur, cur)});
   const live = candles.length > 0 ? candles[candles.length - 1] : null;
   const liveUp = live ? live.c >= live.o : true;
-  const clock = d.candles[Math.min(n - 1, Math.floor(head))]?.time ?? '';
-  // 빨리감기 배속: 1초 동안 흘러가는 실제 시간
-  const near = 6;
-  const rate = ((headAt(d, g + near) - headAt(d, g - near)) / ((2 * near) / fps)) * d.seconds;
-  const speed = rate >= 100 ? Math.round(rate / 10) * 10 : Math.round(rate);
-  const playing = speed >= 2 && head < n;
+  const clock = d.candles[Math.min(n - 1, cur)]?.time ?? '';
 
   const fills = d.fills.filter((f) => f.at <= g);
   const recent = fills.length > 0 ? fills[fills.length - 1] : null;
   const since = recent ? g - recent.at : Infinity;
-  const resultOn = d.result && g >= d.result.at && (d.result.until === null || g < d.result.until);
-  const ticks = [0, 1, 2, 3].map((k) => lo + ((hi - lo) * (k + 0.5)) / 4);
-  const bar = {x0: PLOT.x0, x1: PLOT.x1 + 140, y: BOX.y + BOX.h - 40};
-  const barX = (pos: number) => bar.x0 + (bar.x1 - bar.x0) * Math.min(1, Math.max(0, pos / Math.max(1, n)));
+  const ticks = niceTicks(lo, hi);
+  const times = candles.filter((c) => c.i % 15 === 0 && c.i < cur && cx(c.i) > PLOT.x0 + 30 && cx(c.i) < PLOT.x1 - 30);
+  const summaryOn = d.summary && g >= d.summary.at;
 
   return (
     <AbsoluteFill>
-      <div style={{position: 'absolute', left: BOX.x, top: BOX.y, width: BOX.w, height: BOX.h, ...card()}} />
-      <div style={{position: 'absolute', left: BOX.x + 30, top: BOX.y + 22, font: theme.type.title, color: SOFT}}>{d.header}</div>
-      <div style={{position: 'absolute', left: BOX.x + 30, top: BOX.y + 66, display: 'flex', gap: 14, alignItems: 'center'}}>
-        <div style={{font: `700 26px ${FONT}`, color: MUTED}}>{d.mode}</div>
-        {playing && (
-          <div style={{font: `700 24px ${FONT}`, color: MUTED, border: `1px solid ${GRID}`, padding: '1px 10px', borderRadius: 6}}>▶▶ ×{speed}</div>
-        )}
-      </div>
+      <div style={{position: 'absolute', left: CARD.x, top: CARD.y, width: CARD.w, height: CARD.h, ...card()}} />
+      <div style={{position: 'absolute', left: CARD.x + 32, top: CARD.y + 32, font: theme.type.title, color: SOFT}}>{d.header}</div>
+      <div style={{position: 'absolute', left: CARD.x + 32, top: CARD.y + 80, font: `700 26px ${FONT}`, color: MUTED}}>{d.mode}</div>
       {/* 시계: 지금 그리는 캔들의 한국 시간 */}
-      <div style={{position: 'absolute', right: STAGE_W - BOX.x - BOX.w + 30, top: BOX.y + 18, textAlign: 'right',
+      <div style={{position: 'absolute', right: STAGE_W - CARD.x - CARD.w + 32, top: CARD.y + 26, textAlign: 'right',
         font: `800 60px ${FONT}`, color: SOFT, fontVariantNumeric: 'tabular-nums', letterSpacing: 1}}>{clock}</div>
 
-      <svg width={STAGE_W} height={STAGE_H} style={{position: 'absolute', inset: 0}}>
+      <svg width={STAGE_W} height={CARD.h} viewBox={`0 ${CARD.y} ${STAGE_W} ${CARD.h}`} style={{position: 'absolute', left: 0, top: CARD.y}}>
         <defs>
           <clipPath id="plot">
-            <rect x={PLOT.x0} y={PLOT.y0 - 40} width={PLOT.x1 - PLOT.x0} height={PLOT.y1 - PLOT.y0 + 80} />
+            <rect x={PLOT.x0} y={PLOT.y0 - 30} width={PLOT.x1 - PLOT.x0} height={PLOT.y1 - PLOT.y0 + 60} />
           </clipPath>
-          <linearGradient id="fade" x1="0" x2="1">
-            <stop offset="0" stopColor={theme.color.surface} stopOpacity={offset > 0 ? 1 : 0} />
-            <stop offset="0.08" stopColor={theme.color.surface} stopOpacity={0} />
-          </linearGradient>
         </defs>
         {ticks.map((p, k) => (
           <g key={k}>
             <line x1={PLOT.x0} x2={PLOT.x1} y1={y(p)} y2={y(p)} stroke={GRID} strokeWidth={2} />
-            <text x={PLOT.x1 + 14} y={y(p) + 9} fill={MUTED} style={{font: `600 22px ${FONT}`}}>{fmt(p, d.digits, d.unit)}</text>
+            <text x={PLOT.x1 + 14} y={y(p) + 8} fill={MUTED} style={{font: `600 22px ${FONT}`}}>{fmt(p, d.digits, d.unit)}</text>
           </g>
+        ))}
+        {times.map((c) => (
+          <text key={`t${c.i}`} x={cx(c.i)} y={PLOT.y1 + 48} textAnchor="middle" fill={MUTED} style={{font: `600 22px ${FONT}`}}>{d.candles[c.i].time}</text>
         ))}
         <g clipPath="url(#plot)">
           {/* 매수 가격 선: 다음 매도까지(아직이면 지금 캔들까지) 이어 그린다 */}
           {fills.filter((f) => f.side === 'BUY').map((f, k) => {
             const closed = f.closeIndex !== null && fills.some((o) => o.side === 'SELL' && o.index === f.closeIndex);
-            const end = closed ? cx(f.closeIndex as number) : cx(Math.max(f.index, Math.floor(head)));
-            return <line key={`l${k}`} x1={cx(f.index)} x2={end} y1={y(f.price)} y2={y(f.price)} stroke={UP} strokeOpacity={0.75} strokeWidth={3} strokeDasharray="10 8" />;
+            const end = closed ? cx(f.closeIndex as number) : cx(Math.max(f.index, cur));
+            return <line key={`l${k}`} x1={cx(f.index)} x2={end} y1={y(f.price)} y2={y(f.price)} stroke={UP} strokeOpacity={0.7} strokeWidth={3} strokeDasharray="10 8" />;
           })}
           {candles.map((c) => {
             const color = c.c >= c.o ? UP : DOWN;
@@ -209,82 +151,129 @@ export const ReplayScene: React.FC<CustomSceneProps> = ({data, index = 0}) => {
             const h = Math.max(3, y(Math.min(c.o, c.c)) - top);
             return (
               <g key={c.i}>
-                <rect x={cx(c.i) - 1.5} y={y(c.h)} width={3} height={Math.max(2, y(c.l) - y(c.h))} fill={color} />
-                <rect x={cx(c.i) - slot * 0.36} y={top} width={slot * 0.72} height={h} rx={2} fill={color} />
+                <rect x={cx(c.i) - 1} y={y(c.h)} width={2} height={Math.max(2, y(c.l) - y(c.h))} fill={color} />
+                <rect x={cx(c.i) - slot * 0.36} y={top} width={slot * 0.72} height={h} rx={1.5} fill={color} />
               </g>
             );
           })}
-          <rect x={PLOT.x0} y={PLOT.y0 - 40} width={(PLOT.x1 - PLOT.x0)} height={PLOT.y1 - PLOT.y0 + 80} fill="url(#fade)" />
         </g>
         {/* 지금 가격: 그리는 중인 캔들의 값이 오른쪽 눈금에서 실시간으로 따라 움직인다 */}
-        {live && (
+        {live && head < n && (
           <g>
-            <line x1={PLOT.x0} x2={PLOT.x1} y1={y(live.c)} y2={y(live.c)} stroke={liveUp ? UP : DOWN} strokeOpacity={0.55} strokeWidth={2} strokeDasharray="4 6" />
-            <rect x={PLOT.x1 + 4} y={y(live.c) - 19} width={150} height={38} rx={8} fill={liveUp ? UP : DOWN} />
-            <text x={PLOT.x1 + 12} y={y(live.c) + 9} fill="#fff" style={{font: `700 22px ${FONT}`}}>{fmt(live.c, d.digits, d.unit)}</text>
+            <line x1={PLOT.x0} x2={PLOT.x1} y1={y(live.c)} y2={y(live.c)} stroke={liveUp ? UP : DOWN} strokeOpacity={0.5} strokeWidth={2} strokeDasharray="4 6" />
+            <rect x={PLOT.x1 + 4} y={y(live.c) - 19} width={156} height={38} rx={8} fill={liveUp ? UP : DOWN} />
+            <text x={PLOT.x1 + 12} y={y(live.c) + 8} fill="#fff" style={{font: `700 22px ${FONT}`}}>{fmt(live.c, d.digits, d.unit)}</text>
           </g>
         )}
         {fills.map((f, k) => {
           const x = cx(f.index);
-          if (x < PLOT.x0 - 60) return null;
+          if (x < PLOT.x0 - 40) return null;
           const buy = f.side === 'BUY';
           const color = buy ? UP : DOWN;
-          const age = g - f.at;
-          const ring = interpolate(age, [0, RING], [12, 70], {extrapolateRight: 'clamp', easing: Easing.out(Easing.cubic)});
-          const pop = spring({frame: age, fps, config: {damping: 10, stiffness: 220}});
-          const labelY = buy ? Math.min(y(f.price) + 70, PLOT.y1 + 20) : Math.max(y(f.price) - 70, PLOT.y0 - 20);
+          const pop = spring({frame: g - f.at, fps, config: {damping: 14, stiffness: 200}});
+          const labelY = buy ? Math.min(y(f.price) + 64, PLOT.y1 + 6) : Math.max(y(f.price) - 64, PLOT.y0 - 6);
           return (
             <g key={`f${k}`} opacity={x < PLOT.x0 ? 0.3 : 1}>
-              {age < RING && <circle cx={x} cy={y(f.price)} r={ring} fill="none" stroke={color} strokeWidth={2} strokeOpacity={0.8 * (1 - age / RING)} />}
               <line x1={x} x2={x} y1={y(f.price)} y2={labelY} stroke={color} strokeWidth={2} />
-              <circle cx={x} cy={y(f.price)} r={7 * pop} fill="#fff" stroke={color} strokeWidth={3} />
+              <circle cx={x} cy={y(f.price)} r={6 * pop} fill="#fff" stroke={color} strokeWidth={3} />
               <g style={{transformOrigin: `${x}px ${labelY}px`, transform: `scale(${pop})`}}>
-                <rect x={x - 38} y={labelY - 18} width={76} height={36} rx={6} fill={color} />
-                <text x={x} y={labelY + 8} textAnchor="middle" fill="#fff" style={{font: `700 24px ${FONT}`}}>{buy ? '매수' : '매도'}</text>
+                <rect x={x - 36} y={labelY - 17} width={72} height={34} rx={6} fill={color} />
+                <text x={x} y={labelY + 8} textAnchor="middle" fill="#fff" style={{font: `700 22px ${FONT}`}}>{buy ? '매수' : '매도'}</text>
               </g>
             </g>
           );
         })}
-        {/* 진행 막대: 차트 전체 시간 중 어디까지 왔는지와 체결 자리 */}
-        <line x1={bar.x0} x2={bar.x1} y1={bar.y} y2={bar.y} stroke={theme.color.surfaceAlt} strokeWidth={6} strokeLinecap="round" />
-        <line x1={bar.x0} x2={barX(head)} y1={bar.y} y2={bar.y} stroke={accent(index)} strokeWidth={6} strokeLinecap="round" />
-        {d.fills.map((f, k) => (
-          <circle key={`p${k}`} cx={barX(f.index + 0.5)} cy={bar.y} r={f.at <= g ? 7 : 5}
-            fill={f.at <= g ? (f.side === 'BUY' ? UP : DOWN) : theme.color.surface} stroke={f.side === 'BUY' ? UP : DOWN} strokeWidth={2} />
-        ))}
-        <text x={bar.x0} y={bar.y - 16} fill={MUTED} style={{font: `600 20px ${FONT}`}}>{d.candles[0]?.time}</text>
-        <text x={bar.x1} y={bar.y - 16} textAnchor="end" fill={MUTED} style={{font: `600 20px ${FONT}`}}>{d.candles[n - 1]?.time}</text>
       </svg>
 
-      {/* 체결 순간: 차트가 그 색으로 번쩍이고 가격 띠가 오른쪽에서 밀려 들어온다 */}
-      {recent && since < FLASH && (
-        <div style={{position: 'absolute', left: BOX.x, top: BOX.y, width: BOX.w, height: BOX.h, borderRadius: theme.radius.card,
-          background: recent.side === 'BUY' ? UP : DOWN, opacity: 0.08 * (1 - since / FLASH)}} />
-      )}
-      {recent && since < BANNER && (() => {
-        const enter = spring({frame: since, fps, config: {damping: 16, stiffness: 160}});
-        const leave = interpolate(since, [BANNER - 8, BANNER], [1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+      {/* 체결 알림: 오른쪽 위에 거래소 알림처럼 잠깐 */}
+      {recent && since < TOAST && !summaryOn && (() => {
+        const enter = spring({frame: since, fps, config: {damping: 18, stiffness: 180}});
+        const leave = interpolate(since, [TOAST - 8, TOAST], [1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
         return (
-          <div style={{position: 'absolute', top: BOX.y + 128, left: 0, right: 0, display: 'flex', justifyContent: 'center',
-            transform: `translateY(${(1 - enter) * 16}px)`, opacity: Math.min(enter, leave)}}>
-            <div style={{font: `700 40px ${FONT}`, color: recent.side === 'BUY' ? UP : DOWN, background: theme.color.surface,
-              boxShadow: theme.shadow.soft, padding: '8px 24px', borderRadius: theme.radius.small}}>{recent.banner}</div>
+          <div style={{position: 'absolute', right: STAGE_W - PLOT.x1 + 12, top: PLOT.y0 - 30, display: 'flex', alignItems: 'center', gap: 10,
+            background: theme.color.surface, boxShadow: theme.shadow.soft, border: `1px solid ${GRID}`, borderRadius: theme.radius.small,
+            padding: '10px 18px', font: `600 22px ${FONT}`, color: SOFT, opacity: Math.min(enter, leave), translate: `${(1 - enter) * 40}px 0`}}>
+            <div style={{width: 22, height: 22, borderRadius: 11, background: UP, color: '#fff', font: `800 15px ${FONT}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center'}}>✓</div>
+            {d.toast}
           </div>
         );
       })()}
-      {/* 결과 장면: 손익 합계가 차트 가운데에 크게 튀어나온다 */}
-      {resultOn && d.result && (() => {
-        const s = spring({frame: g - d.result.at, fps, config: theme.motion.enter});
+      {/* 체결 자막: 아래 가운데 작게. 진입 흰색 한 줄, 익절 초록·손절 빨강 두 줄 */}
+      {recent && since < d.subtitleFrames && !summaryOn && (() => {
+        const enter = interpolate(since, [0, 5], [0, 1], {extrapolateRight: 'clamp'});
+        const leave = interpolate(since, [d.subtitleFrames - 6, d.subtitleFrames], [1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+        return (
+          <div style={{position: 'absolute', left: CARD.x, width: CARD.w, top: CARD.y + CARD.h - 112, display: 'flex', justifyContent: 'center',
+            opacity: Math.min(enter, leave)}}>
+            <div style={{background: 'rgba(11,13,18,0.86)', borderRadius: 12, padding: '10px 26px', textAlign: 'center', color: TONES[recent.tone],
+              font: `600 30px/1.35 ${FONT}`, whiteSpace: 'nowrap'}}>
+              <div>{recent.text}</div>
+              {recent.detail && <div style={{font: `600 24px/1.35 ${FONT}`}}>{recent.detail}</div>}
+            </div>
+          </div>
+        );
+      })()}
+      {/* 결산: 차트가 멈추고 화면이 어둡게 눌린 뒤 가운데에 손익 합계 */}
+      {summaryOn && d.summary && (() => {
+        const t = g - d.summary.at;
+        const dim = interpolate(t, [0, 0.6 * fps], [0, 1], {extrapolateRight: 'clamp'});
+        const s = spring({frame: t - 0.25 * fps, fps, config: theme.motion.enter});
         return (
           <>
-            <div style={{position: 'absolute', left: BOX.x, top: BOX.y, width: BOX.w, height: BOX.h, borderRadius: theme.radius.card,
-              background: 'rgba(255,255,255,0.86)', opacity: Math.min(1, s)}} />
-            <div style={{position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-              <div style={{font: `800 112px ${FONT}`, color: d.result.good ? UP : DOWN, scale: String(0.85 + 0.15 * s), opacity: Math.min(1, s)}}>{d.result.label}</div>
+            <div style={{position: 'absolute', left: CARD.x, top: CARD.y, width: CARD.w, height: CARD.h, borderRadius: theme.radius.card,
+              background: NIGHT, opacity: 0.86 * dim}} />
+            <div style={{position: 'absolute', left: CARD.x, top: CARD.y, width: CARD.w, height: CARD.h, display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', gap: 18, opacity: Math.min(1, s), translate: `0 ${(1 - s) * 24}px`}}>
+              <div style={{font: `700 40px ${FONT}`, color: 'rgba(255,255,255,0.75)'}}>{d.summary.count}</div>
+              <div style={{font: `900 120px ${FONT}`, color: d.summary.good ? TONES.win : TONES.loss, fontVariantNumeric: 'tabular-nums'}}>{d.summary.label}</div>
+              <div style={{font: `600 32px ${FONT}`, color: 'rgba(255,255,255,0.6)'}}>{d.mode} · {d.summary.period}</div>
             </div>
           </>
         );
       })()}
+    </AbsoluteFill>
+  );
+};
+
+/** 영상 첫 장면: 검은 바탕에 연기가 천천히 흐르는 제목 카드(빨간 이름표, 흰 제목) */
+export const ReplayTitle: React.FC<CustomSceneProps> = ({scene, data}) => {
+  const d = data as ReplayTitleData;
+  const frame = useCurrentFrame();
+  const {fps} = useVideoConfig();
+  const durationInFrames = Math.max(fps, scene.durationInFrames);
+  const t = frame / fps;
+  const s = spring({frame, fps, config: theme.motion.enter});
+  const line = interpolate(frame, [0.2 * fps, durationInFrames], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+  return (
+    <AbsoluteFill>
+      <div style={{position: 'absolute', left: CARD.x, top: CARD.y, width: CARD.w, height: CARD.h, borderRadius: theme.radius.card,
+        overflow: 'hidden', background: NIGHT, boxShadow: theme.shadow.card}}>
+        <svg width={CARD.w} height={CARD.h} style={{position: 'absolute', inset: 0}}>
+          <defs>
+            <filter id="smoke" x="0" y="0" width="100%" height="100%">
+              <feTurbulence type="fractalNoise" baseFrequency="0.0028 0.0055" numOctaves={4} seed={7} />
+              <feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1.1 -0.42" />
+              <feGaussianBlur stdDeviation={6} />
+            </filter>
+          </defs>
+          <rect x={-CARD.w} y={0} width={CARD.w * 3} height={CARD.h} filter="url(#smoke)" opacity={0.42}
+            transform={`translate(${-t * 26} ${Math.sin(t * 0.5) * 8})`} />
+          <rect x={-CARD.w} y={0} width={CARD.w * 3} height={CARD.h} filter="url(#smoke)" opacity={0.22}
+            transform={`translate(${t * 18 - 300} ${CARD.h * 0.35}) scale(1 0.7)`} />
+        </svg>
+        <div style={{position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 50% 50%, rgba(11,13,18,0) 30%, rgba(11,13,18,0.85) 100%)'}} />
+        <div style={{position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          padding: '0 70px', textAlign: 'center', opacity: Math.min(1, s * 1.4), translate: `0 ${(1 - s) * 24}px`}}>
+          <div style={{font: `800 40px ${FONT}`, color: '#ef4444', letterSpacing: '0.02em'}}>{d.label}</div>
+          <div style={{font: `900 92px/1.18 ${FONT}`, color: '#ffffff', marginTop: 22, wordBreak: 'keep-all', letterSpacing: '-0.03em'}}>{d.title}</div>
+          <div style={{width: 520, height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.16)', marginTop: 44, overflow: 'hidden'}}>
+            <div style={{width: `${line * 100}%`, height: '100%', background: '#ef4444'}} />
+          </div>
+          <div style={{font: `600 32px ${FONT}`, color: 'rgba(255,255,255,0.75)', marginTop: 30}}>{d.line}</div>
+          <div style={{font: `600 30px ${FONT}`, color: 'rgba(255,255,255,0.5)', marginTop: 10}}>{d.date}</div>
+        </div>
+      </div>
     </AbsoluteFill>
   );
 };

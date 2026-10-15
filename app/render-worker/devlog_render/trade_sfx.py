@@ -117,8 +117,8 @@ def render(cues, seconds: float, out: Path) -> Path:
     return out
 
 
-#: 종류별 크기 (장면 효과음 훅에 넘길 때)
-VOLUMES = {"tick": 0.35, "whoosh": 0.6, "buy": 0.9, "sell": 0.9, "win": 1.0, "loss": 1.0}
+#: 종류별 크기 (장면 효과음 훅에 넘길 때). 체결 소리는 음악 밑에 작게 깐다
+VOLUMES = {"tick": 0.35, "whoosh": 0.6, "buy": 0.35, "sell": 0.35, "win": 0.8, "loss": 0.8}
 
 
 #: 소리를 바꾸면 올린다(캐시 파일 이름에 들어간다)

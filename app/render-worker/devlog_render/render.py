@@ -56,6 +56,8 @@ MAX_BYTES = 19 * 1024 * 1024
 AUDIO_BITRATE = 160_000
 #: 배경음 크기(내레이션 대비)와 말할 때 얼마나 낮출지
 BGM_VOLUME = 0.22
+#: 매매 재현 결산 화면에서 배경음을 줄이는 배율
+MUSIC_SOFT = 0.4
 #: 글 이미지 받기 한도
 IMAGE_MAX_BYTES = 10 * 1024 * 1024
 IMAGE_TIMEOUT = 15
@@ -173,6 +175,17 @@ def plan(speech: list[float], words: list[list[captions.Word] | None], narration
     return out
 
 
+def stretch(timings: list[Timing], scenes: set[int], minimum: float) -> list[Timing]:
+    """scenes 장면을 minimum초보다 짧지 않게 늘리고 뒤 장면 시작 시각을 민다(목소리는 장면 앞에 그대로 둔다)."""
+    out: list[Timing] = []
+    start = 0.0
+    for i, t in enumerate(timings):
+        length = max(t.length, math.ceil(minimum * FPS - 1e-6) / FPS) if i in scenes else t.length
+        out.append(Timing(start, t.lead, t.speech, length, t.cues))
+        start += length - TRANSITION
+    return out
+
+
 def find_font(explicit: str | None = None, mono: bool = False) -> str:
     if explicit:
         if not Path(explicit).is_file():
@@ -229,6 +242,9 @@ class Renderer:
             audios, words = self._voices(work, script)
             speech = [probe_ms(a, self.ffmpeg) / 1000 for a in audios]
             timings = plan(speech, words, [s.narration for s in script.scenes])
+            if chart is not None:  # 거래 하나는 말이 짧아도 MIN_TRADE초는 보여 준다
+                body = len(script.scenes) - 1
+                timings = stretch(timings, {replay.fill_scene(k, body) for k in range(len(chart.fills))}, replay.MIN_TRADE + TRANSITION)
             total = timings[-1].start + timings[-1].length
             images = [self._image(work, i, s.image) for i, s in enumerate(script.scenes)]
             if chart is not None:
@@ -247,9 +263,14 @@ class Renderer:
                 # 도식 칸이 나타날 때마다 톡
                 effects += [sfx.Effect(i, timings[i].lead + at / 1000, "pop", 0.35)
                             for i, sc in enumerate(props["scenes"]) if sc["diagram"] for at in diagram.reveal_times(sc["diagram"])]
-                # 장면이 넘어갈 때마다 휙 소리(전환과 같은 때)
-                effects += [sfx.Effect(i, 0.0, "whip", 0.3) for i in range(1, len(script.scenes))]
-                self._join(work, [video], audios, timings, total, joined, effects, joined_video=True, upbeat=chart is not None)
+                # 장면이 넘어갈 때마다 휙 소리(전환과 같은 때). 점프 컷으로 넘어가는 장면은 소리 없이 끊는다
+                effects += [sfx.Effect(i, 0.0, "whip", 0.3) for i in range(1, len(script.scenes)) if not (script.scenes[i].custom or {}).get("cut")]
+                music = {}
+                if chart is not None:  # 배경음은 제목 카드가 끝나면 들어오고 결산 화면부터 작아진다
+                    soft = replay.result_scene(chart, [t.start for t in timings[:-1]])
+                    music = {"music_at": timings[1].start if len(timings) > 1 else 0.0,
+                             "music_soft": timings[soft].start if soft is not None else timings[-1].start}
+                self._join(work, [video], audios, timings, total, joined, effects, joined_video=True, upbeat=chart is not None, **music)
             else:
                 stages = self._stages(script, audios, timings)
                 segments = [self._encode(work, i, timings[i], images[i], stages[i],
@@ -290,18 +311,21 @@ class Renderer:
 
     @staticmethod
     def _attach_replay(script: Script, chart: replay.Replay, timings: list[Timing]) -> None:
-        """대본 장면마다 Remotion 매매 재현 장면을 붙이고 체결 효과음을 얹는다(마지막 장면은 고지 카드).
-        차트 시계는 장면이 화면에 나오기 시작한 시각(Timing.start)을 쓴다."""
+        """대본 장면마다 Remotion 매매 재현 장면을 붙이고 체결 효과음을 얹는다. 0번은 제목 카드, 마지막 장면은 고지 카드다.
+        차트 시계는 장면이 화면에 나오기 시작한 시각(Timing.start)을 쓴다. 차트 장면끼리는 전환 없이 점프 컷으로 넘어간다.
+        큰 요점 자막은 쓰지 않는다(체결 자막은 차트 안에 작게 뜬다)."""
         body = timings[:-1]
         starts = [t.start for t in body]
         end = body[-1].start + body[-1].length
         data = replay.chart_data(chart, starts, end, FPS)
-        for i, t in enumerate(body):
-            script.scenes[i].custom = {"kind": "replay", "data": {**data, "startFrame": round(t.start * FPS)}}
+        first = script.scenes[0]
+        first.custom = {"kind": "replay-title", "data": replay.title_data(chart, first.caption.strip() or script.title)}
+        first.caption = ""
+        for i, t in enumerate(body[1:], start=1):
+            script.scenes[i].custom = {"kind": "replay", "cut": True, "data": {**data, "startFrame": round(t.start * FPS)}}
+            script.scenes[i].caption = ""
         for scene, at, kind, volume in trade_sfx.per_scene(replay.cues(chart, starts, end), starts):
             script.effects.append(sfx.Effect(scene, at, str(trade_sfx.sound_file(kind, trade_sfx.cache_dir())), volume))
-            if kind in ("buy", "sell"):  # 체결 순간 녹음 종소리(@remotion/sfx, 못 받으면 합성)를 겹쳐 또렷하게
-                script.effects.append(sfx.Effect(scene, at, "ding", 0.35))
 
     def _visuals(self, script: Script) -> list:
         everything = " ".join(f"{s.caption} {s.narration}" for s in script.scenes)
@@ -329,6 +353,7 @@ class Renderer:
                 "mouth": [round(m, 3) for m in acting.mouth_envelope(audios[i], FPS)],
                 "image": images[i].name if images[i] is not None else None,
                 "custom": scene.custom,
+                "cut": bool((scene.custom or {}).get("cut")),
                 "diagram": diagram.timed(scene.diagram, pages, t.speech) if scene.diagram and scene.custom is None else None,
             })
         return {"title": script.title, "footer": script.footer, "transitionFrames": round(TRANSITION * FPS),
@@ -528,11 +553,13 @@ class Renderer:
                 c.text(comment, 38, CODE_COMMENT, y, x=str(x), mono=True, alpha=draw.fade_in(at, 0.12), enable=draw.after(at))
 
     def _join(self, work: Path, segments: list[Path], audios: list[Path], timings: list[Timing], total: float, out: Path,
-              effects: list | None = None, joined_video: bool = False, upbeat: bool = False) -> None:
+              effects: list | None = None, joined_video: bool = False, upbeat: bool = False,
+              music_at: float = 0.0, music_soft: float | None = None) -> None:
         """장면을 xfade로 잇고, 내레이션을 제자리에 놓고, 배경음을 깔고, 효과음을 얹어 한 번에 최종 인코딩한다.
 
         효과음(sfx.Effect)은 장면이 화면에 나오기 시작한 시각(timings[scene].start) + at에 놓는다. 같은 소리 파일은 입력 하나를
-        asplit으로 나눠 쓴다. 효과음은 배경음 줄이기(ducking)의 기준에 넣지 않는다(내레이션만 기준)."""
+        asplit으로 나눠 쓴다. 효과음은 배경음 줄이기(ducking)의 기준에 넣지 않는다(내레이션만 기준).
+        배경음은 music_at초에 들어오고, music_soft초부터 MUSIC_SOFT배로 작아진다(매매 재현의 제목 카드·결산 화면)."""
         n = len(audios)
         args: list[str] = []
         if joined_video:  # 이미 이어진 화면 하나(Remotion). 입력 번호를 장면 수에 맞추려고 같은 파일을 한 번만 넣고 나머지 자리는 비운다
@@ -573,8 +600,13 @@ class Renderer:
         graph.append(f"{mixed}amix=inputs={n}:normalize=0:duration=longest,apad[nar]")
         if music:
             graph.append("[nar]asplit=2[nar1][key]")
-            graph.append(f"[{2 * n}:a]aresample=44100,aformat=channel_layouts=stereo,atrim=0:{total:.3f},volume={BGM_VOLUME},"
-                         f"afade=t=in:d=0.6,afade=t=out:st={max(0.0, total - 1.5):.3f}:d=1.5[bgm]")
+            at = min(max(0.0, music_at), max(0.0, total - 1.0))
+            chain = f"[{2 * n}:a]aresample=44100,aformat=channel_layouts=stereo,atrim=0:{total - at:.3f},volume={BGM_VOLUME},afade=t=in:d=0.6"
+            if at > 0:
+                chain += f",adelay={round(at * 1000)}:all=1"
+            if music_soft is not None and music_soft < total:
+                chain += f",volume='1-{1 - MUSIC_SOFT:.2f}*clip((t-{music_soft:.3f})/1.2,0,1)':eval=frame"
+            graph.append(f"{chain},afade=t=out:st={max(0.0, total - 1.5):.3f}:d=1.5[bgm]")
             graph.append("[bgm][key]sidechaincompress=threshold=0.015:ratio=6:attack=30:release=450:makeup=1[duck]")
             graph.append("[nar1][duck]amix=inputs=2:normalize=0:duration=first[mix]")
         else:

@@ -44,6 +44,8 @@ export type SceneData = {
   image: string | null; // public 폴더(작업 폴더) 안 파일 이름
   /** 캐릭터 대신 다른 장면 컴포넌트를 쓸 때(예: 매매 재현 #265). custom.tsx의 CUSTOM_SCENES[kind]가 data를 받아 무대를 그린다 */
   custom: {kind: string; data: unknown} | null;
+  /** 앞 장면에서 전환 없이 바로 끊어 넘어온다(점프 컷). 매매 재현 차트 장면 */
+  cut?: boolean;
   /** 있으면 고양이 연기 대신 도식을 그리고, 고양이는 왼쪽 아래에서 도식을 가리키며 설명한다 */
   diagram: Diagram | null;
 };

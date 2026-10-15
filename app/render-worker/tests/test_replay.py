@@ -11,7 +11,7 @@ from tempfile import TemporaryDirectory
 
 from devlog_render import bgm, candles, remotion, replay, trade_bgm, trade_sfx
 from devlog_render.candles import Candle
-from devlog_render.render import FPS, Renderer, Script, find_font
+from devlog_render.render import FPS, TRANSITION, Renderer, Script, find_font
 
 T0 = 1_791_853_200  # 2026-10-13T01:00:00Z (5분 경계)
 
@@ -83,33 +83,47 @@ class CandlesTest(unittest.TestCase):
 
 
 class TimelineTest(unittest.TestCase):
-    def test_fast_forward_reaches_each_fill_when_its_scene_starts(self):
-        cs = series()
-        fills = [replay.Fill("BUY", 92_100, T0 + 20 * 300 + 150), replay.Fill("SELL", 92_400, T0 + 40 * 300)]
-        starts, total = [0.0, 5.0, 11.0, 16.0], 22.0
-        points, fill_times = replay.anchors(cs, fills, 300, starts, total)
-        self.assertEqual(points[0], (0.0, 8.0))  # 첫 체결 전 흐름의 40%는 처음부터 보인다
-        self.assertAlmostEqual(fill_times[0], 5.6)
-        self.assertAlmostEqual(replay.position(points, 5.6), 20.5)  # 체결 순간 그 캔들을 그리는 중이다
-        self.assertAlmostEqual(fill_times[1], 11.6)
-        heads = [replay.position(points, t / 30) for t in range(int(total * 30))]
-        self.assertTrue(all(a <= b for a, b in zip(heads, heads[1:])), "차트는 앞으로만 흘러간다")
-        self.assertEqual(heads[-1], 60.0)
-        closes = replay.close_times(points, 60, 1 / 30)
-        self.assertEqual(closes[:8], [0.0] * 8)
-        self.assertTrue(all(t is not None and t < total for t in closes))
+    def replay(self, fills, cs=None, interval="5m"):
+        return replay.Replay("BINANCE", "BTCUSDT", "비트코인", "USDT", "PAPER", interval, fills, cs if cs is not None else series())
 
-    def test_slows_down_near_fills(self):
-        points, _ = replay.anchors(series(), [replay.Fill("BUY", 92_100, T0 + 30 * 300)], 300, [0.0, 6.0], 12.0)
-        speed = lambda t: replay.position(points, t + 0.05) - replay.position(points, t - 0.05)
-        self.assertLess(speed(6.5), speed(3.3))
+    def test_each_trade_scene_jumps_to_its_fill_and_grows_at_a_steady_pace(self):
+        fills = [replay.Fill("BUY", 92_100, T0 + 20 * 300 + 150), replay.Fill("SELL", 92_400, T0 + 40 * 300, 3.0)]
+        r = self.replay(fills)
+        starts, end = [0.0, 5.0, 11.0, 16.0], 22.0
+        segs = replay.segments(r, starts, end)
+        self.assertEqual([s.scene for s in segs], [1, 2])
+        # 체결은 장면이 화면에 나오고 LEAD초 뒤, 그 캔들을 그리는 중에 찍힌다
+        self.assertEqual(replay.fill_times(r, segs), [5.0 + replay.LEAD, 11.0 + replay.LEAD])
+        self.assertAlmostEqual(segs[0].head(5.0 + replay.LEAD, 60), 20.5)
+        # 장면 안에서는 일정한 속도로 자라고, 다음 장면은 그 체결 앞에서 다시 시작한다(점프 컷)
+        self.assertAlmostEqual(segs[0].head(7.0, 60) - segs[0].head(6.0, 60), replay.SPEED)
+        self.assertAlmostEqual(segs[1].begin, 40.1 - replay.LEAD * replay.SPEED)
+        # 장면이 끝나면 멈춘다(결산 장면은 멈춘 차트 위에 뜬다)
+        self.assertEqual(segs[1].head(30.0, 60), segs[1].head(16.0, 60))
+
+    def test_price_scale_is_fixed_per_scene_and_holds_what_it_shows(self):
+        r = self.replay([replay.Fill("BUY", 91_000, T0 + 30 * 300)])
+        seg = replay.segments(r, [0.0, 4.0, 10.0], 14.0)[0]
+        shown = r.candles[max(0, int(seg.begin) - replay.VISIBLE):int(seg.head(10.0, 60)) + 1]
+        self.assertLess(seg.lo, min(min(c.l for c in shown), 91_000))
+        self.assertGreater(seg.hi, max(c.h for c in shown))
 
     def test_more_fills_than_scenes_stay_in_order(self):
-        cs = series()
         fills = [replay.Fill("BUY", 92_000, T0 + k * 600) for k in range(5, 10)]
-        _, fill_times = replay.anchors(cs, fills, 300, [0.0, 4.0, 8.0], 12.0)
-        self.assertEqual(fill_times, sorted(fill_times))
-        self.assertLessEqual(fill_times[-1], 11.5)
+        r = self.replay(fills)
+        times = replay.fill_times(r, replay.segments(r, [0.0, 4.0, 8.0], 12.0))
+        self.assertEqual(times, sorted(times))
+        self.assertLessEqual(times[-1], 12.0)
+
+    def test_subtitles_entry_take_profit_and_stop_loss(self):
+        fills = [replay.Fill("BUY", 92_100, T0, None, 0.2052), replay.Fill("SELL", 92_400, T0 + 600, 25.5, 0.1),
+                 replay.Fill("SELL", 91_000, T0 + 900, -40.0, 0.1052)]
+        subs = replay.subtitles(self.replay(fills))
+        self.assertEqual(subs[0], {"text": "0.2052 BTC 매수 체결", "detail": None, "tone": "entry"})
+        self.assertEqual(subs[1]["text"], "0.1 BTC 매도 익절")
+        self.assertEqual(subs[1]["detail"], "( +25.50 USDT 수익 | 누적 +25.50 USDT )")
+        self.assertEqual((subs[2]["tone"], subs[2]["detail"]), ("loss", "( -40.00 USDT 손실 | 누적 -14.50 USDT )"))
+        self.assertEqual(replay.base_asset(replay.Replay("UPBIT", "KRW-BTC", "", "KRW", "PAPER", "1m", [])), "BTC")
 
     def test_plays_the_window_at_one_minute_when_it_fits(self):
         self.assertEqual(replay.play_interval(T0, T0 + 6 * 3600), "1m")
@@ -158,8 +172,13 @@ class ReplayRenderTest(unittest.TestCase):
         # 서버가 5분봉으로 정한 다섯 시간을 1분봉으로 빨리감기한다
         self.assertEqual(asked, [("BINANCE", "BTCUSDT", "1m", T0, T0 + 60 * 300)])
         scenes = _fake_remotion.props["scenes"]
-        # 대본 장면은 모두 차트 장면, 맨 끝에 말 없는 고지 카드 한 장
-        self.assertEqual([s["custom"]["kind"] for s in scenes], ["replay"] * 4 + ["replay-card"])
+        # 첫 장면은 제목 카드, 나머지 대본 장면은 차트 장면(점프 컷), 맨 끝에 말 없는 고지 카드 한 장
+        self.assertEqual([s["custom"]["kind"] for s in scenes], ["replay-title"] + ["replay"] * 3 + ["replay-card"])
+        self.assertEqual([s["cut"] for s in scenes], [False, True, True, True, False])
+        self.assertEqual(scenes[0]["custom"]["data"]["title"], "왜 샀을까요?")
+        self.assertTrue(all(s["caption"] == "" for s in scenes[:4]), "큰 요점 자막 대신 차트 안 체결 자막을 쓴다")
+        # 거래 하나는 말이 짧아도 MIN_TRADE초는 보여 준다
+        self.assertGreaterEqual(scenes[1]["durationInFrames"], round((replay.MIN_TRADE + TRANSITION) * FPS))
         self.assertEqual(scenes[-1]["custom"]["data"], {"mode": "모의투자"})
         self.assertEqual(scenes[-1]["pages"], [])
         self.assertLess(scenes[-1]["durationInFrames"], 2 * FPS)
@@ -168,8 +187,10 @@ class ReplayRenderTest(unittest.TestCase):
         self.assertIn("1분봉", chart["header"])
         self.assertGreater(len(chart["head"]), chart["fills"][-1]["at"])  # 프레임마다 차트 위치
         self.assertEqual([f["side"] for f in chart["fills"]], ["BUY", "SELL"])
-        self.assertEqual(chart["result"]["label"], "+3.10 USDT")
-        self.assertGreater(chart["startFrame"], scenes[0]["custom"]["data"]["startFrame"])
+        self.assertEqual(chart["fills"][1]["tone"], "win")
+        self.assertEqual(chart["summary"]["label"], "+3.10 USDT")
+        self.assertGreater(scenes[2]["custom"]["data"]["startFrame"], chart["startFrame"])
+        self.assertAlmostEqual(chart["summary"]["at"], scenes[3]["custom"]["data"]["startFrame"] + replay.RESULT_DELAY * FPS, delta=1)
         # 체결은 그 장면이 화면에 나온 뒤에 찍힌다
         self.assertGreaterEqual(chart["fills"][0]["at"], chart["startFrame"])
 
@@ -186,7 +207,7 @@ class ReplayRenderTest(unittest.TestCase):
         with TemporaryDirectory() as tmp, mock.patch.object(remotion, "render", _fake_remotion):
             r.render(Script.from_job(self.job()), Path(tmp) / "r.mp4")
         self.assertEqual(asked, ["1m", "5m"])
-        self.assertIn("5분봉", _fake_remotion.props["scenes"][0]["custom"]["data"]["header"])
+        self.assertIn("5분봉", _fake_remotion.props["scenes"][1]["custom"]["data"]["header"])
 
     def test_replay_uses_the_fast_music(self):
         r = Renderer(find_font(), find_font(mono=True), "silent", use_remotion=True)
@@ -212,7 +233,7 @@ class ReplayRenderTest(unittest.TestCase):
 
 
 class EffectsTest(unittest.TestCase):
-    """체결 효과음·흔들림 순서표 (#265): 렌더 방식이 바뀌어도 쓰는 데이터"""
+    """체결 효과음 순서표 (#265): 렌더 방식이 바뀌어도 쓰는 데이터"""
 
     def test_cues_follow_fills_and_result(self):
         r = replay.Replay("BINANCE", "BTCUSDT", "비트코인", "USDT", "PAPER", "5m",
@@ -220,9 +241,8 @@ class EffectsTest(unittest.TestCase):
                           [Candle(i * 300, 100, 101, 99, 100) for i in range(8)])
         starts = [0.0, 3.0, 6.0, 9.0, 12.0]
         cues = replay.cues(r, starts, 15.0)
-        kinds = [c.kind for c in cues if c.kind != "tick"]
-        self.assertEqual(kinds, ["whoosh", "buy", "whoosh", "sell", "win"])
-        self.assertTrue(any(c.kind == "tick" for c in cues))
+        # 음악이 끌고 가므로 캔들 틱·바람 소리 없이 체결과 결산만
+        self.assertEqual([c.kind for c in cues], ["buy", "sell", "win"])
         with TemporaryDirectory() as tmp:
             path = trade_sfx.render(cues, 15.0, Path(tmp) / "s.wav")
             with wave.open(str(path)) as w:
