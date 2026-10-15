@@ -1,0 +1,36 @@
+{
+ "title": "도커 볼륨 날린 날: 100% 복구한 방법",
+ "handle": "minseo",
+ "postUrl": "/@minseo/posts/12",
+ "scenes": [
+  {
+   "caption": "글이 전부 사라졌어요",
+   "narration": "어제 서버를 정리하다가, 블로그 글이 전부 사라졌어요. 범인은 명령어 한 줄이었어요.",
+   "code": null
+  },
+  {
+   "caption": "원인은 -v 한 글자",
+   "narration": "compose down 뒤에 -v를 붙이면, 컨테이너뿐 아니라 데이터가 든 볼륨까지 함께 지워져요.",
+   "code": "docker compose down -v\n# -v: 이름 붙은 볼륨까지 삭제"
+  },
+  {
+   "caption": "백업에서 되살렸어요",
+   "narration": "다행히 새벽마다 떠 둔 덤프가 있어서, 복원 한 줄로 어젯밤 상태까지 되돌렸어요.",
+   "code": "pg_restore -d blog backup.dump"
+  },
+  {
+   "caption": "이렇게 막았어요",
+   "narration": "이제는 매일 새벽 외장 디스크에 백업을 남기고, down에는 -v를 절대 붙이지 않아요.",
+   "code": null,
+   "diagram": {
+    "type": "steps",
+    "items": [
+     "매일 새벽 백업",
+     "외장 디스크에 보관",
+     "down에 -v 금지"
+    ]
+   }
+  }
+ ],
+ "character": "logduck"
+}

@@ -6,6 +6,7 @@ import {springTiming, TransitionSeries, type TransitionPresentation} from '@remo
 import {fade} from '@remotion/transitions/fade';
 import {none} from '@remotion/transitions/none';
 import {slide} from '@remotion/transitions/slide';
+import {CharacterName} from './character';
 import {FastScene} from './FastScene';
 import {Scene} from './Scene';
 import './fonts';
@@ -16,10 +17,11 @@ import type {ShortsProps} from './types';
 const presentation = (i: number): TransitionPresentation<any> =>
   [slide({direction: 'from-right'}), fade(), slide({direction: 'from-bottom'})][i % 3];
 
-export const Shorts: React.FC<ShortsProps> = ({title, footer, scenes, transitionFrames, style = 'clean'}) => {
+export const Shorts: React.FC<ShortsProps> = ({title, footer, scenes, transitionFrames, style = 'clean', character = null}) => {
   const frame = useCurrentFrame();
   const {fps, durationInFrames} = useVideoConfig();
   return (
+    <CharacterName.Provider value={character}>
     <AbsoluteFill style={{background: theme.color.bg}}>
       <TransitionSeries>
         {scenes.flatMap((scene, i) => {
@@ -42,5 +44,6 @@ export const Shorts: React.FC<ShortsProps> = ({title, footer, scenes, transition
         <div style={{height: '100%', width: `${(frame / Math.max(1, durationInFrames - 1)) * 100}%`, background: theme.color.ink}} />
       </div>
     </AbsoluteFill>
+    </CharacterName.Provider>
   );
 };

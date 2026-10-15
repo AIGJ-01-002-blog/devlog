@@ -85,6 +85,12 @@ class FastStyleTest(unittest.TestCase):
         self.assertTrue(Script.from_job({"scenes": [], "style": "fast"}).fast)
         self.assertFalse(Script.from_job({"scenes": [], "style": "weird"}).fast)
 
+    def test_character_must_be_a_known_folder(self):
+        self.assertEqual(Script.from_job({"scenes": [], "character": "lognyang"}).character, "lognyang")
+        self.assertEqual(Script.from_job({"scenes": [], "character": "logduck"}).character, "logduck")
+        self.assertIsNone(Script.from_job({"scenes": [], "character": "../etc"}).character)
+        self.assertIsNone(Script.from_job({"scenes": []}).character)
+
 
 class PlanTest(unittest.TestCase):
     def test_scenes_overlap_by_transition_and_voice_waits_for_fade(self):

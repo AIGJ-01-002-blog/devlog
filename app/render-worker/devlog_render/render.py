@@ -116,6 +116,8 @@ class Script:
     effects: list = field(default_factory=list)
     #: 화면 스타일. "clean"(기본, 승인된 깔끔한 스타일) 또는 "fast"(참고 영상 분석 견본: 위 그림·아래 캐릭터, 빠른 컷·자막·목소리)
     style: str = "clean"
+    #: 고양이 대신 연기할 캐릭터 이름(remotion/src/character/<이름>/). 없거나 모르는 이름이면 기본 고양이
+    character: str | None = None
 
     @property
     def fast(self) -> bool:
@@ -145,7 +147,10 @@ class Script:
             footer = f"{site}/@{handle}" if handle else site
         effects = [sfx.Effect(int(e["scene"]), float(e.get("at") or 0), str(e["sound"]), 0.6 if e.get("volume") is None else float(e["volume"]))
                    for e in job.get("effects") or [] if isinstance(e, dict) and e.get("sound") in sfx.SOUNDS]
-        return Script(job.get("title") or "", scenes, footer, effects, "fast" if job.get("style") == "fast" else "clean")
+        character = job.get("character")
+        if character not in remotion.characters():
+            character = None
+        return Script(job.get("title") or "", scenes, footer, effects, "fast" if job.get("style") == "fast" else "clean", character)
 
 
 @dataclass
@@ -290,7 +295,8 @@ class Renderer:
         if script.fast:
             captions.emphasize([sc["pages"] for sc in scenes], [sc.caption for sc in script.scenes])
         return {"title": script.title, "footer": script.footer, "transitionFrames": round(TRANSITION * FPS),
-                "totalFrames": round(total * FPS), "scenes": scenes, "style": script.style}
+                "totalFrames": round(total * FPS), "scenes": scenes, "style": script.style,
+                "character": script.character}
 
     def _voices(self, work: Path, script: Script) -> tuple[list[Path], list[list[captions.Word] | None]]:
         """장면마다 음성. 한 장면이라도 실패하면 다음 엔진으로 처음부터 다시 만든다(목소리가 섞이지 않게).

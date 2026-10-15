@@ -61,4 +61,6 @@ export type ShortsProps = {
   scenes: SceneData[];
   /** clean: 승인된 깔끔한 스타일(기본). fast: 참고 영상 분석 견본(FastScene.tsx) */
   style?: 'clean' | 'fast';
+  /** 고양이 대신 연기할 캐릭터(remotion/src/character/<이름>/). 없으면 기본 고양이 */
+  character?: string | null;
 };
