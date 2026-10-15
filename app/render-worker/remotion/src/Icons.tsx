@@ -1,5 +1,6 @@
 // 도식 아이콘: Lucide(ISC). 대본이 아이콘 이름을 주지 않으면 이름표 글에서 짐작한다.
 import React from 'react';
+import {theme} from './theme';
 import {
   Archive, ArrowRightLeft, Box, Bug, Check, Cloud, Code, Cpu, Database, FileText, Folder, Gauge, GitBranch, Globe, HardDrive, Hash, KeyRound,
   Layers, List, Lock, Mail, MemoryStick, Monitor, Network, Package, RefreshCw, Router, ScrollText, Search, Server, Settings, Shield,
@@ -16,6 +17,9 @@ export const ICONS: Record<string, LucideIcon> = {
 
 /** 이름표 글 → 아이콘. 앞에 있는 규칙이 이긴다 */
 const GUESS: [RegExp, string][] = [
+  // "HTTP 헤더"·"응답 본문"처럼 넓은 말과 함께 와도 헤더·본문이 이긴다
+  [/헤더|header|머리/i, 'list'],
+  [/본문|바디|body|payload|내용/i, 'file-text'],
   [/브라우저|browser|크롬|웹 ?페이지/i, 'globe'],
   [/사용자|유저|user|고객|클라이언트|client/i, 'user'],
   [/캐시|cache|redis/i, 'zap'],
@@ -63,9 +67,14 @@ export const iconFor = (label: string, name: string | null): LucideIcon | null =
   return hit ? ICONS[hit[1]] : null;
 };
 
-export const IconBadge: React.FC<{Icon: LucideIcon | null; color: string; size: number; on: number}> = ({Icon, color, size, on}) => (
-  <div style={{width: size, height: size, borderRadius: size * 0.32, display: 'grid', placeItems: 'center', flex: 'none',
-    background: on > 0.5 ? color : `${color}1a`, transition: 'none'}}>
-    {Icon ? <Icon size={size * 0.54} color={on > 0.5 ? '#ffffff' : color} strokeWidth={2.2} /> : null}
-  </div>
-);
+/** 아이콘을 짐작하지 못한 칸은 빈 네모 대신 순서 번호(fallback)를 보인다 */
+export const IconBadge: React.FC<{Icon: LucideIcon | null; color: string; size: number; on: number; fallback?: number}> = ({Icon, color, size, on, fallback}) => {
+  const ink = on > 0.5 ? '#ffffff' : color;
+  return (
+    <div style={{width: size, height: size, borderRadius: size * 0.32, display: 'grid', placeItems: 'center', flex: 'none',
+      background: on > 0.5 ? color : `${color}1a`, transition: 'none'}}>
+      {Icon ? <Icon size={size * 0.54} color={ink} strokeWidth={2.2} />
+        : fallback !== undefined ? <span style={{font: `900 ${Math.round(size * 0.46)}px ${theme.font}`, color: ink, lineHeight: 1}}>{fallback}</span> : null}
+    </div>
+  );
+};
