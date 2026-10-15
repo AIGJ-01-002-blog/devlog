@@ -35,6 +35,10 @@ for pod in $(k -n blog get pods -l app.kubernetes.io/name=blog-app -o name); do
     | grep -A12 "처리하지 못한 오류" | grep -vE "^\s+at (org\.springframework|org\.apache|jakarta|java\.base|io\.micrometer)" \
     | sed -E 's/dvl_[A-Za-z0-9_-]+/dvl_***/g' | tail -45 || true
 done
+echo "== 코빗 캔들 견본 (임시)"
+for q in "interval=1&limit=2" "interval=60&limit=2" "interval=1D&limit=2" "interval=240&limit=2" "interval=1h&limit=2"; do
+  echo "-- $q"; curl -s -m 8 "https://api.korbit.co.kr/v2/candles?symbol=btc_krw&$q" | head -c 600; echo
+done
 # 조회문은 표준 입력으로 넘긴다(따옴표가 겹치지 않게). 공개 조건은 PostAccessPolicy.PUBLIC_LIST_CONDITION과 같다
 psql_read() {
   docker exec -i "$NODE" kubectl -n blog exec -i statefulset/postgres -- \
