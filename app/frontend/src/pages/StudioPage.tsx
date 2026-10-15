@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, ApiError } from '../lib/api'
+import { ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { fieldErrors } from '../lib/fieldErrors'
 import { t, tNodes } from '../lib/i18n'
@@ -9,8 +9,8 @@ import {
   renderBatch, renderProblems, renderShorts, reportOf, saveShorts, SCENE_VISUALS, statusLabel, videoFileName, workerOnline, writtenTopics,
   type BatchRenderResult, type OriginalityReport, type Scene, type SceneVisual, type ShortsBatch, type ShortsItem, type ShortsOverview,
 } from '../lib/shorts'
-import type { ManagePage } from '../lib/types'
 import { ReplayInfo, ReplayPicker } from './StudioReplay'
+import { StudioPostPicker } from './StudioPostPicker'
 import { StudioUploadGuide } from './StudioUploadGuide'
 
 const POLL_MS = 5000
@@ -238,21 +238,15 @@ function WorkerStatus({ data }: { data: ShortsOverview }) {
 }
 
 function NewScript({ onCancel, onCreated }: { onCancel: () => void; onCreated: (item: ShortsItem) => void }) {
-  const [posts, setPosts] = useState<{ id: number; title: string }[]>([])
-  const [postId, setPostId] = useState<string>('')
+  const [postId, setPostId] = useState<number | null>(null)
   const [title, setTitle] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
-  useEffect(() => {
-    api<ManagePage>('/api/me/posts?tab=published')
-      .then((page) => setPosts(page.items.map((p) => ({ id: p.id, title: p.title }))))
-      .catch(() => setPosts([]))
-  }, [])
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
     try {
-      onCreated(await createShorts({ postId: postId ? Number(postId) : null, title, scenes: [emptyScene(), emptyScene(), emptyScene()] }))
+      onCreated(await createShorts({ postId, title, scenes: [emptyScene(), emptyScene(), emptyScene()] }))
     } catch (err) {
       setErrors(fieldErrors(err))
     } finally {
@@ -264,13 +258,10 @@ function NewScript({ onCancel, onCreated }: { onCancel: () => void; onCreated: (
       <h2>{t('새 대본')}</h2>
       <div className="field">
         <label htmlFor="shorts-post">{t('바탕이 될 글')}</label>
-        <select id="shorts-post" value={postId} onChange={(e) => {
-          setPostId(e.target.value)
-          if (!title) setTitle(posts.find((p) => String(p.id) === e.target.value)?.title.slice(0, LIMITS.title) ?? '')
-        }}>
-          <option value="">{t('글 없이 쓰기')}</option>
-          {posts.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
-        </select>
+        <StudioPostPicker value={postId} onChange={(post) => {
+          setPostId(post?.id ?? null)
+          if (post && !title) setTitle(post.title.slice(0, LIMITS.title))
+        }} />
         <span className="muted small">{t('글을 고르면 영상 끝에 글 주소를 넣고, 글을 그대로 옮겨 적었는지도 검사해요.')}</span>
         {errors.postId && <span className="error">{errors.postId}</span>}
       </div>
