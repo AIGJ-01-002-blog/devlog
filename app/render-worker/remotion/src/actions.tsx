@@ -66,15 +66,11 @@ export const Act: React.FC<{scene: SceneData; first: boolean}> = ({scene, first}
 export const Presenter: React.FC<{scene: SceneData; beats: number[]; done: boolean}> = ({scene, beats, done}) => {
   const life = useLife(scene, -1, beats);
   const {t, live, talk} = life;
-  const p = live({x: 150, y: STAGE_H - 10, size: 250, look: [1, -0.6]});
-  const reach = Math.sin(t * 3.2) * 10 + talk * 8;
-  return (
-    <>
-      <Mascot face={done ? 'joy' : talk > 0.06 ? 'grin' : 'smile'} p={p} />
-      {done ? <Emoji name="thumbs" x={p.x + 150} y={p.y - 170} size={120} rotate={-8} /> :
-        <Emoji name="pointR" x={p.x + 150 + reach} y={p.y - 170 - reach * 0.6} size={120} rotate={-28} />}
-    </>
-  );
+  // 오른팔로 도식을 가리키고(말할 때 더 크게 흔든다), 다 나오면 두 팔을 들어 기뻐한다
+  const reach = Math.sin(t * 3.2) * 8 + talk * 10;
+  const p = live({x: 150, y: STAGE_H - 10, size: 300, look: [1, -0.6], bodyTilt: done ? 0 : 6,
+    armR: done ? 115 : 105 + reach, armL: done ? 115 : 18 + Math.sin(t * 2) * 6});
+  return <Mascot face={done ? 'joy' : talk > 0.06 ? 'grin' : 'smile'} p={p} />;
 };
 
 type Life = ReturnType<typeof useLife>;
