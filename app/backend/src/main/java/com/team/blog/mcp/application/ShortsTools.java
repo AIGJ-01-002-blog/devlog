@@ -28,7 +28,7 @@ import com.team.blog.trade.application.TradeReplays;
 class ShortsTools {
     private static final Logger log = LoggerFactory.getLogger(ShortsTools.class);
     static final String SCENES_SCHEMA = """
-            "scenes":{"type":"array","maxItems":16,"description":"장면 6~12개가 좋고 3~16개까지. 합쳐서 60~90초(내레이션 약 360~540자), 90초를 넘으면 영상으로 못 만들어요","items":{"type":"object","properties":{
+            "scenes":{"type":"array","maxItems":16,"description":"장면 8~12개가 좋고 3~16개까지. 합쳐서 60~90초(내레이션 약 360~540자), 90초를 넘으면 영상으로 못 만들어요","items":{"type":"object","properties":{
                 "caption":{"type":"string","description":"화면 큰 자막 (40자까지, 한 줄 요점)"},
                 "narration":{"type":"string","description":"읽을 문장 (200자까지, 말하듯이)"},
                 "code":{"type":"string","description":"화면에 보일 짧은 코드 (선택, 300자까지)"},
@@ -46,7 +46,7 @@ class ShortsTools {
      * 대본 쓰기 안내 (#277). 길이는 1분~1분 30초. 구조는 블로그 주인이 정한 "잘 되는 쇼츠" 틀(후킹 → 본론 → 반전·정리 → CTA)을
      * 이 길이에 맞게 늘린 것이고, "AI 티" 줄이는 법(내 말투, 후킹 고르기, 상투어 빼기, 실제 경험·숫자)을 함께 둔다.
      */
-    static final String GUIDE = "길이는 1분~1분 30초(장면 6~12개)이고, 가볍게 훑지 말고 한 주제를 깊게 판다. 구조: "
+    static final String GUIDE = "길이는 1분~1분 30초(장면 8~12개)이고, 가볍게 훑지 말고 한 주제를 깊게 판다. 구조: "
             + "① 후킹(첫 장면, 3초 안): 질문·충격적인 결과·결론을 먼저 말해 스크롤을 멈추게 한다. "
             + "② 본론(약 50초): 핵심은 1~3개만, 짧은 문장으로 빠르게. 문제 상황(실제 증상·숫자) → 원리(왜 그런지, 도식 장면 2~3개로 단계별로, 처음 듣는 사람도 따라오게 비유 하나) → 해결(코드나 명령) 순서. "
             + "③ 반전·정리(끝에서 두 번째 장면): \"근데 진짜 중요한 건…\"처럼 한 번 더 붙잡는 반전이나 한 줄 요약. "

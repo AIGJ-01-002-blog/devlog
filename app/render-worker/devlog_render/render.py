@@ -156,7 +156,7 @@ class Script:
         effects = [sfx.Effect(int(e["scene"]), float(e.get("at") or 0), str(e["sound"]), 0.6 if e.get("volume") is None else float(e["volume"]))
                    for e in job.get("effects") or [] if isinstance(e, dict) and e.get("sound") in sfx.SOUNDS]
         character = job.get("character") or DEFAULT_CHARACTER
-        if character not in remotion.characters():  # "cat"이나 모르는 이름이면 기본 고양이(Noto)
+        if not isinstance(character, str) or character not in remotion.characters():  # "cat"이나 모르는 이름이면 기본 고양이(Noto)
             character = None
         return Script(job.get("title") or "", scenes, footer, effects, style="fast" if job.get("style") == "fast" else "clean",
                       character=character, replay=job.get("replay"))

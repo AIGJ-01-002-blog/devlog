@@ -64,7 +64,7 @@
    }
   },
   {
-   "caption": "코드는 세 줄이면 돼요",
+   "caption": "코드는 한 줄이면 돼요",
    "narration": "스프링에서는 목록 메서드에 캐시 표시 한 줄만 붙이면, 두 번째 요청부터 메모리에서 꺼내요.",
    "code": "@Cacheable(\"posts\")\nList<Post> recent() {\n  return repo.findTop20();\n}",
    "visual": "typing"

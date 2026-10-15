@@ -90,6 +90,7 @@ class FastStyleTest(unittest.TestCase):
         self.assertEqual(Script.from_job({"scenes": [], "character": "logduck"}).character, "logduck")
         self.assertIsNone(Script.from_job({"scenes": [], "character": "../etc"}).character)
         self.assertIsNone(Script.from_job({"scenes": [], "character": "cat"}).character)
+        self.assertIsNone(Script.from_job({"scenes": [], "character": ["lognyang"]}).character)  # 서버가 문자열이 아닌 값을 보내도 죽지 않는다
         self.assertEqual(Script.from_job({"scenes": []}).character, render.DEFAULT_CHARACTER)
 
 

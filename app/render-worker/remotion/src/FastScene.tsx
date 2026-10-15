@@ -43,8 +43,9 @@ export const FastScene: React.FC<{scene: SceneData; index: number; title: string
   const cut = cutTimes(scene.pages, index === 0).filter((t) => ms >= t).length + index;
   const f = FRAMES[cut % FRAMES.length];
   const d = scene.diagram;
-  const done = d ? ms >= Math.max(...allItems(d).map((it) => it.atMs)) + 1200 : false;
-  const beats = d ? allItems(d).map((it) => scene.leadFrames / fps + it.atMs / 1000) : [];
+  const items = d ? allItems(d) : [];
+  const done = items.length > 0 && ms >= Math.max(...items.map((it) => it.atMs)) + 1200;
+  const beats = items.map((it) => scene.leadFrames / fps + it.atMs / 1000);
   return (
     <AbsoluteFill>
       <Background index={index} image={scene.image} />
