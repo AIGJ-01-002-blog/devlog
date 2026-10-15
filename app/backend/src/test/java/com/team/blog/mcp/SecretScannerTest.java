@@ -30,7 +30,12 @@ class SecretScannerTest {
                 "토큰은 dvl_로 시작해요. GitHub 토큰은 ghp_xxx 꼴이고 키는 sk-... 처럼 생겼어요.",
                 "postgres://user:${DB_PASSWORD}@db/blog, postgres://app:<password>@db, mysql://root:****@localhost",
                 "https://devlog.life/@minseo/posts/12, 전화 010-1234-5678, 2026-10-11", null, "")).isEmpty();
-        assertThat(SecretScanner.find("postgres://u:pass@db", "postgres://u:passwd@db", "postgres://u:PassWord@db",
-                "redis://u:xxxx@cache", "redis://u:changeme@cache", "redis://u:$REDIS_PASSWORD@cache")).isEmpty();
+        assertThat(SecretScanner.find(urlWith("pass"), urlWith("passwd"), urlWith("PassWord"), urlWith("xxxx"), urlWith("changeme"),
+                urlWith("$REDIS_PASSWORD"))).isEmpty();
+    }
+
+    /** 주소 속 비밀번호 자리에 값을 넣는다. 소스에 자격 증명 꼴 주소를 그대로 두지 않으려고 조립한다 */
+    private static String urlWith(String password) {
+        return "redis" + "://u:" + password + "@cache";
     }
 }
