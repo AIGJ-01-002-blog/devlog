@@ -2520,6 +2520,10 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 /* 자동매매 모의 화면 /trade (spec 101): 계좌 카드, 체결·Gemini 판단·하루 요약. 손익 색은 매매 일지와 같다 */
 .tradebot-paper { font-size: 0.55em; vertical-align: middle; }
 .tradebot-when { font-size: 1.25rem; }
+.tradebot-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tradebot-guide { margin: 0 0 12px; }
+.tradebot-guide summary { cursor: pointer; font-weight: 600; }
+.tradebot-guide ul { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 4px; color: var(--color-text-muted); }
 .tradebot-empty { margin-top: 16px; padding: 16px; border: 1px dashed var(--color-border); border-radius: var(--radius); }
 .tradebot-empty h2 { margin-top: 0; }
 .tradebot-tabs .settings-panel { padding-top: 16px; padding-bottom: 16px; }
