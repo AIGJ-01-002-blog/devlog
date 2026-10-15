@@ -2478,6 +2478,7 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 .studio-video { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
 .studio-video video { width: 100%; max-width: 270px; aspect-ratio: 9 / 16; background: black; border-radius: var(--radius-lg); }
 .studio-note { padding: 10px 12px; border-radius: var(--radius); background: var(--color-surface-2); }
+.studio-outro { display: flex; align-items: center; gap: 8px; margin: 4px 0 16px; }
 .studio-report { margin-top: 12px; padding: 12px 14px; border-radius: var(--radius); border: 1px solid var(--color-border); }
 .studio-report.blocked { border-color: var(--color-danger); }
 .studio-report p { margin: 0; }
