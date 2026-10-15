@@ -2036,4 +2036,10 @@ export const en: Record<string, string> = {
   "AI는 거들기만 해요. 내 AI(Claude·Codex 등)가 MCP로 기준을 정하고, 켜 두면 Gemini가 진입 직전에 한 번 더 걸러요. 주문은 언제나 봇 코드가 상한 안에서 내요.": "AI only assists. Your AI (Claude, Codex, etc.) sets the rules over MCP, and if turned on, Gemini filters each entry once more right before it. Orders are always placed by the bot code within its limits.",
   "[모의 봇 켜기]를 누르면 devlog 서버가 거래소 공개 시세로 바이낸스·업비트 모의 계좌를 돌려요. 거래소 키는 받지 않아요. 내 컴퓨터에서 봇을 직접 돌리면 그 계좌도 함께 보여요.": "Press [Turn on paper bot] and the devlog server runs Binance and Upbit paper accounts on public exchange prices. It never asks for exchange keys. If you run the bot on your own computer, those accounts show up here too.",
   "이 화면은 모의 매매만 보여 줘요. 실제 돈으로 따라 하는 건 각자의 판단과 책임이고, 투자 권유가 아니에요.": "This page only shows paper trading. Copying it with real money is your own decision and responsibility, and this is not investment advice.",
+  "실거래·모의": "Live or paper",
+  "실제 돈으로 거래한 체결만 봐요": "Show only fills made with real money",
+  "모의투자로 거래한 체결만 봐요": "Show only paper-trading fills",
+  "실거래": "Live",
+  "아직 실거래 기록이 없어요": "No live fills yet",
+  "아직 모의 기록이 없어요": "No paper fills yet",
 }

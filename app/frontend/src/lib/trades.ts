@@ -67,7 +67,10 @@ export interface TradeOverview {
   days: TradeDayRow[]
   total: TradeSummary
   cumulativePnl: Money
+  /** 모드와 상관없이 실거래·모의 체결이 하나라도 있는지 */
   live: boolean
+  paper: boolean
+  mode: 'LIVE' | 'PAPER' | null
 }
 
 export interface TradeDay {
@@ -82,8 +85,14 @@ export interface TradeDay {
 
 export const MEMO_MAX = 2000
 
-export const loadTrades = (days: TradePeriod) => api<TradeOverview>(`/api/me/trades?days=${days}`)
-export const loadTradeDay = (date: string) => api<TradeDay>(`/api/me/trades/${date}`)
+/** 매매 일지 토글: 실거래(live)와 모의(paper)를 따로 본다 */
+export type TradeMode = 'live' | 'paper'
+export const TRADE_MODES: TradeMode[] = ['live', 'paper']
+export const tradeModeOf = (raw: string | null): TradeMode | null => (raw === 'live' || raw === 'paper' ? raw : null)
+
+export const loadTrades = (days: TradePeriod, mode: TradeMode) => api<TradeOverview>(`/api/me/trades?days=${days}&mode=${mode}`)
+/** mode를 빼면 두 모드를 합쳐 본다(재현 숏폼은 한 모드만 고르게 따로 막는다) */
+export const loadTradeDay = (date: string, mode?: TradeMode) => api<TradeDay>(`/api/me/trades/${date}${mode ? `?mode=${mode}` : ''}`)
 export const saveTradeMemo = (date: string, memo: string) =>
   api<TradeDay>(`/api/me/trades/${date}/memo`, { method: 'PUT', body: { memo } })
 export const createTradeDraft = (date: string) => api<TradeDay>(`/api/me/trades/${date}/draft`, { method: 'POST' })

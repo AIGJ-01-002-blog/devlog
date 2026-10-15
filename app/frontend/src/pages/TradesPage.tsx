@@ -6,37 +6,50 @@ import { t } from '../lib/i18n'
 import { Link, navigate, useLocation } from '../lib/router'
 import {
   actionLabel, closes, coinUnit, createTradeDraft, createTradeShorts, deleteTradeFill, exchangeName, fillTime, isDate, loadTradeDay, loadTrades,
-  mainCurrency, MEMO_MAX, money, moneys, pnlClass, positionLabel, qty, replayHref, saveTradeMemo, TRADE_PERIODS, tradePeriodOf, winRate,
-  type Money, type TradeDay, type TradeFill, type TradeOverview, type TradePeriod, type TradeSummary,
+  mainCurrency, MEMO_MAX, money, moneys, pnlClass, positionLabel, qty, replayHref, saveTradeMemo, TRADE_MODES, TRADE_PERIODS, tradeModeOf, tradePeriodOf, winRate,
+  type Money, type TradeDay, type TradeFill, type TradeMode, type TradeOverview, type TradePeriod, type TradeSummary,
 } from '../lib/trades'
 
 /**
  * 매매 일지 (#243). 집 컴퓨터의 매매 봇이 보낸 체결을 날별로 보고, 그날 메모를 남겨 요약 임시글과 쇼츠 대본을 만든다.
- * 주소: /trades?days=7|30|90&date=2026-10-14 (기본 30일, 날짜를 고르지 않으면 가장 최근 날)
+ * 주소: /trades?days=7|30|90&mode=live|paper&date=2026-10-14 (기본 30일, 날짜를 고르지 않으면 가장 최근 날)
+ * 실거래와 모의는 토글로 나눠 본다. 고르지 않으면 실거래, 실거래 기록이 없고 모의만 있으면 모의를 보여 준다.
  */
 export function TradesPage() {
   const { search } = useLocation()
   const days = tradePeriodOf(search.get('days'))
   const picked = isDate(search.get('date')) ? search.get('date') : null
+  const chosen = tradeModeOf(search.get('mode'))
+  const [fallback, setFallback] = useState<TradeMode>('live')
+  const mode = chosen ?? fallback
   const [data, setData] = useState<TradeOverview | null>(null)
   const [error, setError] = useState(false)
-  const current = useRef(days)
-  current.current = days
+  const current = useRef(`${days}:${mode}`)
+  current.current = `${days}:${mode}`
 
   useEffect(() => { document.title = t('매매 일지 - devlog') }, [])
   const reload = () => {
     setError(false)
-    loadTrades(days)
-      .then((d) => { if (current.current === days) setData(d) })
-      .catch(() => { if (current.current === days) setError(true) })
+    setData(null)
+    const key = `${days}:${mode}`
+    loadTrades(days, mode)
+      .then((d) => {
+        if (current.current !== key) return
+        // 고른 적 없고 실거래 기록이 없으면 모의로 넘어간다
+        if (!chosen && mode === 'live' && !d.live && d.paper) setFallback('paper')
+        else setData(d)
+      })
+      .catch(() => { if (current.current === key) setError(true) })
   }
-  useEffect(reload, [days]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(reload, [days, mode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const date = picked ?? data?.days[0]?.date ?? null
-  const href = (p: { days?: TradePeriod; date?: string | null }) => {
+  const href = (p: { days?: TradePeriod; date?: string | null; mode?: TradeMode }) => {
     const q = new URLSearchParams()
     const d = p.days ?? days
     if (d !== 30) q.set('days', String(d))
+    const m = p.mode ?? chosen
+    if (m) q.set('mode', m)
     const at = p.date === undefined ? picked : p.date
     if (at) q.set('date', at)
     const s = q.toString()
@@ -56,7 +69,13 @@ export function TradesPage() {
               onClick={() => navigate(href({ days: p, date: null }))}>{t('{0}일', { 0: p })}</button>
           ))}
         </div>
-        {data?.live && <span className="badge" data-tip={t('실계좌(LIVE)로 남긴 체결이 있어요. 봇의 실계좌 주문은 직접 켰을 때만 나가요')}>{t('실계좌 기록 있음')}</span>}
+        <div className="segmented" role="group" aria-label={t('실거래·모의')}>
+          {TRADE_MODES.map((m) => (
+            <button key={m} type="button" aria-pressed={m === mode}
+              data-tip={m === 'live' ? t('실제 돈으로 거래한 체결만 봐요') : t('모의투자로 거래한 체결만 봐요')}
+              onClick={() => navigate(href({ mode: m, date: null }))}>{m === 'live' ? t('실거래') : t('모의')}</button>
+          ))}
+        </div>
       </div>
       {error && <p className="error" role="alert">{t('매매 기록을 불러오지 못했어요.')}</p>}
       {!data && !error && <p className="muted center">{t('불러오는 중…')}</p>}
@@ -83,13 +102,13 @@ export function TradesPage() {
             </div>
           </div>
 
-          {data.days.length === 0 ? <EmptyTrades /> : (
+          {data.days.length === 0 ? <EmptyTrades mode={mode} /> : (
             <div className="trades-layout">
               <section className="admin-card trades-days" aria-label={t('날짜별 기록')}>
                 <h2>{t('날짜별 기록')}</h2>
                 <DayBars data={data} selected={date} href={(d) => href({ date: d })} />
               </section>
-              {date && <DayCard key={date} date={date} onChanged={reload} />}
+              {date && <DayCard key={`${mode}:${date}`} date={date} mode={mode} onChanged={reload} />}
             </div>
           )}
         </>
@@ -139,7 +158,7 @@ function DayBars({ data, selected, href }: { data: TradeOverview; selected: stri
   )
 }
 
-function DayCard({ date, onChanged }: { date: string; onChanged: () => void }) {
+function DayCard({ date, mode, onChanged }: { date: string; mode: TradeMode; onChanged: () => void }) {
   const { me } = useAuth()
   const [day, setDay] = useState<TradeDay | null>(null)
   const [memo, setMemo] = useState('')
@@ -147,14 +166,15 @@ function DayCard({ date, onChanged }: { date: string; onChanged: () => void }) {
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
 
   useEffect(() => {
-    loadTradeDay(date).then((d) => { setDay(d); setMemo(d.memo) }).catch(() => setMessage({ ok: false, text: t('이날 기록을 불러오지 못했어요.') }))
-  }, [date])
+    loadTradeDay(date, mode).then((d) => { setDay(d); setMemo(d.memo) }).catch(() => setMessage({ ok: false, text: t('이날 기록을 불러오지 못했어요.') }))
+  }, [date, mode])
 
   const run = async (kind: 'memo' | 'draft' | 'shorts', action: () => Promise<TradeDay>, done: string) => {
     setBusy(kind)
     setMessage(null)
     try {
-      const d = await action()
+      await action()
+      const d = await loadTradeDay(date, mode) // 저장 응답은 두 모드를 합친 값이라 고른 모드로 다시 읽는다
       setDay(d)
       setMemo(d.memo)
       setMessage({ ok: true, text: done })
@@ -170,7 +190,7 @@ function DayCard({ date, onChanged }: { date: string; onChanged: () => void }) {
     if (!confirm(t('이 체결 기록을 지울까요? 봇이 잘못 보낸 기록만 지워 주세요.'))) return
     try {
       await deleteTradeFill(id)
-      setDay(await loadTradeDay(date))
+      setDay(await loadTradeDay(date, mode))
       onChanged()
     } catch {
       setMessage({ ok: false, text: t('지우지 못했어요.') })
@@ -283,10 +303,10 @@ function fillAmount(f: TradeFill): string {
   return unit ? `${qty(f.quantity)} ${unit} · ${price}` : t('{0}주 · {1}', { 0: qty(f.quantity), 1: price })
 }
 
-function EmptyTrades() {
+function EmptyTrades({ mode }: { mode: TradeMode }) {
   return (
     <section className="admin-card">
-      <h2>{t('아직 체결 기록이 없어요')}</h2>
+      <h2>{mode === 'live' ? t('아직 실거래 기록이 없어요') : t('아직 모의 기록이 없어요')}</h2>
       <p className="muted small">
         {t('집 컴퓨터의 매매 봇이 MCP 도구 record_trade로 체결을 보내면 여기에 날짜별로 모여요. 봇에는 AI 연결에서 만든 쓰기 토큰을 환경 변수로 넣어요.')}
       </p>
