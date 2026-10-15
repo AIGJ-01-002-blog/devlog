@@ -24,22 +24,27 @@ export function TradesPage() {
   const mode = chosen ?? fallback
   const [data, setData] = useState<TradeOverview | null>(null)
   const [error, setError] = useState(false)
-  const current = useRef(`${days}:${mode}`)
-  current.current = `${days}:${mode}`
+  // 요청마다 번호를 붙여 마지막 요청의 응답만 쓴다. reload는 언제 불려도(지난 DayCard의 저장 완료 등) 지금 고른 기간·모드를 다시 읽는다
+  const seq = useRef(0)
+  const latest = useRef({ days, mode, chosen })
+  useEffect(() => { latest.current = { days, mode, chosen } })
+  // 주소에서 모드를 고르면 자동 전환을 잊는다. 모드 없는 주소로 돌아오면 기록을 보고 기본값을 다시 정한다
+  useEffect(() => { if (chosen) setFallback('live') }, [chosen])
 
   useEffect(() => { document.title = t('매매 일지 - devlog') }, [])
   const reload = () => {
+    const at = latest.current
+    const id = ++seq.current
     setError(false)
     setData(null)
-    const key = `${days}:${mode}`
-    loadTrades(days, mode)
+    loadTrades(at.days, at.mode)
       .then((d) => {
-        if (current.current !== key) return
+        if (seq.current !== id) return
         // 고른 적 없고 실거래 기록이 없으면 모의로 넘어간다
-        if (!chosen && mode === 'live' && !d.live && d.paper) setFallback('paper')
+        if (!at.chosen && at.mode === 'live' && !d.live && d.paper) setFallback('paper')
         else setData(d)
       })
-      .catch(() => { if (current.current === key) setError(true) })
+      .catch(() => { if (seq.current === id) setError(true) })
   }
   useEffect(reload, [days, mode]) // eslint-disable-line react-hooks/exhaustive-deps
 
