@@ -177,6 +177,7 @@ public class AiTagService {
             try {
                 return callGemini(input, attached);
             } catch (ModelException e) {
+                log.warn("외부 AI 태그 추천 실패: {}", e.kind());
                 // 한도 초과만 같은 요청을 자체 AI로 넘긴다. 시간 초과·오류는 더 기다리게 하지 않는다
                 if (!e.quota() || !local.configured()) throw unavailable();
             }
@@ -204,11 +205,12 @@ public class AiTagService {
         try {
             return callGemini(input, attached);
         } catch (ModelException e) {
+            log.warn("외부 AI 태그 추천 실패: {}", e.kind());
             throw unavailable();
         }
     }
 
-    /** 외부 AI를 부른다. 실패하면 상태를 적고 예외를 그대로 던진다 */
+    /** 외부 AI를 부른다. 실패하면 상태를 적고 예외를 그대로 던진다(기록은 부르는 쪽이 남긴다) */
     private Called callGemini(AiInput.Cleaned input, Set<String> attached) throws ModelException {
         try {
             List<String> raw = gemini.suggest(prompt(gemini, input, attached));
@@ -216,7 +218,6 @@ public class AiTagService {
             return new Called(raw, Provider.GEMINI);
         } catch (ModelException e) {
             state.failed(e.kind());
-            log.warn("외부 AI 태그 추천 실패: {}", e.kind());
             throw e;
         }
     }

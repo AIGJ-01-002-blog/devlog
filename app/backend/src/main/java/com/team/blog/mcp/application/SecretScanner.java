@@ -27,7 +27,7 @@ public final class SecretScanner {
 
     /** 주소 안의 비밀번호 (postgres://user:pass@host). 자리표시자(${...}, <...>, ****, password)는 넘긴다 */
     private static final Pattern URL_PASSWORD = Pattern.compile("\\b[a-zA-Z][a-zA-Z0-9+.-]*://[^\\s:/@]+:([^\\s/@]+)@");
-    private static final Pattern PLACEHOLDER = Pattern.compile("(?i)^(?:\\$.*|<.*>|\\*+|x+|password|passwd|pass|pw|secret|changeme|example)$");
+    private static final Pattern PLACEHOLDER = Pattern.compile("(?i)^(?:\\$.*|<.*>|\\*+|x+|pass(?:w(?:or)?d)?|pw|secret|changeme|example)$");
 
     private static final String URL_PASSWORD_LABEL = "주소 속 비밀번호";
 

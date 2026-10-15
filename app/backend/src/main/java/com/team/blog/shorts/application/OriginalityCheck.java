@@ -7,6 +7,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.text.Normalizer;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -39,8 +40,10 @@ public final class OriginalityCheck {
     /** 첫 장면: 질문·문제(충격)·결론 숫자 중 하나로 시작해야 한다 (#277 대본 구조) */
     private static final List<String> HOOK_WORDS = List.of("왜", "어떻게", "문제", "오류", "에러", "실패", "막혔", "버그", "느려", "터졌", "날아갔", "사라졌",
             "증발", "모르면", "손해", "비밀");
-    /** 숫자는 앞이 숫자가 아닌 곳에서만 시작하고 되돌아가지 않게 해(possessive) 긴 숫자에도 한 번만 훑는다 */
-    private static final Pattern HOOK = Pattern.compile("[?？]\\s*+$|안\\s?되|(?<!\\d)\\d++(?:\\.\\d++)?+\\s?+[초배분%편개명번]", Pattern.CANON_EQ);
+    /** 띄어 쓸 수 있는 "안 되"만 정규식으로 본다. 물음표 끝맺음과 결론 숫자는 글자를 한 번만 훑는 검사로 본다(긴 입력에도 선형) */
+    private static final Pattern HOOK = Pattern.compile("안\\s?되", Pattern.CANON_EQ);
+    /** 결론 숫자 뒤에 오는 단위 */
+    private static final String HOOK_UNITS = "초배분%편개명번";
     /** 사람이 말할 때는 잘 안 쓰는, AI 대본에 흔한 상투어 (#277). 찾으면 경고만 한다 */
     private static final Pattern CLICHE = Pattern.compile("여러분|오늘은[^.?!]{0,20}(?:알아|살펴)[보볼봐봅]|정말\\s?중요한|꿀팁\\s?대방출|구독과\\s?좋아요|좋아요와\\s?구독",
             Pattern.CANON_EQ);
@@ -175,7 +178,46 @@ public final class OriginalityCheck {
     }
 
     static boolean hasHook(String text) {
-        return containsAny(text, HOOK_WORDS) || HOOK.matcher(text).find();
+        return containsAny(text, HOOK_WORDS) || HOOK.matcher(text).find() || endsWithQuestion(text) || hasCountedNumber(text);
+    }
+
+    /** 끝의 공백을 빼고 물음표(?, ？)로 끝나는가 */
+    static boolean endsWithQuestion(String text) {
+        int end = text.length();
+        while (end > 0 && isSpace(text.charAt(end - 1))) end--;
+        return end > 0 && (text.charAt(end - 1) == '?' || text.charAt(end - 1) == '？');
+    }
+
+    /**
+     * "3초", "10 배", "1.5배"처럼 숫자 바로 뒤(공백 한 칸까지)에 단위가 오는가.
+     * 숫자는 앞이 숫자가 아닌 곳에서만 시작하고, 한 번 읽은 숫자로 되돌아가지 않는다.
+     */
+    static boolean hasCountedNumber(String text) {
+        String t = Normalizer.normalize(text, Normalizer.Form.NFC);
+        int n = t.length();
+        for (int i = 0; i < n; i++) {
+            if (!isDigit(t.charAt(i)) || (i > 0 && isDigit(t.charAt(i - 1)))) continue;
+            int j = skipDigits(t, i);
+            if (j + 1 < n && t.charAt(j) == '.' && isDigit(t.charAt(j + 1))) j = skipDigits(t, j + 1);
+            if (j < n && isSpace(t.charAt(j))) j++;
+            if (j < n && HOOK_UNITS.indexOf(t.charAt(j)) >= 0) return true;
+        }
+        return false;
+    }
+
+    private static int skipDigits(String t, int from) {
+        int j = from;
+        while (j < t.length() && isDigit(t.charAt(j))) j++;
+        return j;
+    }
+
+    private static boolean isDigit(char c) {
+        return c >= '0' && c <= '9';
+    }
+
+    /** 정규식 \\s와 같은 공백 글자 */
+    private static boolean isSpace(char c) {
+        return c == ' ' || c == '\t' || c == '\n' || c == '\u000B' || c == '\f' || c == '\r';
     }
 
     private static boolean containsAny(String text, List<String> words) {

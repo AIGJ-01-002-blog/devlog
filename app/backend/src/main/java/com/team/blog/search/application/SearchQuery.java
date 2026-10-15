@@ -167,22 +167,27 @@ public class SearchQuery {
         Set<Long> shown = relevance && k.length > 0
                 ? new HashSet<>(semantic.nearest(terms.normalized(), authorId).orElse(List.of())) : Set.of();
 
-        // 9개 + 다음 페이지 확인용 1개. 한 단계가 모자라면 같은 페이지에서 다음 단계로 이어 채운다 (FR-013)
+        List<Found> found = fillStages(terms, stages, authorId, fromStage, cursorAt, cursorId, shown);
+        CursorCodec.Page<Found> page = CursorCodec.page(found, pageSize,
+                f -> cursors.encode(listName, f.stage(), Times.toEpochMicros(f.at()), f.id()));
+        return new PostPage(terms.normalized(), hits(page.items(), terms, null), page.nextCursor(), notice);
+    }
+
+    /** 9개 + 다음 페이지 확인용 1개. 한 단계가 모자라면 같은 페이지에서 다음 단계로 이어 채운다 (FR-013) */
+    private List<Found> fillStages(SearchTerms terms, List<Integer> stages, Long authorId, int fromStage, Instant cursorAt, Long cursorId,
+                                   Set<Long> shown) {
         List<Found> found = new ArrayList<>();
         for (int stage : stages) {
             int need = pageSize + 1 - found.size();
             if (need <= 0) break;
-            if (stage >= fromStage) {
-                boolean continuing = stage == fromStage && cursorAt != null;
-                List<Found> got = new ArrayList<>(findStage(terms, stage, authorId, continuing ? cursorAt : null,
-                        continuing ? cursorId : null, need + shown.size()));
-                got.removeIf(f -> shown.contains(f.id()));
-                found.addAll(got.subList(0, Math.min(need, got.size())));
-            }
+            if (stage < fromStage) continue;
+            boolean continuing = stage == fromStage && cursorAt != null;
+            List<Found> got = new ArrayList<>(findStage(terms, stage, authorId, continuing ? cursorAt : null,
+                    continuing ? cursorId : null, need + shown.size()));
+            got.removeIf(f -> shown.contains(f.id()));
+            found.addAll(got.subList(0, Math.min(need, got.size())));
         }
-        CursorCodec.Page<Found> page = CursorCodec.page(found, pageSize,
-                f -> cursors.encode(listName, f.stage(), Times.toEpochMicros(f.at()), f.id()));
-        return new PostPage(terms.normalized(), hits(page.items(), terms, null), page.nextCursor(), notice);
+        return found;
     }
 
     private static ApiException invalidCursor() {
