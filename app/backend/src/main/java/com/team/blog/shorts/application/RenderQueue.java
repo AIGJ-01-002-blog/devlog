@@ -46,9 +46,10 @@ public class RenderQueue {
     /**
      * 워커에게 주는 일. postUrl은 영상 끝 화면에 적을 원본 글 주소(사이트 안 경로).
      * coverImage는 원본 글 대표 사진(#277): 워커가 그림 없는 첫 장면의 가운데 카드로 쓴다. 장면마다 그림은 scenes[].image
+     * replay가 있으면 매매 재현 영상(#265)이다: 워커가 그 구간의 공개 캔들을 받아 캔들과 체결 표시를 그린다.
      */
     public record Job(long id, String claim, int attempt, String title, List<JobScene> scenes, String handle, String postUrl, String coverImage,
-                      List<JobEffect> effects) {}
+                      List<JobEffect> effects, TradeReplay replay) {}
 
     /** 워커가 읽는 장면. visual은 장면 연출 이름(#277), 비면 워커가 자막·내레이션·코드에서 고른다. diagram은 설명 도식(대본 그대로) */
     public record JobScene(String caption, String narration, String code, String image, String visual, java.util.Map<String, Object> diagram) {}
@@ -98,7 +99,7 @@ public class RenderQueue {
                 )
                 UPDATE shorts s SET status = 'RENDERING', claim_token = ?, claimed_at = ?, attempts = s.attempts + 1, updated_at = ?
                 FROM next WHERE s.id = next.id
-                RETURNING s.id, s.attempts, s.title, s.scenes::text, s.post_id,
+                RETURNING s.id, s.attempts, s.title, s.scenes::text, s.post_id, s.replay::text AS replay,
                           (SELECT handle FROM member WHERE id = s.member_id) AS handle,
                           (SELECT m.handle FROM post p JOIN member m ON m.id = p.author_id WHERE p.id = s.post_id AND p.deleted_at IS NULL) AS post_handle,
                           (SELECT %s FROM post p WHERE p.id = s.post_id AND p.deleted_at IS NULL) AS cover_key
@@ -108,9 +109,11 @@ public class RenderQueue {
             String postHandle = rs.getString("post_handle");
             String postUrl = rs.wasNull() || postHandle == null ? null : "/@" + postHandle + "/posts/" + postId;
             List<Scene> scenes = json.readValue(rs.getString(4), SCENES);
+            String replay = rs.getString("replay");
             return new Job(rs.getLong("id"), claim, rs.getInt("attempts"), rs.getString("title"),
                     jobScenes(scenes), rs.getString("handle"), postUrl,
-                    postUrl == null ? null : imageUrls.urlOf(rs.getString("cover_key")), jobEffects(scenes));
+                    postUrl == null ? null : imageUrls.urlOf(rs.getString("cover_key")), jobEffects(scenes),
+                    replay == null ? null : json.readValue(replay, TradeReplay.class));
         }, claim, Timestamp.from(now), Timestamp.from(now))));
     }
 

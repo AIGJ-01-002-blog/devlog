@@ -52,10 +52,10 @@ public class ShortsService {
     public record Item(long id, Long postId, String postTitle, String postUrl, String title, List<Scene> scenes, Status status,
                        int attempts, String videoUrl, Integer durationMs, Long videoBytes, String error, double estimatedSeconds,
                        Instant queuedAt, Instant renderedAt, Instant createdAt, Instant updatedAt, int version,
-                       List<String> postTags, List<Upload> uploads, Long batchId, Integer topic) {
+                       List<String> postTags, List<Upload> uploads, Long batchId, Integer topic, TradeReplay replay) {
         Item with(List<String> tags, List<Upload> ups) {
             return new Item(id, postId, postTitle, postUrl, title, scenes, status, attempts, videoUrl, durationMs, videoBytes, error,
-                    estimatedSeconds, queuedAt, renderedAt, createdAt, updatedAt, version, tags, ups, batchId, topic);
+                    estimatedSeconds, queuedAt, renderedAt, createdAt, updatedAt, version, tags, ups, batchId, topic, replay);
         }
     }
 
@@ -131,6 +131,18 @@ public class ShortsService {
     }
 
     public Item create(long memberId, Draft draft) {
+        return create(memberId, draft, null);
+    }
+
+    /**
+     * 매매 재현 쇼츠 (#265). 고른 체결과 차트 구간을 대본과 함께 남긴다. 체결을 고르고 구간을 정하는 일은 매매 일지(TradeReplays)가 한다.
+     * 대본을 고쳐도 체결·구간은 그대로다(다른 체결로 만들려면 새로 만든다).
+     */
+    public Item createReplay(long memberId, Draft draft, TradeReplay replay) {
+        return create(memberId, draft, Objects.requireNonNull(replay));
+    }
+
+    private Item create(long memberId, Draft draft, TradeReplay replay) {
         requireEnabled();
         String title = ShortsScript.cleanTitle(draft.title());
         List<Scene> scenes = scenes(draft.scenes());
@@ -144,10 +156,10 @@ public class ShortsService {
         if (draft.postId() != null) ownPost(memberId, draft.postId());
         Instant now = Times.now(clock);
         Long id = jdbc.queryForObject("""
-                INSERT INTO shorts (member_id, post_id, title, scenes, batch_id, topic, source_text, created_at, updated_at)
-                VALUES (?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?) RETURNING id
+                INSERT INTO shorts (member_id, post_id, title, scenes, batch_id, topic, source_text, replay, created_at, updated_at)
+                VALUES (?, ?, ?, ?::jsonb, ?, ?, ?, ?::jsonb, ?, ?) RETURNING id
                 """, Long.class, memberId, draft.postId(), title, json.writeValueAsString(scenes), draft.batchId(), draft.topic(), source,
-                Timestamp.from(now), Timestamp.from(now));
+                replay == null ? null : json.writeValueAsString(replay), Timestamp.from(now), Timestamp.from(now));
         return get(memberId, id);
     }
 
@@ -448,7 +460,11 @@ public class ShortsService {
                 urls.urlOf(rs.getString("video_key")), durationMs, videoBytes, rs.getString("error"),
                 Math.round(ShortsScript.estimateSeconds(scenes) * 10) / 10.0,
                 instant(rs, "queued_at"), instant(rs, "rendered_at"), instant(rs, "created_at"), instant(rs, "updated_at"),
-                rs.getInt("version"), List.of(), List.of(), nullableLong(rs, "batch_id"), nullableInt(rs, "topic"));
+                rs.getInt("version"), List.of(), List.of(), nullableLong(rs, "batch_id"), nullableInt(rs, "topic"), replay(rs.getString("replay")));
+    }
+
+    private TradeReplay replay(String raw) {
+        return raw == null ? null : json.readValue(raw, TradeReplay.class);
     }
 
     private static Long nullableLong(ResultSet rs, String column) throws SQLException {

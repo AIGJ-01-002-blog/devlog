@@ -1,0 +1,7 @@
+{"title": "인덱스 하나로 목록 조회 40배 빠르게", "handle": "minseo", "postUrl": "/@minseo/posts/31",
+ "scenes": [
+  {"caption": "목록이 4초 걸렸어요", "narration": "글이 만 개를 넘자, 홈 화면 목록이 뜨는 데 4초나 걸리기 시작했어요.", "code": null},
+  {"caption": "범인은 순차 스캔", "narration": "실행 계획을 보니, 정렬할 때마다 표 전체를 처음부터 끝까지 읽고 있었어요.", "code": "EXPLAIN ANALYZE\nSELECT * FROM post\nORDER BY published_at DESC LIMIT 20;\n-- Seq Scan on post (3,912 ms)"},
+  {"caption": "정렬 열에 인덱스", "narration": "발행 시각에 내림차순 인덱스를 하나 걸었더니, 100밀리초 안으로 떨어졌어요.", "code": "CREATE INDEX idx_post_published\n  ON post (published_at DESC);"},
+  {"caption": "느리면 먼저 EXPLAIN", "narration": "느린 쿼리를 만나면 감으로 고치지 말고, 실행 계획부터 보세요.", "code": null}
+ ]}

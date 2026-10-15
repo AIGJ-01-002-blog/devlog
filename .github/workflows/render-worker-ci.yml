@@ -39,7 +39,88 @@ jobs:
       - name: ffmpeg·한국어 글꼴 (리눅스)
         if: runner.os == 'Linux'
         run: sudo apt-get update -q && sudo apt-get install -yq ffmpeg fonts-noto-cjk
+      - name: 파이썬 패키지 (신경망 음성·캐릭터)
+        run: python -m pip install -q -r requirements.txt
       - name: 테스트
         env:
           PYTHONUTF8: "1"
         run: python -m unittest discover -s tests -t . -v
+
+  # 화면을 그리는 Remotion 프로젝트(remotion/): 타입 검사 + 실제로 한 편 그려 보기(#277)
+  remotion:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: app/render-worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: app/render-worker/remotion/package-lock.json
+      - name: ffmpeg·한국어 글꼴
+        run: |
+          sudo apt-get update -q && sudo apt-get install -yq ffmpeg fonts-noto-cjk
+          python -m pip install -q -r requirements.txt
+      - name: Remotion 패키지·타입 검사
+        working-directory: app/render-worker/remotion
+        run: npm ci --no-audit --no-fund && npm run typecheck
+      - name: 쓰는 도구의 스타·최근 릴리스·라이선스(기록용, #277)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for r in remotion-dev/remotion remotion-dev/skills airbnb/lottie-web googlefonts/noto-emoji-animation googlefonts/noto-emoji \
+                   rany2/edge-tts supertone-inc/supertonic myshell-ai/MeloTTS FunAudioLLM/CosyVoice pndurette/gTTS rive-app/rive-wasm; do
+            curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$r" | python -c "import json,sys; d=json.load(sys.stdin); print('$r', d.get('stargazers_count'), d.get('pushed_at'), (d.get('license') or {}).get('spdx_id'), d.get('archived'))"
+            curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$r/releases/latest" | python -c "import json,sys; d=json.load(sys.stdin); print('   latest release:', d.get('tag_name'), d.get('published_at'))"
+          done
+      - name: 실제 렌더 테스트
+        env:
+          PYTHONUTF8: "1"
+          DEVLOG_REMOTION: "1"
+          DEVLOG_REMOTION_TEST: "1"
+        run: python -m unittest tests.test_remotion -v
+
+  # 견본 대본 3개(samples/)를 Remotion 화면 + 실제 신경망 음성(edge-tts)으로 만들어 PR에서 내려받아 들어 볼 수 있게 올린다(#277).
+  # 음성 서버에 닿지 않으면 워커처럼 기기 음성으로 내려가므로 이 단계는 실패하지 않는다.
+  samples:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: app/render-worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: app/render-worker/remotion/package-lock.json
+      - name: ffmpeg·한국어 글꼴·음성·Remotion
+        run: |
+          sudo apt-get update -q && sudo apt-get install -yq ffmpeg fonts-noto-cjk espeak-ng
+          python -m pip install -q -r requirements.txt
+          (cd remotion && npm ci --no-audit --no-fund)
+      - name: 견본 영상 만들기
+        env:
+          PYTHONUTF8: "1"
+        run: |
+          mkdir -p out
+          for f in samples/*.json; do python -m devlog_render render "$f" "out/$(basename "$f" .json).mp4"; done
+          # 인터넷 음성이 막혔을 때 나오는 컴퓨터 안 신경망 음성(supertonic) 견본
+          python -m devlog_render --tts supertonic render samples/docker-volume.json out/docker-volume-offline-voice.mp4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shorts-samples
+          path: app/render-worker/out/*.mp4
+          retention-days: 14

@@ -64,6 +64,8 @@ export interface ShortsItem {
   postTags: string[]
   /** 직접 올린 뒤 남긴 영상 주소 */
   uploads: ShortsUpload[]
+  /** 매매 재현 영상(#265)이면 고른 체결과 차트 구간. 글 쇼츠는 null */
+  replay: TradeReplay | null
   /** 주제 묶음(#276)에서 만든 편이면 묶음 번호와 주제 번호(1부터) */
   batchId: number | null
   topic: number | null
@@ -95,6 +97,41 @@ export interface ShortsBatch {
 export interface BatchRenderResult {
   queued: number[]
   skipped: { shortsId: number; title: string; reason: string }[]
+}
+
+/** 고를 수 있는 봉. 서버 TradeReplay.Interval과 같은 이름 */
+export type ReplayInterval = '1m' | '5m' | '15m' | '1h' | '4h' | '1d'
+export const REPLAY_INTERVALS: ReplayInterval[] = ['1m', '5m', '15m', '1h', '4h', '1d']
+/** 한 영상에 담는 체결 수 (서버 TradeReplay.FILLS_MAX) */
+export const REPLAY_FILLS_MAX = 6
+
+export function intervalLabel(i: string): string {
+  const labels: Record<string, string> = {
+    '1m': t('1분봉'), '5m': t('5분봉'), '15m': t('15분봉'), '1h': t('1시간봉'), '4h': t('4시간봉'), '1d': t('일봉'),
+  }
+  return labels[i] ?? i
+}
+
+export interface TradeReplayFill {
+  tradeId: number
+  side: 'BUY' | 'SELL'
+  price: number
+  quantity: number
+  realizedPnl: number | null
+  executedAt: string
+  reason: string
+}
+
+export interface TradeReplay {
+  exchange: string
+  symbol: string
+  symbolName: string
+  currency: string
+  mode: 'PAPER' | 'LIVE'
+  interval: ReplayInterval
+  from: string
+  to: string
+  fills: TradeReplayFill[]
 }
 
 export type Platform = 'YOUTUBE' | 'INSTAGRAM' | 'TIKTOK'
@@ -194,6 +231,11 @@ export const createShorts = (body: { postId: number | null; title: string; scene
   api<ShortsItem>('/api/me/shorts', { method: 'POST', body })
 export const saveShorts = (id: number, body: { title: string; scenes: Scene[]; version: number }) =>
   api<ShortsItem>(`/api/me/shorts/${id}`, { method: 'PUT', body })
+export const createReplay = (tradeIds: number[], interval: ReplayInterval | null) =>
+  api<ShortsItem>('/api/me/shorts/replay', { method: 'POST', body: { tradeIds, interval } })
+/** 내 AI에게 보낼 부탁. AI가 get_shorts로 체결·메모를 읽고 update_shorts_script로 대본을 다시 쓴다 */
+export const replayPrompt = (id: number) =>
+  t('devlog 쇼츠 {0}번은 매매 재현 영상이에요. get_shorts로 고른 체결과 메모를 읽고, 그 시각에 매매하는 것처럼 "지금 사는 이유"를 말하는 대본으로 update_shorts_script 해 줘.', { 0: id })
 export const checkShorts = (id: number) => api<OriginalityReport>(`/api/me/shorts/${id}/check`, { method: 'POST' })
 export const renderShorts = (id: number) => api<ShortsItem>(`/api/me/shorts/${id}/render`, { method: 'POST' })
 export const deleteShorts = (id: number) => api<void>(`/api/me/shorts/${id}`, { method: 'DELETE' })
