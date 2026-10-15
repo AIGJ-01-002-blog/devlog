@@ -2888,7 +2888,6 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 .shop-card.tier-card.t9:not(.locked) { box-shadow: 0 0 0 1px var(--ta), 0 0 16px -4px var(--ta); }
 .shop-need { margin-top: 2px; }
 .shop-tabs .shop-preview { height: 120px; }
-.shop-preview > .deco-frame { padding: 6px; }
 .shop-actions .btn svg { margin-right: 4px; }
 .shop-ladder ol { list-style: none; margin: 16px 0; padding: 12px; display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 8px;
   border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); }
