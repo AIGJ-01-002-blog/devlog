@@ -1,7 +1,8 @@
-// 매매 재현 장면 (#265): 실시간 분봉 차트를 빨리감기하듯, 고정된 화면의 오른쪽 끝에서 새 캔들이 자라며 차트가 천천히 왼쪽으로 밀린다.
+// 매매 재현 장면 (#265): 거래소 차트를 줌아웃한 채 녹화해 빨리감기한 것처럼, 고정된 화면의 오른쪽 끝에서 새 캔들이 자라며 차트가 왼쪽으로 흘러간다.
 // 워커(devlog_render/replay.py의 chart_data)가 차트 전체 데이터와 이 장면이 영상에서 시작하는 프레임(startFrame)을 넘긴다.
 // head[영상 프레임]은 그 순간의 차트 위치(캔들 단위 실수)다. i번 캔들은 head가 i일 때 생기기 시작해 i+1일 때 다 그려진다.
-// 체결 장면마다 가격 눈금(segments)이 고정이라 화면은 흔들리지 않고, 장면끼리는 점프 컷으로 넘어간다.
+// 영상 전체 프레임으로 그리므로 장면이 바뀌어도 차트는 끊기지 않는다. 가격 눈금(lo~hi)과 캔들 폭은 영상 내내 고정이다.
+// 영상 첫 titleUntil 프레임은 검은 연기 바탕의 제목 카드가 덮는다.
 // 체결 순간에만 아래 가운데에 작은 자막(진입 흰색, 익절 초록, 손절 빨강)과 오른쪽 위 체결 알림이 뜬다. 끝은 화면을 어둡게 눌러 결산을 띄운다.
 import React from 'react';
 import {AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
@@ -40,9 +41,13 @@ export type ReplayData = {
   unit: string;
   visible: number;
   ahead: number;
+  lo: number;
+  hi: number;
+  minutes: number;
   subtitleFrames: number;
+  titleUntil: number;
+  title: ReplayTitleData;
   head: number[];
-  segments: {start: number; lo: number; hi: number}[];
   candles: ReplayCandle[];
   fills: ReplayFill[];
   summary: {at: number; count: string; label: string; good: boolean; period: string} | null;
@@ -91,9 +96,8 @@ export const ReplayScene: React.FC<CustomSceneProps> = ({data}) => {
   const g = local + d.startFrame; // 영상 전체 프레임
   const n = d.candles.length;
   const head = headAt(d, g);
-  // 카메라: 이 장면의 가격 눈금과 캔들 폭은 고정. 지금 캔들이 오른쪽 끝(ahead칸 앞)에 닿으면 차트가 왼쪽으로 밀린다
-  const seg = [...d.segments].reverse().find((s) => s.start <= g) ?? d.segments[0] ?? {lo: 0, hi: 1};
-  const {lo, hi} = seg;
+  // 카메라: 가격 눈금과 캔들 폭은 영상 내내 고정. 지금 캔들이 오른쪽 끝(ahead칸 앞)에 닿으면 차트가 왼쪽으로 밀린다
+  const {lo, hi} = d;
   const offset = Math.max(0, head - (d.visible - d.ahead));
   const slot = (PLOT.x1 - PLOT.x0) / d.visible;
   const cx = (i: number) => PLOT.x0 + (i + 0.5 - offset) * slot;
@@ -111,7 +115,10 @@ export const ReplayScene: React.FC<CustomSceneProps> = ({data}) => {
   const recent = fills.length > 0 ? fills[fills.length - 1] : null;
   const since = recent ? g - recent.at : Infinity;
   const ticks = niceTicks(lo, hi);
-  const times = candles.filter((c) => c.i % 15 === 0 && c.i < cur && cx(c.i) > PLOT.x0 + 30 && cx(c.i) < PLOT.x1 - 30);
+  // 시간 눈금: 화면에 다섯 개 안팎(1분봉이면 30분·1시간 간격)
+  const every = [5, 15, 30, 60, 120, 240, 480, 1440].find((m) => (d.visible * d.minutes) / m <= 6) ?? 1440;
+  const step = Math.max(1, Math.round(every / Math.max(1, d.minutes)));
+  const times = candles.filter((c) => c.i % step === 0 && c.i < cur && cx(c.i) > PLOT.x0 + 30 && cx(c.i) < PLOT.x1 - 30);
   const summaryOn = d.summary && g >= d.summary.at;
 
   return (
@@ -148,11 +155,11 @@ export const ReplayScene: React.FC<CustomSceneProps> = ({data}) => {
           {candles.map((c) => {
             const color = c.c >= c.o ? UP : DOWN;
             const top = y(Math.max(c.o, c.c));
-            const h = Math.max(3, y(Math.min(c.o, c.c)) - top);
+            const h = y(Math.min(c.o, c.c)) - top;
             return (
               <g key={c.i}>
-                <rect x={cx(c.i) - 1} y={y(c.h)} width={2} height={Math.max(2, y(c.l) - y(c.h))} fill={color} />
-                <rect x={cx(c.i) - slot * 0.36} y={top} width={slot * 0.72} height={h} rx={1.5} fill={color} />
+                <rect x={cx(c.i) - 0.75} y={y(c.h)} width={1.5} height={Math.max(1.5, y(c.l) - y(c.h))} fill={color} />
+                <rect x={cx(c.i) - Math.max(1, slot * 0.36)} y={top} width={Math.max(2, slot * 0.72)} height={Math.max(1.5, h)} fill={color} />
               </g>
             );
           })}
@@ -232,19 +239,22 @@ export const ReplayScene: React.FC<CustomSceneProps> = ({data}) => {
           </>
         );
       })()}
+      {/* 영상 첫머리: 제목 카드가 덮었다가 걷히며 흐르는 차트가 드러난다 */}
+      {g < d.titleUntil && (
+        <div style={{position: 'absolute', inset: 0, opacity: interpolate(g, [d.titleUntil - 6, d.titleUntil], [1, 0], {extrapolateLeft: 'clamp'})}}>
+          <TitleCard d={d.title} frame={g} length={d.titleUntil} />
+        </div>
+      )}
     </AbsoluteFill>
   );
 };
 
-/** 영상 첫 장면: 검은 바탕에 연기가 천천히 흐르는 제목 카드(빨간 이름표, 흰 제목) */
-export const ReplayTitle: React.FC<CustomSceneProps> = ({scene, data}) => {
-  const d = data as ReplayTitleData;
-  const frame = useCurrentFrame();
+/** 영상 첫머리 제목 카드: 검은 바탕에 연기가 천천히 흐르고 빨간 이름표·흰 제목. length 프레임 동안 아래 막대가 찬다 */
+const TitleCard: React.FC<{d: ReplayTitleData; frame: number; length: number}> = ({d, frame, length}) => {
   const {fps} = useVideoConfig();
-  const durationInFrames = Math.max(fps, scene.durationInFrames);
   const t = frame / fps;
   const s = spring({frame, fps, config: theme.motion.enter});
-  const line = interpolate(frame, [0.2 * fps, durationInFrames], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+  const line = interpolate(frame, [0.15 * fps, length], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
   return (
     <AbsoluteFill>
       <div style={{position: 'absolute', left: CARD.x, top: CARD.y, width: CARD.w, height: CARD.h, borderRadius: theme.radius.card,

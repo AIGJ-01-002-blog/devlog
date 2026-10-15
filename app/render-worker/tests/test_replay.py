@@ -86,32 +86,32 @@ class TimelineTest(unittest.TestCase):
     def replay(self, fills, cs=None, interval="5m"):
         return replay.Replay("BINANCE", "BTCUSDT", "비트코인", "USDT", "PAPER", interval, fills, cs if cs is not None else series())
 
-    def test_each_trade_scene_jumps_to_its_fill_and_grows_at_a_steady_pace(self):
+    def test_chart_flows_without_breaks_and_hits_each_fill_when_its_scene_starts(self):
         fills = [replay.Fill("BUY", 92_100, T0 + 20 * 300 + 150), replay.Fill("SELL", 92_400, T0 + 40 * 300, 3.0)]
         r = self.replay(fills)
-        starts, end = [0.0, 5.0, 11.0, 16.0], 22.0
-        segs = replay.segments(r, starts, end)
-        self.assertEqual([s.scene for s in segs], [1, 2])
+        line = replay.timeline(r, [0.0, 5.0, 11.0, 16.0], 22.0)
         # 체결은 장면이 화면에 나오고 LEAD초 뒤, 그 캔들을 그리는 중에 찍힌다
-        self.assertEqual(replay.fill_times(r, segs), [5.0 + replay.LEAD, 11.0 + replay.LEAD])
-        self.assertAlmostEqual(segs[0].head(5.0 + replay.LEAD, 60), 20.5)
-        # 장면 안에서는 일정한 속도로 자라고, 다음 장면은 그 체결 앞에서 다시 시작한다(점프 컷)
-        self.assertAlmostEqual(segs[0].head(7.0, 60) - segs[0].head(6.0, 60), replay.SPEED)
-        self.assertAlmostEqual(segs[1].begin, 40.1 - replay.LEAD * replay.SPEED)
-        # 장면이 끝나면 멈춘다(결산 장면은 멈춘 차트 위에 뜬다)
-        self.assertEqual(segs[1].head(30.0, 60), segs[1].head(16.0, 60))
+        self.assertEqual(line.fills, [5.0 + replay.LEAD, 11.0 + replay.LEAD])
+        self.assertAlmostEqual(line.head(5.0 + replay.LEAD), 20.5)
+        self.assertAlmostEqual(line.head(11.0 + replay.LEAD), 40.1)
+        # 제목 카드가 걷힐 때부터 결산 장면까지 앞으로만, 끊김 없이 흐른다
+        heads = [line.head(t / 30) for t in range(22 * 30)]
+        self.assertTrue(all(0 <= b - a < 1 for a, b in zip(heads, heads[1:])), "한 프레임에 한 캔들 넘게 튀지 않는다")
+        self.assertEqual(line.head(30.0), line.head(16.0))  # 결산 장면부터 멈춘다
 
-    def test_price_scale_is_fixed_per_scene_and_holds_what_it_shows(self):
-        r = self.replay([replay.Fill("BUY", 91_000, T0 + 30 * 300)])
-        seg = replay.segments(r, [0.0, 4.0, 10.0], 14.0)[0]
-        shown = r.candles[max(0, int(seg.begin) - replay.VISIBLE):int(seg.head(10.0, 60)) + 1]
-        self.assertLess(seg.lo, min(min(c.l for c in shown), 91_000))
-        self.assertGreater(seg.hi, max(c.h for c in shown))
+    def test_zooms_out_so_buy_and_sell_share_one_screen(self):
+        cs = series(400, 60)
+        r = self.replay([replay.Fill("BUY", 92_100, T0 + 100 * 60), replay.Fill("SELL", 92_400, T0 + 250 * 60, 3.0)], cs, "1m")
+        line = replay.timeline(r, [0.0, 5.0, 11.0, 16.0], 22.0)
+        self.assertGreaterEqual(line.visible, 150 * replay.SPAN_MARGIN)
+        # 가격 눈금은 영상 내내 하나라 보이는 캔들이 모두 들어온다
+        self.assertLess(line.lo, min(c.l for c in cs[100:260]))
+        self.assertGreater(line.hi, max(c.h for c in cs[100:260]))
 
     def test_more_fills_than_scenes_stay_in_order(self):
         fills = [replay.Fill("BUY", 92_000, T0 + k * 600) for k in range(5, 10)]
         r = self.replay(fills)
-        times = replay.fill_times(r, replay.segments(r, [0.0, 4.0, 8.0], 12.0))
+        times = replay.timeline(r, [0.0, 4.0, 8.0], 12.0).fills
         self.assertEqual(times, sorted(times))
         self.assertLessEqual(times[-1], 12.0)
 
@@ -169,13 +169,14 @@ class ReplayRenderTest(unittest.TestCase):
             out = Path(tmp) / "r.mp4"
             ms = r.render(Script.from_job(self.job()), out)
             self.assertGreater(ms, 2000)
-        # 서버가 5분봉으로 정한 다섯 시간을 1분봉으로 빨리감기한다
-        self.assertEqual(asked, [("BINANCE", "BTCUSDT", "1m", T0, T0 + 60 * 300)])
+        # 서버가 5분봉으로 정한 다섯 시간을 1분봉으로, 화면 왼쪽을 채울 앞 HISTORY개와 함께 받는다
+        self.assertEqual(asked, [("BINANCE", "BTCUSDT", "1m", T0 - replay.HISTORY * 60, T0 + 60 * 300)])
         scenes = _fake_remotion.props["scenes"]
-        # 첫 장면은 제목 카드, 나머지 대본 장면은 차트 장면(점프 컷), 맨 끝에 말 없는 고지 카드 한 장
-        self.assertEqual([s["custom"]["kind"] for s in scenes], ["replay-title"] + ["replay"] * 3 + ["replay-card"])
-        self.assertEqual([s["cut"] for s in scenes], [False, True, True, True, False])
-        self.assertEqual(scenes[0]["custom"]["data"]["title"], "왜 샀을까요?")
+        # 대본 장면은 모두 끊김 없이 이어지는 차트 장면(첫머리는 제목 카드), 맨 끝에 말 없는 고지 카드 한 장
+        self.assertEqual([s["custom"]["kind"] for s in scenes], ["replay"] * 4 + ["replay-card"])
+        self.assertEqual([s["cut"] for s in scenes], [True, True, True, True, False])
+        self.assertEqual(scenes[0]["custom"]["data"]["title"]["title"], "왜 샀을까요?")
+        self.assertEqual(scenes[0]["custom"]["data"]["titleUntil"], round(replay.TITLE * FPS))
         self.assertTrue(all(s["caption"] == "" for s in scenes[:4]), "큰 요점 자막 대신 차트 안 체결 자막을 쓴다")
         # 거래 하나는 말이 짧아도 MIN_TRADE초는 보여 준다
         self.assertGreaterEqual(scenes[1]["durationInFrames"], round((replay.MIN_TRADE + TRANSITION) * FPS))
@@ -183,7 +184,7 @@ class ReplayRenderTest(unittest.TestCase):
         self.assertEqual(scenes[-1]["pages"], [])
         self.assertLess(scenes[-1]["durationInFrames"], 2 * FPS)
         chart = scenes[1]["custom"]["data"]
-        self.assertEqual(len(chart["candles"]), 300)
+        self.assertEqual(len(chart["candles"]), 300 + replay.HISTORY)
         self.assertIn("1분봉", chart["header"])
         self.assertGreater(len(chart["head"]), chart["fills"][-1]["at"])  # 프레임마다 차트 위치
         self.assertEqual([f["side"] for f in chart["fills"]], ["BUY", "SELL"])

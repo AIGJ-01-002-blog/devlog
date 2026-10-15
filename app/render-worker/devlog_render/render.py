@@ -268,7 +268,7 @@ class Renderer:
                 music = {}
                 if chart is not None:  # 배경음은 제목 카드가 끝나면 들어오고 결산 화면부터 작아진다
                     soft = replay.result_scene(chart, [t.start for t in timings[:-1]])
-                    music = {"music_at": timings[1].start if len(timings) > 1 else 0.0,
+                    music = {"music_at": replay.TITLE,
                              "music_soft": timings[soft].start if soft is not None else timings[-1].start}
                 self._join(work, [video], audios, timings, total, joined, effects, joined_video=True, upbeat=chart is not None, **music)
             else:
@@ -301,27 +301,24 @@ class Renderer:
             play = replay.play_interval(start, end)
             if play != chart.interval:
                 try:
-                    chart.candles = self.fetch_candles(chart.exchange, chart.symbol, play, start, end)
+                    chart.candles = self.fetch_candles(chart.exchange, chart.symbol, play, replay.history_start(start, end, play), end)
                     chart.interval = play
                     return chart
                 except candles.CandleError as e:
                     log.warning("%s 캔들을 받지 못해 %s로 그려요: %s", play, chart.interval, e)
-            chart.candles = self.fetch_candles(chart.exchange, chart.symbol, chart.interval, start, end)
+            chart.candles = self.fetch_candles(chart.exchange, chart.symbol, chart.interval, replay.history_start(start, end, chart.interval), end)
         return chart
 
     @staticmethod
     def _attach_replay(script: Script, chart: replay.Replay, timings: list[Timing]) -> None:
-        """대본 장면마다 Remotion 매매 재현 장면을 붙이고 체결 효과음을 얹는다. 0번은 제목 카드, 마지막 장면은 고지 카드다.
-        차트 시계는 장면이 화면에 나오기 시작한 시각(Timing.start)을 쓴다. 차트 장면끼리는 전환 없이 점프 컷으로 넘어간다.
+        """대본 장면마다 Remotion 매매 재현 장면을 붙이고 체결 효과음을 얹는다. 0번 장면 첫머리는 제목 카드, 마지막 장면은 고지 카드다.
+        차트는 영상 전체 프레임으로 그려 장면이 바뀌어도 끊김 없이 이어진다(장면 사이는 전환 없이 붙인다).
         큰 요점 자막은 쓰지 않는다(체결 자막은 차트 안에 작게 뜬다)."""
         body = timings[:-1]
         starts = [t.start for t in body]
         end = body[-1].start + body[-1].length
-        data = replay.chart_data(chart, starts, end, FPS)
-        first = script.scenes[0]
-        first.custom = {"kind": "replay-title", "data": replay.title_data(chart, first.caption.strip() or script.title)}
-        first.caption = ""
-        for i, t in enumerate(body[1:], start=1):
+        data = replay.chart_data(chart, starts, end, FPS, script.scenes[0].caption.strip() or script.title)
+        for i, t in enumerate(body):
             script.scenes[i].custom = {"kind": "replay", "cut": True, "data": {**data, "startFrame": round(t.start * FPS)}}
             script.scenes[i].caption = ""
         for scene, at, kind, volume in trade_sfx.per_scene(replay.cues(chart, starts, end), starts):
