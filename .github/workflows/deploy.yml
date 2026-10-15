@@ -67,6 +67,12 @@ jobs:
           curl -sSL "https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" | sudo tar xz -C /usr/local/bin kubeconform
       - name: 비밀값이 커밋되지 않았는지 확인
         run: deploy/scripts/check-no-secrets.sh
+      - name: 바깥에 열리는 환경에서 개발용 로그인이 꺼져 있는지 확인
+        run: |
+          # 개발용 로그인은 비밀번호 없이 아무 계정으로 들어간다. 로컬(overlays/local) 말고는 켜지 않는다 (spec 092 FR-008)
+          if grep -nE '^DEV_LOGIN_ENABLED=(true|TRUE|True|1|yes|on)' deploy/k8s/overlays/{nhn,selfhosted,staging}/app.env; then
+            echo "::error::개발용 로그인(DEV_LOGIN_ENABLED)은 local overlay에서만 켤 수 있습니다"; exit 1
+          fi
       - name: kustomize 빌드 + 스키마 검사
         run: |
           # secret.env는 커밋하지 않으므로 예시 파일로 빌드만 확인한다
