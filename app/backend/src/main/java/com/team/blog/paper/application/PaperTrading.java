@@ -291,7 +291,8 @@ public class PaperTrading implements BotCredits {
 
     @Override
     public long invest(long memberId) {
-        points.ensureWelcome(memberId);
+        // 가입 지급을 봇 바퀴 트랜잭션 밖에서 먼저 끝낸다. 그래야 따로 끝내는 봇 주문(botTx)이 그 지급을 읽는다
+        botTx.executeWithoutResult(st -> points.ensureWelcome(memberId));
         return points.balance(memberId).invest();
     }
 
@@ -319,7 +320,7 @@ public class PaperTrading implements BotCredits {
     private Optional<BotCredits.Filled> botOrder(long memberId, Order in) {
         if (!enabled()) return Optional.empty();
         try {
-            points.ensureWelcome(memberId);
+            botTx.executeWithoutResult(st -> points.ensureWelcome(memberId));
             Valid base = validate(in);
             Valid v = new Valid(base.orderId(), base.coin(), base.side(), base.amount(), base.quantity(), base.all(), false, base.reason(), BOT_STRATEGY);
             if (ordered(memberId, v.orderId())) return done(memberId, v.orderId());
