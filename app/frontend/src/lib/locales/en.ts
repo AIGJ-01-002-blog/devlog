@@ -1461,6 +1461,7 @@ export const en: Record<string, string> = {
   "검사 통과": "Check passed",
   "검사를 통과하면 렌더 워커 대기열에 넣어요": "If the check passes, it joins the render queue",
   "경고": "Warning",
+  "다른 글 고르기": "Pick another post",
   "글 없이 쓰기": "Write without a post",
   "글 하나를 골라 새 대본 만들기": "Pick a post and start a new script",
   "글로 쇼츠 대본을 쓰고 영상 만들기": "Write Shorts scripts from posts and make videos",
