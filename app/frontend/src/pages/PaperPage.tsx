@@ -13,7 +13,7 @@ const REFRESH_MS = 10_000
 const QUICK = [10, 25, 50, 100]
 
 /**
- * 포인트 모의투자 (#267). 업비트 원화 시장 시세로 BTC·ETH·XRP·SOL·DOGE를 포인트로 사고판다(시장가·현물).
+ * 포인트 모의투자 (#267). 원화 시장 시세(코빗, v2.1.3부터)로 BTC·ETH·XRP·SOL·DOGE를 포인트로 사고판다(시장가·현물).
  * 투자 전용 포인트를 먼저 쓰고, 고르면 크레딧도 쓴다. 체결은 매매 일지에 모의투자로 남는다.
  * 상승·이익은 초록, 하락·손해는 빨강(바이낸스와 같은 색)이고 +·- 기호를 같이 붙인다.
  */
@@ -119,7 +119,7 @@ export function PaperPage() {
         <h1 className="page-title">{t('포인트 모의투자')}</h1>
         <Link to="/points" className="btn btn-outline btn-small" data-tip={t('출석하고 포인트 잔액과 내역 보기')}>{t('내 포인트')}</Link>
       </div>
-      <p className="muted small points-notice">{t('업비트 원화 시세로 비트코인·이더리움·리플·솔라나·도지코인을 포인트로 사고팔아요. 체결은 매매 일지에 모의투자로 남고, 수익은 모두 크레딧으로 쌓여요.')}</p>
+      <p className="muted small points-notice">{t('코빗 원화 시세로 비트코인·이더리움·리플·솔라나·도지코인을 포인트로 사고팔아요. 체결은 매매 일지에 모의투자로 남고, 수익은 모두 크레딧으로 쌓여요.')}</p>
       {error && <p className="error" role="alert">{t('모의투자를 불러오지 못했어요.')}</p>}
       {!state && !error && <p className="muted center">{t('불러오는 중…')}</p>}
       {state && (
@@ -147,7 +147,7 @@ export function PaperPage() {
             <section className="paper-market" aria-label={t('시세')}>
               <div className="shop-head">
                 <h2>{t('시세')}</h2>
-                <button type="button" className="btn btn-text btn-small" onClick={() => void refresh()} data-tip={t('업비트 시세를 다시 받아요. 10초마다 저절로 바뀌어요')}>{t('새로 고침')}</button>
+                <button type="button" className="btn btn-text btn-small" onClick={() => void refresh()} data-tip={t('코빗 시세를 다시 받아요. 10초마다 저절로 바뀌어요')}>{t('새로 고침')}</button>
               </div>
               <ul className="paper-coins" role="listbox" aria-label={t('코인 고르기')}>
                 {state.quotes.map((q) => (
