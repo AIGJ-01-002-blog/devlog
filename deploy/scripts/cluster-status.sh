@@ -35,6 +35,21 @@ for pod in $(k -n blog get pods -l app.kubernetes.io/name=blog-app -o name); do
     | grep -A12 "처리하지 못한 오류" | grep -vE "^\s+at (org\.springframework|org\.apache|jakarta|java\.base|io\.micrometer)" \
     | sed -E 's/dvl_[A-Za-z0-9_-]+/dvl_***/g' | tail -45 || true
 done
+# 포인트 모의투자·서버 모의 봇이 업비트 공개 시세를 받지 못할 때 본다
+echo "== 앱 로그의 업비트 시세 줄 (파드별, 최근 10줄)"
+for pod in $(k -n blog get pods -l app.kubernetes.io/name=blog-app -o name); do
+  echo "-- $pod"
+  k -n blog logs "$pod" --all-containers --tail=20000 2>&1 | grep -E "업비트|[Uu]pbit" | tail -10 || true
+done
+echo "== 업비트 공개 시세 접속 (서버, 앱 파드)"
+for url in "https://api.upbit.com/v1/ticker?markets=KRW-BTC" "https://api.bithumb.com/v1/ticker?markets=KRW-BTC" \
+           "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT" "https://data-api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT" \
+           "https://api.coinone.co.kr/public/v2/ticker_new/KRW/BTC" "https://api.korbit.co.kr/v2/tickers?symbol=btc_krw"; do
+  curl -s -o /dev/null -m 8 -w "server: HTTP %{http_code} ${url%%\?*}\n" "$url" 2>&1 || echo "server: 실패 ${url%%\?*}"
+done
+for url in "https://api.korbit.co.kr/v2/tickers?symbol=btc_krw" "https://api.upbit.com/v1/ticker?markets=KRW-BTC"; do
+  k -n blog exec deploy/blog-app -c app -- sh -c "command -v wget >/dev/null || { echo 'pod: wget 없음'; exit 0; }; wget -q -O /dev/null -T 8 '$url' && echo 'pod: 성공 ${url%%\?*}' || echo 'pod: 실패 ${url%%\?*}'" 2>&1 | tail -1 || true
+done
 # 조회문은 표준 입력으로 넘긴다(따옴표가 겹치지 않게). 공개 조건은 PostAccessPolicy.PUBLIC_LIST_CONDITION과 같다
 psql_read() {
   docker exec -i "$NODE" kubectl -n blog exec -i statefulset/postgres -- \
