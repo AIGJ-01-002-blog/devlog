@@ -415,7 +415,7 @@ public class ShortsService {
 
     private static List<Scene> scenes(List<Scene> raw) {
         if (raw == null) return List.of();
-        return raw.stream().map(s -> s == null ? new Scene("", "", null) : new Scene(s.caption(), s.narration(), s.code(), s.image(), s.visual(), s.effects())).toList();
+        return raw.stream().map(s -> s == null ? new Scene("", "", null) : new Scene(s.caption(), s.narration(), s.code(), s.image(), s.visual(), s.effects(), s.diagram())).toList();
     }
 
     /**

@@ -40,7 +40,16 @@ public final class ShortsScript {
      * image: 장면 배경으로 깔 글 그림 (선택, #277 렌더 워커). devlog에 올린 그림 주소나 "/"로 시작하는 사이트 경로만 받는다.
      * visual: 장면 연출 이름 (선택, VISUALS). effects: 장면 안 효과음 (선택, EFFECTS_MAX개까지). 워커에는 작업 단위 effects[]로 펼쳐 보낸다.
      */
-    public record Scene(String caption, String narration, String code, String image, String visual, List<Effect> effects) {
+    /** 설명 도식(#277 렌더 워커 diagram.py): flow·stack·steps·compare. 칸 수 상한과 이름표 길이 */
+    public static final List<String> DIAGRAM_TYPES = List.of("flow", "stack", "steps", "compare");
+    static final java.util.Map<String, Integer> DIAGRAM_ITEMS_MAX = java.util.Map.of("flow", 4, "stack", 5, "steps", 5, "compare", 4);
+    public static final int DIAGRAM_LABEL_MAX = 20;
+
+    /**
+     * diagram: CS 개념을 풀어 줄 설명 도식 (선택). 워커에 그대로 넘긴다. 예 {"type":"flow","items":["브라우저","서버",{"label":"DB","icon":"database"}]}
+     */
+    public record Scene(String caption, String narration, String code, String image, String visual, List<Effect> effects,
+                        java.util.Map<String, Object> diagram) {
         public Scene {
             caption = TextCleaner.cleanLine(caption);
             narration = TextCleaner.cleanLine(narration);
@@ -51,7 +60,7 @@ public final class ShortsScript {
         }
 
         public Scene(String caption, String narration, String code) {
-            this(caption, narration, code, null, null, null);
+            this(caption, narration, code, null, null, null, null);
         }
     }
 
@@ -77,6 +86,8 @@ public final class ShortsScript {
                 errors.add(new FieldErrorItem(at + "visual", "INVALID", (i + 1) + "번 장면 연출은 " + String.join("·", VISUALS) + " 중 하나예요."));
             }
             if (s.effects().size() > EFFECTS_MAX) errors.add(new FieldErrorItem(at + "effects", "TOO_MANY", (i + 1) + "번 장면 효과음은 " + EFFECTS_MAX + "개까지예요."));
+            String diagramError = diagramError(s.diagram());
+            if (diagramError != null) errors.add(new FieldErrorItem(at + "diagram", "INVALID", (i + 1) + "번 장면 설명 그림: " + diagramError));
             for (Effect e : s.effects()) {
                 if (!SOUNDS.contains(e.sound()) || e.at() < 0 || e.at() > SECONDS_MAX || (e.volume() != null && (e.volume() < 0 || e.volume() > 1))) {
                     errors.add(new FieldErrorItem(at + "effects", "INVALID", (i + 1) + "번 장면 효과음은 " + String.join("·", SOUNDS)
@@ -102,6 +113,42 @@ public final class ShortsScript {
             errors.add(new FieldErrorItem("scenes", "TOO_LONG", "예상 길이가 " + Math.round(seconds) + "초예요. " + SECONDS_MAX + "초 안으로 줄여 주세요."));
         }
         return errors;
+    }
+
+    /** 워커가 그릴 수 있는 모양인지만 본다(type·칸 수·이름표). 아이콘·메모 같은 나머지는 워커가 다듬는다. 맞으면 null */
+    static String diagramError(java.util.Map<String, Object> d) {
+        if (d == null) return null;
+        Object type = d.get("type");
+        if (!(type instanceof String t) || !DIAGRAM_TYPES.contains(t)) return "type은 " + String.join("·", DIAGRAM_TYPES) + " 중 하나예요.";
+        int max = DIAGRAM_ITEMS_MAX.get(t);
+        if (t.equals("compare")) {
+            for (String side : List.of("left", "right")) {
+                if (!(d.get(side) instanceof java.util.Map<?, ?> m) || !validLabel(m.get("title"))) return "compare는 left·right에 title과 items가 있어야 해요.";
+                String e = itemsError(m.get("items"), 1, max);
+                if (e != null) return e;
+            }
+            return null;
+        }
+        String e = itemsError(d.get("items"), 2, max);
+        if (e != null) return e;
+        if (t.equals("stack") && d.get("highlight") != null) {
+            int n = ((List<?>) d.get("items")).size();
+            if (!(d.get("highlight") instanceof Integer h) || h < 0 || h >= n) return "highlight는 0부터 센 칸 번호예요.";
+        }
+        return null;
+    }
+
+    private static String itemsError(Object raw, int min, int max) {
+        if (!(raw instanceof List<?> items) || items.size() < min || items.size() > max) return "칸은 " + min + "~" + max + "개예요.";
+        for (Object it : items) {
+            Object label = it instanceof java.util.Map<?, ?> m ? m.get("label") : it;
+            if (!validLabel(label)) return "이름표는 1~" + DIAGRAM_LABEL_MAX + "자예요.";
+        }
+        return null;
+    }
+
+    private static boolean validLabel(Object label) {
+        return label instanceof String l && !l.isBlank() && l.strip().length() <= DIAGRAM_LABEL_MAX;
     }
 
     public static double estimateSeconds(List<Scene> scenes) {

@@ -38,12 +38,14 @@ class ShortsTools {
                 "effects":{"type":"array","maxItems":3,"description":"장면 안 효과음 (선택, 꼭 필요한 곳에만)","items":{"type":"object","properties":{
                   "sound":{"type":"string","enum":["pop","ding","whoosh","boing","tick","typing"]},
                   "at":{"type":"number","description":"장면이 시작하고 몇 초 뒤"},
-                  "volume":{"type":"number","description":"0~1 (선택)"}},"required":["sound","at"]}}},
+                  "volume":{"type":"number","description":"0~1 (선택)"}},"required":["sound","at"]}},
+                "diagram":{"type":"object","description":"CS 개념을 풀어 줄 설명 도식 (선택). type은 flow(왼쪽→오른쪽 흐름, 칸 4개까지)·stack(위→아래 층, 5개까지, highlight는 0부터 센 강조 층)·steps(순서, 5개까지)·compare(left·right에 {title, items} 4개까지). 칸은 문자열이나 {label, icon, note}, 이름표는 20자까지. 칸은 내레이션이 이름표 첫 낱말을 말할 때 나타나니 내레이션에 이름표 말을 넣는다. 예 {'type':'flow','items':['브라우저','서버',{'label':'DB','icon':'database','note':'디스크'}]}"}},
               "required":["caption","narration"]}}""";
 
     static final String GUIDE = "양산형으로 보이지 않게: 원본 글 문장을 그대로 읽지 말고 말로 풀어 쓴다. 첫 장면은 시청자가 겪는 문제나 질문으로 시작한다. "
             + "사용자가 직접 겪은 일과 결과(숫자)를 한 장면 이상 넣는다. 장면마다 새 정보(원인·시도·결과·배운 점)를 하나씩 넣고 같은 말로 시작하지 않는다. "
-            + "글에 없는 경험이나 수치를 지어내지 않는다. 장면마다 내용에 맞는 visual(연출)을 고르고, 효과음(effects)은 강조할 순간에만 넣는다.";
+            + "글에 없는 경험이나 수치를 지어내지 않는다. 장면마다 내용에 맞는 visual(연출)을 고르고, 효과음(effects)은 강조할 순간에만 넣는다. "
+            + "CS 개념을 설명하는 장면은 diagram으로 도식(흐름·층·순서·비교)을 주어 그림으로 쉽게 푼다.";
 
     /** 매매 재현 대본(#265) 다시 쓰기 안내. 장면 순서가 영상의 차트 진행과 맞물린다 */
     static final String REPLAY_GUIDE = "매매 재현 영상이에요. 차트는 장면 순서대로 흘러가요: 1번 장면에서 체결 전 흐름을 보여 주고, 2번 장면부터 체결 하나에 장면 하나씩 "
@@ -273,10 +275,19 @@ class ShortsTools {
                         e.path("volume").isNumber() ? e.path("volume").asDouble() : null));
             }
             out.add(new ShortsScript.Scene(text(n, "caption"), text(n, "narration"), n.has("code") ? text(n, "code") : null,
-                    n.has("image") ? text(n, "image") : null, visual, effects));
+                    n.has("image") ? text(n, "image") : null, visual, effects, diagram(n.path("diagram"))));
         }
         return out;
     }
+
+    /** 설명 도식은 모양 검사(ShortsScript)만 하고 그대로 워커에 넘긴다. 객체가 아닌 값은 빈 도식으로 넘겨 검사에서 거절되게 한다 */
+    @SuppressWarnings("unchecked")
+    private static java.util.Map<String, Object> diagram(JsonNode n) {
+        if (n.isMissingNode() || n.isNull()) return null;
+        return n.isObject() ? DIAGRAM_JSON.convertValue(n, java.util.Map.class) : java.util.Map.of();
+    }
+
+    private static final tools.jackson.databind.json.JsonMapper DIAGRAM_JSON = tools.jackson.databind.json.JsonMapper.builder().build();
 
     private static String text(JsonNode a, String field) {
         JsonNode n = a.path(field);

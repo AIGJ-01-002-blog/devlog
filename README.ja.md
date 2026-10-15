@@ -131,7 +131,7 @@ AI の利用に同意していれば AI がタイトルを付けて文章を整�
 
 ### 反応とつながり
 
-- **いいね・コメント・返信**：いいねは押した瞬間に反映し、コメントは 1 段階の返信まで。いいねした記事は別の一覧で見られます。
+- **いいね・コメント・返信**：いいねは押した瞬間に反映し、返信にさらに返信でき、続く返信は Git のブランチのように線でつなぎます。返信が 5 件以下なら「もっと見る」なしで全部表示します。いいねした記事は別の一覧で見られます。
 - **閲覧数**：同じ人が同じ記事を見た場合は 24 時間に 1 回だけ数えます。元の IP アドレスはどこにも保存しません。
 - **フォローとフィード**：`/feed` にはフォローしている人の全体公開の記事だけが並びます。
 - **友だち**：友だち申請と承認、友だちの最近の活動、友だちのみの記事。
@@ -144,6 +144,15 @@ AI の利用に同意していれば AI がタイトルを付けて文章を整�
 - **通報・非表示・停止**：記事とコメントの通報（理由 6 種類）、管理者向けの通報処理画面、1 日から無期限までの利用停止。
 - **退会と復旧**：30 日の猶予期間中にログインすればアカウントを復旧できます。その後は毎日 1 人ずつ、1 つのトランザクションで削除します。
 
+### 作って残す
+
+- **ショート動画スタジオ**：自分の AI が MCP で書いたショート動画の台本を、シーン（字幕・読み上げ文・コード）ごとに整えます。［動画を作る］を押すと、自分のパソコンのレンダーワーカーが 9:16 の MP4 にしてアップロードします。作る前に量産型チェックで、ほかの台本との重複や記事の丸写しを防ぎます。
+- **投稿ガイド**：YouTube Shorts・Instagram Reels・TikTok ごとにタイトル・説明・固定コメントをコピーボタン付きで表示し、投稿手順を案内します。自動投稿はなく、投稿後に動画の URL を記録します。
+- **マイダッシュボード**：自分の記事の閲覧数・いいね・受け取ったコメントを 7・30・90 日で見て、前の期間と比べます。よく読まれた記事とショート動画の状況も 1 画面にまとめます。
+- **売買日誌**：自宅パソコンの売買ボットが MCP で記録した約定を日ごとの損益で見て、その日のメモから要約の下書きとショート動画の台本を作ります。devlog は注文を出しません。
+- **AI 記録の根拠リンク**：AI が開発日誌や日記メモにコミット・PR・Issue の URL を添えると、記事末尾の `## 근거`（根拠）と日記の段落の下にリンクとして付きます。
+- **自宅パソコンへの移行**：DB とファイルストレージを 1 つのフォルダーに取得し、Windows・Mac の Docker で同じブログを復元するバックアップ・復元スクリプト（`deploy/home/`）。
+
 ## アーキテクチャ
 
 devlog は **モジュラーモノリス** です。1 つの Spring Boot アプリが React の画面（静的ファイル）と API を両方返し、機能はパッケージ単位のモジュールに分けています。モジュール同士はドメインイベント（例：いいねが付く → 通知）でゆるくつながります。設計の根拠は [docs/02-architecture.md](https://github.com/AIGJ-01-002-blog/docs/blob/main/design/02-architecture.md)（韓国語）にあります。
@@ -154,7 +163,7 @@ flowchart LR
     T[Telegram] -->|Bot API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>複数 Pod]
     I -->|/blog-images| M[(MinIO / S3<br/>画像・添付)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V43)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V47)]
     A --> R[(Redis<br/>セッション・レート制限・閲覧数・キャッシュ)]
     A --> M
     A -.任意.-> G[Google Gemini]
@@ -179,6 +188,9 @@ flowchart LR
 | **telegram** | アカウント連携、通知の送信、メモ → 下書き | PostgreSQL |
 | **moderation** | 通報、非表示、利用停止、管理画面 | PostgreSQL |
 | **admin** | 管理者ダッシュボード、記事・会員管理（各モジュールの集計を組み立て、SQLなし） | - |
+| **shorts** | ショート動画の台本、量産型チェック、レンダー待ち行列、投稿記録 | PostgreSQL、MinIO/S3（動画） |
+| **trade · dashboard** | 売買日誌、自分の記事・ショート動画の成果ダッシュボード | PostgreSQL |
+| **mcp** | AI 連携（MCP）ツール：下書き・メモ・根拠リンク・ショート動画の台本 | PostgreSQL |
 | **shared** | Markdown のレンダリングと HTML サニタイズ、レート制限、定期ジョブのロック、エラー形式、メール | Redis |
 
 ### リクエストの流れ
@@ -246,11 +258,12 @@ GitHub Actions でテストし、イメージを作って GHCR に上げたあ�
 
 | パス | 説明 |
 | --- | --- |
-| [app/backend](app/backend) | バックエンド：Spring Boot 4.1、Java 21。機能モジュール、Flyway マイグレーション（V1~V43）、テスト |
+| [app/backend](app/backend) | バックエンド：Spring Boot 4.1、Java 21。機能モジュール、Flyway マイグレーション（V1~V47）、テスト |
 | [app/frontend](app/frontend) | フロントエンド：React 19 SPA、TypeScript、Vite。画面、自動保存（IndexedDB）、ダークモード |
 | [deploy](deploy) | デプロイ：Dockerfile、Kubernetes マニフェスト（base・selfhosted・nhn・local）、デプロイ・ロールバック・シークレット検査のスクリプト |
+| [app/render-worker](app/render-worker) | ショート動画のレンダーワーカー：Python 3.10、ffmpeg。自分のパソコンで待ち行列の台本を 9:16 の MP4 にしてアップロードします |
 | [.github](.github) | CI/CD：バックエンドと画面のテスト、イメージのビルドとデプロイ、リリース、Discord・Telegram 通知 |
-| [specs](specs) | 機能仕様：[GitHub Spec Kit](https://github.com/github/spec-kit) の流れに沿った機能ごとの spec・plan・tasks（001~044） |
+| [specs](specs) | 機能仕様：[GitHub Spec Kit](https://github.com/github/spec-kit) の流れに沿った機能ごとの spec・plan・tasks（001~100） |
 | [docs](https://github.com/AIGJ-01-002-blog/docs) | 設計ドキュメント：共通要件、アーキテクチャ、統合 ERD、機能別設計、権限表 |
 | [erd](erd) · [scripts](scripts) | 基準スキーマとその動作テスト、設計検証スクリプトとレポート |
 
@@ -326,7 +339,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub・Google・カカオ・NAVER・Facebook ログイン、セッション、CSRF、パスごとの権限 |
 | Spring Data JPA (Hibernate) | Boot 4.1 | ドメイン全体 | 会員・記事・コメントなどドメインデータの保存 |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | セッション、レート制限、閲覧数、キャッシュ | 複数の Pod が同じセッションを共有し、同時リクエストも Redis スクリプト 1 つで判定します |
-| Flyway | Boot 4.1 | DB | スキーマを V1~V43 のマイグレーションで管理し、起動時に適用します |
+| Flyway | Boot 4.1 | DB | スキーマを V1~V47 のマイグレーションで管理し、起動時に適用します |
 | commonmark-java (+ GFM 拡張) | 0.30.0 | 本文のレンダリング | Markdown → HTML。表・取り消し線・チェックリスト・自動リンク・見出しアンカー |
 | OWASP Java HTML Sanitizer | 20260924.2 | 本文のサニタイズ | レンダリングした HTML を許可リストでサニタイズし XSS を防ぎます |
 | AWS SDK for Java (S3) | 2.55.12 | media | MinIO・S3 に画像と添付をアップロードします |
@@ -350,6 +363,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 | PostgreSQL 16 · 17 | ローカル · クラスター | サービス DB。検索に `pg_trgm` と `pgvector` があれば使います |
 | Redis 7 · 7.4 | ローカル · クラスター | セッション、レート制限、閲覧数の集計、レンダリングキャッシュ、自動保存、定期ジョブのロック |
 | MinIO | クラスター | 画像・添付の保存（S3 互換）。初回デプロイ時にバケットを作り、公開は取得のみにします |
+| Python 3.10 · ffmpeg | レンダーワーカー（自分のパソコン） | ショート動画の作成。音声は端末内の音声（Mac の `say`、Windows の標準音声）だけを使うので費用がかかりません |
 | Docker · GHCR | イメージ | 画面をビルドしてバックエンドに入れ、1 つのイメージにします。root 以外のユーザーで実行します |
 | Kubernetes · kustomize | デプロイ | Deployment・HPA・PDB・NetworkPolicy、オーバーレイ 3 種（selfhosted・nhn・local） |
 | nginx Ingress | 前段 | TLS とパスごとの振り分け（`/blog-images` は MinIO へ） |
@@ -360,10 +374,10 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | 技術 | 使う場所 | 役割 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | バックエンド | 単体・結合テスト 572 件（v1.64.2 時点） |
+| JUnit 5 · Spring Boot Test · Spring Security Test | バックエンド | 単体・結合テスト 665 件（v2.0.0 時点） |
 | Testcontainers (PostgreSQL) | バックエンド | 本物の PostgreSQL でマイグレーション・クエリ・並行処理を検証します |
 | JaCoCo | バックエンド | 行カバレッジ 40% の基準を CI で確認します |
-| Vitest · Testing Library · jsdom | フロントエンド | 画面とロジックのテスト 312 件（v1.64.2 時点） |
+| Vitest · Testing Library · jsdom | フロントエンド | 画面とロジックのテスト 375 件（v2.0.0 時点） |
 | fake-indexeddb | フロントエンド | オフライン自動保存のテスト |
 
 ## リリース

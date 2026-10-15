@@ -34,6 +34,8 @@ export interface Scene {
   visual?: SceneVisual | null
   /** 장면 안 효과음 (선택, 연결한 AI가 넣음. 편집기는 그대로 보존) */
   effects?: { sound: string; at: number; volume?: number | null }[]
+  /** 설명 도식 (선택, 연결한 AI가 넣음: flow·stack·steps·compare). 편집기는 그대로 보존 */
+  diagram?: { type: string; [key: string]: unknown } | null
 }
 
 export const SCENE_VISUALS = ['explain', 'shock', 'typing', 'panic', 'restore', 'wait', 'fast', 'idea', 'protect', 'think', 'celebrate'] as const
