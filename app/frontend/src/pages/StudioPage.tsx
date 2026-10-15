@@ -295,12 +295,13 @@ function Editor({ item, onChange, onReload, onDeleted }: {
   onDeleted: () => void
 }) {
   const [title, setTitle] = useState(item.title)
+  const [character, setCharacter] = useState<string>(item.character ?? '')
   const [scenes, setScenes] = useState<Scene[]>(item.scenes.length ? item.scenes : [emptyScene()])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [report, setReport] = useState<OriginalityReport | null>(null)
   const [working, setWorking] = useState(false)
   const busy = isBusy(item.status)
-  const dirty = title !== item.title || JSON.stringify(scenes) !== JSON.stringify(item.scenes)
+  const dirty = title !== item.title || character !== (item.character ?? '') || JSON.stringify(scenes) !== JSON.stringify(item.scenes)
   const seconds = estimateSeconds(scenes)
   const problems = renderProblems(title, scenes)
 
@@ -328,7 +329,7 @@ function Editor({ item, onChange, onReload, onDeleted }: {
     }
   }
   const save = async (): Promise<ShortsItem> => {
-    const saved = await saveShorts(item.id, { title, scenes: scenes.map((s) => ({ ...s, code: s.code?.trim() ? s.code : null, image: s.image?.trim() ? s.image.trim() : null })), version: item.version })
+    const saved = await saveShorts(item.id, { title, scenes: scenes.map((s) => ({ ...s, code: s.code?.trim() ? s.code : null, image: s.image?.trim() ? s.image.trim() : null })), version: item.version, character })
     onChange(saved)
     return saved
   }
@@ -379,6 +380,19 @@ function Editor({ item, onChange, onReload, onDeleted }: {
           <input id="studio-title" value={title} maxLength={LIMITS.title} onChange={(e) => setTitle(e.target.value)} />
           {errors.title && <span className="error">{errors.title}</span>}
         </div>
+        {!item.replay && (
+          <div className="field">
+            <label htmlFor="studio-character">{t('캐릭터')}</label>
+            <select id="studio-character" value={character} data-tip={t('영상에서 상황을 연기할 캐릭터예요.')} onChange={(e) => setCharacter(e.target.value)}>
+              <option value="">{t('기본 (로그냥)')}</option>
+              <option value="lognyang">{t('로그냥 (후드 입은 고양이)')}</option>
+              <option value="logduck">{t('로그덕 (스카프 맨 오리)')}</option>
+              <option value="dubu">{t('두부 (흰 강아지)')}</option>
+              <option value="cat">{t('이모지 고양이')}</option>
+            </select>
+            {errors.character && <span className="error">{errors.character}</span>}
+          </div>
+        )}
 
         <ol className="studio-scenes">
           {scenes.map((s, i) => (

@@ -275,7 +275,7 @@ public class McpTools {
                       "batch_id":{"type":"integer","description":"plan_shorts로 만든 묶음 번호"},
                       "topic":{"type":"integer","minimum":1,"maximum":5,"description":"묶음 안 주제 번호 (batch_id와 함께)"},
                       "title":{"type":"string","description":"쇼츠 제목 (60자까지). 묶음에서 비우면 주제 제목"},
-                    """ + ShortsTools.SCENES_SCHEMA + """
+                    """ + ShortsTools.CHARACTER_SCHEMA + ShortsTools.SCENES_SCHEMA + """
                     },
                      "required":["scenes"]}""", Gate.SHORTS, false),
             new Tool("update_shorts_script", "쇼츠 대본 고치기",
@@ -284,7 +284,7 @@ public class McpTools {
                     {"type":"object","properties":{
                       "shorts_id":{"type":"integer"},
                       "title":{"type":"string","description":"쇼츠 제목 (60자까지)"},
-                    """ + ShortsTools.SCENES_SCHEMA + """
+                    """ + ShortsTools.CHARACTER_SCHEMA + ShortsTools.SCENES_SCHEMA + """
                     },
                      "required":["shorts_id"]}""", Gate.SHORTS, false),
             new Tool("list_shorts", "내 쇼츠 보기",
