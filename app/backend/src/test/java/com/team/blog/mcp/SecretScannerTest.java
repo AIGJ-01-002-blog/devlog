@@ -19,6 +19,7 @@ class SecretScannerTest {
         assertThat(SecretScanner.find("eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"))
                 .containsExactly("JWT");
         assertThat(SecretScanner.find("주민번호 990101-1234567")).containsExactly("주민등록번호");
+        assertThat(SecretScanner.find("postgres://u:$uperSecret123@db")).containsExactly("주소 속 비밀번호");
         assertThat(SecretScanner.find("jdbc:postgresql://x", "redis://default:Abc123xyz@cache:6379")).containsExactly("주소 속 비밀번호");
         assertThat(SecretScanner.find("ghp_" + "a".repeat(36), "ghp_" + "b".repeat(36))).containsExactly("GitHub 토큰");
     }
@@ -29,5 +30,7 @@ class SecretScannerTest {
                 "토큰은 dvl_로 시작해요. GitHub 토큰은 ghp_xxx 꼴이고 키는 sk-... 처럼 생겼어요.",
                 "postgres://user:${DB_PASSWORD}@db/blog, postgres://app:<password>@db, mysql://root:****@localhost",
                 "https://devlog.life/@minseo/posts/12, 전화 010-1234-5678, 2026-10-11", null, "")).isEmpty();
+        assertThat(SecretScanner.find("postgres://u:pass@db", "postgres://u:passwd@db", "postgres://u:PassWord@db",
+                "redis://u:xxxx@cache", "redis://u:changeme@cache", "redis://u:$REDIS_PASSWORD@cache")).isEmpty();
     }
 }
