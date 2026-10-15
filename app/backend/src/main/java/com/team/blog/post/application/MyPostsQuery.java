@@ -53,10 +53,22 @@ public class MyPostsQuery {
 
     public record Result(List<Item> items, String nextCursor, Counts counts) {}
 
+    /** 제목 검색어 상한. 쇼츠 스튜디오의 바탕 글 고르기(#308)처럼 내 글 전체에서 찾을 때 쓴다 */
+    static final int QUERY_MAX = 100;
+
     public Result list(long memberId, String tabParam, String visibilityParam, String cursor) {
+        return list(memberId, tabParam, visibilityParam, cursor, null);
+    }
+
+    /** @param q 제목에 들어간 글자(선택, 대소문자 무시). 비우면 전체 */
+    public Result list(long memberId, String tabParam, String visibilityParam, String cursor, String q) {
         Tab tab = parseTab(tabParam);
         String visibility = parseVisibility(visibilityParam);
-        String listName = "me:" + tab.name().toLowerCase() + ":" + (visibility == null ? "all" : visibility);
+        String query = q == null ? "" : q.strip();
+        if (query.length() > QUERY_MAX) query = query.substring(0, QUERY_MAX);
+        // 다른 검색어의 커서를 거부하려고 목록 이름에 검색어 지문을 넣는다(검색어 원문은 커서에 담지 않는다)
+        String listName = "me:" + tab.name().toLowerCase() + ":" + (visibility == null ? "all" : visibility)
+                + (query.isEmpty() ? "" : ":q" + Integer.toHexString(query.toLowerCase().hashCode()));
 
         StringBuilder sql = new StringBuilder("""
                 SELECT p.id, p.title, p.status, p.visibility, p.hidden_at IS NOT NULL AS hidden,
@@ -75,6 +87,10 @@ public class MyPostsQuery {
         if (visibility != null && tab == Tab.PUBLISHED) {
             sql.append(" AND p.visibility = ?");
             args.add(visibility);
+        }
+        if (!query.isEmpty()) {
+            sql.append(" AND p.title ILIKE ?");
+            args.add(likePattern(query));
         }
         if (cursor != null && !cursor.isBlank()) {
             long[] k = cursors.decode(cursor, listName, 2);
@@ -122,6 +138,17 @@ public class MyPostsQuery {
             log.debug("자동 저장 상태를 읽지 못했습니다: {}", e.getMessage());
             return Set.of();
         }
+    }
+
+    /** ILIKE 패턴: %, _, \ 를 글자 그대로 찾는다(PostgreSQL 기본 ESCAPE는 \) */
+    static String likePattern(String word) {
+        StringBuilder sb = new StringBuilder("%");
+        for (int i = 0; i < word.length(); i++) {
+            char c = word.charAt(i);
+            if (c == '\\' || c == '%' || c == '_') sb.append('\\');
+            sb.append(c);
+        }
+        return sb.append('%').toString();
     }
 
     private static Tab parseTab(String raw) {

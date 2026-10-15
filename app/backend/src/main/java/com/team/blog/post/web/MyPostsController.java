@@ -23,7 +23,8 @@ public class MyPostsController {
     public ResponseEntity<MyPostsQuery.Result> list(@CurrentMember MemberPrincipal me,
                                                     @RequestParam(required = false) String tab,
                                                     @RequestParam(required = false) String visibility,
-                                                    @RequestParam(required = false) String cursor) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(query.list(me.id(), tab, visibility, cursor));
+                                                    @RequestParam(required = false) String cursor,
+                                                    @RequestParam(required = false) String q) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(query.list(me.id(), tab, visibility, cursor, q));
     }
 }

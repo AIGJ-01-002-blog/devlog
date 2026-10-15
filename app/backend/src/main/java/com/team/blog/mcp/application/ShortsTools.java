@@ -42,6 +42,11 @@ class ShortsTools {
                 "diagram":{"type":"object","description":"CS 개념을 풀어 줄 설명 도식 (선택). type은 flow(왼쪽→오른쪽 흐름, 칸 4개까지)·stack(위→아래 층, 5개까지, highlight는 0부터 센 강조 층)·steps(순서, 5개까지)·compare(left·right에 {title, items} 4개까지). 칸은 문자열이나 {label, icon, note}, 이름표는 20자까지. 칸은 내레이션이 이름표 첫 낱말을 말할 때 나타나니 내레이션에 이름표 말을 넣는다. 예 {'type':'flow','items':['브라우저','서버',{'label':'DB','icon':'database','note':'디스크'}]}"}},
               "required":["caption","narration"]}}""";
 
+    static final String CHARACTER = "character";
+    /** 대본 단위 캐릭터 고르기(#304) */
+    static final String CHARACTER_SCHEMA = """
+            "character":{"type":"string","enum":["lognyang","logduck","dubu","cat"],"description":"연기할 캐릭터 (선택). lognyang 후드 입은 고양이 로그냥(기본), logduck 스카프 맨 오리 로그덕, dubu 흰 강아지 두부, cat Noto 이모지 고양이. 사용자가 고른 캐릭터가 있을 때만 준다"},""";
+
     /**
      * 대본 쓰기 안내 (#277). 길이는 1분~1분 30초. 구조는 블로그 주인이 정한 "잘 되는 쇼츠" 틀(후킹 → 본론 → 반전·정리 → CTA)을
      * 이 길이에 맞게 늘린 것이고, "AI 티" 줄이는 법(내 말투, 후킹 고르기, 상투어 빼기, 실제 경험·숫자)을 함께 둔다.
@@ -129,8 +134,8 @@ class ShortsTools {
         Integer topic = a.path("topic").canConvertToInt() ? a.path("topic").asInt() : null;
         try {
             ShortsService.Item item = batchId != null
-                    ? batches.create(caller.memberId(), batchId, topic, text(a, TITLE), scenes(a))
-                    : shorts.create(caller.memberId(), new ShortsService.Draft(postId, text(a, TITLE), scenes(a), null, null, text(a, "source_text")));
+                    ? batches.create(caller.memberId(), batchId, topic, text(a, TITLE), scenes(a), character(a))
+                    : shorts.create(caller.memberId(), new ShortsService.Draft(postId, text(a, TITLE), scenes(a), null, null, text(a, "source_text"), character(a)));
             return McpTools.Result.ok("쇼츠 대본을 저장했어요 (쇼츠 번호 " + item.id() + ", 예상 " + Math.round(item.estimatedSeconds()) + "초).\n"
                     + lengthHint(item.estimatedSeconds()) + report(shorts.check(caller.memberId(), item.id()))
                     + "\n영상은 사용자가 이 화면에서 대본을 확인하고 [영상 만들기]를 눌러야 만들어져요: " + studioUrl(item.id()));
@@ -152,9 +157,10 @@ class ShortsTools {
         long id = idNode.asLong();
         String title = a.has(TITLE) ? text(a, TITLE) : null;
         List<ShortsScript.Scene> scenes = a.has("scenes") ? scenes(a) : null;
-        if (title == null && scenes == null) return McpTools.Result.fail("바꿀 제목(title)이나 장면(scenes)을 주세요.");
+        String character = a.has(CHARACTER) ? text(a, CHARACTER) : null;
+        if (title == null && scenes == null && character == null) return McpTools.Result.fail("바꿀 제목(title)·장면(scenes)·캐릭터(character)를 주세요.");
         try {
-            ShortsService.Item item = shorts.update(caller.memberId(), id, new ShortsService.Edit(title, scenes, null));
+            ShortsService.Item item = shorts.update(caller.memberId(), id, new ShortsService.Edit(title, scenes, null, character));
             return McpTools.Result.ok("쇼츠 " + id + "번 대본을 고쳤어요 (예상 " + Math.round(item.estimatedSeconds()) + "초). 만들어 둔 영상이 있었다면 지워졌어요.\n"
                     + lengthHint(item.estimatedSeconds()) + report(shorts.check(caller.memberId(), id)) + "\n확인 화면: " + studioUrl(id));
         } catch (ApiException e) {
@@ -317,6 +323,11 @@ class ShortsTools {
     }
 
     private static final tools.jackson.databind.json.JsonMapper DIAGRAM_JSON = tools.jackson.databind.json.JsonMapper.builder().build();
+
+    /** 대본 캐릭터(#304). 없으면 null(워커 기본) */
+    private static String character(JsonNode a) {
+        return a.has(CHARACTER) ? text(a, CHARACTER) : null;
+    }
 
     private static String text(JsonNode a, String field) {
         JsonNode n = a.path(field);

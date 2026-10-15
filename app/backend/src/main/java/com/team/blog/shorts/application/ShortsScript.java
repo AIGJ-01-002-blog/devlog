@@ -33,6 +33,8 @@ public final class ShortsScript {
     public static final List<String> VISUALS = List.of("explain", "shock", "typing", "panic", "restore", "wait", "fast", "idea", "protect", "think", "celebrate");
     /** 워커에 내장된 효과음 이름. 이 밖의 이름은 받지 않는다 */
     public static final List<String> SOUNDS = List.of("pop", "ding", "whoosh", "boing", "tick", "typing");
+    /** 연기할 캐릭터(#304). 렌더 워커 remotion/src/character/ 폴더 이름과 Noto 고양이(cat). 비우면 워커 기본(로그냥) */
+    public static final List<String> CHARACTERS = List.of("lognyang", "logduck", "dubu", "cat");
 
     /** 검사 결과에 쓰는 칸 이름·코드 */
     private static final String TITLE = "title";
@@ -85,6 +87,18 @@ public final class ShortsScript {
 
     public static String cleanTitle(String raw) {
         return TextCleaner.cleanLine(raw);
+    }
+
+    /** 캐릭터 이름을 소문자로 다듬는다. 비어 있으면 null(워커 기본 캐릭터) */
+    public static String cleanCharacter(String raw) {
+        String c = raw == null ? "" : raw.strip().toLowerCase(java.util.Locale.ROOT);
+        return c.isEmpty() ? null : c;
+    }
+
+    /** 모르는 캐릭터면 고칠 점 하나, 아니면 빈 목록 */
+    public static List<FieldErrorItem> checkCharacter(String character) {
+        if (character == null || CHARACTERS.contains(character)) return List.of();
+        return List.of(new FieldErrorItem("character", INVALID, "캐릭터는 " + String.join("·", CHARACTERS) + " 가운데 하나예요."));
     }
 
     /** 저장할 수 있는가. 비어 있지 않은 항목의 길이와 장면 수 상한만 본다 */
