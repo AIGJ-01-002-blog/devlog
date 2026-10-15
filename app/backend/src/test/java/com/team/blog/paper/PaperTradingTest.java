@@ -1,6 +1,7 @@
 package com.team.blog.paper;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -117,14 +118,14 @@ class PaperTradingTest extends IntegrationTest {
         JsonNode open = limit(me, limitBody(orderId(), "BTC", "BUY", "50000000", "0.02"), 200);
         assertThat(open.path("order").path("locked").asLong()).isEqualTo(1_000_500);
         long id2 = open.path("order").path("id").asLong();
-        JsonNode canceled = read(me.http().perform(delete("/api/me/paper/limit-orders/" + id2)).andExpect(status().isOk()).andReturn());
+        JsonNode canceled = read(me.http().perform(delete("/api/me/paper/limit-orders/" + id2).with(csrf())).andExpect(status().isOk()).andReturn());
         assertThat(canceled.path("locked").asLong()).isZero();
         assertThat(wallet(me, "INVEST_ONLY")).isEqualTo(10_000_000L - 890_445);
-        assertThat(read(me.http().perform(delete("/api/me/paper/limit-orders/" + id2)).andExpect(status().isConflict()).andReturn())
+        assertThat(read(me.http().perform(delete("/api/me/paper/limit-orders/" + id2).with(csrf())).andExpect(status().isConflict()).andReturn())
                 .path("code").asString()).isEqualTo("CLOSED");
         // 남의 주문은 없는 주문이다
         Session other = signup(uniqueLogin("pplimoth"));
-        other.http().perform(delete("/api/me/paper/limit-orders/" + id2)).andExpect(status().isNotFound());
+        other.http().perform(delete("/api/me/paper/limit-orders/" + id2).with(csrf())).andExpect(status().isNotFound());
     }
 
     /** #332 지정가 매도: 수량을 묶어 시장가로는 묶인 만큼 못 팔고, 시세가 지정가 위로 오면 높은 값에 팔아 수익을 크레딧으로 넣는다 */
