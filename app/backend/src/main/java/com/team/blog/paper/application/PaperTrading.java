@@ -28,7 +28,7 @@ import com.team.blog.trade.application.TradeJournal;
 /**
  * 회원 포인트 모의투자 (#267, 목표 #253). 업비트 공개 시세로 BTC·ETH·XRP·SOL·DOGE를 포인트로 사고판다(1P = 1원, 현물만).
  * <ul>
- *   <li>살 때는 투자 전용 포인트(가입 첫 지급)를 먼저 쓰고, 회원이 고르면 모자란 만큼 상점 포인트도 쓴다.</li>
+ *   <li>살 때는 투자 전용 포인트(가입 첫 지급)를 먼저 쓰고, 회원이 고르면 모자란 만큼 크레딧(상점 지갑)도 쓴다.</li>
  *   <li>보유분마다 어느 지갑에서 얼마를 냈는지(원금)를 들고 있다가, 팔 때 원금을 낸 지갑으로 돌려준다.
  *       수익은 전부 크레딧(상점 지갑)으로 들어간다(블로그 주인 결정: 가입 첫 지급만 투자 전용).
  *       손실은 원금을 낸 지갑에서 비율대로 빠진다.</li>
@@ -47,7 +47,7 @@ public class PaperTrading {
     /**
      * @param amount   살 때 쓸 포인트(수수료 포함)
      * @param quantity 팔 수량. all이면 무시하고 전부 판다
-     * @param useShop  투자 전용 포인트가 모자라면 상점 포인트도 쓸지
+     * @param useShop  투자 전용 포인트가 모자라면 크레딧도 쓸지
      */
     public record Order(String clientOrderId, String symbol, String side, Long amount, BigDecimal quantity, Boolean all, Boolean useShop,
                         String reason) {}
@@ -182,8 +182,8 @@ public class PaperTrading {
         long fromShop = amount - fromInvest;
         if (fromShop > 0 && (!v.useShop() || b.shop() < fromShop)) {
             throw ApiException.conflict("POINTS_SHORT", v.useShop()
-                    ? "포인트가 모자라요. 투자 전용 " + won(b.invest()) + " + 상점 " + won(b.shop()) + "까지 살 수 있어요."
-                    : "투자 전용 포인트가 모자라요. 지금 " + won(b.invest()) + "예요. 상점 포인트도 쓰려면 [상점 포인트도 쓰기]를 켜 주세요.",
+                    ? "포인트가 모자라요. 투자 전용 " + won(b.invest()) + " + 크레딧 " + String.format("%,d", b.shop()) + "크레딧까지 살 수 있어요."
+                    : "투자 전용 포인트가 모자라요. 지금 " + won(b.invest()) + "예요. 크레딧도 쓰려면 [크레딧도 쓰기]를 켜 주세요.",
                     Map.of("invest", b.invest(), "shop", b.shop(), "need", amount));
         }
         String memo = v.coin().name() + " 매수";
