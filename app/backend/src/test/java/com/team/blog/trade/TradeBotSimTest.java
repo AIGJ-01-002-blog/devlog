@@ -152,8 +152,11 @@ class TradeBotSimTest extends IntegrationTest {
         assertThat(u.path("currency").asString()).isEqualTo("KRW");
         JsonNode eth = u.path("coins").get(1);
         assertThat(eth.path("symbol").asString()).isEqualTo("KRW-ETH");
-        // 업비트는 새것부터 오지만 오래된 순으로 바꿔 준다
+        // 원화 탭은 코빗 캔들로 받고(#325) 오래된 순이다. 체결 표시는 업비트 심볼 그대로 맞는다
+        assertThat(com.team.blog.support.FakeExchanges.INSTANCE.paths).contains("/v2/candles");
+        assertThat(eth.path("candles").size()).isEqualTo(60);
         assertThat(eth.path("candles").get(0).path("t").asLong()).isLessThan(eth.path("candles").get(59).path("t").asLong());
+        assertThat(eth.path("candles").get(59).path("c").decimalValue()).isEqualByComparingTo("159");
         assertThat(eth.path("marks").findValuesAsString("text")).containsExactly("익절");
 
         // 10초 안에 다시 부르면 거래소에 가지 않는다

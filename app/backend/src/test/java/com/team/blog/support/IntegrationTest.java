@@ -63,6 +63,7 @@ public abstract class IntegrationTest {
         // 자동매매 화면 차트(spec 101)도 가짜 거래소로
         r.add("blog.trades.binance-url", FakeExchanges.INSTANCE::baseUrl);
         r.add("blog.trades.upbit-url", FakeExchanges.INSTANCE::baseUrl);
+        r.add("blog.trades.korbit-url", FakeExchanges.INSTANCE::baseUrl);
     }
 
     @BeforeEach

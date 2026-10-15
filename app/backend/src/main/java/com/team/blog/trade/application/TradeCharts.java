@@ -49,6 +49,8 @@ public class TradeCharts {
     /** 봉 간격 → 업비트 분봉 단위 (일봉은 따로) */
     private static final Map<String, String> UPBIT_UNITS = Map.of("1m", "minutes/1", "5m", "minutes/5", "15m", "minutes/15", "1h", "minutes/60",
             "4h", "minutes/240", "1d", "days");
+    /** 봉 간격 → 코빗 /v2/candles interval (분 단위, 일봉은 1D) */
+    private static final Map<String, String> KORBIT_UNITS = Map.of("1m", "1", "5m", "5", "15m", "15", "1h", "60", "4h", "240", "1d", "1D");
     public static final List<String> INTERVALS = List.of("1m", "5m", "15m", "1h", "4h", "1d");
 
     public enum Exchange { BINANCE, UPBIT }
@@ -132,16 +134,20 @@ public class TradeCharts {
 
     private CompletableFuture<Coin> fetch(Exchange exchange, String interval, String coin) {
         String symbol = exchange == Exchange.UPBIT ? "KRW-" + coin : coin + "USDT";
-        String url = exchange == Exchange.UPBIT
-                ? base(props.upbitUrl()) + "/v1/candles/" + UPBIT_UNITS.get(interval) + "?market=" + symbol + "&count=" + CANDLES
-                : base(props.binanceUrl()) + "/api/v3/klines?symbol=" + symbol + "&interval=" + interval + "&limit=" + CANDLES;
+        // 원화(UPBIT 탭)는 기본으로 코빗에서 받는다. 봇 체결 표시는 그대로 업비트 심볼(KRW-BTC)로 맞춘다 (#325)
+        boolean korbit = exchange == Exchange.UPBIT && props.korbit();
+        String url = exchange == Exchange.BINANCE
+                ? base(props.binanceUrl()) + "/api/v3/klines?symbol=" + symbol + "&interval=" + interval + "&limit=" + CANDLES
+                : korbit
+                ? base(props.korbitUrl()) + "/v2/candles?symbol=" + coin.toLowerCase(Locale.ROOT) + "_krw&interval=" + KORBIT_UNITS.get(interval) + "&limit=" + CANDLES
+                : base(props.upbitUrl()) + "/v1/candles/" + UPBIT_UNITS.get(interval) + "?market=" + symbol + "&count=" + CANDLES;
         HttpRequest req = HttpRequest.newBuilder(URI.create(url)).timeout(TIMEOUT).header("Accept", "application/json").GET().build();
         String name = NAMES.get(coin);
         return client.sendAsync(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
                 .thenApply(res -> {
                     if (res.statusCode() != 200) throw new IllegalStateException("HTTP " + res.statusCode());
                     JsonNode body = json.readTree(res.body());
-                    List<Candle> candles = exchange == Exchange.UPBIT ? upbit(body) : binance(body);
+                    List<Candle> candles = exchange == Exchange.BINANCE ? binance(body) : korbit ? korbit(body) : upbit(body);
                     return new Coin(coin, name, symbol, candles, List.of(), null);
                 })
                 .exceptionally(e -> {
@@ -156,6 +162,17 @@ public class TradeCharts {
         for (JsonNode k : body) {
             out.add(new Candle(k.get(0).asLong(), dec(k.get(1)), dec(k.get(2)), dec(k.get(3)), dec(k.get(4))));
         }
+        return out;
+    }
+
+    /** 코빗 /v2/candles: {"success":true,"data":[{"timestamp":열린 시각(밀리초),"open":"…",…}]}, 오래된 순. 실패면 success=false */
+    private static List<Candle> korbit(JsonNode body) {
+        if (!body.path("success").asBoolean(false)) throw new IllegalStateException("korbit " + body.path("error").path("description").asString(""));
+        List<Candle> out = new ArrayList<>();
+        for (JsonNode k : body.path("data")) {
+            out.add(new Candle(k.path("timestamp").asLong(), dec(k.path("open")), dec(k.path("high")), dec(k.path("low")), dec(k.path("close"))));
+        }
+        out.sort(Comparator.comparingLong(Candle::t));
         return out;
     }
 

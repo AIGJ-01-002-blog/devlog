@@ -224,6 +224,9 @@ blog:
     # 자동매매 화면 차트(spec 101): 거래소 공개 캔들(키 없음)을 서버가 받아 10초씩 들고 있다
     binance-url: ${TRADES_BINANCE_URL:https://data-api.binance.vision}
     upbit-url: ${TRADES_UPBIT_URL:https://api.upbit.com}
+    # 원화 캔들은 코빗에서 받는다(#325, 학교 서버에서 업비트가 막힘). 업비트로 돌리려면 TRADES_KRW_SOURCE=upbit
+    korbit-url: ${TRADES_KORBIT_URL:https://api.korbit.co.kr}
+    krw-source: ${TRADES_KRW_SOURCE:korbit}
   # 블로그 포인트 (#266, 목표 #253): 출석·글 발행·모의투자 수익으로 쌓고 상점에서 쓴다. devlog 2.0 묶음 릴리스 전까지 꺼 둔다.
   # 적립 규칙 값은 관리자 화면(/admin/points)에서 바꾼다
   points:
