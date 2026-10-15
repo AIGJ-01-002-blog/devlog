@@ -60,8 +60,8 @@ export function TradeBotCharts() {
         <div className="segmented" role="group" aria-label={t('거래소')}>
           {CHART_EXCHANGES.map((x) => (
             <button key={x} type="button" aria-pressed={x === exchange} onClick={() => setExchange(x)}
-              data-tip={x === 'binance' ? t('바이낸스 현물 USDT 시세로 봐요') : t('업비트 원화 시세로 봐요')}>
-              {x === 'binance' ? t('바이낸스') : t('업비트')}
+              data-tip={x === 'binance' ? t('바이낸스 현물 USDT 시세로 봐요') : t('코빗 원화 시세로 봐요. 업비트 봇 체결도 여기에 찍혀요')}>
+              {x === 'binance' ? t('바이낸스') : t('원화')}
             </button>
           ))}
         </div>
