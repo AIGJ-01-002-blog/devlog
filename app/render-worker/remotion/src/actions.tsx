@@ -70,7 +70,7 @@ export const Presenter: React.FC<{scene: SceneData; beats: number[]; done: boole
   const reach = Math.sin(t * 3.2) * 8 + talk * 10;
   const p = live({x: 150, y: STAGE_H - 10, size: 300, look: [1, -0.6], bodyTilt: done ? 0 : 6,
     armR: done ? 115 : 105 + reach, armL: done ? 115 : 18 + Math.sin(t * 2) * 6});
-  return <Mascot face={done ? 'joy' : talk > 0.06 ? 'grin' : 'smile'} p={p} />;
+  return <Mascot face={done ? 'joy' : talk > 0.06 ? 'grin' : 'smile'} p={p} clip={done ? 'happy' : 'point'} />;
 };
 
 type Life = ReturnType<typeof useLife>;
@@ -185,7 +185,7 @@ const Panic: React.FC<ActProps> = ({scene, life}) => {
       <Pill x={880} y={190} text={`${n.toLocaleString()}번`} bg={alert > 0.5 ? C.red : '#fff'} color={alert > 0.5 ? '#fff' : '#0f172a'} size={60} />
       {alert > 0.5 ? <Emoji name="siren" x={600} y={110} size={190} scale={pop(0.9, 8)} /> : null}
       {alert > 0.5 ? <Emoji name="fire" x={880} y={620} size={170} /> : null}
-      <Mascot face={alert > 0.5 ? 'shock' : 'smile'} p={live({x: 340 + shake, eyes: alert > 0.5 ? 'shock' : 'open', mouth: alert > 0.5 && life.talk < 0.06 ? 'o' : 'smile',
+      <Mascot face={alert > 0.5 ? 'shock' : 'smile'} clip={alert > 0.5 ? 'panic' : 'idle'} p={live({x: 340 + shake, eyes: alert > 0.5 ? 'shock' : 'open', mouth: alert > 0.5 && life.talk < 0.06 ? 'o' : 'smile',
         armL: alert > 0.5 ? 168 : 12, armR: alert > 0.5 ? 168 : 12, sweat: alert, brows: alert > 0.5 ? 'worried' : '', look: [1, 0]})} />
     </>
   );
@@ -279,7 +279,7 @@ const Idea: React.FC<ActProps> = ({life}) => {
   return (
     <>
       {on ? <Emoji name="bulb" x={770} y={180} size={300} scale={pop(0.5, 8)} /> : null}
-      <Mascot face={t > 0.7 ? 'grin' : 'smile'} p={live({x: 450, eyes: t > 0.7 ? 'happy' : 'open', brows: on ? 'up' : '', armR: on ? 150 : 12, look: [0.6, -1],
+      <Mascot face={t > 0.7 ? 'grin' : 'smile'} clip={on ? 'idea' : 'idle'} p={live({x: 450, eyes: t > 0.7 ? 'happy' : 'open', brows: on ? 'up' : '', armR: on ? 150 : 12, look: [0.6, -1],
         y: FEET - interpolate(t, [0.5, 0.65, 0.85], [0, 40, 0], clamp)})} />
     </>
   );
@@ -295,7 +295,7 @@ const Protect: React.FC<ActProps> = ({life}) => {
         const ang = k * 1.57 + t * 1.6;
         return <Star key={k} x={760 + 210 * Math.cos(ang)} y={360 + 190 * Math.sin(ang)} />;
       }) : null}
-      <Mascot face={t > 0.6 ? 'wry' : 'smile'} p={live({x: 330, eyes: t > 0.6 ? 'happy' : 'open', brows: t > 0.6 ? 'angry' : '', armR: on ? 120 : 12, mouth: t > 0.6 ? 'grin' : 'smile'})} />
+      <Mascot face={t > 0.6 ? 'wry' : 'smile'} clip={on ? 'point' : 'idle'} p={live({x: 330, eyes: t > 0.6 ? 'happy' : 'open', brows: t > 0.6 ? 'angry' : '', armR: on ? 120 : 12, mouth: t > 0.6 ? 'grin' : 'smile'})} />
     </>
   );
 };

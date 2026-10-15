@@ -4,6 +4,7 @@ import {Lottie, type LottieAnimationData} from '@remotion/lottie';
 import React from 'react';
 import {useCurrentFrame} from 'remotion';
 import type {Pose} from './Cat';
+import {CLIPS, hasCharacter, type Clip} from './character';
 import bulb from './emoji/1f4a1.json';
 import party from './emoji/1f389.json';
 import rocket from './emoji/1f680.json';
@@ -82,7 +83,30 @@ const Arm: React.FC<{H: number; side: -1 | 1; angle: number}> = ({H, side, angle
 /** 마스코트: Noto 고양이 얼굴(Lottie) + 같은 색으로 그린 몸·팔·다리·꼬리. 연기(actions.tsx)가 정한 위치·크기·찌그러짐·기울기·팔 각도·꼬리·말하기를 받는다 */
 const HAPPY: Face[] = ['grin', 'joy', 'love'];
 
-export const Mascot: React.FC<{p: Pose; face: Face}> = ({p, face}) => {
+/** 표정 → 블로그 주인 캐릭터의 동작(character/). 연기가 clip을 직접 주면 그걸 쓴다 */
+const CLIP_OF: Record<Face, Clip> = {grin: 'idle', smile: 'idle', joy: 'happy', love: 'happy', wry: 'typing', kiss: 'think', shock: 'shock', cry: 'sad',
+  pout: 'sleepy'};
+
+/** 블로그 주인 캐릭터: 동작 Lottie를 발끝 기준으로 그린다. 없는 동작은 말할 때 talk, 아니면 idle */
+const Character: React.FC<{p: Pose; clip: Clip}> = ({p, clip}) => {
+  const H = p.size;
+  const want: Clip = clip === 'idle' && p.talk > 0.06 ? 'talk' : clip;
+  const data = CLIPS[want] ?? (p.talk > 0.06 ? CLIPS.talk : undefined) ?? CLIPS.idle!;
+  return (
+    <div style={{position: 'absolute', left: p.x - H / 2, top: p.y - H, width: H, height: H, transformOrigin: '50% 100%',
+      scale: `${(p.flip ? -1 : 1) / Math.sqrt(p.squash)} ${p.squash}`, rotate: `${p.bodyTilt}deg`}}>
+      <Lottie animationData={data} loop style={{width: H, height: H}} />
+    </div>
+  );
+};
+
+export const Mascot: React.FC<{p: Pose; face: Face; clip?: Clip}> = ({p, face, clip}) => {
+  if (hasCharacter()) return <Character p={p} clip={clip ?? CLIP_OF[face]} />;
+  return <Cat p={p} face={face} />;
+};
+
+/** 기본 캐릭터: Noto 고양이 얼굴 + 같은 색 몸 */
+const Cat: React.FC<{p: Pose; face: Face}> = ({p, face}) => {
   const frame = useCurrentFrame();
   const H = p.size;
   const head = H * 0.66;
