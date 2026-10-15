@@ -10,6 +10,8 @@ import { money, pnlClass } from '../lib/trades'
 const REFRESH_MS = 10_000
 /** 고른 종목 하나를 크게 그린다. PC에서는 넓게, 휴대폰에서는 화면 폭에 맞춰 같은 비율로 줄어든다 */
 const PC = { w: 900, h: 400 }
+// 모의투자 화면처럼 차트가 한 줄을 다 쓰면 낮게 그려 주문 칸이 화면 아래로 밀리지 않게 한다 (#324)
+const WIDE = { w: 1200, h: 340 }
 /** 휴대폰은 폭이 좁아 같은 비율이면 납작해지므로 세로를 늘린 비율로 그린다(봉·삼각형 크기는 그대로) */
 const MOBILE = { w: 420, h: 300 }
 const PAD = 10
@@ -132,8 +134,10 @@ function CoinCard({ coin, currency }: { coin: ChartCoin; currency: string }) {
   )
 }
 
-function CandleSvg({ coin, currency }: { coin: ChartCoin; currency: string }) {
-  const { w: W, h: H } = useNarrow() ? MOBILE : PC
+/** 캔들과 체결 삼각형. 내가 낸 체결(by=ME)은 테두리를 굵게 그려 봇 체결과 구분한다 (#324) */
+export function CandleSvg({ coin, currency, wide = false }: { coin: ChartCoin; currency: string; wide?: boolean }) {
+  const size = wide ? WIDE : PC
+  const { w: W, h: H } = useNarrow() ? MOBILE : size
   const cs = coin.candles
   if (cs.length === 0) return <p className="muted small">{t('아직 봉이 없어요.')}</p>
   const marks = coin.marks.map((m) => ({ m, i: markIndex(cs, m.t) })).filter((x): x is { m: typeof x.m; i: number } => x.i !== null)
@@ -166,8 +170,8 @@ function CandleSvg({ coin, currency }: { coin: ChartCoin; currency: string }) {
         const cy = buy ? Math.min(H - 2, y(cs[i].l) + 14) : Math.max(2, y(cs[i].h) - 14)
         const d = buy ? `M${cx} ${cy - 8} L${cx - 8} ${cy + 6} L${cx + 8} ${cy + 6}Z` : `M${cx} ${cy + 8} L${cx - 8} ${cy - 6} L${cx + 8} ${cy - 6}Z`
         return (
-          <path key={k} d={d} className={`tradebot-mark ${buy ? 'up' : 'down'}`}>
-            <title>{`${eventTime(new Date(m.t).toISOString())} ${sideLabel(m.side)} @ ${money(m.price, currency)}${m.text ? ` · ${m.text}` : ''}`}</title>
+          <path key={k} d={d} className={`tradebot-mark ${buy ? 'up' : 'down'}${m.by === 'ME' ? ' me' : ''}`}>
+            <title>{`${m.by === 'ME' ? `${t('내 체결')} · ` : m.by === 'BOT' ? `${t('봇')} · ` : ''}${eventTime(new Date(m.t).toISOString())} ${sideLabel(m.side)} @ ${money(m.price, currency)}${m.text ? ` · ${m.text}` : ''}`}</title>
           </path>
         )
       })}

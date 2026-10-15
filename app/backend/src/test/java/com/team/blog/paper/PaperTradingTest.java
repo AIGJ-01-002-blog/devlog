@@ -59,6 +59,29 @@ class PaperTradingTest extends IntegrationTest {
                 s.memberId(), wallet);
     }
 
+    /** #324 모의투자 차트: 원화 캔들 위에 내가 포인트로 낸 체결이 ME로 찍히고, 봇 체결은 BOT으로 따로 찍힌다 */
+    @Test
+    void 모의투자_차트에_내_체결과_봇_체결이_함께_찍힌다() throws Exception {
+        Session me = signup(uniqueLogin("ppchart"));
+        order(me, buy(orderId(), "BTC", 1_000_000, false), 200);
+        jdbc.update("""
+                INSERT INTO trade_bot_event (member_id, external_id, kind, account, symbol, side, quantity, price, currency, verdict, text, occurred_at, created_at)
+                VALUES (?, ?, 'FILL', 'server-paper-upbit-spot-1h', 'KRW-BTC', 'SELL', 0.01, 101, 'KRW', '', '봇 매도', now(), now())
+                """, me.memberId(), orderId());
+
+        JsonNode chart = read(me.http().perform(get("/api/me/paper/chart").param("interval", "15m")).andExpect(status().isOk()).andReturn());
+        assertThat(chart.path("currency").asString()).isEqualTo("KRW");
+        JsonNode btc = chart.path("coins").get(0);
+        assertThat(btc.path("symbol").asString()).isEqualTo("KRW-BTC");
+        assertThat(btc.path("candles").size()).isEqualTo(60);
+        assertThat(btc.path("marks").findValuesAsString("by")).containsExactlyInAnyOrder("ME", "BOT");
+        assertThat(btc.path("marks").findValuesAsString("text")).contains("시험 매수", "봇 매도");
+        // 다른 코인에는 찍히지 않는다
+        assertThat(chart.path("coins").get(1).path("marks").size()).isZero();
+
+        me.http().perform(get("/api/me/paper/chart").param("interval", "2m")).andExpect(status().isBadRequest());
+    }
+
     @Test
     void 투자_전용_포인트로_사고_팔면_원금은_투자로_수익은_전부_크레딧으로() throws Exception {
         Session me = signup(uniqueLogin("ppbuy"));

@@ -1,6 +1,7 @@
 import { api } from './api'
 import { num } from './dashboard'
 import { t } from './i18n'
+import type { ChartInterval, CoinChart } from './tradeBot'
 
 /** 포인트 모의투자 (#267). 서버 PaperTrading과 같은 모양. 1P = 1원, 업비트 원화 시장 현물만 */
 export type PaperSide = 'BUY' | 'SELL'
@@ -60,6 +61,8 @@ export interface PaperFilled {
 }
 
 export const loadPaper = () => api<PaperState>('/api/me/paper')
+/** 포인트 모의투자 차트 (#324): 원화 캔들에 내 체결(ME)과 봇 체결(BOT)을 함께 찍는다 */
+export const loadPaperChart = (interval: ChartInterval) => api<CoinChart>(`/api/me/paper/chart?interval=${interval}`)
 export const placeOrder = (order: PaperOrder) => api<PaperFilled>('/api/me/paper/orders', { method: 'POST', body: order })
 
 /** 주문 번호: 두 번 눌러도 한 번만 체결되게 화면이 주문마다 하나 만든다 */

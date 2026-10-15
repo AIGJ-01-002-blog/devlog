@@ -58,8 +58,13 @@ public class TradeCharts {
     /** @param t 봉이 열린 시각(밀리초) */
     public record Candle(long t, BigDecimal o, BigDecimal h, BigDecimal l, BigDecimal c) {}
 
-    /** 차트 위에 찍을 봇의 모의 체결 */
-    public record Mark(long t, String side, BigDecimal price, String text) {}
+    /** 봇이 알린 모의 체결 */
+    public static final String BY_BOT = "BOT";
+    /** 회원이 포인트 모의투자에서 직접 낸 체결 (#324) */
+    public static final String BY_ME = "ME";
+
+    /** 차트 위에 찍을 체결. by는 누가 냈는지(BOT·ME) */
+    public record Mark(long t, String side, BigDecimal price, String text, String by) {}
 
     /** @param error 이 코인 캔들을 받지 못했으면 이유, 받았으면 null */
     public record Coin(String coin, String name, String symbol, List<Candle> candles, List<Mark> marks, String error) {}
@@ -98,6 +103,27 @@ public class TradeCharts {
             coins.add(new Coin(coin.coin(), coin.name(), coin.symbol(), coin.candles(), marks(memberId, coin.symbol(), from), coin.error()));
         }
         return new Chart(exchange.name(), interval, exchange == Exchange.UPBIT ? "KRW" : "USDT", coins, c.at());
+    }
+
+    /**
+     * 포인트 모의투자 화면의 원화 차트 (#324). 자동매매 차트의 원화 캔들을 함께 쓰고, 봇 체결과 회원이 직접 낸 포인트 체결을 함께 찍는다.
+     *
+     * @param myStrategy 회원 체결을 고르는 매매 일지 전략 이름(포인트 모의투자). trade 패키지가 paper를 몰라도 되게 부르는 쪽이 넘긴다
+     */
+    public Chart krw(long memberId, String intervalRaw, String myStrategy) {
+        if (!props.enabled()) throw new NotFoundException();
+        String interval = intervalRaw == null ? "15m" : intervalRaw.strip();
+        if (!INTERVALS.contains(interval)) throw ApiException.badRequest("INVALID_INTERVAL", "봉은 " + String.join(", ", INTERVALS) + " 중 하나예요.");
+        Cached c = candles(Exchange.UPBIT, interval);
+        List<Coin> coins = new ArrayList<>();
+        for (Coin coin : c.coins()) {
+            long from = coin.candles().isEmpty() ? Long.MAX_VALUE : coin.candles().getFirst().t();
+            List<Mark> marks = new ArrayList<>(marks(memberId, coin.symbol(), from));
+            marks.addAll(myFills(memberId, coin.coin(), myStrategy, from));
+            marks.sort(Comparator.comparingLong(Mark::t));
+            coins.add(new Coin(coin.coin(), coin.name(), coin.symbol(), coin.candles(), marks, coin.error()));
+        }
+        return new Chart(Exchange.UPBIT.name(), interval, "KRW", coins, c.at());
     }
 
     /**
@@ -194,7 +220,19 @@ public class TradeCharts {
                 WHERE member_id = ? AND kind = 'FILL' AND symbol = ? AND occurred_at >= ? AND price IS NOT NULL
                 ORDER BY occurred_at, id LIMIT 200
                 """, (rs, i) -> new Mark(rs.getTimestamp(1).toInstant().toEpochMilli(), rs.getString(2), rs.getBigDecimal(3).stripTrailingZeros(),
-                rs.getString(4)), memberId, symbol, Timestamp.from(Instant.ofEpochMilli(fromMillis)));
+                rs.getString(4), BY_BOT), memberId, symbol, Timestamp.from(Instant.ofEpochMilli(fromMillis)));
+    }
+
+    /** 회원이 포인트로 직접 낸 원화 모의 체결. 매매 일지(trade)에 PAPER·UPBIT·이 전략으로 남아 있다 */
+    private List<Mark> myFills(long memberId, String coin, String strategy, long fromMillis) {
+        if (fromMillis == Long.MAX_VALUE) return List.of();
+        // 많이 사고판 날에도 방금 낸 체결이 보이게 최신 200건을 고른다. 차트에 넣을 때 시간순으로 다시 줄 세운다
+        return jdbc.query("""
+                SELECT executed_at, side, price, reason FROM trade
+                WHERE member_id = ? AND mode = 'PAPER' AND exchange = 'UPBIT' AND strategy = ? AND symbol = ? AND executed_at >= ?
+                ORDER BY executed_at DESC, id DESC LIMIT 200
+                """, (rs, i) -> new Mark(rs.getTimestamp(1).toInstant().toEpochMilli(), rs.getString(2), rs.getBigDecimal(3).stripTrailingZeros(),
+                rs.getString(4), BY_ME), memberId, strategy, coin, Timestamp.from(Instant.ofEpochMilli(fromMillis)));
     }
 
     private static BigDecimal dec(JsonNode n) {
