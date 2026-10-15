@@ -2923,12 +2923,32 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 .shop-admin-list li { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--color-border); }
 .shop-admin-list .shop-preview { height: 40px; border-radius: var(--radius); }
 .shop-admin-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px 16px; }
+/* 휴대폰: 카드를 미리보기 왼쪽·내용 오른쪽의 낮은 한 줄로 쌓고, 티어 사다리는 가로로 밀어 보게 해 화면이 덜 길어지게 한다 (블로그 주인 요청) */
 @media (max-width: 640px) {
-  .shop-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .shop-ladder ol { grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 10px 8px; }
+  .shop-grid, .shop-tabs .shop-grid { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .shop-card { display: grid; grid-template-columns: 84px minmax(0, 1fr); }
+  .shop-preview, .shop-tabs .shop-preview { height: auto; min-height: 84px; }
+  .shop-body { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 8px; padding: 8px 12px; }
+  .shop-body > :not(.shop-actions) { grid-column: 1; margin: 0; }
+  .shop-body > .tier-emblem { justify-self: start; }
+  .shop-body h3 { font-size: 0.95rem; }
+  .shop-preview { overflow: hidden; }
+  .theme-mock { width: 70px; padding: 6px; gap: 6px; }
+  .theme-mock-text { display: none; }
+  .theme-mock-tabs { gap: 6px; }
+  .theme-mock-tabs i { width: 14px; }
+  .theme-mock-foot { gap: 4px; }
+  .theme-mock .shop-swatch { width: 14px; height: 14px; }
+  .theme-mock .btn.btn-small { padding: 2px 6px; font-size: 0.6875rem; }
+  /* 설명은 이름과 겹치는 꾸밈말이라 휴대폰에서는 줄여 높이를 아낀다 */
+  .shop-body > p { display: none; }
+  .shop-actions { grid-column: 2; grid-row: 1 / span 3; margin: 0; padding: 0; }
+  .shop-actions .btn { flex: none; min-width: 64px; }
+  .shop-body > .shop-need { grid-column: 1 / -1; }
+  .shop-ladder ol { display: flex; overflow-x: auto; scroll-snap-type: x proximity; gap: 4px; padding: 10px 8px; scrollbar-width: none; }
+  .shop-ladder ol::-webkit-scrollbar { display: none; }
+  .shop-ladder li { flex: 0 0 64px; scroll-snap-align: start; }
   .shop-tabs .settings-panel { padding: 12px; }
-  .shop-preview { height: 80px; }
-  .shop-actions .btn { flex-basis: 100%; }
   .shop-admin-list li { grid-template-columns: 44px minmax(0, 1fr); }
   .shop-admin-list li > :last-child { grid-column: 1 / -1; }
 }
