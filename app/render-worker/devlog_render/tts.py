@@ -80,7 +80,7 @@ def device() -> str:
 def synthesize(text: str, out_wav: Path, engine: str, ffmpeg: str = "ffmpeg", voice: str | None = None,
                faster: float = 1.0) -> list[Word] | None:
     """text를 읽은 음성을 out_wav(44.1kHz 스테레오)로 만든다. 엔진이 단어 시각을 주면 돌려준다.
-    faster: 기본 빠르기에 곱할 배수(빠른 견본 스타일은 1.25). 신경망 엔진(edge·supertonic)에만 쓴다."""
+    faster: 기본 빠르기에 곱할 배수(빠른 견본 스타일은 1.25). 신경망 엔진은 말 빠르기로, 기기 음성은 소리를 빠르게 감아 맞춘다."""
     words = None
     with tempfile.TemporaryDirectory() as tmp:
         raw = Path(tmp) / "raw"
@@ -119,7 +119,8 @@ def synthesize(text: str, out_wav: Path, engine: str, ffmpeg: str = "ffmpeg", vo
             return None
         else:
             raise ValueError(f"모르는 음성 엔진이에요: {engine}")
-        _run([ffmpeg, "-y", "-loglevel", "error", "-i", str(raw), "-ar", "44100", "-ac", "2", str(out_wav)])
+        tempo = ["-filter:a", f"atempo={faster:g}"] if faster != 1.0 and engine not in ("edge", "supertonic") else []
+        _run([ffmpeg, "-y", "-loglevel", "error", "-i", str(raw), *tempo, "-ar", "44100", "-ac", "2", str(out_wav)])
     return words
 
 
