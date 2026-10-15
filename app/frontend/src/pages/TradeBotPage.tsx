@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react'
+import { NavIcon, type IconName } from '../components/NavIcons'
 import { t } from '../lib/i18n'
 import { Link } from '../lib/router'
 import {
@@ -9,6 +10,20 @@ import { exchangeName, money, pnlClass, qty } from '../lib/trades'
 /** 봇은 5분마다 알리니 화면은 1분마다 다시 받는다 */
 const REFRESH_MS = 60_000
 
+/** 한 화면에 다 쌓으면 휴대폰에서 길어지니 내 포인트처럼 왼쪽 탭으로 나눈다(블로그 주인 요청). 휴대폰에서는 탭이 위에서 옆으로 밀린다. /trade#fills처럼 바로 열린다 */
+export const TRADE_BOT_TABS = [
+  { id: 'accounts', label: t('계좌'), hint: t('모의 계좌의 현금·보유 포지션·적용 중인 규칙'), icon: 'coin' },
+  { id: 'fills', label: t('체결'), hint: t('봇이 낸 모의 체결과 이유'), icon: 'trend' },
+  { id: 'ai', label: t('Gemini 판단'), hint: t('진입 직전에 Gemini가 허락하거나 막은 기록'), icon: 'ai' },
+  { id: 'summary', label: t('하루 요약'), hint: t('Gemini가 쓴 하루 매매 요약'), icon: 'posts' },
+] as const satisfies readonly { id: string; label: string; hint: string; icon: IconName }[]
+export type TradeBotTab = (typeof TRADE_BOT_TABS)[number]['id']
+
+export function tradeBotTabFromHash(hash: string): TradeBotTab {
+  const key = hash.replace(/^#/, '')
+  return TRADE_BOT_TABS.find((x) => x.id === key)?.id ?? 'accounts'
+}
+
 /**
  * 자동매매 모의 화면 (spec 101). 주소 /trade.
  * 내 AI(MCP)가 매매 기준을 정하고, 봇 코드가 그 기준으로 5분마다 모의 주문을 내며, 무료 Gemini는 진입 필터와 하루 요약만 맡는다.
@@ -17,11 +32,25 @@ const REFRESH_MS = 60_000
 export function TradeBotPage() {
   const [data, setData] = useState<BotView | null>(null)
   const [error, setError] = useState(false)
+  const [tab, setTab] = useState<TradeBotTab>(() => tradeBotTabFromHash(location.hash))
 
   const reload = () => {
     loadTradeBot().then((d) => { setData(d); setError(false) }).catch(() => setError(true))
   }
   useEffect(() => { document.title = t('자동매매 - devlog') }, [])
+  useEffect(() => {
+    const sync = () => setTab(tradeBotTabFromHash(location.hash))
+    window.addEventListener('hashchange', sync)
+    window.addEventListener('popstate', sync)
+    return () => { window.removeEventListener('hashchange', sync); window.removeEventListener('popstate', sync) }
+  }, [])
+  const open = (id: TradeBotTab) => {
+    if (id === tab) return
+    history.replaceState(null, '', `/trade#${id}`)
+    setTab(id)
+  }
+  const count = (id: TradeBotTab) => !data ? 0
+    : id === 'accounts' ? data.accounts.length : id === 'fills' ? data.fills.length : id === 'ai' ? data.decisions.length : data.summaries.length
   useEffect(() => {
     reload()
     const id = window.setInterval(reload, REFRESH_MS)
@@ -69,51 +98,70 @@ export function TradeBotPage() {
             </div>
           </div>
 
-          <section aria-label={t('모의 계좌')} className="tradebot-accounts">
-            {data.accounts.map((a) => <AccountCard key={a.account} account={a} />)}
-          </section>
-
-          <div className="trades-layout tradebot-layout">
-            <section aria-label={t('최근 체결')}>
-              <h2>{t('최근 체결')}</h2>
-              {data.fills.length === 0 ? <p className="muted small">{t('아직 체결이 없어요.')}</p> : (
-                <ul className="trades-fills">{data.fills.map((f) => <FillRow key={f.id} fill={f} />)}</ul>
+          <div className="settings-layout points-tabs tradebot-tabs">
+            <nav className="settings-nav" aria-label={t('자동매매 메뉴')}>
+              {TRADE_BOT_TABS.map((x) => (
+                <a key={x.id} href={`/trade#${x.id}`} aria-current={x.id === tab ? 'page' : undefined} data-tip={x.hint}
+                  onClick={(e) => { e.preventDefault(); open(x.id) }}>
+                  <NavIcon name={x.icon} /><span>{x.label}</span>
+                  <span className="tradebot-tab-count">{count(x.id)}</span>
+                </a>
+              ))}
+            </nav>
+            <div className="settings-panel" role="region" aria-label={TRADE_BOT_TABS.find((x) => x.id === tab)!.label}>
+              {tab === 'accounts' && (
+                <section className="tradebot-section">
+                  <h2>{t('모의 계좌')}</h2>
+                  {data.accounts.length === 0 ? <p className="muted small">{t('봇이 알린 모의 계좌가 없어요.')}</p> : (
+                    <div className="tradebot-accounts">{data.accounts.map((a) => <AccountCard key={a.account} account={a} />)}</div>
+                  )}
+                </section>
               )}
-            </section>
-            <div>
-              <section aria-label={t('Gemini 판단')}>
-                <h2>{t('Gemini 판단')}</h2>
-                {data.decisions.length === 0 ? <p className="muted small">{t('아직 판단 기록이 없어요.')}</p> : (
-                  <ul className="trades-fills">
-                    {data.decisions.map((d) => (
-                      <li key={d.id}>
-                        <div className="trades-fill-head">
-                          <span className={`badge ${d.verdict === 'ALLOW' ? 'tradebot-allow' : 'tradebot-block'}`}
-                            data-tip={d.verdict === 'ALLOW' ? t('Gemini가 진입을 허락했어요') : t('Gemini가 진입을 막았어요')}>
-                            {d.verdict === 'ALLOW' ? t('허락') : t('막음')}
-                          </span>
-                          {d.symbol && <strong>{d.symbol}</strong>}
-                          <span className="muted small">{eventTime(d.occurredAt)}</span>
-                        </div>
-                        {d.text && <p className="small tradebot-text">{d.text}</p>}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-              <section aria-label={t('하루 요약')}>
-                <h2>{t('하루 요약')}</h2>
-                {data.summaries.length === 0 ? <p className="muted small">{t('아직 요약이 없어요.')}</p> : (
-                  <ul className="trades-fills">
-                    {data.summaries.map((s) => (
-                      <li key={s.id}>
-                        <span className="muted small">{eventTime(s.occurredAt)}</span>
-                        <p className="small tradebot-text">{s.text}</p>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
+              {tab === 'fills' && (
+                <section className="tradebot-section">
+                  <h2>{t('최근 체결')}</h2>
+                  {data.fills.length === 0 ? <p className="muted small">{t('아직 체결이 없어요.')}</p> : (
+                    <ul className="trades-fills">{data.fills.map((f) => <FillRow key={f.id} fill={f} />)}</ul>
+                  )}
+                </section>
+              )}
+              {tab === 'ai' && (
+                <section className="tradebot-section">
+                  <h2>{t('Gemini 판단')}</h2>
+                  {data.decisions.length === 0 ? <p className="muted small">{t('아직 판단 기록이 없어요.')}</p> : (
+                    <ul className="trades-fills">
+                      {data.decisions.map((d) => (
+                        <li key={d.id}>
+                          <div className="trades-fill-head">
+                            <span className={`badge ${d.verdict === 'ALLOW' ? 'tradebot-allow' : 'tradebot-block'}`}
+                              data-tip={d.verdict === 'ALLOW' ? t('Gemini가 진입을 허락했어요') : t('Gemini가 진입을 막았어요')}>
+                              {d.verdict === 'ALLOW' ? t('허락') : t('막음')}
+                            </span>
+                            {d.symbol && <strong>{d.symbol}</strong>}
+                            <span className="muted small">{eventTime(d.occurredAt)}</span>
+                          </div>
+                          {d.text && <p className="small tradebot-text">{d.text}</p>}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              )}
+              {tab === 'summary' && (
+                <section className="tradebot-section">
+                  <h2>{t('하루 요약')}</h2>
+                  {data.summaries.length === 0 ? <p className="muted small">{t('아직 요약이 없어요.')}</p> : (
+                    <ul className="trades-fills">
+                      {data.summaries.map((x) => (
+                        <li key={x.id}>
+                          <span className="muted small">{eventTime(x.occurredAt)}</span>
+                          <p className="small tradebot-text">{x.text}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              )}
             </div>
           </div>
         </>

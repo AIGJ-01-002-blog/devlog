@@ -1996,4 +1996,11 @@ export const en: Record<string, string> = {
   "허락": "Allowed",
   "현금": "Cash",
   "현물": "Spot",
+  "자동매매 메뉴": "Auto trading menu",
+  "봇이 알린 모의 계좌가 없어요.": "The bot hasn't reported any paper accounts.",
+  "계좌": "Accounts",
+  "모의 계좌의 현금·보유 포지션·적용 중인 규칙": "Cash, open positions and active rules of each paper account",
+  "봇이 낸 모의 체결과 이유": "Paper fills the bot made and why",
+  "진입 직전에 Gemini가 허락하거나 막은 기록": "Entries Gemini allowed or blocked right before they happened",
+  "Gemini가 쓴 하루 매매 요약": "Daily trading summaries written by Gemini",
 }
