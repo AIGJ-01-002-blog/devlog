@@ -285,7 +285,6 @@ const Fast: React.FC<ActProps> = ({scene, life}) => {
     <>
       {bar(20, slow, C.red, '전', before)}
       {bar(130, quick, C.green, '후', after)}
-      {cheer ? <Pill x={780} y={360} text={label} bg={C.yellow} size={66} scale={pop(1.0, 8)} /> : null}
       {cheer ? [0, 1, 2, 3, 4].map((k) => {
         const ang = k * 1.3 + t * 2;
         return <Star key={k} x={540 + 380 * Math.cos(ang)} y={470 + 150 * Math.sin(ang)} scale={0.8 + 0.3 * Math.sin(t * 6 + k)} />;
@@ -293,6 +292,8 @@ const Fast: React.FC<ActProps> = ({scene, life}) => {
       {cheer ? <Emoji name="rocket" x={interpolate(t, [1.0, 2.2], [620, 1000], clamp)} y={interpolate(t, [1.0, 2.2], [620, 300], clamp)} size={210} /> : null}
       <Mascot face={cheer ? 'love' : 'smile'} p={live({x: 300, size: 430, eyes: cheer ? 'happy' : 'open', mouth: cheer ? 'grin' : 'smile', armL: cheer ? 160 : 12, armR: cheer ? 160 : 12,
         y: FEET - (cheer ? Math.abs(Math.sin(t * 7)) * 46 : 0)})} />
+      {/* 결과 딱지는 캐릭터 위에, 긴 문구도 화면 밖으로 잘리지 않게 가운데 쪽에 둔다 */}
+      {cheer ? <Pill x={700} y={330} text={label} bg={C.yellow} size={58} scale={pop(1.0, 8)} /> : null}
     </>
   );
 };
