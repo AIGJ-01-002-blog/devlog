@@ -10,7 +10,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from devlog_render import bgm, captions, layout, render, tts
+from devlog_render import bgm, captions, layout, remotion, render, tts
 from devlog_render.captions import Word
 from devlog_render.render import Renderer, Script, find_font, plan, probe_ms, split_comment
 
@@ -88,10 +88,20 @@ class FastStyleTest(unittest.TestCase):
     def test_character_must_be_a_known_folder(self):
         self.assertEqual(Script.from_job({"scenes": [], "character": "lognyang"}).character, "lognyang")
         self.assertEqual(Script.from_job({"scenes": [], "character": "logduck"}).character, "logduck")
+        self.assertEqual(Script.from_job({"scenes": [], "character": "dubu"}).character, "dubu")
         self.assertIsNone(Script.from_job({"scenes": [], "character": "../etc"}).character)
         self.assertIsNone(Script.from_job({"scenes": [], "character": "cat"}).character)
         self.assertIsNone(Script.from_job({"scenes": [], "character": ["lognyang"]}).character)  # 서버가 문자열이 아닌 값을 보내도 죽지 않는다
         self.assertEqual(Script.from_job({"scenes": []}).character, render.DEFAULT_CHARACTER)
+
+    def test_server_character_list_matches_worker_folders(self):
+        # 서버 ShortsScript.CHARACTERS(#304)가 워커 캐릭터 폴더와 어긋나면 고른 캐릭터가 조용히 기본 고양이로 바뀐다
+        java = Path(__file__).resolve().parents[2] / "backend/src/main/java/com/team/blog/shorts/application/ShortsScript.java"
+        if not java.is_file():
+            self.skipTest("백엔드 소스가 없는 배포본")
+        import re
+        listed = set(re.findall(r'"([a-z0-9-]+)"', re.search(r"CHARACTERS = List\.of\(([^)]*)\)", java.read_text(encoding="utf-8")).group(1)))
+        self.assertEqual(listed, remotion.characters() | {"cat"})
 
 
 class PlanTest(unittest.TestCase):

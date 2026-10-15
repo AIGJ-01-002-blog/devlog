@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, ApiError } from '../lib/api'
+import { ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { fieldErrors } from '../lib/fieldErrors'
 import { t, tNodes } from '../lib/i18n'
@@ -9,8 +9,8 @@ import {
   renderBatch, renderProblems, renderShorts, reportOf, saveShorts, SCENE_VISUALS, statusLabel, videoFileName, workerOnline, writtenTopics,
   type BatchRenderResult, type OriginalityReport, type Scene, type SceneVisual, type ShortsBatch, type ShortsItem, type ShortsOverview,
 } from '../lib/shorts'
-import type { ManagePage } from '../lib/types'
 import { ReplayInfo, ReplayPicker } from './StudioReplay'
+import { StudioPostPicker } from './StudioPostPicker'
 import { StudioUploadGuide } from './StudioUploadGuide'
 
 const POLL_MS = 5000
@@ -64,6 +64,8 @@ export function StudioPage() {
   const batch = batches.find((b) => b.id === selectedBatch) ?? null
   const groups = data ? groupByBatch(data.items, batches) : []
   const loose = data?.items.filter((it) => it.batchId === null || !batches.some((b) => b.id === it.batchId)) ?? []
+  // 새 대본·매매 재현 화면이 열려 있어도 목록에서 대본이나 묶음을 누르면 그 화면으로 넘어간다
+  const closeForms = () => { setCreating(false); setPicking(false) }
   const replace = (next: ShortsItem) =>
     setData((d) => d && { ...d, items: d.items.map((it) => (it.id === next.id ? next : it)) })
 
@@ -88,16 +90,16 @@ export function StudioPage() {
           )}
           {groups.map(({ batch: b, items }) => (
             <div key={b.id} className="studio-batch">
-              <Link to={`/studio?batch=${b.id}`} className={`studio-batch-head${b.id === selectedBatch ? ' active' : ''}`} aria-current={b.id === selectedBatch ? 'true' : undefined}
+              <Link to={`/studio?batch=${b.id}`} onClick={closeForms} className={`studio-batch-head${b.id === selectedBatch ? ' active' : ''}`} aria-current={b.id === selectedBatch ? 'true' : undefined}
                 data-tip={t('근거 하나를 작은 주제로 나눈 묶음이에요. 눌러서 주제와 진행을 봐요')}>
                 <span className="studio-item-title">{b.title}</span>
                 <span className="muted small">{t('{0}/{1}편', { 0: writtenTopics(b), 1: b.topics.length })}</span>
               </Link>
-              <ItemList items={items} selected={selected} />
+              <ItemList items={items} selected={selected} onOpen={closeForms} />
             </div>
           ))}
           {loose.length > 0 && batches.length > 0 && <p className="muted small studio-loose">{t('따로 쓴 대본')}</p>}
-          <ItemList items={loose} selected={selected} />
+          <ItemList items={loose} selected={selected} onOpen={closeForms} />
         </aside>
         <section className="studio-editor">
           {picking && trades
@@ -125,13 +127,13 @@ export function StudioPage() {
   )
 }
 
-function ItemList({ items, selected }: { items: ShortsItem[]; selected: number | null }) {
+function ItemList({ items, selected, onOpen }: { items: ShortsItem[]; selected: number | null; onOpen: () => void }) {
   if (items.length === 0) return null
   return (
     <ul>
       {items.map((it) => (
         <li key={it.id}>
-          <Link to={`/studio?id=${it.id}`} className={`studio-item${it.id === selected ? ' active' : ''}`} aria-current={it.id === selected ? 'true' : undefined}>
+          <Link to={`/studio?id=${it.id}`} onClick={onOpen} className={`studio-item${it.id === selected ? ' active' : ''}`} aria-current={it.id === selected ? 'true' : undefined}>
             <span className="studio-item-title">
               {it.replay && <span className="studio-kind" title={t('매매 재현 영상')} aria-label={t('매매 재현 영상')}>📈 </span>}
               {it.topic !== null && <span className="muted">{it.topic}. </span>}{it.title}
@@ -238,21 +240,15 @@ function WorkerStatus({ data }: { data: ShortsOverview }) {
 }
 
 function NewScript({ onCancel, onCreated }: { onCancel: () => void; onCreated: (item: ShortsItem) => void }) {
-  const [posts, setPosts] = useState<{ id: number; title: string }[]>([])
-  const [postId, setPostId] = useState<string>('')
+  const [postId, setPostId] = useState<number | null>(null)
   const [title, setTitle] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
-  useEffect(() => {
-    api<ManagePage>('/api/me/posts?tab=published')
-      .then((page) => setPosts(page.items.map((p) => ({ id: p.id, title: p.title }))))
-      .catch(() => setPosts([]))
-  }, [])
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
     try {
-      onCreated(await createShorts({ postId: postId ? Number(postId) : null, title, scenes: [emptyScene(), emptyScene(), emptyScene()] }))
+      onCreated(await createShorts({ postId, title, scenes: [emptyScene(), emptyScene(), emptyScene()] }))
     } catch (err) {
       setErrors(fieldErrors(err))
     } finally {
@@ -264,13 +260,10 @@ function NewScript({ onCancel, onCreated }: { onCancel: () => void; onCreated: (
       <h2>{t('새 대본')}</h2>
       <div className="field">
         <label htmlFor="shorts-post">{t('바탕이 될 글')}</label>
-        <select id="shorts-post" value={postId} onChange={(e) => {
-          setPostId(e.target.value)
-          if (!title) setTitle(posts.find((p) => String(p.id) === e.target.value)?.title.slice(0, LIMITS.title) ?? '')
-        }}>
-          <option value="">{t('글 없이 쓰기')}</option>
-          {posts.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
-        </select>
+        <StudioPostPicker value={postId} onChange={(post) => {
+          setPostId(post?.id ?? null)
+          if (post && !title) setTitle(post.title.slice(0, LIMITS.title))
+        }} />
         <span className="muted small">{t('글을 고르면 영상 끝에 글 주소를 넣고, 글을 그대로 옮겨 적었는지도 검사해요.')}</span>
         {errors.postId && <span className="error">{errors.postId}</span>}
       </div>
@@ -295,12 +288,13 @@ function Editor({ item, onChange, onReload, onDeleted }: {
   onDeleted: () => void
 }) {
   const [title, setTitle] = useState(item.title)
+  const [character, setCharacter] = useState<string>(item.character ?? '')
   const [scenes, setScenes] = useState<Scene[]>(item.scenes.length ? item.scenes : [emptyScene()])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [report, setReport] = useState<OriginalityReport | null>(null)
   const [working, setWorking] = useState(false)
   const busy = isBusy(item.status)
-  const dirty = title !== item.title || JSON.stringify(scenes) !== JSON.stringify(item.scenes)
+  const dirty = title !== item.title || character !== (item.character ?? '') || JSON.stringify(scenes) !== JSON.stringify(item.scenes)
   const seconds = estimateSeconds(scenes)
   const problems = renderProblems(title, scenes)
 
@@ -328,7 +322,7 @@ function Editor({ item, onChange, onReload, onDeleted }: {
     }
   }
   const save = async (): Promise<ShortsItem> => {
-    const saved = await saveShorts(item.id, { title, scenes: scenes.map((s) => ({ ...s, code: s.code?.trim() ? s.code : null, image: s.image?.trim() ? s.image.trim() : null })), version: item.version })
+    const saved = await saveShorts(item.id, { title, scenes: scenes.map((s) => ({ ...s, code: s.code?.trim() ? s.code : null, image: s.image?.trim() ? s.image.trim() : null })), version: item.version, character })
     onChange(saved)
     return saved
   }
@@ -379,6 +373,19 @@ function Editor({ item, onChange, onReload, onDeleted }: {
           <input id="studio-title" value={title} maxLength={LIMITS.title} onChange={(e) => setTitle(e.target.value)} />
           {errors.title && <span className="error">{errors.title}</span>}
         </div>
+        {!item.replay && (
+          <div className="field">
+            <label htmlFor="studio-character">{t('캐릭터')}</label>
+            <select id="studio-character" value={character} data-tip={t('영상에서 상황을 연기할 캐릭터예요.')} onChange={(e) => setCharacter(e.target.value)}>
+              <option value="">{t('기본 (로그냥)')}</option>
+              <option value="lognyang">{t('로그냥 (후드 입은 고양이)')}</option>
+              <option value="logduck">{t('로그덕 (스카프 맨 오리)')}</option>
+              <option value="dubu">{t('두부 (흰 강아지)')}</option>
+              <option value="cat">{t('이모지 고양이')}</option>
+            </select>
+            {errors.character && <span className="error">{errors.character}</span>}
+          </div>
+        )}
 
         <ol className="studio-scenes">
           {scenes.map((s, i) => (

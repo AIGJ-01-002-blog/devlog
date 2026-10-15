@@ -382,6 +382,18 @@ class TradeJournalTest extends IntegrationTest {
         // 한 모드뿐인 날은 나누지 않는다
         JsonNode empty = read(me.http().perform(get("/api/me/trades/" + d.minusDays(1))).andExpect(status().isOk()).andReturn());
         assertThat(empty.path("summary").path("modes").isEmpty()).isTrue();
+
+        // 실거래·모의 토글: 고른 모드의 체결과 손익만 본다
+        JsonNode liveDay = read(me.http().perform(get("/api/me/trades/" + d).param("mode", "live")).andExpect(status().isOk()).andReturn());
+        assertThat(liveDay.path("fills").findValuesAsString("mode")).containsExactly("LIVE");
+        assertThat(liveDay.path("summary").path("realizedPnl").path("USDT").decimalValue()).isEqualByComparingTo("-4");
+        JsonNode paper = read(me.http().perform(get("/api/me/trades").param("mode", "paper")).andExpect(status().isOk()).andReturn());
+        assertThat(paper.path("mode").asString()).isEqualTo("PAPER");
+        assertThat(paper.path("live").asBoolean()).isTrue();
+        assertThat(paper.path("paper").asBoolean()).isTrue();
+        assertThat(paper.path("total").path("trades").asInt()).isEqualTo(1);
+        assertThat(paper.path("cumulativePnl").path("USDT").decimalValue()).isEqualByComparingTo("12");
+        me.http().perform(get("/api/me/trades").param("mode", "demo")).andExpect(status().isBadRequest());
     }
 
     @Test

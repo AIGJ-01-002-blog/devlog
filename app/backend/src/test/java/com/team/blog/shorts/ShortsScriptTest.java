@@ -61,4 +61,14 @@ class ShortsScriptTest {
         assertThat(s.narration()).isEqualTo("내레이션");
         assertThat(s.code()).isNull();
     }
+
+    @Test
+    void 캐릭터는_소문자로_다듬고_워커가_아는_이름만_받는다() {
+        assertThat(ShortsScript.cleanCharacter(" Dubu ")).isEqualTo("dubu");
+        assertThat(ShortsScript.cleanCharacter("  ")).isNull();
+        assertThat(ShortsScript.cleanCharacter(null)).isNull();
+        assertThat(ShortsScript.checkCharacter("dubu")).isEmpty();
+        assertThat(ShortsScript.checkCharacter(null)).isEmpty();
+        assertThat(ShortsScript.checkCharacter("pikachu")).extracting(FieldErrorItem::field).containsExactly("character");
+    }
 }

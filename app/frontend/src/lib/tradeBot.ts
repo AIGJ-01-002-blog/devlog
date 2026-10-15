@@ -67,6 +67,10 @@ export interface BotView {
 
 export const loadTradeBot = () => api<BotView>('/api/me/trade-bot')
 
+/** 서버가 돌리는 모의 봇 (spec 102). 켜면 devlog 서버가 5분마다 공개 시세로 모의 매매를 한다 */
+export const loadPaperBot = () => api<{ enabled: boolean }>('/api/me/trade-bot/paper')
+export const setPaperBot = (enabled: boolean) => api<{ enabled: boolean }>('/api/me/trade-bot/paper', { method: 'PUT', body: { enabled } })
+
 /** 봇이 5분마다 도니 15분 넘게 소식이 없으면 멈춘 것으로 본다 */
 export const STALE_MINUTES = 15
 

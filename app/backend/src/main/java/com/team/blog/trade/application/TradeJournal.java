@@ -135,9 +135,13 @@ public class TradeJournal {
 
     public record DayRow(LocalDate date, Summary summary, Map<String, BigDecimal> cumulativePnl, boolean memo, Long postId, Long shortsId) {}
 
-    /** @param cumulativePnl 첫 기록부터 이 날까지 통화별 실현 손익 합 */
+    /**
+     * @param cumulativePnl 첫 기록부터 이 날까지 통화별 실현 손익 합
+     * @param mode 실거래·모의 토글로 고른 모드. null이면 둘 다
+     * @param live·paper 모드와 상관없이 그 모드로 남긴 체결이 하나라도 있는지 (토글 기본값을 정할 때 쓴다)
+     */
     public record Overview(LocalDate from, LocalDate to, List<DayRow> days, Summary total, Map<String, BigDecimal> cumulativePnl,
-                           boolean live) {}
+                           boolean live, boolean paper, Mode mode) {}
 
     public record Day(LocalDate date, List<Fill> fills, Summary summary, Map<String, BigDecimal> cumulativePnl, String memo, Long postId,
                       Long shortsId) {}
@@ -306,13 +310,18 @@ public class TradeJournal {
 
     /** 기간 안의 날별 요약(체결이 있거나 메모를 남긴 날만, 최근 날 먼저). 누적 손익은 첫 기록부터 센다 */
     public Overview overview(long memberId, LocalDate from, LocalDate to) {
+        return overview(memberId, from, to, null);
+    }
+
+    /** @param mode 실거래(LIVE)나 모의(PAPER) 체결만 본다. null이면 둘 다. 메모·글·쇼츠는 날에 붙어 있어 어느 쪽에서도 보인다 */
+    public Overview overview(long memberId, LocalDate from, LocalDate to, Mode mode) {
         requireEnabled();
         if (to.isBefore(from)) throw ApiException.badRequest("INVALID_RANGE", "시작 날짜가 끝 날짜보다 뒤예요.");
         if (from.plusDays(DAYS_MAX).isBefore(to)) from = to.minusDays(DAYS_MAX);
         Map<LocalDate, Summary> byDay = new LinkedHashMap<>();
-        Map<LocalDate, List<Fill>> fills = groupByDay(fills(memberId, from, to));
+        Map<LocalDate, List<Fill>> fills = groupByDay(fills(memberId, from, to, mode));
         for (var e : fills.entrySet()) byDay.put(e.getKey(), summarize(e.getValue()));
-        Map<String, BigDecimal> before = pnlBefore(memberId, from);
+        Map<String, BigDecimal> before = pnlBefore(memberId, from, mode);
         Map<LocalDate, DayMeta> meta = meta(memberId, from, to);
         List<LocalDate> dates = new ArrayList<>(byDay.keySet());
         for (Map.Entry<LocalDate, DayMeta> e : meta.entrySet()) {
@@ -328,17 +337,24 @@ public class TradeJournal {
             rows.add(new DayRow(d, s, running, !m.memo().isBlank(), m.postId(), m.shortsId()));
         }
         List<Fill> all = fills.values().stream().flatMap(List::stream).toList();
-        boolean live = Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM trade WHERE member_id = ? AND mode = 'LIVE')",
-                Boolean.class, memberId));
-        return new Overview(from, to, rows.reversed(), summarize(all), running, live);
+        return new Overview(from, to, rows.reversed(), summarize(all), running, has(memberId, Mode.LIVE), has(memberId, Mode.PAPER), mode);
+    }
+
+    private boolean has(long memberId, Mode mode) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM trade WHERE member_id = ? AND mode = ?)",
+                Boolean.class, memberId, mode.name()));
     }
 
     public Day day(long memberId, LocalDate date) {
+        return day(memberId, date, null);
+    }
+
+    public Day day(long memberId, LocalDate date, Mode mode) {
         requireEnabled();
-        List<Fill> list = fills(memberId, date, date);
+        List<Fill> list = fills(memberId, date, date, mode);
         Summary s = summarize(list);
         DayMeta m = meta(memberId, date, date).getOrDefault(date, DayMeta.EMPTY);
-        Map<String, BigDecimal> cumulative = Money.plus(pnlBefore(memberId, date), s.realizedPnl());
+        Map<String, BigDecimal> cumulative = Money.plus(pnlBefore(memberId, date, mode), s.realizedPnl());
         return new Day(date, list, s, cumulative, m.memo(), m.postId(), m.shortsId());
     }
 
@@ -417,13 +433,17 @@ public class TradeJournal {
         return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM shorts WHERE id = ?)", Boolean.class, shortsId));
     }
 
-    private List<Fill> fills(long memberId, LocalDate from, LocalDate to) {
+    private List<Fill> fills(long memberId, LocalDate from, LocalDate to, Mode mode) {
         return jdbc.query("""
                 SELECT id, external_id, mode, exchange, symbol, symbol_name, side, quantity, price, currency, fee, realized_pnl, strategy,
                        reason, executed_at, market, position_side, leverage, timeframe
-                FROM trade WHERE member_id = ? AND executed_at >= ? AND executed_at < ?
+                FROM trade WHERE member_id = ? AND executed_at >= ? AND executed_at < ? AND (CAST(? AS text) IS NULL OR mode = ?)
                 ORDER BY executed_at, id
-                """, TradeJournal::fill, memberId, Timestamp.from(start(from)), Timestamp.from(start(to.plusDays(1))));
+                """, TradeJournal::fill, memberId, Timestamp.from(start(from)), Timestamp.from(start(to.plusDays(1))), name(mode), name(mode));
+    }
+
+    private static String name(Mode mode) {
+        return mode == null ? null : mode.name();
     }
 
     private static Fill fill(ResultSet rs, int i) throws SQLException {
@@ -481,13 +501,14 @@ public class TradeJournal {
         return new Summary(fills.size(), buys, sells, closes, wins, losses, pnl, fees, modes);
     }
 
-    private Map<String, BigDecimal> pnlBefore(long memberId, LocalDate date) {
+    private Map<String, BigDecimal> pnlBefore(long memberId, LocalDate date, Mode mode) {
         Map<String, BigDecimal> out = Money.empty();
         jdbc.query("""
                 SELECT currency, sum(realized_pnl) AS pnl FROM trade
-                WHERE member_id = ? AND executed_at < ? AND realized_pnl IS NOT NULL GROUP BY currency
+                WHERE member_id = ? AND executed_at < ? AND realized_pnl IS NOT NULL AND (CAST(? AS text) IS NULL OR mode = ?)
+                GROUP BY currency
                 """, (RowCallbackHandler) rs -> out.put(rs.getString(CURRENCY_FIELD), plain(rs.getBigDecimal("pnl"))), memberId,
-                Timestamp.from(start(date)));
+                Timestamp.from(start(date)), name(mode), name(mode));
         return out;
     }
 

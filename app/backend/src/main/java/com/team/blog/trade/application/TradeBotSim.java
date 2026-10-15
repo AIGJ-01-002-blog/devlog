@@ -136,7 +136,8 @@ public class TradeBotSim {
     }
 
     private void replaceAccounts(long memberId, List<Account> accounts, Instant now) {
-        jdbc.update("DELETE FROM trade_bot_account WHERE member_id = ?", memberId);
+        // 서버가 돌리는 모의 봇(spec 102)의 계좌는 그대로 둔다. 회원 컴퓨터의 봇이 알린 계좌만 통째로 바꾼다
+        jdbc.update("DELETE FROM trade_bot_account WHERE member_id = ? AND account NOT LIKE ?", memberId, PaperBot.PREFIX + "%");
         for (Account acc : accounts) {
             jdbc.update(INSERT_ACCOUNT, memberId, acc.account(), acc.exchange(), acc.market(), acc.currency(), acc.cash(), acc.unrealizedPnl(),
                     json.writeValueAsString(acc.positions()), json.writeValueAsString(acc.rules()), Timestamp.from(now));
@@ -185,6 +186,7 @@ public class TradeBotSim {
         jdbc.update("DELETE FROM trade_bot_event WHERE member_id = ?", memberId);
         jdbc.update("DELETE FROM trade_bot_account WHERE member_id = ?", memberId);
         jdbc.update("DELETE FROM trade_bot_status WHERE member_id = ?", memberId);
+        jdbc.update("DELETE FROM trade_paper_bot WHERE member_id = ?", memberId);
     }
 
     private List<Event> events(long memberId, Kind kind, Instant since, int limit) {
@@ -217,6 +219,7 @@ public class TradeBotSim {
         if (name.startsWith("trade-live-") || "LIVE".equalsIgnoreCase(n.path("mode").asString(""))) {
             throw bad("실계좌(" + name + ")는 이 화면에 보내지 않아요. 모의 계좌만 보내 주세요.");
         }
+        if (name.startsWith(PaperBot.PREFIX)) throw bad(PaperBot.PREFIX + "…는 devlog 서버 모의 봇 계좌 이름이라 쓸 수 없어요: " + name);
         if (!seen.add(name)) throw bad("같은 계좌가 두 번 있어요: " + name);
         String exchange = n.path("exchange").asString("").strip().toUpperCase(Locale.ROOT);
         if (!EXCHANGE.matcher(exchange).matches()) throw bad("exchange는 BINANCE·UPBIT 같은 코드예요.");
