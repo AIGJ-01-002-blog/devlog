@@ -491,4 +491,24 @@ class WritePublishTest extends IntegrationTest {
         Session other = signup(uniqueLogin("manageo"));
         assertThat(read(other.http().perform(get("/api/me/posts")).andReturn()).path("counts").path("drafts").asLong()).isZero();
     }
+
+    @Test
+    void 내_글_목록은_제목_검색어로_좁히고_검색어마다_커서가_따로다() throws Exception {
+        Session s = signup(uniqueLogin("manageq"));
+        for (int i = 0; i < 22; i++) newPost(s, "도커 볼륨 " + i);
+        newPost(s, "100% 캐시_정리");
+        newPost(s, "레디스 세션");
+        JsonNode docker = read(s.http().perform(get("/api/me/posts").param("q", "  도커  ")).andExpect(status().isOk()).andReturn());
+        assertThat(docker.path("items")).hasSize(20);
+        String cursor = docker.path("nextCursor").asString();
+        JsonNode more = read(s.http().perform(get("/api/me/posts").param("q", "도커").param("cursor", cursor)).andExpect(status().isOk()).andReturn());
+        assertThat(more.path("items")).hasSize(2);
+        // %·_는 글자 그대로 찾는다
+        JsonNode percent = read(s.http().perform(get("/api/me/posts").param("q", "0% 캐시_")).andExpect(status().isOk()).andReturn());
+        assertThat(percent.path("items")).hasSize(1);
+        assertThat(read(s.http().perform(get("/api/me/posts").param("q", "_")).andReturn()).path("items")).hasSize(1);
+        // 다른 검색어나 검색 없는 목록의 커서는 받지 않는다
+        s.http().perform(get("/api/me/posts").param("q", "레디스").param("cursor", cursor)).andExpect(status().isBadRequest());
+        s.http().perform(get("/api/me/posts").param("cursor", cursor)).andExpect(status().isBadRequest());
+    }
 }

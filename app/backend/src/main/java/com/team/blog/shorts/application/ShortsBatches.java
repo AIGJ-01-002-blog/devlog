@@ -132,7 +132,7 @@ public class ShortsBatches {
      * 묶음의 한 주제로 대본을 만든다. 근거(글·맥락)는 묶음 것을 쓰고, 주제마다 한 편만 둔다.
      * @param topic 1부터
      */
-    public ShortsService.Item create(long memberId, long batchId, Integer topic, String title, List<ShortsScript.Scene> scenes) {
+    public ShortsService.Item create(long memberId, long batchId, Integer topic, String title, List<ShortsScript.Scene> scenes, String character) {
         shorts.requireEnabled();
         Row row = row(memberId, batchId);
         if (topic == null || topic < 1 || topic > row.topics().size()) {
@@ -140,7 +140,7 @@ public class ShortsBatches {
         }
         String name = title == null || title.isBlank() ? row.topics().get(topic - 1).title() : title;
         try {
-            ShortsService.Item item = shorts.create(memberId, new ShortsService.Draft(row.postId(), name, scenes, batchId, topic, row.sourceText()));
+            ShortsService.Item item = shorts.create(memberId, new ShortsService.Draft(row.postId(), name, scenes, batchId, topic, row.sourceText(), character));
             touch(batchId);
             return item;
         } catch (DuplicateKeyException e) {

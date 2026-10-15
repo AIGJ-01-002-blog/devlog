@@ -41,6 +41,10 @@ export interface Scene {
 export const SCENE_VISUALS = ['explain', 'shock', 'typing', 'panic', 'restore', 'wait', 'fast', 'idea', 'protect', 'think', 'celebrate'] as const
 export type SceneVisual = (typeof SCENE_VISUALS)[number]
 
+/** 영상에서 연기할 캐릭터(#304). 빈 값이면 기본(로그냥) */
+export const SHORTS_CHARACTERS = ['lognyang', 'logduck', 'dubu', 'cat'] as const
+export type ShortsCharacter = (typeof SHORTS_CHARACTERS)[number]
+
 export interface ShortsItem {
   id: number
   postId: number | null
@@ -69,6 +73,8 @@ export interface ShortsItem {
   /** 주제 묶음(#276)에서 만든 편이면 묶음 번호와 주제 번호(1부터) */
   batchId: number | null
   topic: number | null
+  /** 연기할 캐릭터(#304). null이면 기본(로그냥) */
+  character: ShortsCharacter | null
 }
 
 /** 주제 묶음의 한 주제. 아직 대본이 없으면 shortsId·status가 null */
@@ -229,7 +235,7 @@ export function groupByBatch(items: ShortsItem[], batches: ShortsBatch[]): { bat
 }
 export const createShorts = (body: { postId: number | null; title: string; scenes: Scene[] }) =>
   api<ShortsItem>('/api/me/shorts', { method: 'POST', body })
-export const saveShorts = (id: number, body: { title: string; scenes: Scene[]; version: number }) =>
+export const saveShorts = (id: number, body: { title: string; scenes: Scene[]; version: number; character?: string }) =>
   api<ShortsItem>(`/api/me/shorts/${id}`, { method: 'PUT', body })
 export const createReplay = (tradeIds: number[], interval: ReplayInterval | null) =>
   api<ShortsItem>('/api/me/shorts/replay', { method: 'POST', body: { tradeIds, interval } })
