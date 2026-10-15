@@ -23,7 +23,7 @@ export const Shorts: React.FC<ShortsProps> = ({title, footer, scenes, transition
         {scenes.flatMap((scene, i) => {
           const items = [
             <TransitionSeries.Sequence key={`s${i}`} name={`장면 ${i + 1}`} durationInFrames={scene.durationInFrames} premountFor={fps}>
-              <Scene scene={scene} index={i} title={title} footer={footer} />
+              <Scene scene={scene} index={i} title={title} footer={footer} last={i === scenes.length - 1} />
             </TransitionSeries.Sequence>,
           ];
           if (i < scenes.length - 1 && transitionFrames > 0) {

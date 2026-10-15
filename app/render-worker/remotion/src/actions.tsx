@@ -15,7 +15,13 @@ const FEET = STAGE_H - 30;
 const clamp = {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'} as const;
 
 /** 공통 움직임: 숨쉬기, 깜빡임, 목소리에 맞춘 입·몸 들썩임, 구절마다 콩 뛰기, 장면마다 옆에서 뛰어 들어오기 */
-const useLife = (scene: SceneData, enterFrom = -1, beats: number[] = []) => {
+/** 문장(구절)마다 바꾸는 손짓 [왼팔, 오른팔] 각도. 연기가 팔을 정하지 않은 장면에서만 쓴다(참고 쇼츠: 문장마다 손짓을 바꾼다) */
+const GESTURES: [number, number][] = [[18, 18], [18, 100], [95, 22], [60, 60], [20, 125], [110, 110]];
+
+/** 훅·마무리 강조: 첫 장면 첫 구절(훅)과 마지막 장면 마지막 구절(행동 요청)에서 캐릭터를 크게 당기고 앞으로 기울인다 */
+export type Emphasis = {hook: boolean; cta: boolean};
+
+const useLife = (scene: SceneData, enterFrom = -1, beats: number[] = [], emphasis: Emphasis = {hook: false, cta: false}) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
   const t = frame / fps;
@@ -30,8 +36,26 @@ const useLife = (scene: SceneData, enterFrom = -1, beats: number[] = []) => {
   const land = since >= 0.3 && since < 0.45 ? Math.sin(((since - 0.3) / 0.15) * Math.PI) : 0;
   // 뛰어 들어오기: 0→1. enterFrom(-1 왼쪽, 1 오른쪽, 0 없음) 쪽 무대 밖에서 포물선을 그리며 들어온다
   const enter = enterFrom === 0 ? 1 : spring({frame, fps, config: {damping: 15, stiffness: 110}});
+  // 지금 몇 번째 구절인지(목소리 전이면 -1)
+  const ms = ((frame - scene.leadFrames) / fps) * 1000;
+  const pageIdx = scene.pages.reduce((k, pg, i) => (ms >= pg.startMs ? i : k), -1);
+  const pages = scene.pages.length;
+  const lastStart = pages ? scene.leadFrames + (scene.pages[pages - 1].startMs / 1000) * fps : Infinity;
+  // 강조 정도 0→1: 훅은 처음부터 첫 구절이 끝날 때까지, 마무리는 마지막 구절이 시작될 때부터
+  const hookEnd = pages > 1 ? scene.leadFrames + (scene.pages[1].startMs / 1000) * fps : scene.leadFrames + 1.2 * fps;
+  const zoomIn = emphasis.hook ? 1 - spring({frame: frame - hookEnd, fps, config: {damping: 18, stiffness: 120}}) :
+    emphasis.cta ? spring({frame: frame - lastStart, fps, config: {damping: 16, stiffness: 120}}) : 0;
   const live = (over: Partial<Pose>): Pose => {
-    const p = basePose({y: FEET, ...over});
+    const gesture = GESTURES[Math.max(0, pageIdx) % GESTURES.length];
+    const p = basePose({y: FEET, ...(over.armL === undefined && over.armR === undefined ? {armL: gesture[0], armR: gesture[1]} : {}), ...over});
+    if (zoomIn > 0.001) {
+      // 무대 가운데로 와서 1.6배까지 커지고 앞으로 기운다(화면 가득)
+      p.x += (540 - p.x) * zoomIn;
+      p.y += (STAGE_H + 40 - p.y) * zoomIn;
+      p.size *= 1 + 0.6 * zoomIn;
+      p.bodyTilt += 7 * zoomIn;
+      p.headTilt += 5 * zoomIn;
+    }
     p.x += (1 - enter) * enterFrom * 520;
     p.y -= Math.sin(Math.min(1, enter) * Math.PI) * 90 * (enterFrom === 0 ? 0 : 1) + hop + talk * 10;
     p.squash *= (1 + 0.025 * Math.sin(t * 2.8)) * (1 - 0.08 * land) * (1 + 0.04 * talk);
@@ -50,9 +74,9 @@ const useLife = (scene: SceneData, enterFrom = -1, beats: number[] = []) => {
   return {frame, fps, t, talk, live, pop};
 };
 
-export const Act: React.FC<{scene: SceneData; first: boolean}> = ({scene, first}) => {
+export const Act: React.FC<{scene: SceneData; first: boolean; last?: boolean}> = ({scene, first, last = false}) => {
   // 첫 장면은 고양이가 통 튀어나오며 시작(훅), 다음 장면부터는 옆에서 뛰어 들어온다
-  const life = useLife(scene, first ? 0 : -1);
+  const life = useLife(scene, first ? 0 : -1, [], {hook: first, cta: last && !first});
   const enter = first ? life.pop(0, 9) : 1;
   const Body = ACTS[scene.action] ?? Explain;
   return (
