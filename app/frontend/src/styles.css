@@ -2542,6 +2542,8 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 @media (max-width: 480px) {
   .replay-fill { grid-template-columns: auto auto minmax(0, 1fr); }
   .replay-fill-main { grid-column: 2 / -1; }
+}
+
 /* 블로그 포인트 (이슈 266) */
 .points-title { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .points-title-actions { display: flex; flex-wrap: wrap; gap: 8px; }
