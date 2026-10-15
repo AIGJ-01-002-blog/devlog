@@ -62,4 +62,39 @@ class VisitSourcesTest {
         assertThat(VisitSources.page("https://evil.example/")).isNull();
         assertThat(VisitSources.page(null)).isNull();
     }
+
+    @Test
+    void 블로그_주소는_정해_둔_탭과_글_시리즈만_남긴다() {
+        assertThat(VisitSources.page("/@kim")).isEqualTo("/@kim");
+        assertThat(VisitSources.page("/@kim/series")).isEqualTo("/@kim/series");
+        assertThat(VisitSources.page("/@kim/series/Spring")).isEqualTo("/@kim/series/Spring");
+        assertThat(VisitSources.page("/@kim/about")).isEqualTo("/@kim/about");
+        assertThat(VisitSources.page("/@kim/followers")).isEqualTo("/@kim/followers");
+        assertThat(VisitSources.page("/@kim/following")).isEqualTo("/@kim/following");
+        assertThat(VisitSources.page("/@kim/rss")).isEqualTo("/@kim/rss");
+        assertThat(VisitSources.page("/@" + "a".repeat(40))).isEqualTo("/@" + "a".repeat(40));
+        assertThat(VisitSources.page("/@" + "a".repeat(41))).isNull();
+        assertThat(VisitSources.page("/@")).isNull();
+        assertThat(VisitSources.page("/@kim/posts/0")).isNull();
+        assertThat(VisitSources.page("/@kim/posts/012")).isNull();
+        assertThat(VisitSources.page("/@kim/posts/123456789012345678")).isEqualTo("/@kim/posts/123456789012345678");
+        assertThat(VisitSources.page("/@kim/posts/1234567890123456789")).isNull();
+        assertThat(VisitSources.page("/@kim/series/a/b")).isNull();
+        assertThat(VisitSources.page("/@kim/series/" + "y".repeat(121))).isNull();
+        assertThat(VisitSources.page("/@kim/edit")).isNull();
+        assertThat(VisitSources.page("/@ki m")).isNull();
+    }
+
+    @Test
+    void 고정_화면과_태그_화면만_남긴다() {
+        for (String p : new String[] {"/rss", "/search", "/mcp", "/support", "/releases", "/tags", "/login", "/signup", "/feed",
+                "/terms", "/privacy", "/notifications", "/settings", "/lists/liked", "/manage/posts"}) {
+            assertThat(VisitSources.page(p)).as(p).isEqualTo(p);
+        }
+        assertThat(VisitSources.page("/tags/" + "x".repeat(120))).isEqualTo("/tags/" + "x".repeat(120));
+        assertThat(VisitSources.page("/tags/" + "x".repeat(121))).isNull();
+        assertThat(VisitSources.page("/tags/a/b")).isNull();
+        assertThat(VisitSources.page("/lists/read")).isNull();
+        assertThat(VisitSources.page("//@kim")).isNull();
+    }
 }

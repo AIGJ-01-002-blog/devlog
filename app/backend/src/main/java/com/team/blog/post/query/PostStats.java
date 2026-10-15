@@ -27,6 +27,7 @@ public class PostStats {
 
     /** 열 이름 */
     private static final String HIDDEN = "hidden";
+    private static final String VISIBILITY = "visibility";
     private static final String AUTHOR_ID = "author_id";
 
     private final JdbcTemplate jdbc;
@@ -167,14 +168,14 @@ public class PostStats {
                 FROM post p JOIN member m ON m.id = p.author_id
                 WHERE p.id = ANY (?) AND p.author_id = ? AND p.status = 'PUBLISHED' AND p.deleted_at IS NULL
                 """, (RowCallbackHandler) rs -> out.put(rs.getLong("id"), new Row(rs.getLong("id"), rs.getLong(AUTHOR_ID), rs.getString("handle"),
-                rs.getString("title"), rs.getString("visibility"), rs.getBoolean(HIDDEN), rs.getString("hidden_reason"),
+                rs.getString("title"), rs.getString(VISIBILITY), rs.getBoolean(HIDDEN), rs.getString("hidden_reason"),
                 rs.getTimestamp("published_at").toInstant())), ids.toArray(Long[]::new), authorId);
         return out;
     }
 
     private static Row row(ResultSet rs) throws SQLException {
-        boolean open = "PUBLIC".equals(rs.getString("visibility"));
+        boolean open = "PUBLIC".equals(rs.getString(VISIBILITY));
         return new Row(rs.getLong("id"), rs.getLong(AUTHOR_ID), rs.getString("handle"), open ? rs.getString("title") : null,
-                rs.getString("visibility"), rs.getBoolean(HIDDEN), rs.getString("hidden_reason"), rs.getTimestamp("published_at").toInstant());
+                rs.getString(VISIBILITY), rs.getBoolean(HIDDEN), rs.getString("hidden_reason"), rs.getTimestamp("published_at").toInstant());
     }
 }

@@ -128,6 +128,16 @@ class NotificationTest extends IntegrationTest {
             like(likers.get(0), p, true);
         }
         assertThat(list(a)).hasSize(1);
+    }
+
+    @Test
+    void 읽은_좋아요_묶음_뒤의_새_좋아요는_새_묶음이고_모두_취소되면_안_읽은_묶음은_사라진다() throws Exception {
+        Session a = signup(uniqueLogin("ntd"));
+        long p = publish(a, "묶음 글", "PUBLIC");
+        List<Session> likers = new ArrayList<>();
+        for (int i = 0; i < 3; i++) likers.add(signup(uniqueLogin("ntl" + i)));
+        for (Session s : likers) like(s, p, true);
+        like(likers.get(2), p, false);
 
         // 읽은 뒤 새 좋아요는 새 묶음, 읽은 묶음에 있던 사람은 다시 알리지 않는다 (FR-008·FR-009)
         long id = list(a).get(0).path("id").asLong();
@@ -136,7 +146,7 @@ class NotificationTest extends IntegrationTest {
         like(likers.get(0), p, true);
         assertThat(list(a)).hasSize(1);
         like(likers.get(2), p, true);
-        items = list(a);
+        JsonNode items = list(a);
         assertThat(items).hasSize(2);
         assertThat(items.get(0).path("read").asBoolean()).isFalse();
         assertThat(items.get(1).path("read").asBoolean()).isTrue();

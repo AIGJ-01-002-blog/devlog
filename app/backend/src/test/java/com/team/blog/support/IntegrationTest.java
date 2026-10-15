@@ -4,6 +4,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -75,10 +76,8 @@ public abstract class IntegrationTest {
      * 사건은 응답 전에 대기열에 들어가므로, 읽기 전에 대기열이 빌 때까지 기다리면 결과가 정해진다.
      */
     protected void drain() throws InterruptedException {
-        long until = System.currentTimeMillis() + 10_000;
-        while (notifier.getQueueSize() > 0 || notifier.getActiveCount() > 0) {
-            if (System.currentTimeMillis() > until) throw new AssertionError("알림 처리가 끝나지 않았습니다");
-            Thread.sleep(5);
+        if (!Waits.until(() -> notifier.getQueueSize() == 0 && notifier.getActiveCount() == 0, Duration.ofSeconds(10))) {
+            throw new AssertionError("알림 처리가 끝나지 않았습니다");
         }
     }
 

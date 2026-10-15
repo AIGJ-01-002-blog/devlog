@@ -51,9 +51,9 @@ class ClientIpResolverTest {
 
     @Test
     void 숫자_주소가_아니면_DNS를_묻지_않고_신뢰하지_않는다() {
-        assertThat(ClientIpResolver.Cidr.toBytes("999.1.1.1")).isNull();
-        assertThat(ClientIpResolver.Cidr.toBytes("1.2.3.256")).isNull();
-        assertThat(ClientIpResolver.Cidr.toBytes("example.com")).isNull();
+        assertThat(ClientIpResolver.Cidr.toBytes("999.1.1.1")).isEmpty();
+        assertThat(ClientIpResolver.Cidr.toBytes("1.2.3.256")).isEmpty();
+        assertThat(ClientIpResolver.Cidr.toBytes("example.com")).isEmpty();
         assertThat(ClientIpResolver.Cidr.toBytes("255.255.255.255")).hasSize(4);
         // 신뢰 대역 안에서 숫자가 아닌 홉이 오면 그 값을 그대로 신뢰 밖 주소로 본다
         assertThat(resolver.resolve(request("10.1.2.3", "unknown"))).isEqualTo("unknown");

@@ -59,19 +59,30 @@ public final class ImageInspector {
             int marker = b[pos + 1] & 0xFF;
             if (marker == 0xFF) {
                 pos++; // 채움 바이트
-            } else if (marker == 0xD8 || marker == 0x01 || (marker >= 0xD0 && marker <= 0xD7)) {
-                pos += 2;
-            } else {
-                int len = be16(b, pos + 2);
-                if (len < 2) return Optional.empty();
-                if (marker == 0xE1) meta = true; // APP1: EXIF·XMP
-                boolean sof = marker >= 0xC0 && marker <= 0xCF && marker != 0xC4 && marker != 0xC8 && marker != 0xCC;
-                if (sof) return valid("image/jpeg", "jpg", be16(b, pos + 7), be16(b, pos + 5), meta);
-                if (marker == 0xDA || marker == 0xD9) return Optional.empty(); // 크기 정보 전에 그림이 시작됨
-                pos += 2 + len;
+                continue;
             }
+            if (isStandaloneMarker(marker)) {
+                pos += 2;
+                continue;
+            }
+            int len = be16(b, pos + 2);
+            // 길이가 깨졌거나, 크기 정보 전에 그림이 시작됨(SOS·EOI)
+            if (len < 2 || marker == 0xDA || marker == 0xD9) return Optional.empty();
+            if (marker == 0xE1) meta = true; // APP1: EXIF·XMP
+            if (isStartOfFrame(marker)) return valid("image/jpeg", "jpg", be16(b, pos + 7), be16(b, pos + 5), meta);
+            pos += 2 + len;
         }
         return Optional.empty();
+    }
+
+    /** 길이 없이 표시만 있는 마커(SOI·TEM·RST0~7) */
+    private static boolean isStandaloneMarker(int marker) {
+        return marker == 0xD8 || marker == 0x01 || (marker >= 0xD0 && marker <= 0xD7);
+    }
+
+    /** 그림 크기를 담은 SOF 마커 (DHT·JPG·DAC 제외) */
+    private static boolean isStartOfFrame(int marker) {
+        return marker >= 0xC0 && marker <= 0xCF && marker != 0xC4 && marker != 0xC8 && marker != 0xCC;
     }
 
     private static Optional<ImageInfo> webp(byte[] b) {
@@ -116,10 +127,7 @@ public final class ImageInspector {
                     case 0x21 -> pos = skipSubBlocks(b, pos + 2); // 확장 블록
                     case 0x2C -> { // 이미지 서술자 = 한 장면
                         if (++frames > limit) return frames;
-                        int f = b[pos + 9] & 0xFF;
-                        pos += 10;
-                        if ((f & 0x80) != 0) pos += 3 * (1 << ((f & 0x07) + 1));
-                        pos = skipSubBlocks(b, pos + 1); // LZW 최소 코드 크기 다음부터 데이터
+                        pos = skipImage(b, pos);
                     }
                     default -> {
                         return -1;
@@ -131,6 +139,14 @@ public final class ImageInspector {
         } catch (ArrayIndexOutOfBoundsException e) {
             return -1;
         }
+    }
+
+    /** 이미지 서술자(pos)부터 그 장면의 그림 데이터 끝까지 건너뛴다. 깨졌으면 음수 */
+    private static int skipImage(byte[] b, int pos) {
+        int f = b[pos + 9] & 0xFF;
+        pos += 10;
+        if ((f & 0x80) != 0) pos += 3 * (1 << ((f & 0x07) + 1));
+        return skipSubBlocks(b, pos + 1); // LZW 최소 코드 크기 다음부터 데이터
     }
 
     private static int skipSubBlocks(byte[] b, int pos) {

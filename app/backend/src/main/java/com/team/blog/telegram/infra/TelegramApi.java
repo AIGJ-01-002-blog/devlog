@@ -8,8 +8,8 @@ public interface TelegramApi {
     /** 봇 사용자 이름(@ 없이). 확인할 수 없으면 비어 있다 */
     Optional<String> botUsername();
 
-    /** @param offset 다음에 받을 업데이트 번호. @return 받은 업데이트(없으면 빈 목록). 호출이 실패하면 null */
-    List<Update> updates(long offset);
+    /** @param offset 다음에 받을 업데이트 번호. @return 받은 업데이트(없으면 빈 목록). 호출이 실패하면 비어 있다 */
+    Optional<List<Update>> updates(long offset);
 
     SendResult send(long chatId, String text);
 

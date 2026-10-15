@@ -129,22 +129,34 @@ public class SearchQuery {
         if (terms.isEmpty()) return new PostPage(terms.normalized(), List.of(), null, "TOO_SHORT");
         String notice = terms.hasShortWord() ? "TWO_CHAR_TITLE_TAG_ONLY" : null;
         String listName = "search:" + (sort == Sort.LATEST ? "l" : "r") + ":" + (authorId == null ? "all" : authorId) + ":" + terms.fingerprint();
-        List<Integer> stages;
-        if (sort == Sort.LATEST) stages = List.of(LATEST_STAGE);
-        else if (terms.hasBodyWord()) stages = List.of(1, 2, 3);
-        else stages = List.of(1, 2);
+        List<Integer> stages = stages(sort, terms);
 
-        long[] k = cursor == null || cursor.isBlank() ? null : cursors.decode(cursor, listName, 3);
-        if (sort == Sort.RELEVANCE && (k == null || k[0] == HYBRID_STAGE)) {
-            Optional<PostPage> hybrid = hybrid(terms, stages, authorId, k == null ? 0 : (int) k[1], listName, notice);
+        long[] k = decodeCursor(cursor, listName);
+        if (sort == Sort.RELEVANCE && (k.length == 0 || k[0] == HYBRID_STAGE)) {
+            Optional<PostPage> hybrid = hybrid(terms, stages, authorId, k.length == 0 ? 0 : (int) k[1], listName, notice);
             if (hybrid.isPresent()) return hybrid.get();
-            if (k != null) throw invalidCursor();
+            if (k.length > 0) throw invalidCursor();
         }
+        return keywordPage(terms, stages, authorId, k, listName, notice, sort == Sort.RELEVANCE);
+    }
 
+    private static List<Integer> stages(Sort sort, SearchTerms terms) {
+        if (sort == Sort.LATEST) return List.of(LATEST_STAGE);
+        if (terms.hasBodyWord()) return List.of(1, 2, 3);
+        return List.of(1, 2);
+    }
+
+    private long[] decodeCursor(String cursor, String listName) {
+        return cursor == null || cursor.isBlank() ? new long[0] : cursors.decode(cursor, listName, 3);
+    }
+
+    /** 키워드 단계 순서대로 채운 한 페이지. k는 이어 볼 위치(비었으면 처음) */
+    private PostPage keywordPage(SearchTerms terms, List<Integer> stages, Long authorId, long[] k, String listName, String notice,
+                                 boolean relevance) {
         int fromStage = stages.get(0);
         Instant cursorAt = null;
         Long cursorId = null;
-        if (k != null) {
+        if (k.length > 0) {
             if (!stages.contains((int) k[0])) throw invalidCursor();
             fromStage = (int) k[0];
             cursorAt = Times.fromEpochMicros(k[1]);
@@ -152,7 +164,7 @@ public class SearchQuery {
         }
 
         // 하이브리드 목록 뒤를 잇는 페이지면, 섞은 목록에서 이미 보여 준 의미 검색 글은 다시 내지 않는다
-        Set<Long> shown = sort == Sort.RELEVANCE && k != null
+        Set<Long> shown = relevance && k.length > 0
                 ? new HashSet<>(semantic.nearest(terms.normalized(), authorId).orElse(List.of())) : Set.of();
 
         // 9개 + 다음 페이지 확인용 1개. 한 단계가 모자라면 같은 페이지에서 다음 단계로 이어 채운다 (FR-013)

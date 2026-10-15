@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -58,10 +59,8 @@ public final class FakeTelegram {
 
     /** 이 대화로 n번째 메시지가 올 때까지 기다린다 (보내기는 따로 도는 실행기에서 한다) */
     public String await(long chatId, int count) throws InterruptedException {
-        long until = System.currentTimeMillis() + 10_000;
-        while (to(chatId).size() < count) {
-            if (System.currentTimeMillis() > until) throw new AssertionError("텔레그램 메시지가 오지 않았습니다: " + to(chatId));
-            Thread.sleep(10);
+        if (!Waits.until(() -> to(chatId).size() >= count, Duration.ofSeconds(10))) {
+            throw new AssertionError("텔레그램 메시지가 오지 않았습니다: " + to(chatId));
         }
         return to(chatId).get(count - 1);
     }

@@ -37,7 +37,7 @@ public class NotificationQuery {
     /** AI 글 제안 알림이 가는 곳 (071): 내 글 관리 임시글 탭의 제안 목록 */
     static final String PROPOSALS_LINK = "/manage/posts?tab=drafts#ai-proposals";
     static final String FRIENDS_LINK = "/settings#friends";
-    private static final String POSTS_PATH = "/posts/";
+    private static final String POSTS_SEGMENT = "/posts/";
 
     private final JdbcTemplate jdbc;
     private final CursorCodec cursors;
@@ -136,7 +136,7 @@ public class NotificationQuery {
         List<Object> args = new ArrayList<>(List.of(memberId));
         String after = "";
         long[] k = cursors.decode(cursor, list, 2);
-        if (k != null) {
+        if (k.length > 0) {
             after = " AND (n.updated_at, n.id) < (?, ?)";
             args.add(Timestamp.from(Times.fromEpochMicros(k[0])));
             args.add(k[1]);
@@ -247,16 +247,20 @@ public class NotificationQuery {
                 && policy.canRead(r.post(), new Viewer(viewerId, false));
         PostRef post = null;
         if (r.postId() != null) post = readable ? new PostRef(r.postId(), r.title(), true) : new PostRef(null, null, false);
-        String preview = null;
+        String preview = readable && isComment(r.type()) && !r.commentGone() ? preview(r.commentContent()) : null;
+        return new Item(r.id(), r.type(), r.read(), r.at(), actor, others, post, preview, link(r, readable, actor), null, null, null, null);
+    }
+
+    private static boolean isComment(NotificationType type) {
+        return type == NotificationType.COMMENT || type == NotificationType.REPLY;
+    }
+
+    /** 일반 알림을 눌렀을 때 갈 곳. 읽을 수 있는 글이면 글(댓글이면 그 댓글 위치)로 간다 */
+    private static String link(Row r, boolean readable, Actor actor) {
         String link = null;
         if (readable) {
-            String base = "/@" + r.postHandle() + POSTS_PATH + r.postId();
-            if (r.type() == NotificationType.COMMENT || r.type() == NotificationType.REPLY) {
-                preview = r.commentGone() ? null : preview(r.commentContent());
-                link = base + "?comment=" + r.commentId() + "#comment-" + r.commentId();
-            } else {
-                link = base;
-            }
+            String base = "/@" + r.postHandle() + POSTS_SEGMENT + r.postId();
+            link = isComment(r.type()) ? base + "?comment=" + r.commentId() + "#comment-" + r.commentId() : base;
         }
         // 새 팔로워는 글이 없고 대표 팔로워의 블로그로 간다
         if ((r.type() == NotificationType.FOLLOW || r.type() == NotificationType.FRIEND_ACCEPTED) && actor != null && !actor.withdrawn()) {
@@ -264,7 +268,7 @@ public class NotificationQuery {
         }
         // 받은 친구 요청은 설정 > 친구에서 수락·거절한다
         if (r.type() == NotificationType.FRIEND_REQUEST) link = FRIENDS_LINK;
-        return new Item(r.id(), r.type(), r.read(), r.at(), actor, others, post, preview, link, null, null, null, null);
+        return link;
     }
 
     private static Actor actor(Row r) {
@@ -287,10 +291,10 @@ public class NotificationQuery {
         if (r.post() != null && r.postId() != null) {
             if (!comment && policy.canRead(r.post(), new Viewer(viewerId, false))) {
                 post = new PostRef(r.postId(), r.title(), true);
-                link = "/@" + r.postHandle() + POSTS_PATH + r.postId();
+                link = "/@" + r.postHandle() + POSTS_SEGMENT + r.postId();
             } else if (comment && r.hiddenCommentId() != null && r.post().status() == PostStatus.PUBLISHED && !r.post().hidden()
                     && policy.canRead(r.post(), new Viewer(viewerId, false))) {
-                link = "/@" + r.postHandle() + POSTS_PATH + r.postId() + "?comment=" + r.hiddenCommentId() + "#comment-" + r.hiddenCommentId();
+                link = "/@" + r.postHandle() + POSTS_SEGMENT + r.postId() + "?comment=" + r.hiddenCommentId() + "#comment-" + r.hiddenCommentId();
             }
         }
         return new Item(r.id(), r.type(), r.read(), r.at(), null, 0, post, null, link, null, hidden, null, null);

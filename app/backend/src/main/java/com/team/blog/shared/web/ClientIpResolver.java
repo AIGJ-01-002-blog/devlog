@@ -67,7 +67,7 @@ public class ClientIpResolver {
         if (value == null) return Optional.empty();
         String ip = value.trim();
         byte[] bytes = Cidr.toBytes(ip);
-        if (bytes == null || isTrusted(ip) || isInternal(bytes)) return Optional.empty();
+        if (bytes.length == 0 || isTrusted(ip) || isInternal(bytes)) return Optional.empty();
         return Optional.of(ip);
     }
 
@@ -96,7 +96,7 @@ public class ClientIpResolver {
         static Cidr parse(String s) {
             String[] parts = s.split("/");
             byte[] addr = toBytes(parts[0]);
-            if (addr == null) throw new IllegalArgumentException("잘못된 신뢰 프록시 대역: " + s);
+            if (addr.length == 0) throw new IllegalArgumentException("잘못된 신뢰 프록시 대역: " + s);
             int prefix = parts.length > 1 ? Integer.parseInt(parts[1]) : addr.length * 8;
             if (prefix < 0 || prefix > addr.length * 8) throw new IllegalArgumentException("잘못된 신뢰 프록시 대역: " + s);
             return new Cidr(addr, prefix);
@@ -104,7 +104,7 @@ public class ClientIpResolver {
 
         boolean contains(String ip) {
             byte[] target = toBytes(ip);
-            if (target == null || target.length != network.length) return false;
+            if (target.length != network.length) return false;
             int full = prefix / 8;
             int rest = prefix % 8;
             for (int i = 0; i < full; i++) if (target[i] != network[i]) return false;
@@ -118,17 +118,17 @@ public class ClientIpResolver {
         @Override public int hashCode() { return 31 * Arrays.hashCode(network) + prefix; }
         @Override public String toString() { return "Cidr[" + Arrays.toString(network) + "/" + prefix + "]"; }
 
-        /** DNS 조회 없이 숫자 주소만 해석한다 (헤더 값으로 DNS 질의를 일으키지 않게). */
+        /** DNS 조회 없이 숫자 주소만 해석한다 (헤더 값으로 DNS 질의를 일으키지 않게). 숫자 주소가 아니면 빈 배열 */
         static byte[] toBytes(String ip) {
-            if (ip == null || ip.isBlank()) return null;
+            if (ip == null || ip.isBlank()) return new byte[0];
             String v = ip.trim();
             boolean v4 = V4.matcher(v).matches();
             boolean v6 = v.contains(":") && v.matches("[0-9a-fA-F:.%]+");
-            if (!v4 && !v6) return null;
+            if (!v4 && !v6) return new byte[0];
             try {
                 return InetAddress.getByName(v).getAddress();
             } catch (UnknownHostException e) {
-                return null;
+                return new byte[0];
             }
         }
     }

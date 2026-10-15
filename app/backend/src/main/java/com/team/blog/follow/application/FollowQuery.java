@@ -90,7 +90,7 @@ public class FollowQuery {
         args.add(owner);
         String after = "";
         long[] k = cursors.decode(cursor, listName, 2);
-        if (k != null) {
+        if (k.length > 0) {
             after = " AND (f.created_at, m.id) < (?, ?)";
             args.add(Timestamp.from(Times.fromEpochMicros(k[0])));
             args.add(k[1]);

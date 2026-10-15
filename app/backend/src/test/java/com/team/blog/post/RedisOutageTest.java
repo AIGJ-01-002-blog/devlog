@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.reset;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -38,7 +37,7 @@ class RedisOutageTest extends IntegrationTest {
 
     private void breakAutosave() {
         RedisConnectionFailureException down = new RedisConnectionFailureException("테스트: Redis 장애");
-        doThrow(down).when(autosave).save(anyLong(), anyLong(), anyLong(), anyLong(), anyString(), anyString(), any(), any(), anyBoolean());
+        doThrow(down).when(autosave).save(any(), any(), any(), anyBoolean());
         doThrow(down).when(autosave).read(anyLong());
         doThrow(down).when(autosave).deleteIfVersionAtMost(anyLong(), anyLong());
     }
