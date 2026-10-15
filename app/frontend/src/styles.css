@@ -2517,6 +2517,58 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
   .dashboard-kpis .kpi-value { font-size: 1.25rem; }
 }
 
+/* 자동매매 모의 화면 /trade (spec 101): 계좌 카드, 체결·Gemini 판단·하루 요약. 손익 색은 매매 일지와 같다 */
+.tradebot-paper { font-size: 0.55em; vertical-align: middle; }
+.tradebot-when { font-size: 1.25rem; }
+.tradebot-empty { margin-top: 16px; padding: 16px; border: 1px dashed var(--color-border); border-radius: var(--radius); }
+.tradebot-empty h2 { margin-top: 0; }
+.tradebot-tabs .settings-panel { padding-top: 16px; padding-bottom: 16px; }
+.tradebot-section h2 { margin-top: 0; }
+.tradebot-tab-count { margin-left: auto; font-size: 0.75rem; font-weight: 600; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.settings-nav a[aria-current="page"] .tradebot-tab-count { color: inherit; }
+.tradebot-accounts { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.tradebot-account { padding: 12px; border: 1px solid var(--color-border); border-radius: var(--radius); min-width: 0; }
+.tradebot-account-name { flex-basis: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tradebot-cash { display: flex; flex-wrap: wrap; gap: 4px 20px; margin: 10px 0; }
+.tradebot-cash dt, .tradebot-rules dt { font-size: 0.75rem; color: var(--color-text-muted); }
+.tradebot-cash dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tradebot-positions { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.tradebot-positions li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-variant-numeric: tabular-nums; }
+.tradebot-positions li .pnl { margin-left: auto; }
+.tradebot-rules summary { cursor: pointer; font-weight: 600; font-size: 0.875rem; }
+.tradebot-rules dl { margin: 6px 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 6px; }
+.tradebot-rules dd { margin: 0; overflow-wrap: anywhere; }
+.tradebot-chart-toolbar { flex-wrap: wrap; gap: 8px; }
+.tradebot-coins { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin: 8px 0 12px; }
+.tradebot-coin { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px; min-height: 40px;
+  border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-surface); color: inherit; text-align: left; cursor: pointer; font: inherit; }
+.tradebot-coin:hover { background: var(--color-hover); }
+.tradebot-coin.active { border-color: var(--color-brand); box-shadow: 0 0 0 1px var(--color-brand); }
+.tradebot-coin-name { display: flex; align-items: baseline; gap: 6px; }
+.tradebot-coin-price { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.tradebot-coin-dot { position: absolute; top: 8px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--color-brand); }
+.tradebot-range { margin: 4px 0 8px; }
+.tradebot-marks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.tradebot-marks li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; padding: 6px 0; border-top: 1px solid var(--color-border); }
+@media (max-width: 767px) {
+  .tradebot-coins { display: flex; overflow-x: auto; scrollbar-width: none; margin: 8px -16px 12px; padding: 0 16px; }
+  .tradebot-coins::-webkit-scrollbar { display: none; }
+  .tradebot-coin { flex: 0 0 auto; min-width: 116px; }
+  .tradebot-tabs .settings-panel .tradebot-chart { margin: 0 -8px; padding: 8px; }
+}
+.tradebot-chart { padding: 10px 12px; border: 1px solid var(--color-border); border-radius: var(--radius); min-width: 0; }
+.tradebot-chart-price { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tradebot-candles { display: block; width: 100%; height: auto; margin-top: 6px; }
+.tradebot-candles .up { stroke: var(--color-up); fill: var(--color-up); }
+.tradebot-candles .down { stroke: var(--color-down); fill: var(--color-down); }
+.tradebot-candles line { stroke-width: 1; }
+.tradebot-candles .tradebot-last { stroke: var(--color-text-muted); stroke-dasharray: 4 4; opacity: 0.6; }
+.tradebot-candles line { vector-effect: non-scaling-stroke; }
+.tradebot-mark { stroke: var(--color-surface); stroke-width: 1; cursor: help; }
+.tradebot-text { margin: 4px 0 0; overflow-wrap: anywhere; white-space: pre-line; }
+.tradebot-allow { color: var(--color-up); border-color: var(--color-up); }
+.tradebot-block { color: var(--color-down); border-color: var(--color-down); }
+
 /* 매매 재현 영상 (이슈 265) */
 .studio-replay-btn { margin-top: 8px; }
 .studio-kind { font-size: 0.875em; }
