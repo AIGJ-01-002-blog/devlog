@@ -60,6 +60,7 @@ public abstract class IntegrationTest {
         r.add("blog.discord.base-url", FakeDiscord.INSTANCE::baseUrl);
         // 포인트 모의투자 시세(#267)도 가짜 업비트로
         r.add("blog.paper.base-url", FakeUpbit.INSTANCE::baseUrl);
+        r.add("blog.paper.source", () -> "upbit");
         // 자동매매 화면 차트(spec 101)도 가짜 거래소로
         r.add("blog.trades.binance-url", FakeExchanges.INSTANCE::baseUrl);
         r.add("blog.trades.upbit-url", FakeExchanges.INSTANCE::baseUrl);
