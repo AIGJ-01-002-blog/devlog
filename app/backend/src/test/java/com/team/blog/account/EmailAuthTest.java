@@ -207,6 +207,18 @@ class EmailAuthTest extends IntegrationTest {
     }
 
     @Test
+    void 인증_전_글쓰기_막기는_퍼센트_인코딩한_주소로도_건너뛸_수_없다() throws Exception {
+        // 보안 점검(2026-10-15): 날 주소로 비교하면 /api/%70osts·/%61pi/posts가 막기를 건너뛰고 글쓰기에 닿았다
+        Account a = emailSignup(uniqueEmail("enc"));
+        for (String path : List.of("/api/%70osts", "/%61pi/posts", "/api/posts%2F")) {
+            int st = a.http().perform(asJson(post(java.net.URI.create(path)), Map.of())).andReturn().getResponse().getStatus();
+            assertThat(st).as(path).isNotEqualTo(201);
+        }
+        a.http().perform(asJson(post(java.net.URI.create("/api/%70osts")), Map.of()))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("EMAIL_NOT_VERIFIED"));
+    }
+
+    @Test
     void 인증_링크는_한_번만_쓰이고_다시_보내면_이전_링크는_무효다_재발송은_1분에_1번() throws Exception {
         Account a = emailSignup(uniqueEmail("link"));
         String first = lastToken(a.email());

@@ -39,6 +39,7 @@ import com.team.blog.mcp.web.McpUploadController;
 import com.team.blog.shared.config.BlogProperties;
 import com.team.blog.shared.web.ClientIpResolver;
 import com.team.blog.shared.web.RateLimiter;
+import com.team.blog.shared.web.RequestPaths;
 import com.team.blog.shorts.web.RenderWorkerController;
 
 /**
@@ -108,7 +109,7 @@ public class SecurityConfig {
                                             OAuth2LoginHandlers loginHandlers, RateLimiter rateLimiter,
                                             ClientIpResolver ipResolver, StringRedisTemplate redis, BlogProperties props,
                                             ContentSecurityPolicy csp) {
-        RequestMatcher api = request -> request.getRequestURI().startsWith("/api/");
+        RequestMatcher api = request -> RequestPaths.of(request).startsWith("/api/");
         http
                 .csrf(csrf -> csrf.spa())
                 .requestCache(c -> c.requestCache(new NullRequestCache()))
@@ -125,7 +126,7 @@ public class SecurityConfig {
                         .defaultAuthenticationEntryPointFor(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED), request -> true)
                         // 관리자·매니저 전용 주소에 일반 회원이 오면 404로 숨긴다 (docs/42 P-10, 062)
                         .accessDeniedHandler((req, res, ex) -> {
-                            if (req.getRequestURI().startsWith("/api/admin/")) notFound(res);
+                            if (RequestPaths.of(req).startsWith("/api/admin/")) notFound(res);
                             else forbidden(res);
                         }))
                 .oauth2Login(o -> o
