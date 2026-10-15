@@ -57,12 +57,9 @@ public final class ImageInspector {
         while (pos + 4 <= b.length) {
             if ((b[pos] & 0xFF) != 0xFF) return Optional.empty();
             int marker = b[pos + 1] & 0xFF;
-            if (marker == 0xFF) {
-                pos++; // 채움 바이트
-                continue;
-            }
-            if (isStandaloneMarker(marker)) {
-                pos += 2;
+            int bare = bareMarkerLength(marker);
+            if (bare > 0) {
+                pos += bare;
                 continue;
             }
             int len = be16(b, pos + 2);
@@ -73,6 +70,12 @@ public final class ImageInspector {
             pos += 2 + len;
         }
         return Optional.empty();
+    }
+
+    /** 길이 칸 없이 건너뛸 바이트 수: 채움 바이트(0xFF)는 1, 표시만 있는 마커는 2, 나머지는 0 */
+    private static int bareMarkerLength(int marker) {
+        if (marker == 0xFF) return 1;
+        return isStandaloneMarker(marker) ? 2 : 0;
     }
 
     /** 길이 없이 표시만 있는 마커(SOI·TEM·RST0~7) */

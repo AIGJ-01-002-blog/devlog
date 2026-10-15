@@ -59,6 +59,7 @@ public class ShopService {
     public static final Set<String> EFFECT_PRESETS = Set.of("glow", "stardust", "radiance");
     private static final String INVALID = "INVALID";
     private static final String VALUE = "value";
+    private static final String PRICE = "price";
     private static final String ORDER = "CASE i.kind WHEN 'THEME' THEN 0 WHEN 'FRAME' THEN 1 WHEN 'BANNER' THEN 2 ELSE 3 END, i.tier, i.sort, i.id";
 
     /** 티어 기본 가격: 100 × 10^(티어-1) 크레딧 (아이언 100 ~ 챌린저 100억) */
@@ -137,7 +138,7 @@ public class ShopService {
         points.ensureWelcome(memberId);
         tx.executeWithoutResult(st -> {
             List<Listing> rows = jdbc.query("SELECT name, kind, tier, price, active FROM shop_item WHERE id = ? FOR SHARE",
-                    (rs, n) -> new Listing(rs.getString("name"), rs.getString("kind"), rs.getInt("tier"), rs.getLong("price"), rs.getBoolean("active")),
+                    (rs, n) -> new Listing(rs.getString("name"), rs.getString("kind"), rs.getInt("tier"), rs.getLong(PRICE), rs.getBoolean("active")),
                     itemId);
             if (rows.isEmpty() || !rows.getFirst().active()) throw new NotFoundException();
             Listing row = rows.getFirst();
@@ -285,7 +286,7 @@ public class ShopService {
     }
 
     private Item item(ResultSet rs, boolean owned, boolean applied) throws SQLException {
-        return new Item(rs.getLong("id"), rs.getString("kind"), rs.getInt("tier"), rs.getString("name"), rs.getString("description"), rs.getLong("price"),
+        return new Item(rs.getLong("id"), rs.getString("kind"), rs.getInt("tier"), rs.getString("name"), rs.getString("description"), rs.getLong(PRICE),
                 rs.getString(VALUE), imageUrls.urlOf(rs.getString("image_key")), rs.getBoolean("active"), rs.getInt("sort"), owned, applied, false, null, null);
     }
 
@@ -306,7 +307,7 @@ public class ShopService {
         if (tier < 1 || tier > TIER_MAX) errors.add(new FieldErrorItem("tier", INVALID, "티어는 1(아이언)~" + TIER_MAX + "(챌린저)예요."));
         if (name.isEmpty() || name.length() > NAME_MAX) errors.add(new FieldErrorItem("name", INVALID, "이름은 1~" + NAME_MAX + "자예요."));
         if (description.length() > DESCRIPTION_MAX) errors.add(new FieldErrorItem("description", "TOO_LONG", "설명은 " + DESCRIPTION_MAX + "자까지예요."));
-        if (price <= 0 || price > PRICE_MAX) errors.add(new FieldErrorItem("price", INVALID, "가격은 1~" + String.format("%,d", PRICE_MAX) + "크레딧이에요."));
+        if (price <= 0 || price > PRICE_MAX) errors.add(new FieldErrorItem(PRICE, INVALID, "가격은 1~" + String.format("%,d", PRICE_MAX) + "크레딧이에요."));
         if (kind != null) imageKey = checkLook(kind, value, imageKey, errors);
         if (!errors.isEmpty()) throw ApiException.validation(errors);
         if (kind == Kind.THEME) value = value.toLowerCase(Locale.ROOT);

@@ -280,7 +280,7 @@ public class PointLedger {
         Attended got = tx.execute(st -> {
             lock(memberId);
             Boolean done = jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM point_attendance WHERE member_id = ? AND day = ?)", Boolean.class, memberId, today);
-            if (Boolean.TRUE.equals(done)) return Attended.ALREADY;
+            if (Boolean.TRUE.equals(done)) return Attended.ALREADY_ATTENDED;
             List<Integer> prev = jdbc.queryForList("SELECT streak FROM point_attendance WHERE member_id = ? AND day = ?", Integer.class, memberId,
                     today.minusDays(1));
             int streak = prev.isEmpty() ? 1 : prev.getFirst() + 1;
@@ -300,7 +300,7 @@ public class PointLedger {
 
     /** 출석 트랜잭션의 결과. already면 이미 출석한 날이라 나머지는 쓰지 않는다 */
     private record Attended(boolean already, long reward, int streak, List<Integer> newBadges) {
-        static final Attended ALREADY = new Attended(true, 0, 0, List.of());
+        static final Attended ALREADY_ATTENDED = new Attended(true, 0, 0, List.of());
     }
 
     /** 연속 출석 streak일까지의 휘장 가운데 아직 없는 것을 넣는다 @return 이번에 새로 받은 휘장 */
@@ -396,7 +396,8 @@ public class PointLedger {
                 FROM point_ledger WHERE member_id = ? AND (request_key = ? OR request_key LIKE ?)
                 """, doneKey, doneKey + ":" + today, memberId, doneKey, doneKey + ":%");
         if (Boolean.TRUE.equals(paid.get("finished")) || Boolean.TRUE.equals(paid.get("today"))) return 0;
-        long left = t.profit() - ((Number) paid.get("paid")).longValue();
+        long alreadyPaid = paid.get("paid") instanceof Number num ? num.longValue() : 0L;
+        long left = t.profit() - alreadyPaid;
         if (left <= 0) return 0;
         long amount = Math.min(left, room);
         String key = amount == left ? doneKey : doneKey + ":" + today;

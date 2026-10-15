@@ -101,6 +101,18 @@ class TradeJournalTest extends IntegrationTest {
     }
 
     @Test
+    void 잘못된_체결은_이유를_알려_주고_남기지_않는다() throws Exception {
+        Session me = signup(uniqueLogin("trade"));
+        String t = token(me);
+        JsonNode bad = call(t, "record_trade", Map.of("external_id", "bad-1", "symbol", "삼성", "side", "BUY", "quantity", 1, "price", 100,
+                "realized_pnl", 10));
+        assertThat(bad.path("isError").asBoolean()).isTrue();
+        assertThat(text(bad)).contains("종목 코드", "실현 손익은 매도");
+        JsonNode overview = read(me.http().perform(get("/api/me/trades?days=7")).andExpect(status().isOk()).andReturn());
+        assertThat(overview.path("days")).isEmpty();
+    }
+
+    @Test
     void 봇이_남긴_체결을_날별로_요약하고_누적_손익을_낸다() throws Exception {
         Session me = signup(uniqueLogin("trade"));
         String t = token(me);
@@ -115,12 +127,6 @@ class TradeJournalTest extends IntegrationTest {
         assertThat(text(trade(t, "o-1", d1, "09:05:00", "005930", "삼성전자", "BUY", 10, 71000, null, "같은 주문"))).contains("이미 남긴 체결");
         trade(t, "o-2", d1, "13:40:00", "005930", "삼성전자", "SELL", 10, 72500, 14600, "목표 수익 2% 도달");
         trade(t, "o-3", d1, "14:10:00", "035720", "카카오", "BUY", 20, 41000, null, "거래량이 평소의 3배");
-
-        // 잘못된 기록은 이유를 알려 주고 남기지 않는다
-        JsonNode bad = call(t, "record_trade", Map.of("external_id", "bad-1", "symbol", "삼성", "side", "BUY", "quantity", 1, "price", 100,
-                "realized_pnl", 10));
-        assertThat(bad.path("isError").asBoolean()).isTrue();
-        assertThat(text(bad)).contains("종목 코드", "실현 손익은 매도");
 
         trade(t, "o-4", d2, "09:30:00", "035720", "카카오", "SELL", 20, 39800, -24300, "손절선 -3% 도달");
         trade(t, "o-5", d2, "10:15:00", "000660", "SK하이닉스", "BUY", 3, 182000, null, "갭 상승 뒤 첫 눌림");
