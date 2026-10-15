@@ -2062,4 +2062,12 @@ export const en: Record<string, string> = {
   "아직 모의 기록이 없어요": "No paper fills yet",
   "코빗 원화 시세로 봐요. 업비트 봇 체결도 여기에 찍혀요": "Show Korbit KRW prices. Upbit bot fills appear here too",
   "원화": "KRW",
+  "내 체결": "My fill",
+  "봇": "Bot",
+  "{0} 차트": "{0} chart",
+  "서버 모의 봇이 5분마다 봇 전용 가상 돈으로 사고팔아요. 포인트는 쓰지 않아요": "The server paper bot trades every 5 minutes with its own virtual money. It does not use your points",
+  "굵은 테두리 ▲▼: 내 체결": "Bold outline ▲▼: my fills",
+  "얇은 ▲▼: 봇 체결": "Thin ▲▼: bot fills",
+  "봇 규칙과 성적은 자동매매 화면에서 봐요": "See the bot's rules and results on the auto-trading page",
+  "봇 자세히": "Bot details",
 }

@@ -2632,6 +2632,7 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 .tradebot-candles .tradebot-last { stroke: var(--color-text-muted); stroke-dasharray: 4 4; opacity: 0.6; }
 .tradebot-candles line { vector-effect: non-scaling-stroke; }
 .tradebot-mark { stroke: var(--color-surface); stroke-width: 1; cursor: help; }
+.tradebot-mark.me { stroke: var(--color-text); stroke-width: 2; }
 .tradebot-text { margin: 4px 0 0; overflow-wrap: anywhere; white-space: pre-line; }
 .tradebot-allow { color: var(--color-up); border-color: var(--color-up); }
 .tradebot-block { color: var(--color-down); border-color: var(--color-down); }
@@ -3069,3 +3070,11 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
   .paper-table th, .paper-table td { padding: 8px; }
   .paper-table .paper-rate { display: block; }
 }
+
+/* 포인트 모의투자 차트 (이슈 324) */
+.paper-chart { margin: 12px 0; }
+.paper-chart-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.paper-chart-head h2 { margin: 0; font-size: 1.05rem; }
+.paper-chart-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 6px 0 0; }
+.paper-chart-legend .me { font-weight: 700; }
+.paper-chart-bot { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }

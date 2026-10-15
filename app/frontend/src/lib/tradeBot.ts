@@ -109,7 +109,8 @@ export const CHART_INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d'] as const
 export type ChartInterval = (typeof CHART_INTERVALS)[number]
 
 export interface ChartCandle { t: number; o: number; h: number; l: number; c: number }
-export interface ChartMark { t: number; side: string; price: number; text: string }
+/** by: 누가 낸 체결인지. BOT은 봇의 모의 체결, ME는 포인트 모의투자에서 내가 직접 낸 체결(#324) */
+export interface ChartMark { t: number; side: string; price: number; text: string; by?: 'BOT' | 'ME' }
 export interface ChartCoin {
   coin: string
   name: string
