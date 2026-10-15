@@ -53,6 +53,42 @@ export function toolItems(features: Features): NavItem[] {
   return items
 }
 
+/**
+ * 머리말 묶음 (v2.2.0). 대표 항목을 링크로 보이고, 마우스를 올리거나 ▾를 누르면(키보드·터치) 묶인 항목이 아래로 펼쳐진다.
+ * 대표 항목은 head 주소가 있으면 그것, 없으면(예: 포인트가 꺼져 모의투자가 없을 때) 첫 항목이다.
+ */
+function HeaderGroup({ path, items, head, caretLabel }: { path: string; items: NavItem[]; head: string; caretLabel: string }) {
+  const [open, setOpen] = useState(false)
+  const lead = items.find((it) => it.to === head) ?? items[0]
+  if (!lead) return null
+  const on = items.some((it) => it.on(path))
+  return (
+    <div className={`header-group header-nav${open ? ' open' : ''}`} onMouseLeave={() => setOpen(false)}
+         onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false) }}
+         onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setOpen(false) }}>
+      <Link to={lead.to} className={`btn btn-text header-link${on ? ' on' : ''}`} aria-current={lead.on(path) ? 'page' : undefined}
+            aria-label={lead.label}>
+        {/* 대표 링크에는 툴팁을 달지 않는다. 마우스를 올리면 펼쳐지는 목록이 이름과 툴팁을 보여 주고, 툴팁이 목록 첫 줄을 가렸다 */}
+        <NavIcon name={lead.icon} /><span className="header-label">{lead.label}</span>
+      </Link>
+      <button type="button" className="header-group-caret" aria-label={caretLabel} aria-expanded={open} data-tip={caretLabel}
+              onClick={() => setOpen((o) => !o)}>
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      </button>
+      <div className="header-group-list" role="group" aria-label={lead.label} onClick={() => setOpen(false)}>
+        {items.map((it) => {
+          const cur = it.on(path)
+          return (
+            <Link key={it.to} to={it.to} className={cur ? 'on' : undefined} aria-current={cur ? 'page' : undefined} data-tip={it.tip}>
+              <NavIcon name={it.icon} />{it.label}
+            </Link>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export function Header() {
   const { me, logout } = useAuth()
   const { path } = useLocation()
@@ -118,6 +154,9 @@ export function Header() {
   // 휴대폰에서는 머리말 메뉴가 숨으니 아래 탭에 없는 좋아한 글도 내 메뉴 아래에 둔다
   const mobileExtra = items.filter((it) => it.icon !== 'feed' && it.icon !== 'tag')
   const tools = member ? toolItems(me?.features) : []
+  // 회원 머리말: AI 연결 · 쇼츠 스튜디오 · 피드▾(피드·좋아한 글·태그) · 모의투자▾(매매 일지·자동매매·모의투자)
+  const studio = tools.find((it) => it.to === '/studio')
+  const trading = tools.filter((it) => it.to !== '/studio')
   const navLink = (it: NavItem) => {
     const on = it.on(path)
     return (
@@ -138,9 +177,13 @@ export function Header() {
           </Link>
           <Link to="/mcp" className="btn btn-text header-mcp" data-tip={t('Claude·ChatGPT 같은 AI 도구에 devlog 연결하기')}>{t('AI 연결')}</Link>
           <span className="header-sep header-nav" aria-hidden="true" />
-          {items.map(navLink)}
-          {tools.length > 0 && <span className="header-sep header-nav" aria-hidden="true" />}
-          {tools.map(navLink)}
+          {member ? (
+            <>
+              {studio && navLink(studio)}
+              <HeaderGroup path={path} items={items} head="/feed" caretLabel={t('피드 묶음 펼치기')} />
+              {trading.length > 0 && <HeaderGroup path={path} items={trading} head="/paper" caretLabel={t('모의투자 묶음 펼치기')} />}
+            </>
+          ) : items.map(navLink)}
           {member ? (
             <>
               {isStaff(member.role) && (
