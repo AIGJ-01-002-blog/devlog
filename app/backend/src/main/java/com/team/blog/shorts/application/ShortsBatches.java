@@ -6,7 +6,6 @@ import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -14,6 +13,7 @@ import java.util.Map;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -65,6 +65,10 @@ public class ShortsBatches {
     public record RenderAll(List<Long> queued, List<Skipped> skipped) {}
 
     private static final TypeReference<List<Topic>> TOPICS = new TypeReference<>() {};
+    private static final String TITLE = "title";
+    private static final String REQUIRED = "REQUIRED";
+    private static final String TOO_LONG = "TOO_LONG";
+    private static final String UP_TO = "자까지예요.";
 
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
@@ -83,27 +87,8 @@ public class ShortsBatches {
         shorts.requireEnabled();
         String title = ShortsScript.cleanTitle(plan.title());
         String source = plan.sourceText() == null ? "" : TextCleaner.cleanMultiline(plan.sourceText());
-        List<Topic> topics = plan.topics() == null ? List.of() : plan.topics().stream()
-                .map(t -> t == null ? new Topic("", "", "") : t).toList();
-        List<FieldErrorItem> errors = new ArrayList<>();
-        if (title.isEmpty()) errors.add(new FieldErrorItem("title", "REQUIRED", "묶음 제목을 적어 주세요."));
-        else if (title.length() > ShortsScript.TITLE_MAX) errors.add(new FieldErrorItem("title", "TOO_LONG", "묶음 제목은 " + ShortsScript.TITLE_MAX + "자까지예요."));
-        if (plan.postId() == null && source.isEmpty()) {
-            errors.add(new FieldErrorItem("source", "REQUIRED", "근거가 필요해요. 내 글 번호(post_id)나 맥락 본문(source_text)을 주세요."));
-        }
-        if (source.length() > SOURCE_MAX) errors.add(new FieldErrorItem("sourceText", "TOO_LONG", "맥락 본문은 " + SOURCE_MAX + "자까지예요."));
-        if (topics.size() < TOPICS_MIN || topics.size() > TOPICS_MAX) {
-            errors.add(new FieldErrorItem("topics", "COUNT", "주제는 " + TOPICS_MIN + "~" + TOPICS_MAX + "개로 나눠 주세요."));
-        }
-        for (int i = 0; i < topics.size(); i++) {
-            Topic t = topics.get(i);
-            String at = "topics[" + i + "].";
-            if (t.title().isEmpty()) errors.add(new FieldErrorItem(at + "title", "REQUIRED", (i + 1) + "번 주제의 제목이 없어요."));
-            else if (t.title().length() > ShortsScript.TITLE_MAX) errors.add(new FieldErrorItem(at + "title", "TOO_LONG", (i + 1) + "번 주제 제목은 " + ShortsScript.TITLE_MAX + "자까지예요."));
-            if (t.hook().isEmpty()) errors.add(new FieldErrorItem(at + "hook", "REQUIRED", (i + 1) + "번 주제의 첫 질문(hook)이 없어요."));
-            else if (t.hook().length() > HOOK_MAX) errors.add(new FieldErrorItem(at + "hook", "TOO_LONG", (i + 1) + "번 주제의 첫 질문은 " + HOOK_MAX + "자까지예요."));
-            if (t.scope().length() > SCOPE_MAX) errors.add(new FieldErrorItem(at + "scope", "TOO_LONG", (i + 1) + "번 주제의 범위는 " + SCOPE_MAX + "자까지예요."));
-        }
+        List<Topic> topics = topics(plan.topics());
+        List<FieldErrorItem> errors = planErrors(title, plan.postId(), source, topics);
         if (!errors.isEmpty()) throw ApiException.validation(errors);
         if (plan.postId() != null) ownPost(memberId, plan.postId());
         Instant now = Times.now(clock);
@@ -112,6 +97,35 @@ public class ShortsBatches {
                 VALUES (?, ?, ?, ?, ?::jsonb, ?, ?) RETURNING id
                 """, Long.class, memberId, plan.postId(), title, source, json.writeValueAsString(topics), Timestamp.from(now), Timestamp.from(now));
         return get(memberId, id);
+    }
+
+    private static List<Topic> topics(List<Topic> raw) {
+        if (raw == null) return List.of();
+        return raw.stream().map(t -> t == null ? new Topic("", "", "") : t).toList();
+    }
+
+    private static List<FieldErrorItem> planErrors(String title, Long postId, String source, List<Topic> topics) {
+        List<FieldErrorItem> errors = new ArrayList<>();
+        if (title.isEmpty()) errors.add(new FieldErrorItem(TITLE, REQUIRED, "묶음 제목을 적어 주세요."));
+        else if (title.length() > ShortsScript.TITLE_MAX) errors.add(new FieldErrorItem(TITLE, TOO_LONG, "묶음 제목은 " + ShortsScript.TITLE_MAX + UP_TO));
+        if (postId == null && source.isEmpty()) {
+            errors.add(new FieldErrorItem("source", REQUIRED, "근거가 필요해요. 내 글 번호(post_id)나 맥락 본문(source_text)을 주세요."));
+        }
+        if (source.length() > SOURCE_MAX) errors.add(new FieldErrorItem("sourceText", TOO_LONG, "맥락 본문은 " + SOURCE_MAX + UP_TO));
+        if (topics.size() < TOPICS_MIN || topics.size() > TOPICS_MAX) {
+            errors.add(new FieldErrorItem("topics", "COUNT", "주제는 " + TOPICS_MIN + "~" + TOPICS_MAX + "개로 나눠 주세요."));
+        }
+        for (int i = 0; i < topics.size(); i++) addTopicErrors(i, topics.get(i), errors);
+        return errors;
+    }
+
+    private static void addTopicErrors(int i, Topic t, List<FieldErrorItem> errors) {
+        String at = "topics[" + i + "].";
+        if (t.title().isEmpty()) errors.add(new FieldErrorItem(at + TITLE, REQUIRED, (i + 1) + "번 주제의 제목이 없어요."));
+        else if (t.title().length() > ShortsScript.TITLE_MAX) errors.add(new FieldErrorItem(at + TITLE, TOO_LONG, (i + 1) + "번 주제 제목은 " + ShortsScript.TITLE_MAX + UP_TO));
+        if (t.hook().isEmpty()) errors.add(new FieldErrorItem(at + "hook", REQUIRED, (i + 1) + "번 주제의 첫 질문(hook)이 없어요."));
+        else if (t.hook().length() > HOOK_MAX) errors.add(new FieldErrorItem(at + "hook", TOO_LONG, (i + 1) + "번 주제의 첫 질문은 " + HOOK_MAX + UP_TO));
+        if (t.scope().length() > SCOPE_MAX) errors.add(new FieldErrorItem(at + "scope", TOO_LONG, (i + 1) + "번 주제의 범위는 " + SCOPE_MAX + UP_TO));
     }
 
     /**
@@ -130,8 +144,8 @@ public class ShortsBatches {
             touch(batchId);
             return item;
         } catch (DuplicateKeyException e) {
-            Long existing = jdbc.query("SELECT id FROM shorts WHERE batch_id = ? AND topic = ?", rs -> rs.next() ? rs.getLong(1) : null, batchId, topic);
-            throw ApiException.conflict("TOPIC_TAKEN", topic + "번 주제는 이미 대본이 있어요" + (existing == null ? "" : " (쇼츠 " + existing + "번)")
+            List<Long> existing = jdbc.query("SELECT id FROM shorts WHERE batch_id = ? AND topic = ?", (rs, i) -> rs.getLong(1), batchId, topic);
+            throw ApiException.conflict("TOPIC_TAKEN", topic + "번 주제는 이미 대본이 있어요" + (existing.isEmpty() ? "" : " (쇼츠 " + existing.getFirst() + "번)")
                     + ". 그 대본을 고쳐 주세요.");
         }
     }
@@ -208,7 +222,7 @@ public class ShortsBatches {
     private Row rowOf(ResultSet rs) throws SQLException {
         long postId = rs.getLong("post_id");
         Long post = rs.wasNull() ? null : postId;
-        return new Row(rs.getLong("id"), post, rs.getString("post_title"), rs.getString("title"), rs.getString("source_text"),
+        return new Row(rs.getLong("id"), post, rs.getString("post_title"), rs.getString(TITLE), rs.getString("source_text"),
                 json.readValue(rs.getString(6), TOPICS), rs.getTimestamp("created_at").toInstant(), rs.getTimestamp("updated_at").toInstant());
     }
 
@@ -218,14 +232,10 @@ public class ShortsBatches {
         if (rows.isEmpty()) return List.of();
         Map<Long, Map<Integer, Made>> made = new HashMap<>();
         List<Long> ids = rows.stream().map(Row::id).toList();
-        List<Object> args = new ArrayList<>(ids);
-        args.addFirst(memberId);
-        jdbc.query("SELECT batch_id, topic, id, status FROM shorts WHERE member_id = ? AND batch_id IN ("
-                        + String.join(", ", Collections.nCopies(ids.size(), "?")) + ")",
-                rs -> {
-                    made.computeIfAbsent(rs.getLong(1), k -> new HashMap<>())
-                            .put(rs.getInt(2), new Made(rs.getLong(3), ShortsService.Status.valueOf(rs.getString(4))));
-                }, args.toArray());
+        jdbc.query("SELECT batch_id, topic, id, status FROM shorts WHERE member_id = ? AND batch_id = ANY (?)",
+                (RowCallbackHandler) rs -> made.computeIfAbsent(rs.getLong(1), k -> new HashMap<>())
+                        .put(rs.getInt(2), new Made(rs.getLong(3), ShortsService.Status.valueOf(rs.getString(4)))),
+                memberId, ids.toArray(Long[]::new));
         return rows.stream().map(r -> {
             Map<Integer, Made> byTopic = made.getOrDefault(r.id(), Map.of());
             List<TopicView> topics = new ArrayList<>();

@@ -7,7 +7,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -87,6 +87,13 @@ public class ShortsService {
             FROM shorts s
             LEFT JOIN post p ON p.id = s.post_id AND p.deleted_at IS NULL
             LEFT JOIN member m ON m.id = p.author_id
+            """;
+    /** 대본을 고치면 대기·완성 상태를 비우고 대본 상태로 돌린다 */
+    private static final String RESET_TO_DRAFT = """
+            UPDATE shorts SET title = ?, scenes = ?::jsonb, status = 'DRAFT', attempts = 0, claim_token = NULL, queued_at = NULL,
+                   claimed_at = NULL, video_key = NULL, video_bytes = NULL, duration_ms = NULL, rendered_at = NULL, error = NULL,
+                   version = version + 1, updated_at = ?
+            WHERE id = ?
             """;
 
     private final JdbcTemplate jdbc;
@@ -169,7 +176,7 @@ public class ShortsService {
      */
     public Item update(long memberId, long id, Edit edit) {
         requireEnabled();
-        String oldVideo = tx.execute(s -> {
+        Optional<String> oldVideo = tx.execute(s -> {
             Item cur = lock(memberId, id);
             if (cur.status() == Status.RENDERING) throw ApiException.conflict("SHORTS_RENDERING", "영상을 만드는 중이에요. 다 만들어진 뒤에 고쳐 주세요.");
             if (edit.version() != null && edit.version() != cur.version()) {
@@ -180,16 +187,11 @@ public class ShortsService {
             List<FieldErrorItem> errors = new ArrayList<>(ShortsScript.checkSave(title, scenes));
             errors.addAll(imageErrors(scenes));
             reject(errors);
-            String video = jdbc.queryForObject("SELECT video_key FROM shorts WHERE id = ?", String.class, id);
-            jdbc.update("""
-                    UPDATE shorts SET title = ?, scenes = ?::jsonb, status = 'DRAFT', attempts = 0, claim_token = NULL, queued_at = NULL,
-                           claimed_at = NULL, video_key = NULL, video_bytes = NULL, duration_ms = NULL, rendered_at = NULL, error = NULL,
-                           version = version + 1, updated_at = ?
-                    WHERE id = ?
-                    """, title, json.writeValueAsString(scenes), Timestamp.from(Times.now(clock)), id);
+            Optional<String> video = videoKey(id);
+            jdbc.update(RESET_TO_DRAFT, title, json.writeValueAsString(scenes), Timestamp.from(Times.now(clock)), id);
             return video;
         });
-        if (oldVideo != null) storage.delete(oldVideo);
+        oldVideo.ifPresent(storage::delete);
         return get(memberId, id);
     }
 
@@ -252,7 +254,7 @@ public class ShortsService {
         jdbc.query("""
                 SELECT u.platform, count(*) FROM shorts_upload u JOIN shorts s ON s.id = u.shorts_id
                 WHERE s.member_id = ? GROUP BY u.platform
-                """, rs -> { uploads.put(UploadLink.Platform.valueOf(rs.getString(1)), rs.getLong(2)); }, memberId);
+                """, (RowCallbackHandler) rs -> uploads.put(UploadLink.Platform.valueOf(rs.getString(1)), rs.getLong(2)), memberId);
         List<UploadLine> recent = jdbc.query("""
                 SELECT s.id, s.title, u.platform, u.url, u.uploaded_at FROM shorts_upload u JOIN shorts s ON s.id = u.shorts_id
                 WHERE s.member_id = ? ORDER BY u.uploaded_at DESC, s.id DESC LIMIT ?
@@ -293,13 +295,18 @@ public class ShortsService {
 
     public void delete(long memberId, long id) {
         requireEnabled();
-        String video = tx.execute(s -> {
+        Optional<String> video = tx.execute(s -> {
             lock(memberId, id);
-            String key = jdbc.queryForObject("SELECT video_key FROM shorts WHERE id = ?", String.class, id);
+            Optional<String> key = videoKey(id);
             jdbc.update("DELETE FROM shorts WHERE id = ?", id);
             return key;
         });
-        if (video != null) storage.delete(video);
+        video.ifPresent(storage::delete);
+    }
+
+    /** 잠근 쇼츠의 영상 파일 키. 아직 영상이 없으면 비어 있다 */
+    private Optional<String> videoKey(long id) {
+        return Optional.ofNullable(jdbc.queryForObject("SELECT video_key FROM shorts WHERE id = ?", String.class, id));
     }
 
     /**
@@ -307,7 +314,7 @@ public class ShortsService {
      * 뒤 단계가 실패해 롤백되면 행과 파일이 함께 남아 다음 정리 때 다시 한다(롤백된 행이 지운 파일을 가리키지 않게).
      */
     public void purge(long memberId) {
-        List<String> keys = jdbc.queryForList("SELECT video_key FROM shorts WHERE member_id = ? AND video_key IS NOT NULL", String.class, memberId);
+        List<String> keys = jdbc.query("SELECT video_key FROM shorts WHERE member_id = ? AND video_key IS NOT NULL", (rs, i) -> rs.getString(1), memberId);
         jdbc.update("DELETE FROM shorts WHERE member_id = ?", memberId);
         jdbc.update("DELETE FROM shorts_batch WHERE member_id = ?", memberId);
         if (keys.isEmpty()) return;
@@ -337,12 +344,9 @@ public class ShortsService {
 
     /** 근거는 바탕 글 본문과 MCP로 받은 맥락(#276)을 함께 본다. 같은 묶음의 다른 편은 따로 표시해 겹침을 더 낮은 기준으로 본다 */
     OriginalityCheck.Report originality(long memberId, Item item) {
-        String post = item.postId() == null ? null : jdbc.query(
-                "SELECT content_md FROM post WHERE id = ? AND author_id = ? AND deleted_at IS NULL",
-                rs -> rs.next() ? rs.getString(1) : null, item.postId(), memberId);
+        String post = item.postId() == null ? null : postBody(memberId, item.postId());
         String context = jdbc.queryForObject("SELECT source_text FROM shorts WHERE id = ?", String.class, item.id());
-        String source = post == null && (context == null || context.isEmpty()) ? null
-                : String.join("\n\n", post == null ? "" : post, context == null ? "" : context);
+        String source = source(post, context);
         List<OriginalityCheck.OtherScript> others = new ArrayList<>();
         jdbc.query("SELECT id, title, scenes::text, batch_id FROM shorts WHERE member_id = ? AND id <> ? ORDER BY updated_at DESC LIMIT " + LIST_MAX,
                 rs -> {
@@ -352,6 +356,18 @@ public class ShortsService {
                 },
                 memberId, item.id());
         return OriginalityCheck.check(item.scenes(), source, others);
+    }
+
+    private String postBody(long memberId, long postId) {
+        return jdbc.query("SELECT content_md FROM post WHERE id = ? AND author_id = ? AND deleted_at IS NULL",
+                rs -> rs.next() ? rs.getString(1) : null, postId, memberId);
+    }
+
+    /** 근거가 하나도 없으면 null */
+    private static String source(String post, String context) {
+        boolean noContext = context == null || context.isEmpty();
+        if (post == null && noContext) return null;
+        return String.join("\n\n", Objects.toString(post, ""), Objects.toString(context, ""));
     }
 
     int rendersToday(long memberId) {
@@ -380,30 +396,25 @@ public class ShortsService {
         Map<Long, List<String>> tags = new HashMap<>();
         List<Long> postIds = items.stream().map(Item::postId).filter(Objects::nonNull).distinct().toList();
         if (!postIds.isEmpty()) {
-            jdbc.query("SELECT pt.post_id, t.name FROM post_tag pt JOIN tag t ON t.id = pt.tag_id WHERE pt.post_id IN (" + marks(postIds.size())
-                            + ") ORDER BY pt.post_id, pt.position",
-                    rs -> { tags.computeIfAbsent(rs.getLong(1), k -> new ArrayList<>()).add(rs.getString(2)); }, postIds.toArray());
+            jdbc.query("SELECT pt.post_id, t.name FROM post_tag pt JOIN tag t ON t.id = pt.tag_id WHERE pt.post_id = ANY (?) ORDER BY pt.post_id, pt.position",
+                    (RowCallbackHandler) rs -> tags.computeIfAbsent(rs.getLong(1), k -> new ArrayList<>()).add(rs.getString(2)),
+                    (Object) postIds.toArray(Long[]::new));
         }
         Map<Long, List<Upload>> uploads = new HashMap<>();
         List<Long> ids = items.stream().map(Item::id).toList();
-        jdbc.query("SELECT shorts_id, platform, url, uploaded_at FROM shorts_upload WHERE shorts_id IN (" + marks(ids.size()) + ") ORDER BY platform",
-                rs -> {
-                    uploads.computeIfAbsent(rs.getLong(1), k -> new ArrayList<>()).add(new Upload(
-                            UploadLink.Platform.valueOf(rs.getString(2)), rs.getString(3), rs.getTimestamp(4).toInstant()));
-                }, ids.toArray());
+        jdbc.query("SELECT shorts_id, platform, url, uploaded_at FROM shorts_upload WHERE shorts_id = ANY (?) ORDER BY platform",
+                (RowCallbackHandler) rs -> uploads.computeIfAbsent(rs.getLong(1), k -> new ArrayList<>()).add(new Upload(
+                        UploadLink.Platform.valueOf(rs.getString(2)), rs.getString(3), rs.getTimestamp(4).toInstant())),
+                (Object) ids.toArray(Long[]::new));
         return items.stream().map(it -> it.with(
                 it.postId() == null ? List.of() : List.copyOf(tags.getOrDefault(it.postId(), List.of())),
                 List.copyOf(uploads.getOrDefault(it.id(), List.of())))).toList();
     }
 
-    private static String marks(int n) {
-        return String.join(", ", Collections.nCopies(n, "?"));
-    }
-
     private Item lock(long memberId, long id) {
-        Long locked = jdbc.query("SELECT id FROM shorts WHERE id = ? AND member_id = ? FOR UPDATE",
-                rs -> rs.next() ? rs.getLong(1) : null, id, memberId);
-        if (locked == null) throw new NotFoundException();
+        List<Long> locked = jdbc.query("SELECT id FROM shorts WHERE id = ? AND member_id = ? FOR UPDATE",
+                (rs, i) -> rs.getLong(1), id, memberId);
+        if (locked.isEmpty()) throw new NotFoundException();
         return find(memberId, id).orElseThrow(NotFoundException::new);
     }
 
