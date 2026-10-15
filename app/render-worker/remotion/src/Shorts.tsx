@@ -1,4 +1,5 @@
 // 쇼츠 한 편: 장면을 이어 붙이고(옆으로 밀기·위로 밀기·흐려지기를 돌아가며, @remotion/transitions. cut 장면은 점프 컷), 맨 위에 전체 진행 막대를 그린다.
+// 맨 끝 장면은 워커가 늘 붙이는 블로그 광고(custom.kind 'outro', Outro.tsx)다.
 // 소리는 워커가 따로 섞는다(전환마다 휙 소리).
 import React from 'react';
 import {AbsoluteFill, useCurrentFrame, useVideoConfig} from 'remotion';
@@ -8,6 +9,7 @@ import {none} from '@remotion/transitions/none';
 import {slide} from '@remotion/transitions/slide';
 import {CharacterName} from './character';
 import {FastScene} from './FastScene';
+import {Outro} from './Outro';
 import {Scene} from './Scene';
 import './fonts';
 import {theme} from './theme';
@@ -20,6 +22,8 @@ const presentation = (i: number): TransitionPresentation<any> =>
 export const Shorts: React.FC<ShortsProps> = ({title, footer, scenes, transitionFrames, style = 'clean', character = null}) => {
   const frame = useCurrentFrame();
   const {fps, durationInFrames} = useVideoConfig();
+  // 끝 광고(outro)를 뺀 마지막 본문 장면이 마무리 연기(cta)를 한다
+  const lastBody = scenes.length - 1 - (scenes[scenes.length - 1]?.custom?.kind === 'outro' ? 1 : 0);
   return (
     <CharacterName.Provider value={character}>
     <AbsoluteFill style={{background: theme.color.bg}}>
@@ -27,8 +31,9 @@ export const Shorts: React.FC<ShortsProps> = ({title, footer, scenes, transition
         {scenes.flatMap((scene, i) => {
           const items = [
             <TransitionSeries.Sequence key={`s${i}`} name={`장면 ${i + 1}`} durationInFrames={scene.durationInFrames} premountFor={fps}>
-              {style === 'fast' && !scene.custom ? <FastScene scene={scene} index={i} title={title} footer={footer} last={i === scenes.length - 1} /> :
-                <Scene scene={scene} index={i} title={title} footer={footer} last={i === scenes.length - 1} />}
+              {scene.custom?.kind === 'outro' ? <Outro /> :
+                style === 'fast' && !scene.custom ? <FastScene scene={scene} index={i} title={title} footer={footer} last={i === lastBody} /> :
+                <Scene scene={scene} index={i} title={title} footer={footer} last={i === lastBody} />}
             </TransitionSeries.Sequence>,
           ];
           if (i < scenes.length - 1 && transitionFrames > 0) {

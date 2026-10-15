@@ -1527,6 +1527,8 @@ export const en: Record<string, string> = {
   "로그덕 (스카프 맨 오리)": "Logduck (duck in a scarf)",
   "두부 (흰 강아지)": "Dubu (white puppy)",
   "이모지 고양이": "Emoji cat",
+  "영상 끝에 블로그 광고 3초 붙이기": "Add a 3-second blog ad at the end",
+  "로고와 devlog.life 주소가 나오는 고정 화면이에요.": "A fixed screen with the logo and the devlog.life address.",
   "자동": "Auto",
   "장면 내용에 맞는 움직임을 골라요. 자동이면 자막과 내레이션을 보고 정해요.": "Pick the motion that fits this scene. Auto picks it from the caption and narration.",
   "효과음 {0}개": "{0} sound effects",

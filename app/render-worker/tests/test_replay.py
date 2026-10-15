@@ -184,16 +184,16 @@ class ReplayRenderTest(unittest.TestCase):
         self.assertEqual(asked, [("BINANCE", "BTCUSDT", "1m", T0 - replay.HISTORY * 60, T0 + 60 * 300)])
         scenes = _fake_remotion.props["scenes"]
         # 대본 장면은 모두 끊김 없이 이어지는 차트 장면(첫머리는 제목 카드), 맨 끝에 말 없는 고지 카드 한 장
-        self.assertEqual([s["custom"]["kind"] for s in scenes], ["replay"] * 4 + ["replay-card"])
-        self.assertEqual([s["cut"] for s in scenes], [True, True, True, True, False])
+        self.assertEqual([s["custom"]["kind"] for s in scenes], ["replay"] * 4 + ["replay-card", "outro"])
+        self.assertEqual([s["cut"] for s in scenes], [True, True, True, True, False, False])
         self.assertEqual(scenes[0]["custom"]["data"]["title"]["title"], "왜 샀을까요?")
         self.assertEqual(scenes[0]["custom"]["data"]["titleUntil"], round(replay.TITLE * FPS))
         self.assertTrue(all(s["caption"] == "" for s in scenes[:4]), "큰 요점 자막 대신 차트 안 체결 자막을 쓴다")
         # 거래 하나는 말이 짧아도 MIN_TRADE초는 보여 준다
         self.assertGreaterEqual(scenes[1]["durationInFrames"], round((replay.MIN_TRADE + TRANSITION) * FPS))
-        self.assertEqual(scenes[-1]["custom"]["data"], {"mode": "모의투자"})
-        self.assertEqual(scenes[-1]["pages"], [])
-        self.assertLess(scenes[-1]["durationInFrames"], 2 * FPS)
+        self.assertEqual(scenes[-2]["custom"]["data"], {"mode": "모의투자"})
+        self.assertEqual(scenes[-2]["pages"], [])
+        self.assertLess(scenes[-2]["durationInFrames"], 2 * FPS)
         chart = scenes[1]["custom"]["data"]
         self.assertEqual(len(chart["candles"]), 300 + replay.HISTORY)
         self.assertIn("1분봉", chart["header"])
