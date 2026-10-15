@@ -163,7 +163,7 @@ flowchart LR
     T[Telegram] -->|Bot API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>多个 Pod]
     I -->|/blog-images| M[(MinIO / S3<br/>图片 · 附件)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V48)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V50)]
     A --> R[(Redis<br/>会话 · 限流 · 浏览数 · 缓存)]
     A --> M
     A -.可选.-> G[Google Gemini]
@@ -258,7 +258,7 @@ sequenceDiagram
 
 | 路径 | 说明 |
 | --- | --- |
-| [app/backend](app/backend) | 后端：Spring Boot 4.1、Java 21。功能模块、Flyway 迁移（V1~V48）、测试 |
+| [app/backend](app/backend) | 后端：Spring Boot 4.1、Java 21。功能模块、Flyway 迁移（V1~V50）、测试 |
 | [app/frontend](app/frontend) | 前端：React 19 SPA、TypeScript、Vite。界面、自动保存（IndexedDB）、深色模式 |
 | [deploy](deploy) | 部署：Dockerfile、Kubernetes 清单（base、selfhosted、nhn、local），部署、回滚、密钥检查脚本 |
 | [app/render-worker](app/render-worker) | 短视频渲染程序：Python 3.10、ffmpeg。在你自己的电脑上把队列中的脚本做成 9:16 的 MP4 并上传 |
@@ -339,7 +339,7 @@ npm run dev        # http://localhost:5173
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub、Google、Kakao、Naver、Facebook 登录，会话，CSRF，按路径的权限 |
 | Spring Data JPA (Hibernate) | Boot 4.1 | 所有领域 | 保存会员、文章、评论等领域数据 |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | 会话、限流、浏览数、缓存 | 多个 Pod 共享同一会话，并发请求也由一个 Redis 脚本判定 |
-| Flyway | Boot 4.1 | 数据库 | 用 V1~V48 迁移管理模式，启动时自动应用 |
+| Flyway | Boot 4.1 | 数据库 | 用 V1~V50 迁移管理模式，启动时自动应用 |
 | commonmark-java (+ GFM 扩展) | 0.30.0 | 正文渲染 | Markdown → HTML。表格、删除线、任务清单、自动链接、标题锚点 |
 | OWASP Java HTML Sanitizer | 20260924.2 | 正文净化 | 按白名单净化渲染后的 HTML，防止 XSS |
 | AWS SDK for Java (S3) | 2.55.12 | media | 把图片和附件上传到 MinIO、S3 |
@@ -386,6 +386,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v2.1.1 | 2026-10-15 | 短视频小狗角色“豆腐”与在全部文章中搜索素材、交易日志实盘与模拟切换、由服务器运行的模拟机器人、页眉拆分为公共工具与分组菜单、商店头像边框改为圆形并缩短手机端商店、关闭测试环境的开发登录 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.1.1) |
 | v2.1.0 | 2026-10-15 | devlog 2.0 完成：加密货币现货与合约交易日志（按币种汇总）、用所选成交制作的交易回放短视频、博客积分（签到、连续签到徽章、发布文章获得积分）与分段位商店装饰博客、用积分进行加密货币模拟交易、自动交易模拟页面 `/trade`、用 Remotion 和神经语音生成短视频，并在生产环境开启短视频、交易日志和积分 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.1.0) |
 | v2.0.0 | 2026-10-14 | 短视频工作室：把文章打磨成短视频脚本并用自己电脑上的渲染程序生成 MP4、生成前的批量内容检查、YouTube·Instagram·TikTok 手动上传指南、我的仪表板、MCP 依据链接与短视频候选、自动交易机器人的交易日志、迁移到家用电脑的备份与恢复（短视频和交易日志默认关闭） | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.0.0) |
 | v1.70.0 | 2026-10-14 | 恢复混合搜索并打磨注册与文章管理：修复搜索索引让语义结果重新混入、首次登录的 AI 连接引导、昵称实时检查、我的文章默认打开已发布标签、头像裁剪显示圆形边界、回复不超过 5 条时全部显示、接收 Naver 邮箱与头像 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.70.0) |

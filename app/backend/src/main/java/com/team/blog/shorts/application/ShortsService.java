@@ -52,10 +52,10 @@ public class ShortsService {
     public record Item(long id, Long postId, String postTitle, String postUrl, String title, List<Scene> scenes, Status status,
                        int attempts, String videoUrl, Integer durationMs, Long videoBytes, String error, double estimatedSeconds,
                        Instant queuedAt, Instant renderedAt, Instant createdAt, Instant updatedAt, int version,
-                       List<String> postTags, List<Upload> uploads, Long batchId, Integer topic, TradeReplay replay) {
+                       List<String> postTags, List<Upload> uploads, Long batchId, Integer topic, TradeReplay replay, String character) {
         Item with(List<String> tags, List<Upload> ups) {
             return new Item(id, postId, postTitle, postUrl, title, scenes, status, attempts, videoUrl, durationMs, videoBytes, error,
-                    estimatedSeconds, queuedAt, renderedAt, createdAt, updatedAt, version, tags, ups, batchId, topic, replay);
+                    estimatedSeconds, queuedAt, renderedAt, createdAt, updatedAt, version, tags, ups, batchId, topic, replay, character);
         }
     }
 
@@ -70,14 +70,24 @@ public class ShortsService {
     /**
      * @param batchId·topic 주제 묶음(#276)에서 만들 때만. 근거 확인은 ShortsBatches가 한다
      * @param sourceText MCP로 받은 맥락 근거(선택). 양산형 검사가 원문 복사를 비교한다
+     * @param character 연기할 캐릭터(선택, #304 ShortsScript.CHARACTERS). 비우면 워커 기본(로그냥)
      */
-    public record Draft(Long postId, String title, List<Scene> scenes, Long batchId, Integer topic, String sourceText) {
+    public record Draft(Long postId, String title, List<Scene> scenes, Long batchId, Integer topic, String sourceText, String character) {
+        public Draft(Long postId, String title, List<Scene> scenes, Long batchId, Integer topic, String sourceText) {
+            this(postId, title, scenes, batchId, topic, sourceText, null);
+        }
+
         public Draft(Long postId, String title, List<Scene> scenes) {
-            this(postId, title, scenes, null, null, null);
+            this(postId, title, scenes, null, null, null, null);
         }
     }
 
-    public record Edit(String title, List<Scene> scenes, Integer version) {}
+    /** null인 칸은 그대로 둔다. character를 빈 문자열로 주면 워커 기본 캐릭터로 돌린다 */
+    public record Edit(String title, List<Scene> scenes, Integer version, String character) {
+        public Edit(String title, List<Scene> scenes, Integer version) {
+            this(title, scenes, version, null);
+        }
+    }
 
     static final String WORKER_SEEN_KEY = "shorts:worker:seen";
     static final int LIST_MAX = 100;
@@ -90,7 +100,7 @@ public class ShortsService {
             """;
     /** 대본을 고치면 대기·완성 상태를 비우고 대본 상태로 돌린다 */
     private static final String RESET_TO_DRAFT = """
-            UPDATE shorts SET title = ?, scenes = ?::jsonb, status = 'DRAFT', attempts = 0, claim_token = NULL, queued_at = NULL,
+            UPDATE shorts SET title = ?, scenes = ?::jsonb, mascot = ?, status = 'DRAFT', attempts = 0, claim_token = NULL, queued_at = NULL,
                    claimed_at = NULL, video_key = NULL, video_bytes = NULL, duration_ms = NULL, rendered_at = NULL, error = NULL,
                    version = version + 1, updated_at = ?
             WHERE id = ?
@@ -154,8 +164,10 @@ public class ShortsService {
         String title = ShortsScript.cleanTitle(draft.title());
         List<Scene> scenes = scenes(draft.scenes());
         String source = draft.sourceText() == null ? "" : TextCleaner.cleanMultiline(draft.sourceText());
+        String character = ShortsScript.cleanCharacter(draft.character());
         List<FieldErrorItem> errors = new ArrayList<>(ShortsScript.checkSave(title, scenes));
         errors.addAll(imageErrors(scenes));
+        errors.addAll(ShortsScript.checkCharacter(character));
         if (source.length() > ShortsBatches.SOURCE_MAX) {
             errors.add(new FieldErrorItem("sourceText", "TOO_LONG", "맥락 근거는 " + ShortsBatches.SOURCE_MAX + "자까지예요."));
         }
@@ -163,10 +175,10 @@ public class ShortsService {
         if (draft.postId() != null) ownPost(memberId, draft.postId());
         Instant now = Times.now(clock);
         Long id = jdbc.queryForObject("""
-                INSERT INTO shorts (member_id, post_id, title, scenes, batch_id, topic, source_text, replay, created_at, updated_at)
-                VALUES (?, ?, ?, ?::jsonb, ?, ?, ?, ?::jsonb, ?, ?) RETURNING id
+                INSERT INTO shorts (member_id, post_id, title, scenes, batch_id, topic, source_text, replay, mascot, created_at, updated_at)
+                VALUES (?, ?, ?, ?::jsonb, ?, ?, ?, ?::jsonb, ?, ?, ?) RETURNING id
                 """, Long.class, memberId, draft.postId(), title, json.writeValueAsString(scenes), draft.batchId(), draft.topic(), source,
-                replay == null ? null : json.writeValueAsString(replay), Timestamp.from(now), Timestamp.from(now));
+                replay == null ? null : json.writeValueAsString(replay), character, Timestamp.from(now), Timestamp.from(now));
         return get(memberId, id);
     }
 
@@ -184,11 +196,13 @@ public class ShortsService {
             }
             String title = edit.title() == null ? cur.title() : ShortsScript.cleanTitle(edit.title());
             List<Scene> scenes = edit.scenes() == null ? cur.scenes() : scenes(edit.scenes());
+            String character = edit.character() == null ? cur.character() : ShortsScript.cleanCharacter(edit.character());
             List<FieldErrorItem> errors = new ArrayList<>(ShortsScript.checkSave(title, scenes));
             errors.addAll(imageErrors(scenes));
+            errors.addAll(ShortsScript.checkCharacter(character));
             reject(errors);
             Optional<String> video = videoKey(id);
-            jdbc.update(RESET_TO_DRAFT, title, json.writeValueAsString(scenes), Timestamp.from(Times.now(clock)), id);
+            jdbc.update(RESET_TO_DRAFT, title, json.writeValueAsString(scenes), character, Timestamp.from(Times.now(clock)), id);
             return video;
         });
         oldVideo.ifPresent(storage::delete);
@@ -471,7 +485,8 @@ public class ShortsService {
                 urls.urlOf(rs.getString("video_key")), durationMs, videoBytes, rs.getString("error"),
                 Math.round(ShortsScript.estimateSeconds(scenes) * 10) / 10.0,
                 instant(rs, "queued_at"), instant(rs, "rendered_at"), instant(rs, "created_at"), instant(rs, "updated_at"),
-                rs.getInt("version"), List.of(), List.of(), nullableLong(rs, "batch_id"), nullableInt(rs, "topic"), replay(rs.getString("replay")));
+                rs.getInt("version"), List.of(), List.of(), nullableLong(rs, "batch_id"), nullableInt(rs, "topic"), replay(rs.getString("replay")),
+                rs.getString("mascot"));
     }
 
     private TradeReplay replay(String raw) {

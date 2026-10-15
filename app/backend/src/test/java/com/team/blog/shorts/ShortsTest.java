@@ -236,6 +236,32 @@ class ShortsTest extends IntegrationTest {
     }
 
     @Test
+    void 대본마다_고른_캐릭터를_작업에_실어_보내고_모르는_캐릭터는_받지_않는다() throws Exception {
+        Session me = signup(uniqueLogin("shortschar"));
+        long postId = writePost(me, POST_BODY);
+        Map<String, Object> body = new HashMap<>(Map.of("postId", postId, "title", "두부가 설명하는 로그아웃", "scenes", GOOD, "character", " Dubu "));
+        JsonNode item = read(me.http().perform(asJson(post("/api/me/shorts"), body)).andExpect(status().isCreated()).andReturn());
+        assertThat(item.path("character").asString()).isEqualTo("dubu");
+        long id = item.path("id").asLong();
+
+        body.put("character", "pikachu");
+        JsonNode bad = read(me.http().perform(asJson(post("/api/me/shorts"), body)).andExpect(status().isBadRequest()).andReturn());
+        assertThat(bad.toString()).contains("character");
+
+        // 제목만 고치면 캐릭터는 그대로, 빈 문자열이면 기본 캐릭터로 돌아간다
+        JsonNode kept = read(me.http().perform(asJson(put("/api/me/shorts/" + id), Map.of("title", "두부와 로그아웃"))).andExpect(status().isOk()).andReturn());
+        assertThat(kept.path("character").asString()).isEqualTo("dubu");
+        JsonNode reset = read(me.http().perform(asJson(put("/api/me/shorts/" + id), Map.of("character", ""))).andExpect(status().isOk()).andReturn());
+        assertThat(reset.path("character").isNull()).isTrue();
+
+        me.http().perform(asJson(put("/api/me/shorts/" + id), Map.of("character", "logduck"))).andExpect(status().isOk());
+        me.http().perform(post("/api/me/shorts/" + id + "/render").with(csrf())).andExpect(status().isOk());
+        JsonNode job = claim();
+        assertThat(job.path("id").asLong()).isEqualTo(id);
+        assertThat(job.path("character").asString()).isEqualTo("logduck");
+    }
+
+    @Test
     void 효과음은_작업_단위로_펼쳐_보낸다() throws Exception {
         ImageJob r = claimWithImage();
         JsonNode job = r.job();

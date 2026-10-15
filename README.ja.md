@@ -163,7 +163,7 @@ flowchart LR
     T[Telegram] -->|Bot API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>複数 Pod]
     I -->|/blog-images| M[(MinIO / S3<br/>画像・添付)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V48)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V50)]
     A --> R[(Redis<br/>セッション・レート制限・閲覧数・キャッシュ)]
     A --> M
     A -.任意.-> G[Google Gemini]
@@ -258,7 +258,7 @@ GitHub Actions でテストし、イメージを作って GHCR に上げたあ�
 
 | パス | 説明 |
 | --- | --- |
-| [app/backend](app/backend) | バックエンド：Spring Boot 4.1、Java 21。機能モジュール、Flyway マイグレーション（V1~V48）、テスト |
+| [app/backend](app/backend) | バックエンド：Spring Boot 4.1、Java 21。機能モジュール、Flyway マイグレーション（V1~V50）、テスト |
 | [app/frontend](app/frontend) | フロントエンド：React 19 SPA、TypeScript、Vite。画面、自動保存（IndexedDB）、ダークモード |
 | [deploy](deploy) | デプロイ：Dockerfile、Kubernetes マニフェスト（base・selfhosted・nhn・local）、デプロイ・ロールバック・シークレット検査のスクリプト |
 | [app/render-worker](app/render-worker) | ショート動画のレンダーワーカー：Python 3.10、ffmpeg。自分のパソコンで待ち行列の台本を 9:16 の MP4 にしてアップロードします |
@@ -339,7 +339,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub・Google・カカオ・NAVER・Facebook ログイン、セッション、CSRF、パスごとの権限 |
 | Spring Data JPA (Hibernate) | Boot 4.1 | ドメイン全体 | 会員・記事・コメントなどドメインデータの保存 |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | セッション、レート制限、閲覧数、キャッシュ | 複数の Pod が同じセッションを共有し、同時リクエストも Redis スクリプト 1 つで判定します |
-| Flyway | Boot 4.1 | DB | スキーマを V1~V48 のマイグレーションで管理し、起動時に適用します |
+| Flyway | Boot 4.1 | DB | スキーマを V1~V50 のマイグレーションで管理し、起動時に適用します |
 | commonmark-java (+ GFM 拡張) | 0.30.0 | 本文のレンダリング | Markdown → HTML。表・取り消し線・チェックリスト・自動リンク・見出しアンカー |
 | OWASP Java HTML Sanitizer | 20260924.2 | 本文のサニタイズ | レンダリングした HTML を許可リストでサニタイズし XSS を防ぎます |
 | AWS SDK for Java (S3) | 2.55.12 | media | MinIO・S3 に画像と添付をアップロードします |
@@ -386,6 +386,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | バージョン | 日付 | 主な内容 | リリースノート |
 | --- | --- | --- | --- |
+| v2.1.1 | 2026-10-15 | ショートの子犬キャラクター「ドゥブ」と元記事の全件検索、売買日誌の実取引・模擬の切り替え、サーバーが動かす模擬ボット、ヘッダーを共通ツールとまとめメニューに分割、ショップのプロフィール枠を円形に・スマホのショップを短く、テスト環境の開発用ログインを無効化 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.1.1) |
 | v2.1.0 | 2026-10-15 | devlog 2.0 完成：暗号資産の現物・先物の売買日誌（通貨別の合計）、選んだ約定から作る売買再現ショート、ブログポイント（出席・連続出席バッジ・記事公開クレジット）とティア制ショップでのブログ装飾、ポイントでの暗号資産模擬取引、自動売買の模擬画面 `/trade`、Remotion とニューラル音声のショート、本番でショート・売買日誌・ポイントを有効化 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.1.0) |
 | v2.0.0 | 2026-10-14 | ショート動画スタジオ：記事をショート台本に仕上げ自分のPCのレンダーワーカーでMP4を作成、動画作成前の量産型チェック、YouTube・Instagram・TikTokへの手動アップロード案内、マイダッシュボード、MCPの根拠リンクとショート候補、自動売買ボットの売買日誌、自宅PCへ移すバックアップ・復元（ショートと売買日誌は既定でオフ） | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.0.0) |
 | v1.70.0 | 2026-10-14 | ハイブリッド検索の復旧と登録・記事管理の仕上げ：意味検索の結果が再び混ざるよう検索インデックスを修正、初回ログイン時のAI連携ガイド、ニックネームのリアルタイム確認、記事管理は公開記事タブから、プロフィール写真切り抜きの円の境界、返信5件以下はすべて表示、Naverのメールとプロフィール写真の取り込み | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.70.0) |

@@ -163,7 +163,7 @@ flowchart LR
     T[Telegram] -->|Bot API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>multiple pods]
     I -->|/blog-images| M[(MinIO / S3<br/>images · attachments)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V48)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V50)]
     A --> R[(Redis<br/>sessions · rate limits · views · cache)]
     A --> M
     A -.optional.-> G[Google Gemini]
@@ -258,7 +258,7 @@ Code lives in this repository; design documents live in the documentation reposi
 
 | Path | Description |
 | --- | --- |
-| [app/backend](app/backend) | Backend: Spring Boot 4.1, Java 21. Feature modules, Flyway migrations (V1~V48), tests |
+| [app/backend](app/backend) | Backend: Spring Boot 4.1, Java 21. Feature modules, Flyway migrations (V1~V50), tests |
 | [app/frontend](app/frontend) | Frontend: React 19 SPA, TypeScript, Vite. Screens, autosave (IndexedDB), dark mode |
 | [deploy](deploy) | Deployment: Dockerfile, Kubernetes manifests (base, selfhosted, nhn, local), deploy, rollback and secret-check scripts |
 | [app/render-worker](app/render-worker) | Shorts render worker: Python 3.10, ffmpeg. Runs on your computer and turns queued scripts into 9:16 MP4s |
@@ -339,7 +339,7 @@ To try it on Kubernetes, run `kubectl apply -k deploy/k8s/overlays/local` on kin
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub, Google, Kakao, Naver and Facebook login, sessions, CSRF, per-path authorization |
 | Spring Data JPA (Hibernate) | Boot 4.1 | All domains | Storing members, posts, comments and other domain data |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | Sessions, rate limits, views, cache | Lets multiple pods share sessions, and decides concurrent requests with a single Redis script |
-| Flyway | Boot 4.1 | Database | Manages the schema as migrations V1~V48, applied at startup |
+| Flyway | Boot 4.1 | Database | Manages the schema as migrations V1~V50, applied at startup |
 | commonmark-java (+ GFM extensions) | 0.30.0 | Body rendering | Markdown → HTML: tables, strikethrough, task lists, autolinks, heading anchors |
 | OWASP Java HTML Sanitizer | 20260924.2 | Body sanitizing | Sanitizes rendered HTML against an allow list to prevent XSS |
 | AWS SDK for Java (S3) | 2.55.12 | media | Uploads images and attachments to MinIO and S3 |
@@ -386,6 +386,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v2.1.1 | 2026-10-15 | Dubu the puppy as a Shorts character and searching every post as a Shorts source, live and paper views in the trading journal, a paper trading bot run by the server, a header split into shared tools and grouped menus, round profile frames in the shop and a shorter shop on phones, and the dev login turned off on staging | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.1.1) |
 | v2.1.0 | 2026-10-15 | devlog 2.0 complete: crypto spot and futures trading journal (totals per currency), trade replay Shorts built from chosen fills, blog points (attendance, streak badges, credits for publishing) with a tiered shop for blog decorations, crypto paper trading with points, the paper auto-trading page `/trade`, Shorts rendered with Remotion and a neural voice, and Shorts, the trading journal and points turned on in production | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.1.0) |
 | v2.0.0 | 2026-10-14 | Short-form studio: polish posts into Shorts scripts and render MP4s with a render worker on your own computer, a mass-production check before rendering, guides for uploading to YouTube, Instagram and TikTok yourself, My dashboard, MCP evidence links and Shorts candidates, a trading journal for an automated trading bot, and backup/restore to move to a home computer (Shorts and the trading journal are off by default) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.0.0) |
 | v1.70.0 | 2026-10-14 | Hybrid search back on and sign-up/post management polish: search indexing fixed so meaning-based results mix in again, an AI connection guide on first login, live nickname checks, My posts opens on Published, a visible circle when cropping profile photos, all replies shown when there are five or fewer, and Naver email and profile photo accepted | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.70.0) |

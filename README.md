@@ -161,7 +161,7 @@ flowchart LR
     T[텔레그램] -->|봇 API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>파드 여러 개]
     I -->|/blog-images| M[(MinIO / S3<br/>사진·첨부)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V48)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V50)]
     A --> R[(Redis<br/>세션·요청 제한·조회수·캐시)]
     A --> M
     A -.선택.-> G[Google Gemini]
@@ -256,7 +256,7 @@ GitHub Actions로 테스트하고 이미지를 만들어 GHCR에 올린 뒤, kus
 
 | 경로 | 설명 |
 | --- | --- |
-| [app/backend](app/backend) | 백엔드 — Spring Boot 4.1, Java 21. 기능 모듈, Flyway 마이그레이션(V1~V48), 테스트 |
+| [app/backend](app/backend) | 백엔드 — Spring Boot 4.1, Java 21. 기능 모듈, Flyway 마이그레이션(V1~V50), 테스트 |
 | [app/frontend](app/frontend) | 프론트엔드 — React 19 SPA, TypeScript, Vite. 화면, 자동 저장(IndexedDB), 다크 모드 |
 | [deploy](deploy) | 배포 — Dockerfile, 쿠버네티스 매니페스트(base·selfhosted·nhn·local), 배포·롤백·비밀값 검사 스크립트 |
 | [app/render-worker](app/render-worker) | 쇼츠 렌더 워커 — Python 3.10, ffmpeg. 내 컴퓨터에서 대기열의 대본을 9:16 MP4로 만들어 올립니다 |
@@ -337,7 +337,7 @@ npm run dev        # http://localhost:5173
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub·Google·카카오·네이버·Facebook 로그인, 세션, CSRF, 경로별 권한 |
 | Spring Data JPA (Hibernate) | Boot 4.1 | 도메인 전체 | 회원·글·댓글 등 도메인 저장 |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | 세션, 요청 제한, 조회수, 캐시 | 파드 여러 개가 같은 세션을 보고, 동시 요청도 Redis 스크립트 하나로 판정합니다 |
-| Flyway | Boot 4.1 | DB | 스키마를 V1~V48 마이그레이션으로 관리하고 앱 시작 때 적용합니다 |
+| Flyway | Boot 4.1 | DB | 스키마를 V1~V50 마이그레이션으로 관리하고 앱 시작 때 적용합니다 |
 | commonmark-java (+ GFM 확장) | 0.30.0 | 본문 렌더링 | Markdown → HTML. 표·취소선·체크 목록·자동 링크·제목 앵커 |
 | OWASP Java HTML Sanitizer | 20260924.2 | 본문 정화 | 렌더링한 HTML을 허용 목록으로 정화해 XSS를 막습니다 |
 | AWS SDK for Java (S3) | 2.55.12 | media | MinIO·S3에 사진과 첨부를 올립니다 |
@@ -384,6 +384,7 @@ npm run dev        # http://localhost:5173
 
 | 버전 | 날짜 | 주요 내용 | 릴리스 노트 |
 | --- | --- | --- | --- |
+| v2.1.1 | 2026-10-15 | 쇼츠 강아지 캐릭터 두부와 바탕 글 검색, 매매 일지 실거래·모의 토글, 서버가 돌리는 모의 봇, 머리말을 공용 도구·묶음 메뉴로 나누기, 상점 프로필 테두리 원형·휴대폰 상점 줄이기, 시험 환경 개발용 로그인 끄기 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.1.1) |
 | v2.1.0 | 2026-10-15 | devlog 2.0 완성: 코인 현물·선물 매매 일지(통화별 합계), 고른 체결로 만드는 매매 재현 숏폼, 블로그 포인트(출석·연속 출석 휘장·글 발행 크레딧)와 티어 상점 꾸미기, 포인트 코인 모의투자, 자동매매 모의 화면 `/trade`, Remotion·신경망 음성 쇼츠, 운영에서 숏폼·매매 일지·포인트 켜기 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.1.0) |
 | v2.0.0 | 2026-10-14 | 숏폼 스튜디오: 글을 쇼츠 대본으로 다듬고 내 컴퓨터의 렌더 워커로 MP4 만들기, 영상 만들기 전 양산형 검사, YouTube·Instagram·TikTok 직접 올리기 안내, 내 대시보드, MCP 근거 링크와 쇼츠 후보, 자동 매매 봇의 매매 일지, 집 컴퓨터로 옮기는 백업·복원 (쇼츠·매매 일지는 기본 꺼짐) | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.0.0) |
 | v1.70.0 | 2026-10-14 | 하이브리드 검색 되살리기와 가입·글 관리 다듬기: 의미 검색이 다시 섞여 나오게 검색 색인 고침, 첫 로그인 AI 연결 안내, 닉네임 실시간 확인, 내 글 관리는 발행 글 탭부터, 프로필 사진 자르기 원 경계, 답글 5개 이하 모두 보이기, 네이버 이메일·프로필 사진 받기 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v1.70.0) |

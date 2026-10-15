@@ -253,7 +253,8 @@ Access를 먼저 만들고 주소를 연결한다(순서를 바꾸면 잠깐이�
 develop에 머지된 코드를 운영과 같은 학교 서버 클러스터의 네임스페이스 `blog-dev`에 먼저 띄워 열어 본다. 운영(`blog`)과 DB·Redis·MinIO를 따로 띄워 데이터가 섞이지 않고, 운영 비밀값(`BLOG_SECRET_ENV`, OAuth·메일·AI 열쇠)은 넣지 않는다. 구성은 `k8s/overlays/staging`이다.
 
 - 앱 1개, PostgreSQL·Redis·MinIO 각 1개(디스크 2Gi). 검색 임베딩 모델과 매일 DB 백업은 띄우지 않는다(검색은 키워드로만). 메모리 요청은 합쳐 약 0.9GB다.
-- 로그인은 개발용 로그인(`/api/dev/login`)과 이메일 가입. 보낸 메일은 `/api/dev/mails`에서 본다. 그래서 **Access로 막기 전에는 주소를 열지 않는다.**
+- 로그인은 이메일 가입·로그인으로 한다. 메일 열쇠가 없어 가입 인증번호는 묻지 않는다. 개발용 로그인(`/api/dev/login`)은 비밀번호 없이 관리자까지 들어갈 수 있어 꺼 둔다(2026-10-15 보안 점검). 그래도 시험 데이터를 바깥에 보이지 않게 **Access로 막기 전에는 주소를 열지 않는다.**
+- 관리자 승격(`OWNER_HANDLE`)은 비워 둔다. 인증번호 없는 이메일 가입이라 운영자 블로그 주소로 먼저 가입한 사람이 관리자가 될 수 있어서다. 시험 환경에는 관리자 계정이 없다.
 - DB·MinIO 비밀번호는 첫 배포 때 워크플로가 임의 값으로 만들어 클러스터의 Secret `blog-dev-seed`에 두고 다음 배포부터 다시 쓴다.
 - 운영 배포와 같은 줄(`deploy-cluster`)에 서서 겹치지 않는다. 이미지는 `develop` 태그로 따로 두고 `latest`는 main만 가리킨다.
 
@@ -264,7 +265,7 @@ develop에 머지된 코드를 운영과 같은 학교 서버 클러스터의 �
 3. GitHub 저장소 → Settings → Secrets and variables → Actions → Variables에 `STAGING_ENABLED` = `true`.
 4. develop에 머지하거나 Actions → 블로그 배포 → Run workflow(branch `develop`, "시험 환경에 배포" 체크). 끝나면 https://dev.devlog.life 에서 그 커밋이 보인다.
 
-Access를 만들기 전에 배포되지 않게 하려면 저장소 Settings → Environments → `staging`에 Required reviewers를 두고, Access가 있는 것을 확인한 뒤에만 승인한다(권장). 이 시험 환경은 개발용 로그인(`/api/dev/login`)이 켜져 있어서 Access 없이 열리면 안 된다.
+Access를 만들기 전에 배포되지 않게 하려면 저장소 Settings → Environments → `staging`에 Required reviewers를 두고, Access가 있는 것을 확인한 뒤에만 승인한다(권장). 시험 데이터와 아직 운영에 나가지 않은 기능이 보이므로 Access 없이 열리면 안 된다.
 
 끄기:
 - `STAGING_ENABLED`를 지우면 **새 배포만** 멈춘다(develop 푸시도, 수동 실행의 "시험 환경에 배포"도). 이미 떠 있는 시험 환경은 그대로 돈다.

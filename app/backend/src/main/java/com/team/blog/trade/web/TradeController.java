@@ -2,6 +2,7 @@ package com.team.blog.trade.web;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.Locale;
 
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
@@ -42,15 +43,27 @@ public class TradeController {
     public record MemoBody(String memo) {}
 
     @GetMapping("/api/me/trades")
-    public ResponseEntity<TradeJournal.Overview> overview(@CurrentMember MemberPrincipal me, @RequestParam(defaultValue = "30") int days) {
+    public ResponseEntity<TradeJournal.Overview> overview(@CurrentMember MemberPrincipal me, @RequestParam(defaultValue = "30") int days,
+                                                          @RequestParam(required = false) String mode) {
         LocalDate to = trades.today();
         LocalDate from = to.minusDays(Math.clamp(days, 1, TradeJournal.DAYS_MAX) - 1L);
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(trades.overview(me.id(), from, to));
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(trades.overview(me.id(), from, to, mode(mode)));
     }
 
     @GetMapping("/api/me/trades/{date}")
-    public ResponseEntity<TradeJournal.Day> day(@CurrentMember MemberPrincipal me, @PathVariable String date) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(trades.day(me.id(), date(date)));
+    public ResponseEntity<TradeJournal.Day> day(@CurrentMember MemberPrincipal me, @PathVariable String date,
+                                                @RequestParam(required = false) String mode) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(trades.day(me.id(), date(date), mode(mode)));
+    }
+
+    /** 실거래·모의 토글: live·paper(대소문자 무관). 없으면 둘 다 */
+    private static TradeJournal.Mode mode(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        return switch (raw.strip().toUpperCase(Locale.ROOT)) {
+            case "LIVE" -> TradeJournal.Mode.LIVE;
+            case "PAPER" -> TradeJournal.Mode.PAPER;
+            default -> throw ApiException.badRequest("INVALID_MODE", "모드는 live나 paper예요.");
+        };
     }
 
     @PutMapping("/api/me/trades/{date}/memo")

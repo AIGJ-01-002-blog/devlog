@@ -1723,6 +1723,49 @@ a.attachment-name:hover { color: var(--color-brand); }
   .header-link { width: 36px; padding: 0; }
 }
 
+/* 머리말 묶음 (v2.2.0): 피드▾ · 모의투자▾. 마우스를 올리거나 ▾를 누르면 묶인 항목이 아래로 펼쳐진다 */
+.header-group { position: relative; display: flex; align-items: center; }
+.header-group-caret {
+  display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 34px; margin-left: -6px;
+  background: none; border: 0; border-radius: var(--radius); color: var(--color-text-muted); cursor: pointer;
+}
+.header-group-caret svg { transition: transform var(--motion-fast) var(--ease-out); }
+.header-group:hover .header-group-caret svg, .header-group.open .header-group-caret svg { transform: rotate(180deg); }
+.header-group-list {
+  display: none; position: absolute; left: 0; top: 100%; z-index: 30; min-width: 184px; padding: 6px; margin-top: 0;
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+}
+/* 링크와 목록 사이 빈틈에서 마우스가 빠져도 닫히지 않게 위쪽에 투명한 다리를 둔다 */
+.header-group-list::before { content: ''; position: absolute; left: 0; right: 0; top: -10px; height: 10px; }
+.header-group:hover .header-group-list, .header-group.open .header-group-list { display: block; }
+.header-group-list a {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: var(--radius);
+  font-weight: 500; color: var(--color-text); white-space: nowrap; text-decoration: none;
+}
+.header-group-list a .nav-icon { color: var(--color-text-muted); flex-shrink: 0; }
+.header-group-list a:hover { background: var(--color-surface-2); }
+.header-group-list a:hover .nav-icon, .header-group-list a.on .nav-icon { color: var(--color-brand); }
+.header-group-list a.on { color: var(--color-brand); }
+
+/* 도구 줄 (v2.2.0): 휴대폰은 머리말에 도구가 들어가지 않으니 머리말 바로 아래에 옆으로 미는 칩 줄로 둔다.
+   넓은 화면은 머리말 안 링크로 보이므로 숨긴다. 터치에는 툴팁이 없어 이름을 늘 보인다 */
+.tool-strip { display: none; }
+@media (max-width: 640px) {
+  .tool-strip {
+    display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 8px 12px;
+    background: var(--color-bg); border-bottom: 1px solid var(--color-border);
+  }
+  .tool-strip::-webkit-scrollbar { display: none; }
+  .tool-strip a {
+    display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; min-height: 36px; padding: 0 11px;
+    border: 1px solid var(--color-border); border-radius: 999px; font-size: 0.8125rem; font-weight: 600;
+    color: var(--color-text-2); white-space: nowrap; text-decoration: none;
+  }
+  .tool-strip a .nav-icon { width: 16px; height: 16px; flex-shrink: 0; }
+  .tool-strip a.on { color: var(--color-brand); border-color: color-mix(in srgb, var(--color-brand) 45%, var(--color-border)); background: var(--color-surface-2); }
+  .tool-strip a:active { background: var(--color-hover); }
+}
+
 /* 내 메뉴 (063): 내 설정을 맨 위에. 아이콘과 둥근 줄로 */
 .menu-list.profile-menu { min-width: 248px; padding: 6px; }
 .profile-menu a, .profile-menu button {
@@ -2442,6 +2485,21 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 .badge-danger { background: color-mix(in srgb, var(--color-danger) 14%, transparent); color: var(--color-danger); }
 .studio-new { display: flex; flex-direction: column; gap: 14px; max-width: 520px; }
 .studio-new select { width: 100%; }
+/* 바탕 글 고르기 (이슈 308): 검색 칸 아래 최신순 목록을 스크롤하고 끝에서 더 불러온다 */
+.post-picker { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.post-picker input[type="search"] { width: 100%; }
+.post-picker-list { max-height: 320px; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--color-border);
+  border-radius: var(--radius); padding: 4px; display: flex; flex-direction: column; gap: 2px; }
+/* 높이가 고정된 세로 flex 안에서 긴 제목이 눌려 겹치지 않게 줄어들지 않게 둔다 */
+.post-picker-list > * { flex: none; }
+.post-picker-item { display: flex; align-items: flex-start; gap: 8px; padding: 9px 10px; min-height: 40px; border-radius: var(--radius); cursor: pointer; }
+.post-picker-item input { margin-top: 3px; width: 18px; height: 18px; flex: none; }
+.post-picker-item span { min-width: 0; overflow-wrap: anywhere; }
+.post-picker-item:hover { background: var(--color-surface-2); }
+.post-picker-item.picked { background: var(--color-surface-2); box-shadow: inset 0 0 0 1px var(--color-brand); }
+.post-picker-note { margin: 0; padding: 10px; }
+.post-picker-more { align-self: center; margin: 4px 0; }
+@media (max-width: 480px) { .post-picker-list { max-height: 50vh; } }
 /* 직접 올리기 안내 (이슈 238). 붙여 넣을 문구는 줄바꿈을 그대로 보여 주고 휴대폰에서 가로로 넘치지 않게 감싼다 */
 .studio-guide { margin: 8px 0 24px; padding: 16px 0 24px; border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); display: flex; flex-direction: column; gap: 12px; }
 .studio-guide h2 { margin: 0; font-size: 1.125rem; }
@@ -2520,6 +2578,10 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 /* 자동매매 모의 화면 /trade (spec 101): 계좌 카드, 체결·Gemini 판단·하루 요약. 손익 색은 매매 일지와 같다 */
 .tradebot-paper { font-size: 0.55em; vertical-align: middle; }
 .tradebot-when { font-size: 1.25rem; }
+.tradebot-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tradebot-guide { margin: 0 0 12px; }
+.tradebot-guide summary { cursor: pointer; font-weight: 600; }
+.tradebot-guide ul { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 4px; color: var(--color-text-muted); }
 .tradebot-empty { margin-top: 16px; padding: 16px; border: 1px dashed var(--color-border); border-radius: var(--radius); }
 .tradebot-empty h2 { margin-top: 0; }
 .tradebot-tabs .settings-panel { padding-top: 16px; padding-bottom: 16px; }
@@ -2698,10 +2760,13 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
   :root:not([data-theme="light"]) .blog-themed { --color-brand: color-mix(in srgb, var(--blog-theme) 60%, white); }
 }
 .blog-themed .blog-tabs a[aria-current="page"] { color: var(--color-brand); }
-.deco-frame { position: relative; padding: 4px; border-radius: 50%; background: var(--frame-bg, var(--color-surface)); }
+/* 테두리는 사진 둘레의 얇은 고리(--frame-w). inline-flex·line-height 0으로 글줄 높이가 끼지 않게 해 사진에 딱 맞는 원으로 그린다 (블로그 주인 요청) */
+.deco-frame { --frame-w: 3px; position: relative; display: inline-flex; flex: none; line-height: 0; padding: var(--frame-w); border-radius: 50%; background: var(--frame-bg, var(--color-surface)); }
+.deco-frame .avatar { max-width: none; aspect-ratio: 1; }
 .deco-frame[data-frame="color"] { --frame-bg: var(--frame-color); }
-.blog-avatar.deco-frame { padding: 7px; }
-.blog-avatar.deco-frame .avatar { box-shadow: 0 0 0 3px var(--color-surface); }
+.deco-effect-avatar.deco-frame { --frame-w: 2px; }
+.blog-avatar.deco-frame { --frame-w: 4px; }
+.blog-avatar.deco-frame .avatar { box-shadow: 0 0 0 2px var(--color-surface); }
 
 /* 티어 색 (아이언~챌린저). 테두리·표지·문장이 같은 --ta·--tb를 쓴다 */
 :is(.tier-iron, [data-frame="iron"], [data-banner="iron"]) { --ta: var(--tier-iron-a); --tb: var(--tier-iron-b); }
@@ -2742,8 +2807,8 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
   content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
   background: conic-gradient(from 0deg, transparent 0 20%, var(--tg2) 30%, var(--tier-spark) 34%, transparent 46%,
     transparent 0 70%, var(--tg) 80%, var(--tier-spark) 84%, transparent 96%);
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 8px), black calc(100% - 7px));
-  mask: radial-gradient(farthest-side, transparent calc(100% - 8px), black calc(100% - 7px));
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - var(--frame-w) - 0.5px), black calc(100% - var(--frame-w)));
+  mask: radial-gradient(farthest-side, transparent calc(100% - var(--frame-w) - 0.5px), black calc(100% - var(--frame-w)));
   animation: tier-spin var(--spin) linear infinite;
 }
 /* 번쩍임: 테두리 바깥으로 자기 색 빛이 터졌다 사라진다 (얼굴은 가리지 않는다) */
@@ -2755,8 +2820,8 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 :is(.blog-hero, .deco-effect-preview)[data-effect="radiance"] :is(.blog-avatar, .deco-effect-avatar):not(:is([data-frame="master"], [data-frame="grandmaster"], [data-frame="challenger"]))::after {
   content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
   background: conic-gradient(from 0deg, transparent 0 70%, var(--tier-spark) 80%, transparent 90%);
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), black calc(100% - 6px));
-  mask: radial-gradient(farthest-side, transparent calc(100% - 7px), black calc(100% - 6px));
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - var(--frame-w, 4px) - 0.5px), black calc(100% - var(--frame-w, 4px)));
+  mask: radial-gradient(farthest-side, transparent calc(100% - var(--frame-w, 4px) - 0.5px), black calc(100% - var(--frame-w, 4px)));
   animation: tier-spin 2.4s linear infinite;
 }
 @keyframes tier-spin { to { transform: rotate(360deg); } }
@@ -2885,7 +2950,6 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 .shop-card.tier-card.t9:not(.locked) { box-shadow: 0 0 0 1px var(--ta), 0 0 16px -4px var(--ta); }
 .shop-need { margin-top: 2px; }
 .shop-tabs .shop-preview { height: 120px; }
-.shop-preview > .deco-frame { padding: 6px; }
 .shop-actions .btn svg { margin-right: 4px; }
 .shop-ladder ol { list-style: none; margin: 16px 0; padding: 12px; display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 8px;
   border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); }
@@ -2921,12 +2985,32 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 .shop-admin-list li { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--color-border); }
 .shop-admin-list .shop-preview { height: 40px; border-radius: var(--radius); }
 .shop-admin-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px 16px; }
+/* 휴대폰: 카드를 미리보기 왼쪽·내용 오른쪽의 낮은 한 줄로 쌓고, 티어 사다리는 가로로 밀어 보게 해 화면이 덜 길어지게 한다 (블로그 주인 요청) */
 @media (max-width: 640px) {
-  .shop-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .shop-ladder ol { grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 10px 8px; }
+  .shop-grid, .shop-tabs .shop-grid { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .shop-card { display: grid; grid-template-columns: 84px minmax(0, 1fr); }
+  .shop-preview, .shop-tabs .shop-preview { height: auto; min-height: 84px; }
+  .shop-body { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 8px; padding: 8px 12px; }
+  .shop-body > :not(.shop-actions) { grid-column: 1; margin: 0; }
+  .shop-body > .tier-emblem { justify-self: start; }
+  .shop-body h3 { font-size: 0.95rem; }
+  .shop-preview { overflow: hidden; }
+  .theme-mock { width: 70px; padding: 6px; gap: 6px; }
+  .theme-mock-text { display: none; }
+  .theme-mock-tabs { gap: 6px; }
+  .theme-mock-tabs i { width: 14px; }
+  .theme-mock-foot { gap: 4px; }
+  .theme-mock .shop-swatch { width: 14px; height: 14px; }
+  .theme-mock .btn.btn-small { padding: 2px 6px; font-size: 0.6875rem; }
+  /* 설명은 이름과 겹치는 꾸밈말이라 휴대폰에서는 줄여 높이를 아낀다 */
+  .shop-body > p { display: none; }
+  .shop-actions { grid-column: 2; grid-row: 1 / span 3; margin: 0; padding: 0; }
+  .shop-actions .btn { flex: none; min-width: 64px; }
+  .shop-body > .shop-need { grid-column: 1 / -1; }
+  .shop-ladder ol { display: flex; overflow-x: auto; scroll-snap-type: x proximity; gap: 4px; padding: 10px 8px; scrollbar-width: none; }
+  .shop-ladder ol::-webkit-scrollbar { display: none; }
+  .shop-ladder li { flex: 0 0 64px; scroll-snap-align: start; }
   .shop-tabs .settings-panel { padding: 12px; }
-  .shop-preview { height: 80px; }
-  .shop-actions .btn { flex-basis: 100%; }
   .shop-admin-list li { grid-template-columns: 44px minmax(0, 1fr); }
   .shop-admin-list li > :last-child { grid-column: 1 / -1; }
 }
