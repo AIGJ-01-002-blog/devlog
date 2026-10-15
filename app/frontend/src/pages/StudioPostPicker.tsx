@@ -92,7 +92,9 @@ export function StudioPostPicker({ value, onChange }: { value: number | null; on
         aria-controls="shorts-post-list" onChange={(e) => changeQuery(e.target.value)} />
       <div id="shorts-post-list" ref={list} className="post-picker-list" role="radiogroup" aria-label={t('바탕이 될 글')} aria-busy={loading} onScroll={onScroll}>
         <label className={`post-picker-item${value === null ? ' picked' : ''}`}>
-          <input type="radio" name="shorts-post" checked={value === null} onChange={() => choose(null)} />
+          <input type="radio" name="shorts-post" checked={value === null} onChange={() => choose(null)}
+            // 처음부터 골라져 있는 칸은 눌러도 change가 없어서 click으로 고른 것을 확정한다
+            onClick={() => { if (value === null) choose(null) }} />
           <span>{t('글 없이 쓰기')}</span>
         </label>
         {posts.map((p) => (
