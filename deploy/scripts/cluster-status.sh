@@ -47,6 +47,7 @@ for url in "https://api.upbit.com/v1/ticker?markets=KRW-BTC" "https://api.bithum
            "https://api.coinone.co.kr/public/v2/ticker_new/KRW/BTC" "https://api.korbit.co.kr/v2/tickers?symbol=btc_krw"; do
   curl -s -o /dev/null -m 8 -w "server: HTTP %{http_code} ${url%%\?*}\n" "$url" 2>&1 || echo "server: 실패 ${url%%\?*}"
 done
+echo "-- 코빗 시세 견본"; curl -s -m 8 "https://api.korbit.co.kr/v2/tickers?symbol=btc_krw,doge_krw" | head -c 1200; echo
 k -n blog exec deploy/blog-app -- sh -c 'command -v wget >/dev/null && wget -S -q -O /dev/null -T 10 "https://api.upbit.com/v1/ticker?markets=KRW-BTC" 2>&1 | head -3 || echo "wget 없음"' 2>&1 | head -5 || true
 # 조회문은 표준 입력으로 넘긴다(따옴표가 겹치지 않게). 공개 조건은 PostAccessPolicy.PUBLIC_LIST_CONDITION과 같다
 psql_read() {
