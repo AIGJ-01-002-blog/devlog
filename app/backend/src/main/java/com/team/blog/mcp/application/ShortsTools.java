@@ -44,8 +44,8 @@ class ShortsTools {
 
     static final String CHARACTER = "character";
     /** 대본 단위 캐릭터 고르기(#304) */
-    static final String CHARACTER_SCHEMA = """
-            "character":{"type":"string","enum":["lognyang","logduck","dubu","cat"],"description":"연기할 캐릭터 (선택). lognyang 후드 입은 고양이 로그냥(기본), logduck 스카프 맨 오리 로그덕, dubu 흰 강아지 두부, cat Noto 이모지 고양이. 사용자가 고른 캐릭터가 있을 때만 준다"},""";
+    static final String CHARACTER_SCHEMA =
+            "\"character\":{\"type\":\"string\",\"enum\":[\"lognyang\",\"logduck\",\"dubu\",\"cat\"],\"description\":\"연기할 캐릭터 (선택). lognyang 후드 입은 고양이 로그냥(기본), logduck 스카프 맨 오리 로그덕, dubu 흰 강아지 두부, cat Noto 이모지 고양이. 사용자가 고른 캐릭터가 있을 때만 준다\"},";
 
     /**
      * 대본 쓰기 안내 (#277). 길이는 1분~1분 30초. 구조는 블로그 주인이 정한 "잘 되는 쇼츠" 틀(후킹 → 본론 → 반전·정리 → CTA)을

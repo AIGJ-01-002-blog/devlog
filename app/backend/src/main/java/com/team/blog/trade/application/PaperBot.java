@@ -45,8 +45,11 @@ public class PaperBot {
     private static final Duration STEP = Duration.ofHours(1);
     private static final int WINDOW = 5;
     private static final BigDecimal STOP_LOSS = new BigDecimal("0.03");
-    private static final BigDecimal QTY_STEP = new BigDecimal("0.00000001");
     private static final MathContext MC = MathContext.DECIMAL64;
+    // 계좌 상태 JSON(trade_paper_bot.state)과 화면 규칙 칸의 키
+    private static final String POSITIONS = "positions";
+    private static final String QUANTITY = "quantity";
+    private static final String AVG_PRICE = "avg_price";
 
     /** 거래소마다 처음 현금·한 번 금액·수수료율. trade-bot exchanges.py 기본값과 같다 */
     record Book(Exchange exchange, String currency, BigDecimal cash, BigDecimal budget, BigDecimal feeRate) {
@@ -83,7 +86,9 @@ public class PaperBot {
             closes.add(close);
             if (closes.size() <= window) return null;
             boolean above = close.compareTo(avg()) > 0;
-            String cross = above && !prevAbove ? "UP" : !above && prevAbove ? "DOWN" : null;
+            String cross = null;
+            if (above && !prevAbove) cross = "UP";
+            else if (!above && prevAbove) cross = "DOWN";
             if (holding && avgPrice.signum() > 0 && close.compareTo(avgPrice.multiply(BigDecimal.ONE.subtract(stopLoss))) <= 0) {
                 return "SELL:손절선 -" + stopLoss.movePointRight(2).stripTrailingZeros().toPlainString() + "% 도달";
             }
@@ -150,7 +155,7 @@ public class PaperBot {
     /** @return 돌린 회원 수 */
     public int runAll() {
         List<Long> members = jdbc.queryForList("SELECT member_id FROM trade_paper_bot WHERE enabled ORDER BY member_id", Long.class);
-        if (members.isEmpty()) return 0;
+        if (members == null || members.isEmpty()) return 0;
         Map<Exchange, List<Coin>> candles = candles(); // 모든 회원이 같은 시세를 나눠 쓴다
         int done = 0;
         for (long memberId : members) {
@@ -179,19 +184,7 @@ public class PaperBot {
                     rs -> rs.next() ? rs.getString(1) : null, memberId);
             if (raw == null) return;
             ObjectNode state = (ObjectNode) json.readTree(raw);
-            for (Book book : BOOKS) {
-                ObjectNode acc = state.has(book.exchange().name()) ? (ObjectNode) state.get(book.exchange().name()) : fresh(book);
-                List<Fill> fills = new ArrayList<>();
-                Map<String, BigDecimal> last = new LinkedHashMap<>();
-                for (Coin coin : candles.getOrDefault(book.exchange(), List.of())) {
-                    if (coin.candles().isEmpty()) continue;
-                    fills.addAll(trade(book, acc, coin));
-                    last.put(coin.symbol(), coin.candles().getLast().c());
-                }
-                state.set(book.exchange().name(), acc);
-                writeAccount(memberId, book, acc, last, now);
-                for (Fill f : fills) writeFill(memberId, book, f, now);
-            }
+            for (Book book : BOOKS) runBook(memberId, book, state, candles.getOrDefault(book.exchange(), List.of()), now);
             jdbc.update("UPDATE trade_paper_bot SET state = ?::jsonb, updated_at = ? WHERE member_id = ?",
                     json.writeValueAsString(state), Timestamp.from(now), memberId);
             jdbc.update("""
@@ -201,53 +194,81 @@ public class PaperBot {
         });
     }
 
+    /** 거래소 계좌 하나: 종목마다 규칙을 돌리고 계좌·체결을 남긴다. state의 그 거래소 칸을 고친다 */
+    private void runBook(long memberId, Book book, ObjectNode state, List<Coin> coins, Instant now) {
+        ObjectNode acc = state.has(book.exchange().name()) ? (ObjectNode) state.get(book.exchange().name()) : fresh(book);
+        List<Fill> fills = new ArrayList<>();
+        Map<String, BigDecimal> last = new LinkedHashMap<>();
+        for (Coin coin : coins) {
+            if (coin.candles().isEmpty()) continue;
+            fills.addAll(trade(book, acc, coin));
+            last.put(coin.symbol(), coin.candles().getLast().c());
+        }
+        state.set(book.exchange().name(), acc);
+        writeAccount(memberId, book, acc, last, now);
+        for (Fill f : fills) writeFill(memberId, book, f, now);
+    }
+
     private ObjectNode fresh(Book book) {
         ObjectNode acc = json.createObjectNode();
         acc.put("cash", book.cash().toPlainString());
-        acc.set("positions", json.createObjectNode());
+        acc.set(POSITIONS, json.createObjectNode());
         acc.set("seen", json.createObjectNode());
         return acc;
     }
 
     /** 한 종목: 받은 봉 전체로 규칙을 데우고, 지난번에 처리한 봉보다 뒤인 봉에서만 체결한다 */
     List<Fill> trade(Book book, ObjectNode acc, Coin coin) {
-        ObjectNode positions = (ObjectNode) acc.get("positions");
+        ObjectNode positions = (ObjectNode) acc.get(POSITIONS);
         ObjectNode seen = (ObjectNode) acc.get("seen");
         long seenT = seen.path(coin.symbol()).asLong(0);
         Rule rule = new Rule(WINDOW, STOP_LOSS);
         List<Fill> out = new ArrayList<>();
         for (Candle c : coin.candles()) {
             JsonNode pos = positions.get(coin.symbol());
-            BigDecimal qty = pos == null ? BigDecimal.ZERO : new BigDecimal(pos.path("quantity").asString("0"));
-            BigDecimal avg = pos == null ? BigDecimal.ZERO : new BigDecimal(pos.path("avg_price").asString("0"));
+            BigDecimal qty = pos == null ? BigDecimal.ZERO : new BigDecimal(pos.path(QUANTITY).asString("0"));
+            BigDecimal avg = pos == null ? BigDecimal.ZERO : new BigDecimal(pos.path(AVG_PRICE).asString("0"));
             String signal = rule.onBar(c.c(), qty.signum() > 0, avg);
-            if (c.t() <= seenT || signal == null) continue;
-            Instant at = Instant.ofEpochMilli(c.t()).plus(STEP); // 봉이 닫힌 시각에 체결
-            BigDecimal cash = new BigDecimal(acc.path("cash").asString("0"));
-            if (signal.equals("BUY")) {
-                BigDecimal spend = book.budget().min(cash);
-                BigDecimal q = spend.divide(c.c().multiply(BigDecimal.ONE.add(book.feeRate())), MC).setScale(8, RoundingMode.FLOOR);
-                BigDecimal cost = q.multiply(c.c());
-                BigDecimal fee = book.money(cost.multiply(book.feeRate()));
-                if (q.signum() <= 0 || cost.add(fee).compareTo(cash) > 0) continue;
-                ObjectNode p = json.createObjectNode();
-                p.put("quantity", q.toPlainString());
-                p.put("avg_price", c.c().toPlainString());
-                positions.set(coin.symbol(), p);
-                acc.put("cash", cash.subtract(cost).subtract(fee).toPlainString());
-                out.add(new Fill(id(book, coin.symbol(), c.t(), "BUY"), coin.symbol(), "BUY", q, c.c(), null,
-                        "종가가 " + WINDOW + "개 1h봉 이동평균선 위로 올라섬", at));
-            } else {
-                BigDecimal proceeds = qty.multiply(c.c());
-                BigDecimal fee = book.money(proceeds.multiply(book.feeRate()));
-                BigDecimal pnl = book.money(proceeds.subtract(qty.multiply(avg)).subtract(fee));
-                positions.remove(coin.symbol());
-                acc.put("cash", cash.add(proceeds).subtract(fee).toPlainString());
-                out.add(new Fill(id(book, coin.symbol(), c.t(), "SELL"), coin.symbol(), "SELL", qty, c.c(), pnl, signal.substring(5), at));
+            if (c.t() > seenT && signal != null) {
+                Fill f = signal.equals("BUY") ? buy(book, acc, positions, coin, c) : sell(book, acc, positions, coin, c, qty, avg, signal.substring(5));
+                if (f != null) out.add(f);
             }
         }
         if (!coin.candles().isEmpty()) seen.put(coin.symbol(), Math.max(seenT, coin.candles().getLast().t()));
         return out;
+    }
+
+    /** 한 번 금액만큼 산다. 현금이 모자라면 null */
+    private Fill buy(Book book, ObjectNode acc, ObjectNode positions, Coin coin, Candle c) {
+        BigDecimal cash = new BigDecimal(acc.path("cash").asString("0"));
+        BigDecimal spend = book.budget().min(cash);
+        BigDecimal q = spend.divide(c.c().multiply(BigDecimal.ONE.add(book.feeRate())), MC).setScale(8, RoundingMode.FLOOR);
+        BigDecimal cost = q.multiply(c.c());
+        BigDecimal fee = book.money(cost.multiply(book.feeRate()));
+        if (q.signum() <= 0 || cost.add(fee).compareTo(cash) > 0) return null;
+        ObjectNode p = json.createObjectNode();
+        p.put(QUANTITY, q.toPlainString());
+        p.put(AVG_PRICE, c.c().toPlainString());
+        positions.set(coin.symbol(), p);
+        acc.put("cash", cash.subtract(cost).subtract(fee).toPlainString());
+        return new Fill(id(book, coin.symbol(), c.t(), "BUY"), coin.symbol(), "BUY", q, c.c(), null,
+                "종가가 " + WINDOW + "개 1h봉 이동평균선 위로 올라섬", closedAt(c));
+    }
+
+    /** 가진 수량을 모두 판다 */
+    private Fill sell(Book book, ObjectNode acc, ObjectNode positions, Coin coin, Candle c, BigDecimal qty, BigDecimal avg, String reason) {
+        BigDecimal cash = new BigDecimal(acc.path("cash").asString("0"));
+        BigDecimal proceeds = qty.multiply(c.c());
+        BigDecimal fee = book.money(proceeds.multiply(book.feeRate()));
+        BigDecimal pnl = book.money(proceeds.subtract(qty.multiply(avg)).subtract(fee));
+        positions.remove(coin.symbol());
+        acc.put("cash", cash.add(proceeds).subtract(fee).toPlainString());
+        return new Fill(id(book, coin.symbol(), c.t(), "SELL"), coin.symbol(), "SELL", qty, c.c(), pnl, reason, closedAt(c));
+    }
+
+    /** 봉이 닫힌 시각에 체결한다 */
+    private static Instant closedAt(Candle c) {
+        return Instant.ofEpochMilli(c.t()).plus(STEP);
     }
 
     private static String id(Book book, String symbol, long t, String side) {
@@ -257,33 +278,37 @@ public class PaperBot {
     private void writeAccount(long memberId, Book book, ObjectNode acc, Map<String, BigDecimal> last, Instant now) {
         List<Map<String, Object>> positions = new ArrayList<>();
         BigDecimal unrealized = BigDecimal.ZERO;
-        for (Map.Entry<String, JsonNode> e : acc.get("positions").properties()) {
-            BigDecimal q = new BigDecimal(e.getValue().path("quantity").asString("0"));
-            BigDecimal avg = new BigDecimal(e.getValue().path("avg_price").asString("0"));
+        for (Map.Entry<String, JsonNode> e : acc.get(POSITIONS).properties()) {
+            BigDecimal q = new BigDecimal(e.getValue().path(QUANTITY).asString("0"));
+            BigDecimal avg = new BigDecimal(e.getValue().path(AVG_PRICE).asString("0"));
             BigDecimal price = last.getOrDefault(e.getKey(), avg);
             BigDecimal pnl = book.money(price.subtract(avg).multiply(q));
             unrealized = unrealized.add(pnl);
             Map<String, Object> p = new LinkedHashMap<>();
             p.put("symbol", e.getKey());
             p.put("side", "");
-            p.put("quantity", q);
+            p.put(QUANTITY, q);
             p.put("avgPrice", avg);
             p.put("price", price);
             p.put("unrealizedPnl", pnl);
             positions.add(p);
         }
         List<Map<String, String>> rules = List.of(
-                Map.of("label", "전략", "value", WINDOW + "봉 이동평균 교차"), Map.of("label", "봉", "value", INTERVAL),
-                Map.of("label", "코인", "value", String.join(", ", TradeCharts.COINS)),
-                Map.of("label", "한 번 금액", "value", book.budget().toPlainString() + " " + book.currency()),
-                Map.of("label", "손절", "value", STOP_LOSS.movePointRight(2).stripTrailingZeros().toPlainString() + "%"),
-                Map.of("label", "돌리는 곳", "value", "devlog 서버 (모의)"));
+                rule("전략", WINDOW + "봉 이동평균 교차"), rule("봉", INTERVAL),
+                rule("코인", String.join(", ", TradeCharts.COINS)),
+                rule("한 번 금액", book.budget().toPlainString() + " " + book.currency()),
+                rule("손절", STOP_LOSS.movePointRight(2).stripTrailingZeros().toPlainString() + "%"),
+                rule("돌리는 곳", "devlog 서버 (모의)"));
         jdbc.update("DELETE FROM trade_bot_account WHERE member_id = ? AND account = ?", memberId, book.account());
         jdbc.update("""
                 INSERT INTO trade_bot_account (member_id, account, exchange, market, currency, cash, unrealized_pnl, positions, rules, reported_at)
                 VALUES (?, ?, ?, 'SPOT', ?, ?, ?, ?::jsonb, ?::jsonb, ?)
                 """, memberId, book.account(), book.exchange().name(), book.currency(), new BigDecimal(acc.path("cash").asString("0")), unrealized,
                 json.writeValueAsString(positions), json.writeValueAsString(rules), Timestamp.from(now));
+    }
+
+    private static Map<String, String> rule(String label, String value) {
+        return Map.of("label", label, "value", value);
     }
 
     private void writeFill(long memberId, Book book, Fill f, Instant now) {
