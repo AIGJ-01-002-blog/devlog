@@ -309,6 +309,11 @@ public class McpTools {
                             + "투자 권유로 읽히는 표현은 쓰지 않는다.", false, """
                     {"type":"object","properties":{
                       "date":{"type":"string","description":"날짜 (예: 2026-10-14). 없으면 오늘"}}}""", Gate.TRADES, false),
+            new Tool("report_trade_bot", "자동매매 모의 상태 알리기",
+                    "매매 봇이 모의(--dry-run) 계좌의 현금·보유 포지션·지금 적용 중인 규칙, AI(Gemini) 필터 켜짐 여부, "
+                            + "새 모의 체결(이유 포함)·Gemini 진입 판단·하루 요약을 사용자의 devlog 자동매매 화면(/trade)에 알린다. "
+                            + "매매 일지와 섞이지 않고 공개되지 않는다. 실계좌는 보내지 않는다. 주문을 내지 않는다. 같은 사건 id는 한 번만 남는다.",
+                    true, TradeTools.REPORT_SCHEMA, Gate.TRADES, false),
             new Tool("list_tags", "태그 보기",
                     "사용자가 자주 쓴 태그와 devlog 인기 태그를 돌려준다. 태그를 제안할 때 이 목록의 표기를 따르면 좋다.", false, NO_ARGS_SCHEMA),
             new Tool("report_bug", "devlog 버그 신고",
@@ -461,6 +466,7 @@ public class McpTools {
                 case "list_shorts_candidates" -> shorts.candidates(caller, a);
                 case "record_trade" -> trades.record(caller, a);
                 case "get_trade_day" -> trades.day(caller, a);
+                case "report_trade_bot" -> trades.report(caller, a);
                 default -> Result.fail("없는 도구예요: " + name);
             };
         } catch (ApiException e) {

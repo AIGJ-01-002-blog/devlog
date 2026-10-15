@@ -25,6 +25,7 @@ class TradesDisabledTest extends IntegrationTest {
         assertThat(read(me.http().perform(get("/api/auth/me")).andReturn()).path("features").path("trades").asBoolean()).isFalse();
         me.http().perform(get("/api/me/trades")).andExpect(status().isNotFound());
         me.http().perform(get("/api/me/trades/2026-10-14")).andExpect(status().isNotFound());
+        me.http().perform(get("/api/me/trade-bot")).andExpect(status().isNotFound());
 
         String token = read(me.http().perform(asJson(post("/api/me/tokens"), Map.of("name", "trade-bot", "scope", "WRITE")))
                 .andExpect(status().isCreated()).andReturn()).path("secret").asString();
@@ -34,7 +35,7 @@ class TradesDisabledTest extends IntegrationTest {
         body.put("method", "tools/list");
         var tools = read(mvc.perform(post("/api/mcp").contentType(MediaType.APPLICATION_JSON).header("Authorization", "Bearer " + token)
                 .content(json.writeValueAsString(body))).andReturn()).path("result").path("tools").findValuesAsString("name");
-        assertThat(tools).contains("write_devlog").doesNotContain("record_trade", "get_trade_day");
+        assertThat(tools).contains("write_devlog").doesNotContain("record_trade", "get_trade_day", "report_trade_bot");
         body.put("method", "tools/call");
         body.put("params", Map.of("name", "record_trade", "arguments", Map.of()));
         var called = read(mvc.perform(post("/api/mcp").contentType(MediaType.APPLICATION_JSON).header("Authorization", "Bearer " + token)

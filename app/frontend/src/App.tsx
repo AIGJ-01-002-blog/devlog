@@ -68,6 +68,7 @@ const AboutPage = lazyPage(() => import('./pages/AboutPage'), 'AboutPage')
 const StudioPage = lazyPage(() => import('./pages/StudioPage'), 'StudioPage')
 const DashboardPage = lazyPage(() => import('./pages/DashboardPage'), 'DashboardPage')
 const TradesPage = lazyPage(() => import('./pages/TradesPage'), 'TradesPage')
+const TradeBotPage = lazyPage(() => import('./pages/TradeBotPage'), 'TradeBotPage')
 const PointsPage = lazyPage(() => import('./pages/PointsPage'), 'PointsPage')
 const AdminPointsPage = lazyPage(() => import('./pages/AdminPointsPage'), 'AdminPointsPage')
 const ShopPage = lazyPage(() => import('./pages/ShopPage'), 'ShopPage')
@@ -158,6 +159,8 @@ function route(path: string): ReactNode {
   if (path === '/dashboard') return <RequireLogin><DashboardPage /></RequireLogin>
   if (path === '/studio') return <RequireLogin><RequireShorts><StudioPage /></RequireShorts></RequireLogin>
   if (path === '/trades') return <RequireLogin><RequireTrades><TradesPage /></RequireTrades></RequireLogin>
+  // 자동매매 모의 화면(spec 101). 봇이 report_trade_bot으로 알린 모의 계좌·체결·Gemini 판단
+  if (path === '/trade') return <RequireLogin><RequireTrades><TradeBotPage /></RequireTrades></RequireLogin>
   if (path === '/points') return <RequireLogin><RequirePoints><PointsPage /></RequirePoints></RequireLogin>
   if (path === '/shop') return <RequireLogin><RequirePoints><ShopPage /></RequirePoints></RequireLogin>
   // 포인트 모의투자(#267)는 체결을 매매 일지에 남기므로 둘 다 켜져야 보인다

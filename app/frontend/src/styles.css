@@ -2517,6 +2517,28 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
   .dashboard-kpis .kpi-value { font-size: 1.25rem; }
 }
 
+/* 자동매매 모의 화면 /trade (spec 101): 계좌 카드, 체결·Gemini 판단·하루 요약. 손익 색은 매매 일지와 같다 */
+.tradebot-paper { font-size: 0.55em; vertical-align: middle; }
+.tradebot-when { font-size: 1.25rem; }
+.tradebot-empty { margin-top: 16px; padding: 16px; border: 1px dashed var(--color-border); border-radius: var(--radius); }
+.tradebot-empty h2 { margin-top: 0; }
+.tradebot-accounts { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-top: 16px; }
+.tradebot-account { padding: 12px; border: 1px solid var(--color-border); border-radius: var(--radius); min-width: 0; }
+.tradebot-account-name { flex-basis: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tradebot-cash { display: flex; flex-wrap: wrap; gap: 4px 20px; margin: 10px 0; }
+.tradebot-cash dt, .tradebot-rules dt { font-size: 0.75rem; color: var(--color-text-muted); }
+.tradebot-cash dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tradebot-positions { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.tradebot-positions li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-variant-numeric: tabular-nums; }
+.tradebot-positions li .pnl { margin-left: auto; }
+.tradebot-rules summary { cursor: pointer; font-weight: 600; font-size: 0.875rem; }
+.tradebot-rules dl { margin: 6px 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 6px; }
+.tradebot-rules dd { margin: 0; overflow-wrap: anywhere; }
+.tradebot-text { margin: 4px 0 0; overflow-wrap: anywhere; white-space: pre-line; }
+.tradebot-allow { color: var(--color-up); border-color: var(--color-up); }
+.tradebot-block { color: var(--color-down); border-color: var(--color-down); }
+.tradebot-layout h2 { margin-top: 0; }
+
 /* 매매 재현 영상 (이슈 265) */
 .studio-replay-btn { margin-top: 8px; }
 .studio-kind { font-size: 0.875em; }
