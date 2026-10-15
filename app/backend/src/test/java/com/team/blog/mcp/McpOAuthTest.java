@@ -91,26 +91,47 @@ class McpOAuthTest extends IntegrationTest {
         mvc.perform(get("/oauth/authorize")).andExpect(status().isOk());
     }
 
+    /** 동의 화면 정보를 읽는다. scope가 null이면 범위를 고르지 않은 요청 */
+    JsonNode consentView(Session me, String clientId, String scope) throws Exception {
+        var req = get("/api/oauth/authorize").param("client_id", clientId).param("redirect_uri", REDIRECT)
+                .param("response_type", "code").param("code_challenge", challenge(VERIFIER)).param("code_challenge_method", "S256");
+        if (scope != null) req.param("scope", scope);
+        return read(me.http().perform(req).andExpect(status().isOk()).andReturn());
+    }
+
+    /** [허용]을 눌러 받은 코드 */
+    String approvedCode(Session me, String clientId) throws Exception {
+        return query(read(me.http().perform(asJson(post("/api/oauth/authorize"), authorize(clientId, true))).andReturn())
+                .path("redirect").asString()).get("code");
+    }
+
+    ResultActions exchange(String code, String clientId, String verifier) throws Exception {
+        return token(Map.of("grant_type", "authorization_code", "code", code, "client_id", clientId, "redirect_uri", REDIRECT,
+                "code_verifier", verifier));
+    }
+
     @Test
-    void 동의하면_코드를_토큰으로_바꾸고_MCP를_쓰며_갱신하고_폐기할_수_있다() throws Exception {
+    void 동의_화면은_앱과_돌아갈_곳과_범위를_알리고_로그인해야_허용한다() throws Exception {
         String clientId = register();
         Session me = signup(uniqueLogin("oauth"));
 
         // 동의 화면 정보
-        JsonNode view = read(me.http().perform(get("/api/oauth/authorize").param("client_id", clientId).param("redirect_uri", REDIRECT)
-                .param("response_type", "code").param("code_challenge", challenge(VERIFIER)).param("code_challenge_method", "S256"))
-                .andExpect(status().isOk()).andReturn());
+        JsonNode view = consentView(me, clientId, null);
         assertThat(view.path("clientName").asString()).isEqualTo("ChatGPT");
         assertThat(view.path("redirectHost").asString()).isEqualTo("chatgpt.com");
         // 범위를 고르지 않으면 읽기만, devlog.write를 요청해야 쓰기까지
         assertThat(view.path("scope").asString()).isEqualTo("READ");
-        JsonNode writeView = read(me.http().perform(get("/api/oauth/authorize").param("client_id", clientId).param("redirect_uri", REDIRECT)
-                .param("response_type", "code").param("code_challenge", challenge(VERIFIER)).param("code_challenge_method", "S256")
-                .param("scope", "devlog.write")).andExpect(status().isOk()).andReturn());
+        JsonNode writeView = consentView(me, clientId, "devlog.write");
         assertThat(writeView.path("scope").asString()).isEqualTo("WRITE");
 
         // 로그인하지 않으면 허용할 수 없다
         browser().perform(asJson(post("/api/oauth/authorize"), authorize(clientId, true))).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void 코드는_verifier가_맞아야_바꾸고_한_번_꺼내면_사라진다() throws Exception {
+        String clientId = register();
+        Session me = signup(uniqueLogin("oauthc"));
 
         String redirect = read(me.http().perform(asJson(post("/api/oauth/authorize"), authorize(clientId, true)))
                 .andExpect(status().isOk()).andReturn()).path("redirect").asString();
@@ -119,18 +140,19 @@ class McpOAuthTest extends IntegrationTest {
         assertThat(q).containsEntry("state", "xyz").containsEntry("iss", "http://localhost:8080");
 
         // verifier 길이가 RFC 7636(43~128자)에 맞지 않으면 코드를 꺼내기 전에 거절한다
-        token(Map.of("grant_type", "authorization_code", "code", q.get("code"), "client_id", clientId, "redirect_uri", REDIRECT,
-                "code_verifier", "short")).andExpect(status().isBadRequest());
+        exchange(q.get("code"), clientId, "short").andExpect(status().isBadRequest());
         // verifier가 틀리면 거절하고, 코드는 한 번 꺼내면 사라진다
-        token(Map.of("grant_type", "authorization_code", "code", q.get("code"), "client_id", clientId, "redirect_uri", REDIRECT,
-                "code_verifier", "wrong-" + "b".repeat(50))).andExpect(status().isBadRequest());
-        token(Map.of("grant_type", "authorization_code", "code", q.get("code"), "client_id", clientId, "redirect_uri", REDIRECT,
-                "code_verifier", VERIFIER)).andExpect(status().isBadRequest());
+        exchange(q.get("code"), clientId, "wrong-" + "b".repeat(50)).andExpect(status().isBadRequest());
+        exchange(q.get("code"), clientId, VERIFIER).andExpect(status().isBadRequest());
+    }
 
-        String code = query(read(me.http().perform(asJson(post("/api/oauth/authorize"), authorize(clientId, true))).andReturn())
-                .path("redirect").asString()).get("code");
-        JsonNode t = read(token(Map.of("grant_type", "authorization_code", "code", code, "client_id", clientId, "redirect_uri", REDIRECT,
-                "code_verifier", VERIFIER)).andExpect(status().isOk()).andReturn());
+    @Test
+    void 동의하면_코드를_토큰으로_바꾸고_MCP를_쓰며_갱신하고_폐기할_수_있다() throws Exception {
+        String clientId = register();
+        Session me = signup(uniqueLogin("oautht"));
+
+        String code = approvedCode(me, clientId);
+        JsonNode t = read(exchange(code, clientId, VERIFIER).andExpect(status().isOk()).andReturn());
         assertThat(t.path("token_type").asString()).isEqualTo("Bearer");
         assertThat(t.path("scope").asString()).contains("devlog.write");
         String access = t.path("access_token").asString();

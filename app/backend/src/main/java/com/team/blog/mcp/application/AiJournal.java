@@ -416,22 +416,33 @@ public class AiJournal {
             if (!out.isEmpty()) out.append('\n');
             if (!e.getKey().isEmpty()) out.append("## ").append(e.getKey()).append("\n\n");
             else if (byTopic.size() > 1) out.append("## 그 밖에\n\n");
-            StringBuilder para = new StringBuilder();
-            for (Note n : e.getValue()) {
-                if (!para.isEmpty()) para.append(' ');
-                para.append(sentence(n.content()));
-            }
-            out.append(para).append('\n');
-            Map<String, EvidenceLinks.Link> links = new LinkedHashMap<>();
-            for (Note n : e.getValue()) {
-                for (EvidenceLinks.Link l : n.links()) if (links.size() < linkBudget) links.putIfAbsent(l.url(), l);
-            }
+            out.append(paragraph(e.getValue())).append('\n');
+            Map<String, EvidenceLinks.Link> links = links(e.getValue(), linkBudget);
             linkBudget -= links.size();
             if (!links.isEmpty()) {
                 out.append("\n근거: ").append(String.join(" · ", links.values().stream().map(EvidenceLinks.Link::markdown).toList())).append('\n');
             }
         }
         return out.toString();
+    }
+
+    /** 한 주제의 메모를 시간 순으로 한 문단으로 잇는다 */
+    private static StringBuilder paragraph(List<Note> notes) {
+        StringBuilder para = new StringBuilder();
+        for (Note n : notes) {
+            if (!para.isEmpty()) para.append(' ');
+            para.append(sentence(n.content()));
+        }
+        return para;
+    }
+
+    /** 한 주제의 근거 링크 (주소 기준 한 번만, budget개까지) */
+    private static Map<String, EvidenceLinks.Link> links(List<Note> notes, int budget) {
+        Map<String, EvidenceLinks.Link> links = new LinkedHashMap<>();
+        for (Note n : notes) {
+            for (EvidenceLinks.Link l : n.links()) if (links.size() < budget) links.putIfAbsent(l.url(), l);
+        }
+        return links;
     }
 
     /** 메모를 문장으로 이을 수 있게 끝에 마침표가 없으면 붙인다. 닫는 괄호·따옴표는 건너뛰고 그 앞을 본다 ("Redis (색인)" → 마침표). */

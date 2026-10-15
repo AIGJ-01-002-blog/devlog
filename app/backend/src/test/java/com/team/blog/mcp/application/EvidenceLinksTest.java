@@ -34,4 +34,24 @@ class EvidenceLinksTest {
         assertThat(EvidenceLinks.fromStored(EvidenceLinks.toStored(links))).isEqualTo(links);
         assertThat(EvidenceLinks.fromStored("")).isEmpty();
     }
+
+    @Test
+    void 경로_앞부분만_보고_이름을_붙인다() {
+        assertThat(EvidenceLinks.label("github.com", "/o/devlog/compare/v1...v2")).isEqualTo("변경 비교 (devlog)");
+        assertThat(EvidenceLinks.label("github.com", "/o/devlog/pull/12?tab=files#x")).isEqualTo("PR #12 (devlog)");
+        assertThat(EvidenceLinks.label("github.com", "/o/devlog/pull/")).isEqualTo("github.com");
+        assertThat(EvidenceLinks.label("github.com", "/o/devlog/tree/main")).isEqualTo("github.com");
+        // gitlab은 하위 그룹이 몇 단이든 처음 맞는 /-/ 뒤를 본다
+        assertThat(EvidenceLinks.label("gitlab.com", "/g/a/b/c/app/-/issues/9/edit")).isEqualTo("이슈 #9");
+        assertThat(EvidenceLinks.label("gitlab.com", "/g/-/tree/-/commit/abcdef123")).isEqualTo("커밋 abcdef1");
+        assertThat(EvidenceLinks.label("gitlab.com", "/-/issues/9")).isEqualTo("gitlab.com");
+    }
+
+    @Test
+    void 긴_경로에도_한_번만_훑는다() {
+        long started = System.nanoTime();
+        assertThat(EvidenceLinks.label("gitlab.com", "/" + "a/-/".repeat(20_000))).isEqualTo("gitlab.com");
+        assertThat(EvidenceLinks.label("github.com", "/o/r/pull/" + "1".repeat(100_000) + "/")).startsWith("PR #1");
+        assertThat(java.time.Duration.ofNanos(System.nanoTime() - started)).isLessThan(java.time.Duration.ofSeconds(5));
+    }
 }

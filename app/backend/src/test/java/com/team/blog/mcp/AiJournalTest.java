@@ -81,9 +81,11 @@ class AiJournalTest extends IntegrationTest {
         assertThat(AiJournal.sentence("  ")).isEmpty();
     }
 
-    @Test
-    void AI가_제안한_글은_내_글_관리에서_임시글로_만들거나_넘긴다() throws Exception {
-        Session me = signup(uniqueLogin("aiprop"));
+    /** 제안 두 개(Redis 제안은 범위를 한 번 바꿈, 넘길 제안)를 남긴 상태 */
+    record Proposed(Session me, String token, long redisId, long skipId) {}
+
+    Proposed proposeTwo(String login) throws Exception {
+        Session me = signup(uniqueLogin(login));
         String t = token(me);
         assertThat(toolNames(t)).contains("propose_post", "list_post_proposals").doesNotContain("add_note");
 
@@ -100,25 +102,45 @@ class AiJournalTest extends IntegrationTest {
         JsonNode redis = list.get(1);
         assertThat(redis.path("title").asString()).isEqualTo("Redis 분산 락으로 중복 실행 막기");
         assertThat(redis.path("scope").asString()).isEqualTo("- 바뀐 범위");
-        long redisId = redis.path("id").asLong();
-        long skipId = list.get(0).path("id").asLong();
+        return new Proposed(me, t, redis.path("id").asLong(), list.get(0).path("id").asLong());
+    }
+
+    long draftFromProposal(Session me, long proposalId) throws Exception {
+        return read(me.http().perform(post("/api/me/ai-proposals/" + proposalId + "/draft").with(csrf())).andExpect(status().isOk()).andReturn())
+                .path("postId").asLong();
+    }
+
+    @Test
+    void AI가_제안한_글은_내_글_관리에서_임시글로_만들거나_넘긴다() throws Exception {
+        Proposed p = proposeTwo("aiprop");
+        Session me = p.me();
+        long redisId = p.redisId();
 
         // 남이 정할 수 없다
         Session other = signup(uniqueLogin("aiprop2"));
         other.http().perform(post("/api/me/ai-proposals/" + redisId + "/draft").with(csrf())).andExpect(status().isNotFound());
 
         // [임시글로 만들기]는 두 번 눌러도 임시글 하나
-        long postId = read(me.http().perform(post("/api/me/ai-proposals/" + redisId + "/draft").with(csrf())).andExpect(status().isOk()).andReturn())
-                .path("postId").asLong();
-        long again = read(me.http().perform(post("/api/me/ai-proposals/" + redisId + "/draft").with(csrf())).andExpect(status().isOk()).andReturn())
-                .path("postId").asLong();
+        long postId = draftFromProposal(me, redisId);
+        long again = draftFromProposal(me, redisId);
         assertThat(again).isEqualTo(postId);
         assertThat(jdbc.queryForObject("SELECT title FROM post WHERE id = ?", String.class, postId)).isEqualTo("Redis 분산 락으로 중복 실행 막기");
         assertThat(jdbc.queryForObject("SELECT content_md FROM post WHERE id = ?", String.class, postId)).contains("## 쓸 범위").contains("- 바뀐 범위");
         assertThat(jdbc.queryForObject("SELECT tags FROM post_ai_hint WHERE post_id = ?", String.class, postId)).isEqualTo("redis");
 
-        me.http().perform(post("/api/me/ai-proposals/" + skipId + "/dismiss").with(csrf())).andExpect(status().isNoContent());
+        me.http().perform(post("/api/me/ai-proposals/" + p.skipId() + "/dismiss").with(csrf())).andExpect(status().isNoContent());
         assertThat(read(me.http().perform(get("/api/me/ai-proposals")).andExpect(status().isOk()).andReturn())).isEmpty();
+    }
+
+    @Test
+    void AI는_임시글로_만든_제안과_넘긴_제안으로_새_글을_만들지_않는다() throws Exception {
+        Proposed p = proposeTwo("aiprop3");
+        Session me = p.me();
+        String t = p.token();
+        long redisId = p.redisId();
+        long skipId = p.skipId();
+        long postId = draftFromProposal(me, redisId);
+        me.http().perform(post("/api/me/ai-proposals/" + skipId + "/dismiss").with(csrf())).andExpect(status().isNoContent());
 
         // AI는 임시글로 만든 제안을 보고 그 글을 채운다. 같은 제안으로 새 글을 또 만들지 않는다
         String seen = text(call(t, "list_post_proposals", Map.of()));
@@ -133,8 +155,12 @@ class AiJournalTest extends IntegrationTest {
         assertThat(dismissed.path("isError").asBoolean()).isTrue();
         assertThat(text(dismissed)).contains("넘긴 제안");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM post WHERE author_id = ?", Integer.class, me.memberId())).isEqualTo(before);
+    }
 
-        // 대화에서 바로 쓰면 create_draft의 proposal_id로 제안이 닫힌다
+    @Test
+    void 대화에서_바로_쓰면_create_draft의_proposal_id로_제안이_닫힌다() throws Exception {
+        Session me = signup(uniqueLogin("aiprop4"));
+        String t = token(me);
         call(t, "propose_post", Map.of("title", "바로 쓸 제안", "scope", "- 범위"));
         long direct = journal.proposals(me.memberId(), false).getFirst().id();
         JsonNode made = call(t, "create_draft", Map.of("title", "바로 쓸 제안", "content_md", "본문", "proposal_id", direct));
@@ -144,7 +170,7 @@ class AiJournalTest extends IntegrationTest {
     }
 
     @Test
-    void 일기를_켜야_메모를_남기고_자정에_날짜별_일기_임시글로_묶는다() throws Exception {
+    void 일기를_켜야_메모를_남길_수_있다() throws Exception {
         Session me = signup(uniqueLogin("aidiary"));
         String t = token(me);
         // 꺼져 있으면 도구가 보이지 않고, 이름을 알아도 부를 수 없다
@@ -162,6 +188,15 @@ class AiJournalTest extends IntegrationTest {
         JsonNode ok = call(t, "add_note", Map.of("topic", "검색", "content", "하이브리드 검색 가중치를 0.7로 정했다", "tags", List.of("search")));
         assertThat(ok.path("isError").asBoolean()).as(text(ok)).isFalse();
         assertThat(text(ok)).contains("오늘 1개").contains("다음 자정").contains("임시글");
+    }
+
+    @Test
+    void 자정에_날짜별_일기_임시글로_묶는다() throws Exception {
+        Session me = signup(uniqueLogin("aidiary2"));
+        String t = token(me);
+        setDiary(me, true);
+        JsonNode ok = call(t, "add_note", Map.of("topic", "검색", "content", "하이브리드 검색 가중치를 0.7로 정했다", "tags", List.of("search")));
+        assertThat(ok.path("isError").asBoolean()).as(text(ok)).isFalse();
 
         // 오늘 남긴 메모는 오늘 자정까지 기다린다. 어제·그제 메모는 날짜마다 일기 하나
         LocalDate today = LocalDate.now(KST);
@@ -177,8 +212,7 @@ class AiJournalTest extends IntegrationTest {
         assertThat(posts).hasSize(2);
         assertThat(posts.get(0)).containsEntry("title", today.minusDays(2) + " 개발 일기");
         Map<String, Object> y = posts.get(1);
-        assertThat(y).containsEntry("title", today.minusDays(1) + " 개발 일기");
-        assertThat(y).containsEntry("status", "DRAFT");
+        assertThat(y).containsEntry("title", today.minusDays(1) + " 개발 일기").containsEntry("status", "DRAFT");
         assertThat((String) y.get("content_md")).isEqualTo("""
                 ## 검색
 
