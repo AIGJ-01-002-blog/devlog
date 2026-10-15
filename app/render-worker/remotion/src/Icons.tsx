@@ -1,5 +1,6 @@
 // 도식 아이콘: Lucide(ISC). 대본이 아이콘 이름을 주지 않으면 이름표 글에서 짐작한다.
 import React from 'react';
+import {theme} from './theme';
 import {
   Archive, ArrowRightLeft, Box, Bug, Check, Cloud, Code, Cpu, Database, FileText, Folder, Gauge, GitBranch, Globe, HardDrive, Hash, KeyRound,
   Layers, List, Lock, Mail, MemoryStick, Monitor, Network, Package, RefreshCw, Router, ScrollText, Search, Server, Settings, Shield,
@@ -53,6 +54,8 @@ const GUESS: [RegExp, string][] = [
   [/시간|지연|latency|타이머|대기/i, 'timer'],
   [/성능|속도|빠르|performance/i, 'gauge'],
   [/요청|request|응답|response/i, 'arrow-right-left'],
+  [/헤더|header|머리/i, 'list'],
+  [/본문|바디|body|payload|내용/i, 'file-text'],
   [/다시|재시도|retry|갱신|동기화|sync/i, 'refresh'],
   [/보호|방어|막아|막았/i, 'shield'],
 ];
@@ -63,9 +66,14 @@ export const iconFor = (label: string, name: string | null): LucideIcon | null =
   return hit ? ICONS[hit[1]] : null;
 };
 
-export const IconBadge: React.FC<{Icon: LucideIcon | null; color: string; size: number; on: number}> = ({Icon, color, size, on}) => (
-  <div style={{width: size, height: size, borderRadius: size * 0.32, display: 'grid', placeItems: 'center', flex: 'none',
-    background: on > 0.5 ? color : `${color}1a`, transition: 'none'}}>
-    {Icon ? <Icon size={size * 0.54} color={on > 0.5 ? '#ffffff' : color} strokeWidth={2.2} /> : null}
-  </div>
-);
+/** 아이콘을 짐작하지 못한 칸은 빈 네모 대신 순서 번호(fallback)를 보인다 */
+export const IconBadge: React.FC<{Icon: LucideIcon | null; color: string; size: number; on: number; fallback?: number}> = ({Icon, color, size, on, fallback}) => {
+  const ink = on > 0.5 ? '#ffffff' : color;
+  return (
+    <div style={{width: size, height: size, borderRadius: size * 0.32, display: 'grid', placeItems: 'center', flex: 'none',
+      background: on > 0.5 ? color : `${color}1a`, transition: 'none'}}>
+      {Icon ? <Icon size={size * 0.54} color={ink} strokeWidth={2.2} />
+        : fallback !== undefined ? <span style={{font: `900 ${Math.round(size * 0.46)}px ${theme.font}`, color: ink, lineHeight: 1}}>{fallback}</span> : null}
+    </div>
+  );
+};
