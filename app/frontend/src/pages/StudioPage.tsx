@@ -64,6 +64,8 @@ export function StudioPage() {
   const batch = batches.find((b) => b.id === selectedBatch) ?? null
   const groups = data ? groupByBatch(data.items, batches) : []
   const loose = data?.items.filter((it) => it.batchId === null || !batches.some((b) => b.id === it.batchId)) ?? []
+  // 새 대본·매매 재현 화면이 열려 있어도 목록에서 대본이나 묶음을 누르면 그 화면으로 넘어간다
+  const closeForms = () => { setCreating(false); setPicking(false) }
   const replace = (next: ShortsItem) =>
     setData((d) => d && { ...d, items: d.items.map((it) => (it.id === next.id ? next : it)) })
 
@@ -88,16 +90,16 @@ export function StudioPage() {
           )}
           {groups.map(({ batch: b, items }) => (
             <div key={b.id} className="studio-batch">
-              <Link to={`/studio?batch=${b.id}`} className={`studio-batch-head${b.id === selectedBatch ? ' active' : ''}`} aria-current={b.id === selectedBatch ? 'true' : undefined}
+              <Link to={`/studio?batch=${b.id}`} onClick={closeForms} className={`studio-batch-head${b.id === selectedBatch ? ' active' : ''}`} aria-current={b.id === selectedBatch ? 'true' : undefined}
                 data-tip={t('근거 하나를 작은 주제로 나눈 묶음이에요. 눌러서 주제와 진행을 봐요')}>
                 <span className="studio-item-title">{b.title}</span>
                 <span className="muted small">{t('{0}/{1}편', { 0: writtenTopics(b), 1: b.topics.length })}</span>
               </Link>
-              <ItemList items={items} selected={selected} />
+              <ItemList items={items} selected={selected} onOpen={closeForms} />
             </div>
           ))}
           {loose.length > 0 && batches.length > 0 && <p className="muted small studio-loose">{t('따로 쓴 대본')}</p>}
-          <ItemList items={loose} selected={selected} />
+          <ItemList items={loose} selected={selected} onOpen={closeForms} />
         </aside>
         <section className="studio-editor">
           {picking && trades
@@ -125,13 +127,13 @@ export function StudioPage() {
   )
 }
 
-function ItemList({ items, selected }: { items: ShortsItem[]; selected: number | null }) {
+function ItemList({ items, selected, onOpen }: { items: ShortsItem[]; selected: number | null; onOpen: () => void }) {
   if (items.length === 0) return null
   return (
     <ul>
       {items.map((it) => (
         <li key={it.id}>
-          <Link to={`/studio?id=${it.id}`} className={`studio-item${it.id === selected ? ' active' : ''}`} aria-current={it.id === selected ? 'true' : undefined}>
+          <Link to={`/studio?id=${it.id}`} onClick={onOpen} className={`studio-item${it.id === selected ? ' active' : ''}`} aria-current={it.id === selected ? 'true' : undefined}>
             <span className="studio-item-title">
               {it.replay && <span className="studio-kind" title={t('매매 재현 영상')} aria-label={t('매매 재현 영상')}>📈 </span>}
               {it.topic !== null && <span className="muted">{it.topic}. </span>}{it.title}
