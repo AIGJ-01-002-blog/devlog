@@ -6,7 +6,10 @@ export type Action =
   | 'fast' | 'idea' | 'protect' | 'think' | 'celebrate';
 
 /** 낱말 하나: @remotion/captions의 Caption. 시각은 그 장면 목소리가 시작한 때 기준 ms */
-export type Word = Caption;
+export type Word = Caption & {
+  /** 빠른 견본 스타일에서 색으로 강조할 낱말(영상 한 편에 2~3번, 워커가 고른다) */
+  emph?: 'red' | 'yellow';
+};
 
 /** 화면에 한 번에 보이는 자막 묶음(1~2줄). 시각은 그 장면 목소리가 시작한 때 기준 */
 export type Page = {startMs: number; endMs: number; words: Word[]};
@@ -54,4 +57,6 @@ export type ShortsProps = {
   transitionFrames: number;
   totalFrames: number;
   scenes: SceneData[];
+  /** clean: 승인된 깔끔한 스타일(기본). fast: 참고 영상 분석 견본(FastScene.tsx) */
+  style?: 'clean' | 'fast';
 };

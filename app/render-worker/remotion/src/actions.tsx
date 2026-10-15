@@ -87,12 +87,12 @@ export const Act: React.FC<{scene: SceneData; first: boolean; last?: boolean}> =
 };
 
 /** 도식 장면의 발표자: 왼쪽 아래에서 도식을 손가락으로 가리키며 설명하고, 칸이 나타날 때마다 콩 뛴다 */
-export const Presenter: React.FC<{scene: SceneData; beats: number[]; done: boolean}> = ({scene, beats, done}) => {
+export const Presenter: React.FC<{scene: SceneData; beats: number[]; done: boolean; x?: number}> = ({scene, beats, done, x = 150}) => {
   const life = useLife(scene, -1, beats);
   const {t, live, talk} = life;
   // 오른팔로 도식을 가리키고(말할 때 더 크게 흔든다), 다 나오면 두 팔을 들어 기뻐한다
   const reach = Math.sin(t * 3.2) * 8 + talk * 10;
-  const p = live({x: 150, y: STAGE_H - 10, size: 300, look: [1, -0.6], bodyTilt: done ? 0 : 6,
+  const p = live({x, y: STAGE_H - 10, size: 300, look: [1, -0.6], bodyTilt: done ? 0 : 6,
     armR: done ? 115 : 105 + reach, armL: done ? 115 : 18 + Math.sin(t * 2) * 6});
   return <Mascot face={done ? 'joy' : talk > 0.06 ? 'grin' : 'smile'} p={p} clip={done ? 'happy' : 'point'} />;
 };

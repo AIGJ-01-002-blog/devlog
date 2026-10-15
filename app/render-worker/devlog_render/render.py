@@ -40,6 +40,8 @@ FPS = 30
 SCENE_PADDING = 0.15
 #: 장면 사이 전환(xfade) 길이
 TRANSITION = 0.3
+#: 빠른 견본 스타일(참고 영상 분석 #277): 목소리를 빠르게(초당 8~9음절). 컷은 장면 안에서 화면이 끊어 바뀐다(Scene.tsx)
+FAST_VOICE = 1.25
 TRANSITION_KIND = "fade"
 #: 첫 장면은 바로 말을 시작하고(훅), 나머지는 전환이 거의 끝난 뒤 말한다
 FIRST_LEAD = 0.1
@@ -110,6 +112,12 @@ class Script:
     footer: str = "devlog.life"
     #: 장면별 효과음(다른 연출이 얹는 소리). 캐릭터 연기 효과음은 렌더할 때 따로 더한다
     effects: list = field(default_factory=list)
+    #: 화면 스타일. "clean"(기본, 승인된 깔끔한 스타일) 또는 "fast"(참고 영상 분석 견본: 위 그림·아래 캐릭터, 빠른 컷·자막·목소리)
+    style: str = "clean"
+
+    @property
+    def fast(self) -> bool:
+        return self.style == "fast"
 
     @staticmethod
     def from_job(job: dict, site: str = "devlog.life") -> "Script":
@@ -135,7 +143,7 @@ class Script:
             footer = f"{site}/@{handle}" if handle else site
         effects = [sfx.Effect(int(e["scene"]), float(e.get("at") or 0), str(e["sound"]), 0.6 if e.get("volume") is None else float(e["volume"]))
                    for e in job.get("effects") or [] if isinstance(e, dict) and e.get("sound") in sfx.SOUNDS]
-        return Script(job.get("title") or "", scenes, footer, effects)
+        return Script(job.get("title") or "", scenes, footer, effects, "fast" if job.get("style") == "fast" else "clean")
 
 
 @dataclass
@@ -259,7 +267,8 @@ class Renderer:
         scenes = []
         for i, scene in enumerate(script.scenes):
             t, v = timings[i], visuals[i]
-            pages = captions.pages(scene.narration, t.speech, words[i], tail=SCENE_PADDING)
+            pages = captions.pages(scene.narration, t.speech, words[i], tail=SCENE_PADDING,
+                                   max_units=captions.FAST_PHRASE_UNITS if script.fast else captions.PHRASE_UNITS)
             scenes.append({
                 "caption": scene.caption,
                 "code": layout.code_lines(scene.code, 40, 8) if scene.code else [],
@@ -275,8 +284,10 @@ class Renderer:
                 "custom": scene.custom,
                 "diagram": diagram.timed(scene.diagram, pages, t.speech) if scene.diagram and scene.custom is None else None,
             })
+        if script.fast:
+            captions.emphasize([sc["pages"] for sc in scenes], [sc.caption for sc in script.scenes])
         return {"title": script.title, "footer": script.footer, "transitionFrames": round(TRANSITION * FPS),
-                "totalFrames": round(total * FPS), "scenes": scenes}
+                "totalFrames": round(total * FPS), "scenes": scenes, "style": script.style}
 
     def _voices(self, work: Path, script: Script) -> tuple[list[Path], list[list[captions.Word] | None]]:
         """장면마다 음성. 한 장면이라도 실패하면 다음 엔진으로 처음부터 다시 만든다(목소리가 섞이지 않게).
@@ -297,9 +308,10 @@ class Renderer:
 
     def _synthesize(self, work: Path, script: Script, engine: str, voice: str | None):
         audios, words = [], []
+        speed = {"faster": FAST_VOICE} if script.fast else {}
         for i, scene in enumerate(script.scenes):
             audio = work / f"a{i}.wav"
-            words.append(tts.synthesize(scene.narration, audio, engine, self.ffmpeg, voice))
+            words.append(tts.synthesize(scene.narration, audio, engine, self.ffmpeg, voice, **speed))
             audios.append(audio)
         return audios, words
 

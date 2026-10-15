@@ -19,9 +19,9 @@ const appear = (c: Clock, atMs: number) =>
 /** 지금 말하고 있는 칸: 나타난 칸 가운데 마지막 */
 const currentIndex = (items: DiagramItem[], ms: number) => items.reduce((cur, it, k) => (ms >= it.atMs ? k : cur), -1);
 
-const allItems = (d: Diagram): DiagramItem[] => (d.type === 'compare' ? [...d.left.items, ...d.right.items] : d.items);
+export const allItems = (d: Diagram): DiagramItem[] => (d.type === 'compare' ? [...d.left.items, ...d.right.items] : d.items);
 
-export const DiagramStage: React.FC<{scene: SceneData; tint: string}> = ({scene, tint}) => {
+export const DiagramStage: React.FC<{scene: SceneData; tint: string; presenter?: boolean}> = ({scene, tint, presenter = true}) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
   const d = scene.diagram;
@@ -36,7 +36,7 @@ export const DiagramStage: React.FC<{scene: SceneData; tint: string}> = ({scene,
       <div style={{position: 'absolute', left: 40, right: 40, top: 10, height: 500}}>
         <Body d={d} c={c} tint={tint} />
       </div>
-      <Presenter scene={scene} beats={beats} done={done} />
+      {presenter ? <Presenter scene={scene} beats={beats} done={done} /> : null}
     </>
   );
 };

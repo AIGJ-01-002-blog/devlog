@@ -77,8 +77,10 @@ def device() -> str:
     return "silent"
 
 
-def synthesize(text: str, out_wav: Path, engine: str, ffmpeg: str = "ffmpeg", voice: str | None = None) -> list[Word] | None:
-    """text를 읽은 음성을 out_wav(44.1kHz 스테레오)로 만든다. 엔진이 단어 시각을 주면 돌려준다."""
+def synthesize(text: str, out_wav: Path, engine: str, ffmpeg: str = "ffmpeg", voice: str | None = None,
+               faster: float = 1.0) -> list[Word] | None:
+    """text를 읽은 음성을 out_wav(44.1kHz 스테레오)로 만든다. 엔진이 단어 시각을 주면 돌려준다.
+    faster: 기본 빠르기에 곱할 배수(빠른 견본 스타일은 1.25). 신경망 엔진(edge·supertonic)에만 쓴다."""
     words = None
     with tempfile.TemporaryDirectory() as tmp:
         raw = Path(tmp) / "raw"
@@ -86,10 +88,10 @@ def synthesize(text: str, out_wav: Path, engine: str, ffmpeg: str = "ffmpeg", vo
         text_file.write_text(text, encoding="utf-8")
         if engine == "edge":
             raw = raw.with_suffix(".mp3")
-            words = _edge(text, raw, voice or os.environ.get("DEVLOG_TTS_VOICE") or EDGE_VOICE)
+            words = _edge(text, raw, voice or os.environ.get("DEVLOG_TTS_VOICE") or EDGE_VOICE, faster)
         elif engine == "supertonic":
             raw = raw.with_suffix(".wav")
-            _supertonic(text, raw, voice or os.environ.get("DEVLOG_TTS_VOICE") or SUPERTONIC_VOICE)
+            _supertonic(text, raw, voice or os.environ.get("DEVLOG_TTS_VOICE") or SUPERTONIC_VOICE, faster)
         elif engine == "say":
             raw = raw.with_suffix(".aiff")
             args = ["say", "-f", str(text_file), "-o", str(raw)]
@@ -121,7 +123,7 @@ def synthesize(text: str, out_wav: Path, engine: str, ffmpeg: str = "ffmpeg", vo
     return words
 
 
-def _edge(text: str, out: Path, voice: str) -> list[Word]:
+def _edge(text: str, out: Path, voice: str, faster: float = 1.0) -> list[Word]:
     """edge-tts로 mp3를 받으며 단어 시각(100ns 단위)을 초로 모은다. aiohttp는 HTTPS_PROXY를 스스로 읽지 않아 넘겨 준다."""
     import asyncio
 
@@ -129,6 +131,8 @@ def _edge(text: str, out: Path, voice: str) -> list[Word]:
 
     proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy") or None
     rate = os.environ.get("DEVLOG_TTS_RATE", EDGE_RATE)
+    if faster != 1.0:  # "+8%" 같은 값에 배수를 곱해 다시 쓴다
+        rate = f"{round((1 + int(rate.rstrip('%')) / 100) * faster * 100 - 100):+d}%"
 
     async def run() -> list[Word]:
         words: list[Word] = []
@@ -154,7 +158,7 @@ def _edge(text: str, out: Path, voice: str) -> list[Word]:
 _supertonic_model = None
 
 
-def _supertonic(text: str, out: Path, voice: str) -> None:
+def _supertonic(text: str, out: Path, voice: str, faster: float = 1.0) -> None:
     """Supertonic-3으로 한국어를 읽는다. 모델은 한 번만 불러 장면마다 다시 쓴다."""
     global _supertonic_model
     from supertonic import TTS
@@ -162,7 +166,7 @@ def _supertonic(text: str, out: Path, voice: str) -> None:
     if _supertonic_model is None:
         _supertonic_model = TTS(auto_download=True)
     style = _supertonic_model.get_voice_style(voice)
-    speed = float(os.environ.get("DEVLOG_TTS_SPEED", SUPERTONIC_SPEED))
+    speed = float(os.environ.get("DEVLOG_TTS_SPEED", SUPERTONIC_SPEED)) * faster
     wav, _ = _supertonic_model.synthesize(text, voice_style=style, lang="ko", speed=speed)
     _supertonic_model.save_audio(wav, str(out))
     if not out.exists() or out.stat().st_size == 0:

@@ -5,6 +5,7 @@ import {AbsoluteFill, useCurrentFrame, useVideoConfig} from 'remotion';
 import {springTiming, TransitionSeries, type TransitionPresentation} from '@remotion/transitions';
 import {fade} from '@remotion/transitions/fade';
 import {slide} from '@remotion/transitions/slide';
+import {FastScene} from './FastScene';
 import {Scene} from './Scene';
 import './fonts';
 import {theme} from './theme';
@@ -14,7 +15,7 @@ import type {ShortsProps} from './types';
 const presentation = (i: number): TransitionPresentation<any> =>
   [slide({direction: 'from-right'}), fade(), slide({direction: 'from-bottom'})][i % 3];
 
-export const Shorts: React.FC<ShortsProps> = ({title, footer, scenes, transitionFrames}) => {
+export const Shorts: React.FC<ShortsProps> = ({title, footer, scenes, transitionFrames, style = 'clean'}) => {
   const frame = useCurrentFrame();
   const {fps, durationInFrames} = useVideoConfig();
   return (
@@ -23,7 +24,8 @@ export const Shorts: React.FC<ShortsProps> = ({title, footer, scenes, transition
         {scenes.flatMap((scene, i) => {
           const items = [
             <TransitionSeries.Sequence key={`s${i}`} name={`장면 ${i + 1}`} durationInFrames={scene.durationInFrames} premountFor={fps}>
-              <Scene scene={scene} index={i} title={title} footer={footer} last={i === scenes.length - 1} />
+              {style === 'fast' && !scene.custom ? <FastScene scene={scene} index={i} title={title} footer={footer} last={i === scenes.length - 1} /> :
+                <Scene scene={scene} index={i} title={title} footer={footer} last={i === scenes.length - 1} />}
             </TransitionSeries.Sequence>,
           ];
           if (i < scenes.length - 1 && transitionFrames > 0) {
