@@ -99,14 +99,25 @@ public final class VisitSources {
         return h;
     }
 
-    private static final String HANDLE = "@[A-Za-z0-9_.-]{1,40}";
     // 남기는 화면 주소 모양. 관리자·글쓰기·인증처럼 순위가 의미 없거나 값이 들어가는 화면은 남기지 않는다
-    private static final Pattern PAGE = Pattern.compile(
-            "^/$"
-            + "|^/" + HANDLE + "(/(posts/[1-9]\\d{0,17}|series(/[^/]{1,120})?|about|followers|following|rss))?$"
-            + "|^/(rss|search|mcp|support|releases|tags|login|signup|feed|terms|privacy|notifications|settings)$"
-            + "|^/tags/[^/]{1,120}$"
-            + "|^/lists/liked$|^/manage/posts$");
+    private static final Set<String> FIXED_PAGES = Set.of("/", "/rss", "/search", "/mcp", "/support", "/releases", "/tags",
+            "/login", "/signup", "/feed", "/terms", "/privacy", "/notifications", "/settings", "/lists/liked", "/manage/posts");
+    private static final Pattern TAG_PAGE = Pattern.compile("/tags/[^/]{1,120}");
+    private static final Pattern BLOG_HANDLE = Pattern.compile("/@[A-Za-z0-9_.-]{1,40}");
+    /** 블로그 주소(/@handle) 뒤에 붙는 탭 */
+    private static final Set<String> BLOG_TABS = Set.of("", "/series", "/about", "/followers", "/following", "/rss");
+    private static final Pattern BLOG_POST = Pattern.compile("/posts/[1-9]\\d{0,17}");
+    private static final Pattern BLOG_SERIES = Pattern.compile("/series/[^/]{1,120}");
+
+    private static boolean isKeptPage(String p) {
+        if (FIXED_PAGES.contains(p) || TAG_PAGE.matcher(p).matches()) return true;
+        if (!p.startsWith("/@")) return false;
+        int slash = p.indexOf('/', 2);
+        String handle = slash < 0 ? p : p.substring(0, slash);
+        String rest = slash < 0 ? "" : p.substring(slash);
+        return BLOG_HANDLE.matcher(handle).matches()
+                && (BLOG_TABS.contains(rest) || BLOG_POST.matcher(rest).matches() || BLOG_SERIES.matcher(rest).matches());
+    }
 
     /** 화면 주소를 순위용으로 정리한다. 남기지 않는 화면이면 null */
     public static String page(String raw) {
@@ -115,7 +126,7 @@ public final class VisitSources {
         int cut = indexOfAny(p);
         if (cut >= 0) p = p.substring(0, cut);
         if (p.length() > 1 && p.endsWith("/")) p = p.substring(0, p.length() - 1);
-        if (!PAGE.matcher(p).matches()) return null;
+        if (!isKeptPage(p)) return null;
         if (p.startsWith("/@")) {
             int slash = p.indexOf('/', 2);
             p = slash < 0 ? p.toLowerCase(Locale.ROOT) : p.substring(0, slash).toLowerCase(Locale.ROOT) + p.substring(slash);

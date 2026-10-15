@@ -43,19 +43,14 @@ public final class TopicClusterer {
     public static List<Edge> tagEdges(List<Doc> docs, double minSimilarity) {
         int n = docs.size();
         if (n < 2) return List.of();
-        Map<String, List<Integer>> byTag = new HashMap<>();
-        for (int i = 0; i < n; i++) {
-            for (String t : Set.copyOf(docs.get(i).tags())) byTag.computeIfAbsent(t, k -> new ArrayList<>()).add(i);
-        }
+        Map<String, List<Integer>> byTag = indexByTag(docs);
         Map<String, Double> idf = new HashMap<>();
         byTag.forEach((t, list) -> idf.put(t, Math.log((double) n / list.size())));
         Map<Long, Double> shared = new HashMap<>(); // i * n + j → 겹치는 희소도 합
         byTag.forEach((t, list) -> {
             double w = idf.get(t);
             if (w <= 0 || list.size() > MAX_TAG_FANOUT) return;
-            for (int x = 0; x < list.size(); x++) {
-                for (int y = x + 1; y < list.size(); y++) shared.merge((long) list.get(x) * n + list.get(y), w, Double::sum);
-            }
+            addPairs(shared, list, w, n);
         });
         double[] total = new double[n];
         for (int i = 0; i < n; i++) {
@@ -70,6 +65,22 @@ public final class TopicClusterer {
             if (sim >= minSimilarity) out.add(new Edge(docs.get(i).id(), docs.get(j).id(), sim, Method.TAG));
         });
         return out;
+    }
+
+    /** 태그 → 그 태그를 쓴 글의 자리(docs 안 순번) */
+    private static Map<String, List<Integer>> indexByTag(List<Doc> docs) {
+        Map<String, List<Integer>> byTag = new HashMap<>();
+        for (int i = 0; i < docs.size(); i++) {
+            for (String t : Set.copyOf(docs.get(i).tags())) byTag.computeIfAbsent(t, k -> new ArrayList<>()).add(i);
+        }
+        return byTag;
+    }
+
+    /** 같은 태그를 쓴 글 쌍마다 희소도 w를 더한다 */
+    private static void addPairs(Map<Long, Double> shared, List<Integer> list, double w, int n) {
+        for (int x = 0; x < list.size(); x++) {
+            for (int y = x + 1; y < list.size(); y++) shared.merge((long) list.get(x) * n + list.get(y), w, Double::sum);
+        }
     }
 
     public static List<Topic> cluster(List<Doc> docs, List<Edge> edges, int maxSize) {
@@ -92,6 +103,19 @@ public final class TopicClusterer {
         Map<Long, Long> parent = new HashMap<>();
         Map<Long, Integer> size = new HashMap<>();
         Map<Long, EnumSet<Method>> used = new HashMap<>();
+        union(sorted, methods, maxSize, parent, size, used);
+
+        Map<Long, List<Long>> groups = new TreeMap<>();
+        for (Doc d : docs) {
+            if (!parent.containsKey(d.id()) && !size.containsKey(d.id())) continue;
+            groups.computeIfAbsent(find(parent, d.id()), k -> new ArrayList<>()).add(d.id());
+        }
+        return nameTopics(docs, byId, groups, used);
+    }
+
+    /** 비슷한 쌍부터 이어 붙인다. 이미 같은 브랜치이거나 합치면 maxSize를 넘는 쌍은 건너뛴다 */
+    private static void union(List<Map.Entry<String, Edge>> sorted, Map<String, EnumSet<Method>> methods, int maxSize,
+            Map<Long, Long> parent, Map<Long, Integer> size, Map<Long, EnumSet<Method>> used) {
         for (Map.Entry<String, Edge> x : sorted) {
             long ra = find(parent, x.getValue().a());
             long rb = find(parent, x.getValue().b());
@@ -108,12 +132,11 @@ public final class TopicClusterer {
             EnumSet<Method> mc = used.remove(child);
             if (mc != null) m.addAll(mc);
         }
+    }
 
-        Map<Long, List<Long>> groups = new TreeMap<>();
-        for (Doc d : docs) {
-            if (!parent.containsKey(d.id()) && !size.containsKey(d.id())) continue;
-            groups.computeIfAbsent(find(parent, d.id()), k -> new ArrayList<>()).add(d.id());
-        }
+    /** 두 글 이상인 묶음마다 이름과 근거를 붙인다 */
+    private static List<Topic> nameTopics(List<Doc> docs, Map<Long, Doc> byId, Map<Long, List<Long>> groups,
+            Map<Long, EnumSet<Method>> used) {
         // 큰 브랜치부터 이름을 정하고, 앞에서 쓴 이름은 피한다(모두가 쓰는 태그로 이름이 겹치지 않게)
         List<Map.Entry<Long, List<Long>>> ordered = new ArrayList<>();
         groups.forEach((root, members) -> {

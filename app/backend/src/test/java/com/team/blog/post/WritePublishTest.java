@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -37,6 +38,7 @@ import com.team.blog.shared.error.ApiException;
 import com.team.blog.shared.markdown.ImageUrls;
 import com.team.blog.support.HtmlSafety;
 import com.team.blog.support.IntegrationTest;
+import com.team.blog.support.Waits;
 
 /** spec 002 인수 시나리오, docs/05 §10, docs/06 §8(PUBLIC/PRIVATE), docs/04 §2. */
 class WritePublishTest extends IntegrationTest {
@@ -339,12 +341,10 @@ class WritePublishTest extends IntegrationTest {
     // ---------------------------------------------------------------- US3 발행 글 고치기
 
     @Test
-    void 발행_글을_고치는_동안_독자는_발행본을_보고_다시_발행하면_주소와_최초_공개일이_그대로다() throws Exception {
+    void 발행_글을_고치는_동안_독자는_발행본을_보고_고친_내용은_작업본에_쌓인다() throws Exception {
         Session s = signup(uniqueLogin("repub"));
         long id = newPost(s);
         publish(s, id, "v1 제목", "v1 본문", "PUBLIC", 0, null).andExpect(status().isOk());
-        Map<String, Object> first = row(id);
-        jdbc.update("INSERT INTO post_view (post_id) SELECT ?::bigint FROM generate_series(1, 120)", id);
 
         long v = version(save(s, id, "v2 제목", "v2 본문", 1).andExpect(status().isOk()));
         assertThat(row(id)).containsEntry("title", "v1 제목").containsEntry("content_md", "v1 본문");
@@ -356,21 +356,33 @@ class WritePublishTest extends IntegrationTest {
         assertThat(list.path("items").get(0).path("editing").asBoolean()).isTrue();
 
         // 자동 저장 반영도 작업본으로 간다
-        long v3 = version(autosave(s, id, "v3 제목", "v3 본문", v).andExpect(status().isOk()));
+        autosave(s, id, "v3 제목", "v3 본문", v).andExpect(status().isOk());
         flushJob.flushAll();
         assertThat(row(id)).containsEntry("title", "v1 제목");
         assertThat(jdbc.queryForObject("SELECT title FROM post_draft WHERE post_id = ?", String.class, id)).isEqualTo("v3 제목");
+    }
 
-        Thread.sleep(5);
+    @Test
+    void 고치던_발행_글을_다시_발행하면_주소와_최초_공개일이_그대로다() throws Exception {
+        Session s = signup(uniqueLogin("repub"));
+        long id = newPost(s);
+        publish(s, id, "v1 제목", "v1 본문", "PUBLIC", 0, null).andExpect(status().isOk());
+        Map<String, Object> first = row(id);
+        jdbc.update("INSERT INTO post_view (post_id) SELECT ?::bigint FROM generate_series(1, 120)", id);
+        long v = version(save(s, id, "v2 제목", "v2 본문", 1).andExpect(status().isOk()));
+        long v3 = version(autosave(s, id, "v3 제목", "v3 본문", v).andExpect(status().isOk()));
+        flushJob.flushAll();
+
+        Waits.pause(Duration.ofMillis(5));
         JsonNode r = read(publish(s, id, "v3 제목", "v3 본문", "PUBLIC", v3, UUID.randomUUID().toString())
                 .andExpect(status().isOk()).andReturn());
         assertThat(r.path("url").asString()).isEqualTo("/@" + s.handle() + "/posts/" + id);
         Map<String, Object> after = row(id);
-        assertThat(after).containsEntry("title", "v3 제목");
+        assertThat(after).containsEntry("title", "v3 제목")
+                .containsEntry("published_at", first.get("published_at"))
+                .containsEntry("first_public_at", first.get("first_public_at"));
         assertThat(detail(id).path("viewCount").asLong()).isEqualTo(120);
         assertThat(detail(id).path("contentHtml").asString()).contains("v3 본문").doesNotContain("v1 본문");
-        assertThat(after).containsEntry("published_at", first.get("published_at"));
-        assertThat(after).containsEntry("first_public_at", first.get("first_public_at"));
         assertThat(after.get("edited_at")).isNotNull();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM post_draft WHERE post_id = ?", Integer.class, id)).isZero();
         assertThat(redis.hasKey("autosave:post:" + id)).isFalse();
@@ -423,7 +435,7 @@ class WritePublishTest extends IntegrationTest {
         Session s = signup(uniqueLogin("late"));
         long id = newPost(s);
         publish(s, id, "글", "본문", "PRIVATE", 0, null).andExpect(status().isOk());
-        Thread.sleep(5);
+        Waits.pause(Duration.ofMillis(5));
         JsonNode r = read(s.http().perform(asJson(patch("/api/posts/" + id + "/visibility"), Map.of("visibility", "PUBLIC")))
                 .andExpect(status().isOk()).andReturn());
         Map<String, Object> p = row(id);

@@ -83,26 +83,24 @@ public class PageController {
     private final SiteOwner owner;
     private final PolicyDocuments policies;
 
-    public PageController(SpaShell shell, FeedQuery feed, PostDetailQuery details, BlogProperties props, TagQuery tags,
-                          TagController tagApi, CommentQuery comments, SearchQuery search, FollowQuery follows,
-                          TrendingService trending, SeriesQuery series, MemberAbout about, ReleaseNotes releaseNotes,
-                          PortfolioQuery portfolios, SiteOwner owner, PolicyDocuments policies) {
-        this.owner = owner;
-        this.policies = policies;
-        this.portfolios = portfolios;
-        this.releaseNotes = releaseNotes;
-        this.about = about;
-        this.series = series;
-        this.trending = trending;
-        this.follows = follows;
-        this.comments = comments;
-        this.search = search;
+    public PageController(SpaShell shell, BlogProperties props, PostPageSources posts, TagPageSources tagPages,
+                          BlogPageSources blogPages, SitePageSources sitePages) {
         this.shell = shell;
-        this.feed = feed;
-        this.details = details;
         this.site = props.site();
-        this.tags = tags;
-        this.tagApi = tagApi;
+        this.feed = posts.feed();
+        this.details = posts.details();
+        this.comments = posts.comments();
+        this.trending = posts.trending();
+        this.tags = tagPages.tags();
+        this.tagApi = tagPages.tagApi();
+        this.search = tagPages.search();
+        this.follows = blogPages.follows();
+        this.series = blogPages.series();
+        this.about = blogPages.about();
+        this.portfolios = blogPages.portfolios();
+        this.owner = sitePages.owner();
+        this.policies = sitePages.policies();
+        this.releaseNotes = sitePages.releaseNotes();
     }
 
     /** 태그 주소: 이름을 경로 조각으로 인코딩한다. #은 %23, +·.은 그대로 (docs/22 §5). */
@@ -276,10 +274,15 @@ public class PageController {
             }
             filter = tag;
         }
-        var profile = feed.profile(handle, me == null ? null : me.id());
+        Long viewer = me == null ? null : me.id();
+        var profile = feed.profile(handle, viewer);
         if (profile.isEmpty()) return notFound();
         FeedQuery.BlogProfile p = profile.get();
-        PostCardPage first = feed.blog(handle, filter, null, me == null ? null : me.id());
+        PostCardPage first = feed.blog(handle, filter, null, viewer);
+        return blogPage(p, first, filter, q);
+    }
+
+    private ResponseEntity<String> blogPage(FeedQuery.BlogProfile p, PostCardPage first, String filter, String q) {
         var blogTags = tags.blogTags(p.id());
         String body = "<main><header><h1>" + SpaShell.esc(p.nickname()) + "</h1><p>@" + SpaShell.esc(p.handle()) + "</p>"
                 + (p.bio() == null ? "" : "<p>" + SpaShell.esc(p.bio()) + "</p>") + "</header>" + cards(first) + MAIN_END;

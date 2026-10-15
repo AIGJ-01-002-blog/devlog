@@ -7,6 +7,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -77,11 +78,12 @@ public class TelegramBot {
     void pollOnce() {
         String saved = redis.opsForValue().get(OFFSET_KEY);
         long offset = saved == null ? 0 : Long.parseLong(saved);
-        List<TelegramApi.Update> updates = api.updates(offset);
-        if (updates == null) {
+        Optional<List<TelegramApi.Update>> received = api.updates(offset);
+        if (received.isEmpty()) {
             pausedUntil = Instant.now().plus(FAILURE_BACKOFF);
             return;
         }
+        List<TelegramApi.Update> updates = received.get();
         // 처리한 뒤에 오프셋을 넘긴다: 서버가 처리 도중 멈추면 다음 폴링이 그 업데이트를 다시 받는다.
         // 메모는 AI를 거쳐 느릴 수 있어 잠금 시간 안에서만 처리하고, 남은 것은 다음 폴링에서 다시 받는다
         Instant until = Instant.now().plus(HANDLE_BUDGET);

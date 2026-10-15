@@ -56,11 +56,11 @@ class HttpTelegramApi implements TelegramApi {
     }
 
     @Override
-    public List<Update> updates(long offset) {
+    public Optional<List<Update>> updates(long offset) {
         String q = "?timeout=" + props.pollTimeout().toSeconds() + "&offset=" + offset
                 + "&allowed_updates=" + URLEncoder.encode("[\"message\"]", StandardCharsets.UTF_8);
         JsonNode r = get("getUpdates", q, props.pollTimeout().plusSeconds(10));
-        if (r == null || !r.path("ok").asBoolean(false)) return null;
+        if (r == null || !r.path("ok").asBoolean(false)) return Optional.empty();
         List<Update> out = new ArrayList<>();
         for (JsonNode u : r.path("result")) {
             JsonNode m = u.path("message");
@@ -71,7 +71,7 @@ class HttpTelegramApi implements TelegramApi {
                     m.has("text") ? m.path("text").asString() : null,
                     m.path("from").path("first_name").asString(null)));
         }
-        return out;
+        return Optional.of(out);
     }
 
     @Override

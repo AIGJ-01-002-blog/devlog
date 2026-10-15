@@ -58,14 +58,16 @@ public class AutosaveStore {
 
     public record Snapshot(long memberId, String title, String contentMd, long version, Instant savedAt) {}
 
+    /** 버퍼에 쓸 글 한 벌. baseVersion은 편집기가 본 버전, dbVersion은 DB에 있는 버전 */
+    public record Entry(long postId, long memberId, long baseVersion, long dbVersion, String title, String contentMd) {}
+
     /**
      * @param markDirty true면 스케줄러가 DB에 반영하도록 dirty 집합에 넣는다. 수동 저장·발행처럼 바로 DB에 쓰는 경우는 false.
      */
-    public SaveResult save(long postId, long memberId, long baseVersion, long dbVersion, String title, String contentMd,
-                           Instant savedAt, Duration ttl, boolean markDirty) {
-        List<?> r = redis.execute(SAVE, List.of(key(postId), DIRTY),
-                String.valueOf(memberId), String.valueOf(baseVersion), String.valueOf(dbVersion), title, contentMd,
-                savedAt.toString(), String.valueOf(ttl.toSeconds()), String.valueOf(postId), markDirty ? "1" : "0");
+    public SaveResult save(Entry e, Instant savedAt, Duration ttl, boolean markDirty) {
+        List<?> r = redis.execute(SAVE, List.of(key(e.postId()), DIRTY),
+                String.valueOf(e.memberId()), String.valueOf(e.baseVersion()), String.valueOf(e.dbVersion()), e.title(), e.contentMd(),
+                savedAt.toString(), String.valueOf(ttl.toSeconds()), String.valueOf(e.postId()), markDirty ? "1" : "0");
         long kind = ((Number) r.get(0)).longValue();
         long v = ((Number) r.get(1)).longValue();
         if (kind == -1) return new SaveResult.NotOwner();

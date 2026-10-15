@@ -104,7 +104,7 @@ class HttpTelegramApiTest {
                   {"update_id":8,"message":{"chat":{"id":-5,"type":"group"},"photo":[]}},
                   {"update_id":9}
                 ]}"""));
-        List<Update> updates = api(base(), TOKEN).updates(7);
+        List<Update> updates = api(base(), TOKEN).updates(7).orElseThrow();
         assertThat(updates).containsExactly(
                 new Update(7, 42L, "private", "/start abc", "민서"),
                 new Update(8, -5L, "group", null, null),
@@ -114,14 +114,14 @@ class HttpTelegramApiTest {
     }
 
     @Test
-    void failedUpdatesReturnNull() {
+    void failedUpdatesReturnEmpty() {
         HttpTelegramApi api = api(base(), TOKEN);
         replies.put("getUpdates", new Reply(200, "{\"ok\":false}"));
-        assertThat(api.updates(0)).isNull();
+        assertThat(api.updates(0)).isEmpty();
         replies.put("getUpdates", new Reply(500, "oops"));
-        assertThat(api.updates(0)).isNull();
+        assertThat(api.updates(0)).isEmpty();
         replies.put("getUpdates", new Reply(200, "not json"));
-        assertThat(api.updates(0)).isNull();
+        assertThat(api.updates(0)).isEmpty();
     }
 
     @Test
@@ -157,7 +157,7 @@ class HttpTelegramApiTest {
         }
         HttpTelegramApi api = api("http://127.0.0.1:" + closedPort, TOKEN);
         assertThat(api.send(1, "x")).isEqualTo(SendResult.FAILED);
-        assertThat(api.updates(0)).isNull();
+        assertThat(api.updates(0)).isEmpty();
         assertThat(api.botUsername()).isEmpty();
         replies.put("sendMessage", new Reply(500, TOKEN));
         assertThat(api(base(), TOKEN).send(1, "x")).isEqualTo(SendResult.FAILED);
@@ -170,7 +170,7 @@ class HttpTelegramApiTest {
         String broken = TOKEN + " \n";
         HttpTelegramApi api = api(base(), broken);
         assertThat(api.botUsername()).isEmpty();
-        assertThat(api.updates(0)).isNull();
+        assertThat(api.updates(0)).isEmpty();
         assertThat(api.send(1, "x")).isEqualTo(SendResult.FAILED);
         assertThat(seen).isEmpty();
         assertThat(output.getAll()).contains("IllegalArgumentException").doesNotContain(TOKEN);

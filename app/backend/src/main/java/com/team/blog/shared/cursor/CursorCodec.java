@@ -44,9 +44,9 @@ public class CursorCodec {
         return ENC.encodeToString(json.writeValueAsBytes(node));
     }
 
-    /** @return 정렬 키 목록. 커서가 없으면 null */
+    /** @return 정렬 키 목록. 커서가 없으면 빈 배열 */
     public long[] decode(String cursor, String list, int keyCount) {
-        if (cursor == null || cursor.isEmpty()) return null;
+        if (cursor == null || cursor.isEmpty()) return new long[0];
         try {
             if (cursor.length() > 512) throw invalid();
             JsonNode node = json.readTree(DEC.decode(cursor));

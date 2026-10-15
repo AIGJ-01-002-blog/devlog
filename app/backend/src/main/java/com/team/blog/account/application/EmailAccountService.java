@@ -86,8 +86,27 @@ public class EmailAccountService {
         String body = form.handleBody() == null ? "" : form.handleBody().strip().toLowerCase(java.util.Locale.ROOT);
         String nickname = NicknamePolicy.normalize(form.nickname());
 
-        List<FieldErrorItem> errors = new ArrayList<>();
         boolean emailOk = EmailAddress.isValid(email);
+        boolean verified = emailOk && email.equals(verifiedEmail);
+        List<FieldErrorItem> errors = signupErrors(form, email, emailOk, body, nickname, verified);
+        if (!errors.isEmpty()) throw ApiException.validation(errors);
+        rejectExisting(email);
+
+        String hash = encoder.encode(form.password());
+        String handle = AuthProvider.LOCAL.handlePrefix() + body;
+        MemberPrincipal principal;
+        try {
+            principal = tx.execute(status -> create(email, hash, handle, nickname, form.agreeAi(), verified));
+        } catch (DataIntegrityViolationException e) {
+            throw signupConflict(e, body);
+        }
+        if (!verified) verification.sendAfterSignup(principal.id(), email);
+        return principal;
+    }
+
+    private List<FieldErrorItem> signupErrors(EmailSignupForm form, String email, boolean emailOk, String body,
+            String nickname, boolean verified) {
+        List<FieldErrorItem> errors = new ArrayList<>();
         if (!emailOk) errors.add(new FieldErrorItem("email", "EMAIL_INVALID", "이메일 형식을 확인해 주세요. (최대 254자)"));
         HandlePolicy.Reason handleReason = handlePolicy.checkBody(AuthProvider.LOCAL, body);
         if (handleReason != null) errors.add(new FieldErrorItem("handleBody", "HANDLE_" + handleReason.name(), handleReason.message()));
@@ -99,11 +118,14 @@ public class EmailAccountService {
         if (nickCode != null) errors.add(new FieldErrorItem("nickname", nickCode.name(), nickCode.message()));
         if (!form.agreeTerms()) errors.add(new FieldErrorItem("agreeTerms", "AGREEMENT_REQUIRED", "이용약관에 동의해 주세요."));
         if (!form.agreePrivacy()) errors.add(new FieldErrorItem("agreePrivacy", "AGREEMENT_REQUIRED", "개인정보 처리방침에 동의해 주세요."));
-        boolean verified = emailOk && email.equals(verifiedEmail);
         if (emailOk && signupCode.required() && !verified) {
             errors.add(new FieldErrorItem("email", "EMAIL_NOT_VERIFIED", "이메일 인증을 먼저 마쳐 주세요."));
         }
-        if (!errors.isEmpty()) throw ApiException.validation(errors);
+        return errors;
+    }
+
+    /** 이미 가입된 이메일이면 막는다 */
+    private void rejectExisting(String email) {
         var existing = identities.findByProviderAndProviderUserId(AuthProvider.LOCAL, email);
         if (existing.isPresent()) {
             // 탈퇴 유예 중인 계정이면 복구 방법을 알려 준다 (020 FR-020, 가입 여부 노출은 감수)
@@ -112,26 +134,20 @@ public class EmailAccountService {
             if (withdrawn) throw ApiException.conflict("WITHDRAWN_ACCOUNT", "탈퇴 신청한 계정이 있어요. 로그인하면 복구할 수 있어요.");
             throw emailTaken();
         }
+    }
 
-        String hash = encoder.encode(form.password());
-        String handle = AuthProvider.LOCAL.handlePrefix() + body;
-        MemberPrincipal principal;
-        try {
-            principal = tx.execute(status -> create(email, hash, handle, nickname, form.agreeAi(), verified));
-        } catch (DataIntegrityViolationException e) {
-            String msg = String.valueOf(e.getMostSpecificCause().getMessage());
-            if (msg.contains("uq_auth_identity")) throw emailTaken();
-            if (msg.contains("uq_member_handle")) {
-                String suggestion = suggester.firstFree(AuthProvider.LOCAL, body);
-                throw new ApiException(HttpStatus.CONFLICT, "HANDLE_TAKEN",
-                        "방금 다른 분이 이 주소를 사용했어요. " + suggestion + "는 어떠세요?", List.of(),
-                        Map.of("suggestion", HandlePolicy.bodyOf(suggestion)));
-            }
-            if (msg.contains("uq_member_nickname")) throw ApiException.conflict("NICKNAME_TAKEN", "방금 다른 분이 이 닉네임을 사용했어요.");
-            throw e;
+    /** 가입 중 동시에 같은 이메일·주소·닉네임을 쓴 경우를 알맞은 오류로 바꾼다 */
+    private RuntimeException signupConflict(DataIntegrityViolationException e, String body) {
+        String msg = String.valueOf(e.getMostSpecificCause().getMessage());
+        if (msg.contains("uq_auth_identity")) return emailTaken();
+        if (msg.contains("uq_member_handle")) {
+            String suggestion = suggester.firstFree(AuthProvider.LOCAL, body);
+            return new ApiException(HttpStatus.CONFLICT, "HANDLE_TAKEN",
+                    "방금 다른 분이 이 주소를 사용했어요. " + suggestion + "는 어떠세요?", List.of(),
+                    Map.of("suggestion", HandlePolicy.bodyOf(suggestion)));
         }
-        if (!verified) verification.sendAfterSignup(principal.id(), email);
-        return principal;
+        if (msg.contains("uq_member_nickname")) return ApiException.conflict("NICKNAME_TAKEN", "방금 다른 분이 이 닉네임을 사용했어요.");
+        return e;
     }
 
     private MemberPrincipal create(String email, String hash, String handle, String nickname, boolean agreeAi, boolean verified) {

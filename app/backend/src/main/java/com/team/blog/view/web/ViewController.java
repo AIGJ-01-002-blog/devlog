@@ -49,7 +49,7 @@ public class ViewController {
                                            HttpServletRequest request) {
         if (postId == null || !postId.matches("[1-9]\\d{0,17}")) throw new NotFoundException();
         String issued = issueVisitor(me, request);
-        recorder.record(Long.parseLong(postId), toVisit(me, request, issued));
+        recorder.recordView(Long.parseLong(postId), toVisit(me, request, issued));
         return noContent(request, issued);
     }
 

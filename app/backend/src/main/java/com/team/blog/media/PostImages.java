@@ -89,21 +89,7 @@ public class PostImages {
 
         ImageInspector.ImageInfo info = ImageInspector.inspect(image)
                 .orElseThrow(() -> invalid("IMAGE_TYPE", "jpg·png·gif·webp 사진만 올릴 수 있어요."));
-        boolean gif = info.contentType().equals("image/gif");
-        if (gif) {
-            if (info.width() > MAX_EDGE || info.height() > MAX_EDGE) {
-                throw invalid("GIF_DIMENSION", "GIF는 가로·세로 1920px까지 올릴 수 있어요.");
-            }
-            int frames = ImageInspector.gifFrames(image, MAX_GIF_FRAMES);
-            if (frames < 0) throw invalid("IMAGE_TYPE", "사진 파일이 손상됐어요.");
-            if (frames > MAX_GIF_FRAMES) throw invalid("GIF_FRAMES", "GIF는 300장면까지 올릴 수 있어요.");
-        } else {
-            if (info.width() > MAX_PIXELS_EDGE || info.height() > MAX_PIXELS_EDGE) {
-                throw invalid("IMAGE_DIMENSION", "사진 해상도가 너무 커요.");
-            }
-            // 브라우저가 다시 그려 보내면 사진 정보가 남지 않는다. 남아 있으면 우회한 업로드다
-            if (info.hasMetadata()) throw invalid("IMAGE_METADATA", "위치 같은 사진 정보를 지운 뒤 올려 주세요.");
-        }
+        checkImage(info, image);
         ImageInspector.ImageInfo t = ImageInspector.inspect(thumb)
                 .filter(x -> !x.contentType().equals("image/gif") && x.width() <= THUMB_WIDTH && !x.hasMetadata())
                 .orElseThrow(() -> invalid("THUMB_INVALID", "썸네일을 만들지 못했어요. 다른 사진으로 시도해 주세요."));
@@ -135,6 +121,24 @@ public class PostImages {
             throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "STORAGE_UNAVAILABLE", "사진을 올리지 못했어요. 잠시 뒤 다시 시도해 주세요.");
         }
         return new Uploaded(id, urls.urlOf(key), urls.urlOf(thumbKey), info.contentType(), info.width(), info.height());
+    }
+
+    /** GIF는 크기·장면 수를, 그 밖의 사진은 해상도와 남은 사진 정보를 검사한다 */
+    private static void checkImage(ImageInspector.ImageInfo info, byte[] image) {
+        if (info.contentType().equals("image/gif")) {
+            if (info.width() > MAX_EDGE || info.height() > MAX_EDGE) {
+                throw invalid("GIF_DIMENSION", "GIF는 가로·세로 1920px까지 올릴 수 있어요.");
+            }
+            int frames = ImageInspector.gifFrames(image, MAX_GIF_FRAMES);
+            if (frames < 0) throw invalid("IMAGE_TYPE", "사진 파일이 손상됐어요.");
+            if (frames > MAX_GIF_FRAMES) throw invalid("GIF_FRAMES", "GIF는 300장면까지 올릴 수 있어요.");
+        } else {
+            if (info.width() > MAX_PIXELS_EDGE || info.height() > MAX_PIXELS_EDGE) {
+                throw invalid("IMAGE_DIMENSION", "사진 해상도가 너무 커요.");
+            }
+            // 브라우저가 다시 그려 보내면 사진 정보가 남지 않는다. 남아 있으면 우회한 업로드다
+            if (info.hasMetadata()) throw invalid("IMAGE_METADATA", "위치 같은 사진 정보를 지운 뒤 올려 주세요.");
+        }
     }
 
     public Usage usage(long memberId) {

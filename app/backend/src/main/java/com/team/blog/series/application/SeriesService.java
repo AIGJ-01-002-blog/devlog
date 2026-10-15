@@ -104,17 +104,21 @@ public class SeriesService {
                 jdbc.update("DELETE FROM series_post WHERE post_id = ?", postId);
                 jdbc.update(TOUCH_SERIES, current.getFirst());
             }
-            if (seriesId == null) return;
-            Long size = jdbc.queryForObject("SELECT count(*) FROM series_post WHERE series_id = ?", Long.class, seriesId);
-            if (size != null && size >= maxPosts) {
-                throw ApiException.badRequest("SERIES_FULL", "시리즈 하나에는 글을 " + maxPosts + "개까지 넣을 수 있어요.");
-            }
-            jdbc.update("""
-                    INSERT INTO series_post (post_id, series_id, position)
-                    SELECT ?, ?, COALESCE(max(position) + 1, 0) FROM series_post WHERE series_id = ?
-                    """, postId, seriesId, seriesId);
-            jdbc.update(TOUCH_SERIES, seriesId);
+            if (seriesId != null) append(postId, seriesId);
         });
+    }
+
+    /** 잠근 시리즈 맨 뒤에 글을 넣는다. 가득 찼으면 막는다 */
+    private void append(long postId, long seriesId) {
+        Long size = jdbc.queryForObject("SELECT count(*) FROM series_post WHERE series_id = ?", Long.class, seriesId);
+        if (size != null && size >= maxPosts) {
+            throw ApiException.badRequest("SERIES_FULL", "시리즈 하나에는 글을 " + maxPosts + "개까지 넣을 수 있어요.");
+        }
+        jdbc.update("""
+                INSERT INTO series_post (post_id, series_id, position)
+                SELECT ?, ?, COALESCE(max(position) + 1, 0) FROM series_post WHERE series_id = ?
+                """, postId, seriesId, seriesId);
+        jdbc.update(TOUCH_SERIES, seriesId);
     }
 
     /**

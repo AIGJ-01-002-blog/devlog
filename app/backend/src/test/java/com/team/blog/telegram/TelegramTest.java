@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -23,6 +24,7 @@ import tools.jackson.databind.JsonNode;
 import com.team.blog.support.FakeAi;
 import com.team.blog.support.FakeTelegram;
 import com.team.blog.support.IntegrationTest;
+import com.team.blog.support.Waits;
 import com.team.blog.telegram.application.TelegramBot;
 import com.team.blog.telegram.infra.TelegramApi;
 
@@ -62,6 +64,15 @@ class TelegramTest extends IntegrationTest {
 
     JsonNode telegram(Session s) throws Exception {
         return read(s.http().perform(get("/api/me/telegram")).andExpect(status().isOk()).andReturn());
+    }
+
+    /** 연결이 남아 있는가 (기다리는 조건에 쓴다) */
+    boolean linked(Session s) {
+        try {
+            return telegram(s).path("linked").asBoolean();
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     long publish(Session s) throws Exception {
@@ -141,8 +152,8 @@ class TelegramTest extends IntegrationTest {
         author.http().perform(asJson(patch("/api/me/telegram"), Map.of("notifications", false))).andExpect(status().isOk());
         reader.http().perform(asJson(post("/api/posts/" + post + "/comments"), Map.of("content", "두 번째"))).andExpect(status().isCreated());
         drain();
-        Thread.sleep(300);
-        assertThat(TG.to(chat)).hasSize(2);
+        // 알림을 끈 뒤에는 잠시 기다려도 더 오지 않는다
+        Waits.during(Duration.ofMillis(300), () -> assertThat(TG.to(chat)).hasSize(2));
         assertThat(jdbc.queryForObject("SELECT count(*) FROM notification WHERE receiver_id = ? AND type = 'COMMENT'", Long.class,
                 author.memberId())).isEqualTo(2);
     }
@@ -165,8 +176,7 @@ class TelegramTest extends IntegrationTest {
         long post = publish(author);
         reader.http().perform(asJson(post("/api/posts/" + post + "/comments"), Map.of("content", "안녕"))).andExpect(status().isCreated());
         drain();
-        long until = System.currentTimeMillis() + 5000;
-        while (telegram(author).path("linked").asBoolean() && System.currentTimeMillis() < until) Thread.sleep(20);
+        Waits.until(() -> !linked(author), Duration.ofSeconds(5));
         assertThat(telegram(author).path("linked").asBoolean()).isFalse();
     }
 

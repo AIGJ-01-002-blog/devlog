@@ -79,44 +79,54 @@ public class VisitRecorder {
         LocalDate today = LocalDate.ofInstant(now, Counts.KST);
         String path = VisitSources.page(page.path());
 
-        if (!page.first()) {
-            if (path == null) return Outcome.SKIPPED;
-            if (ipKey != null && !rateLimiter.tryAcquire("page-ip:" + ipKey, PAGES_PER_MINUTE_PER_IP, Duration.ofMinutes(1))) return Outcome.EXCLUDED;
-            if (!rateLimiter.tryAcquire("page:" + visitor, PAGES_PER_MINUTE, Duration.ofMinutes(1))) return Outcome.EXCLUDED;
-            // 오늘 방문으로 들어온 사람의 화면 이동만 센다. 쿠키를 바꿔 가며 화면 수만 부풀리는 것을 막는다
-            try {
-                if (jdbc.queryForList("SELECT 1 FROM site_visit WHERE day = ? AND visitor = ?", today, visitor).isEmpty()) return Outcome.SKIPPED;
-            } catch (RuntimeException e) {
-                log.warn("화면 기록을 건너뜁니다: {}", e.getClass().getSimpleName());
-                return Outcome.SKIPPED;
-            }
-            return countPage(today, path) ? Outcome.COUNTED : Outcome.SKIPPED;
-        }
+        if (!page.first()) return recordPageMove(visitor, ipKey, today, path);
 
         if (ipKey != null && !rateLimiter.tryAcquire("visit-ip:" + ipKey, PER_MINUTE_PER_IP, Duration.ofMinutes(1))) return Outcome.EXCLUDED;
         if (!rateLimiter.tryAcquire("visit:" + visitor, PER_MINUTE, Duration.ofMinutes(1))) return Outcome.EXCLUDED;
         try {
-            // 새 방문(처음이거나 30분 넘게 쉬었다 온 것)일 때만 유입 경로를 센다. 세 문장 모두 행 단위로 원자적이라
-            // 같은 사람의 요청이 동시에 와도 새 방문은 한 번만 잡힌다
-            Timestamp at = Timestamp.from(now);
-            boolean newVisit = jdbc.update("""
-                    INSERT INTO site_visit (day, visitor, member, visits, first_at, last_at) VALUES (?, ?, ?, 1, ?, ?)
-                    ON CONFLICT (day, visitor) DO NOTHING
-                    """, today, visitor, visit.memberId() != null, at, at) == 1
-                    || jdbc.update("""
-                    UPDATE site_visit SET visits = visits + 1, last_at = ?
-                    WHERE day = ? AND visitor = ? AND last_at < ?
-                    """, at, today, visitor, Timestamp.from(now.minus(sessionGap))) == 1;
-            if (!newVisit) {
-                jdbc.update("UPDATE site_visit SET last_at = GREATEST(last_at, ?) WHERE day = ? AND visitor = ?", at, today, visitor);
+            if (touchVisit(visitor, visit.memberId() != null, today, now)) {
+                countSource(today, VisitSources.classify(page.referrer(), visit.userAgent(), page.ownHost()));
             }
-            if (newVisit) countSource(today, VisitSources.classify(page.referrer(), visit.userAgent(), page.ownHost()));
         } catch (RuntimeException e) {
             log.warn("방문 기록을 건너뜁니다: {}", e.getClass().getSimpleName());
             return Outcome.SKIPPED;
         }
         if (path != null) countPage(today, path);
         return Outcome.COUNTED;
+    }
+
+    /** 처음 연 뒤의 화면 이동. 화면 순위에만 센다 */
+    private Outcome recordPageMove(String visitor, String ipKey, LocalDate today, String path) {
+        if (path == null) return Outcome.SKIPPED;
+        if (ipKey != null && !rateLimiter.tryAcquire("page-ip:" + ipKey, PAGES_PER_MINUTE_PER_IP, Duration.ofMinutes(1))) return Outcome.EXCLUDED;
+        if (!rateLimiter.tryAcquire("page:" + visitor, PAGES_PER_MINUTE, Duration.ofMinutes(1))) return Outcome.EXCLUDED;
+        // 오늘 방문으로 들어온 사람의 화면 이동만 센다. 쿠키를 바꿔 가며 화면 수만 부풀리는 것을 막는다
+        try {
+            if (jdbc.queryForList("SELECT 1 FROM site_visit WHERE day = ? AND visitor = ?", today, visitor).isEmpty()) return Outcome.SKIPPED;
+        } catch (RuntimeException e) {
+            log.warn("화면 기록을 건너뜁니다: {}", e.getClass().getSimpleName());
+            return Outcome.SKIPPED;
+        }
+        return countPage(today, path) ? Outcome.COUNTED : Outcome.SKIPPED;
+    }
+
+    /** 방문을 적고, 새 방문(처음이거나 30분 넘게 쉬었다 온 것)이면 true */
+    private boolean touchVisit(String visitor, boolean member, LocalDate today, Instant now) {
+        // 새 방문일 때만 유입 경로를 센다. 세 문장 모두 행 단위로 원자적이라
+        // 같은 사람의 요청이 동시에 와도 새 방문은 한 번만 잡힌다
+        Timestamp at = Timestamp.from(now);
+        boolean newVisit = jdbc.update("""
+                INSERT INTO site_visit (day, visitor, member, visits, first_at, last_at) VALUES (?, ?, ?, 1, ?, ?)
+                ON CONFLICT (day, visitor) DO NOTHING
+                """, today, visitor, member, at, at) == 1
+                || jdbc.update("""
+                UPDATE site_visit SET visits = visits + 1, last_at = ?
+                WHERE day = ? AND visitor = ? AND last_at < ?
+                """, at, today, visitor, Timestamp.from(now.minus(sessionGap))) == 1;
+        if (!newVisit) {
+            jdbc.update("UPDATE site_visit SET last_at = GREATEST(last_at, ?) WHERE day = ? AND visitor = ?", at, today, visitor);
+        }
+        return newVisit;
     }
 
     private void countSource(LocalDate day, VisitSources.Source s) {
