@@ -56,6 +56,23 @@ public class TradeBotSim {
     private static final Pattern EXTERNAL = Pattern.compile("[!-~]{1,120}");
     private static final BigDecimal AMOUNT_MAX = new BigDecimal("99999999999999");
     private static final Set<String> SIDES = Set.of("BUY", "SELL", "LONG", "SHORT", "CLOSE");
+    private static final String UP_TO_COUNT = "개까지예요.";
+    private static final String UPSERT_STATUS = """
+            INSERT INTO trade_bot_status (member_id, ai_enabled, ai_model, ai_calls_today, bot_version, reported_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT (member_id) DO UPDATE SET ai_enabled = EXCLUDED.ai_enabled, ai_model = EXCLUDED.ai_model,
+                ai_calls_today = EXCLUDED.ai_calls_today, bot_version = EXCLUDED.bot_version, reported_at = EXCLUDED.reported_at
+            """;
+    private static final String INSERT_ACCOUNT = """
+            INSERT INTO trade_bot_account (member_id, account, exchange, market, currency, cash, unrealized_pnl, positions, rules, reported_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?)
+            """;
+    private static final String INSERT_EVENT = """
+            INSERT INTO trade_bot_event (member_id, external_id, kind, account, symbol, side, quantity, price, currency, realized_pnl,
+                verdict, text, occurred_at, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (member_id, external_id) DO NOTHING
+            """;
 
     public enum Kind { FILL, AI, SUMMARY }
 
@@ -110,47 +127,41 @@ public class TradeBotSim {
         return tx.execute(st -> {
             // 같은 회원의 알림은 한 줄로 세워 하루 상한을 넘기지 않게 한다 (봇을 여러 개 돌려도)
             jdbc.queryForObject("SELECT pg_advisory_xact_lock(?, ?)", Object.class, 101, (int) memberId);
-            jdbc.update("""
-                    INSERT INTO trade_bot_status (member_id, ai_enabled, ai_model, ai_calls_today, bot_version, reported_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    ON CONFLICT (member_id) DO UPDATE SET ai_enabled = EXCLUDED.ai_enabled, ai_model = EXCLUDED.ai_model,
-                        ai_calls_today = EXCLUDED.ai_calls_today, bot_version = EXCLUDED.bot_version, reported_at = EXCLUDED.reported_at
-                    """, memberId, ai.path("enabled").asBoolean(false), text(ai.path("model").asString(""), 60),
+            jdbc.update(UPSERT_STATUS, memberId, ai.path("enabled").asBoolean(false), text(ai.path("model").asString(""), 60),
                     Math.clamp(ai.path("calls_today").asLong(0), 0, 1_000_000), text(a.path("bot_version").asString(""), 30), Timestamp.from(now));
-            if (accounts != null) {
-                jdbc.update("DELETE FROM trade_bot_account WHERE member_id = ?", memberId);
-                for (Account acc : accounts) {
-                    jdbc.update("""
-                            INSERT INTO trade_bot_account (member_id, account, exchange, market, currency, cash, unrealized_pnl, positions, rules, reported_at)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?)
-                            """, memberId, acc.account(), acc.exchange(), acc.market(), acc.currency(), acc.cash(), acc.unrealizedPnl(),
-                            json.writeValueAsString(acc.positions()), json.writeValueAsString(acc.rules()), Timestamp.from(now));
-                }
-            }
+            if (accounts != null) replaceAccounts(memberId, accounts, now);
             jdbc.update("DELETE FROM trade_bot_event WHERE member_id = ? AND occurred_at < ?", memberId, Timestamp.from(now.minus(KEEP)));
-            Instant dayStart = LocalDate.ofInstant(now, TradeTexts.KST).atStartOfDay(TradeTexts.KST).toInstant();
-            Integer today = jdbc.queryForObject("SELECT count(*) FROM trade_bot_event WHERE member_id = ? AND created_at >= ?",
-                    Integer.class, memberId, Timestamp.from(dayStart));
-            int added = 0;
-            int duplicates = 0;
-            for (EventIn e : events) {
-                if (e.at().isBefore(now.minus(KEEP))) continue; // 지울 만큼 오래된 사건은 받지 않는다
-                if ((today == null ? 0 : today) + added >= EVENTS_PER_DAY) {
-                    throw new ApiException(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS, "TRADE_BOT_DAILY_LIMIT",
-                            "오늘 받은 사건이 " + EVENTS_PER_DAY + "건을 넘었어요. 봇이 같은 사건을 되풀이해 보내는지 확인해 주세요.");
-                }
-                int n = jdbc.update("""
-                        INSERT INTO trade_bot_event (member_id, external_id, kind, account, symbol, side, quantity, price, currency, realized_pnl,
-                            verdict, text, occurred_at, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        ON CONFLICT (member_id, external_id) DO NOTHING
-                        """, memberId, e.externalId(), e.kind().name(), e.account(), e.symbol(), e.side(), e.quantity(), e.price(),
-                        e.currency(), e.realizedPnl(), e.verdict(), e.text(), Timestamp.from(e.at()), Timestamp.from(now));
-                if (n == 1) added++;
-                else duplicates++;
-            }
-            return new Reported(accounts == null ? -1 : accounts.size(), added, duplicates);
+            return insertEvents(memberId, events, now, accounts == null ? -1 : accounts.size());
         });
+    }
+
+    private void replaceAccounts(long memberId, List<Account> accounts, Instant now) {
+        jdbc.update("DELETE FROM trade_bot_account WHERE member_id = ?", memberId);
+        for (Account acc : accounts) {
+            jdbc.update(INSERT_ACCOUNT, memberId, acc.account(), acc.exchange(), acc.market(), acc.currency(), acc.cash(), acc.unrealizedPnl(),
+                    json.writeValueAsString(acc.positions()), json.writeValueAsString(acc.rules()), Timestamp.from(now));
+        }
+    }
+
+    private Reported insertEvents(long memberId, List<EventIn> events, Instant now, int accounts) {
+        Instant dayStart = LocalDate.ofInstant(now, TradeTexts.KST).atStartOfDay(TradeTexts.KST).toInstant();
+        Integer today = jdbc.queryForObject("SELECT count(*) FROM trade_bot_event WHERE member_id = ? AND created_at >= ?",
+                Integer.class, memberId, Timestamp.from(dayStart));
+        int base = today == null ? 0 : today;
+        int added = 0;
+        int duplicates = 0;
+        for (EventIn e : events) {
+            if (e.at().isBefore(now.minus(KEEP))) continue; // 지울 만큼 오래된 사건은 받지 않는다
+            if (base + added >= EVENTS_PER_DAY) {
+                throw new ApiException(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS, "TRADE_BOT_DAILY_LIMIT",
+                        "오늘 받은 사건이 " + EVENTS_PER_DAY + "건을 넘었어요. 봇이 같은 사건을 되풀이해 보내는지 확인해 주세요.");
+            }
+            int n = jdbc.update(INSERT_EVENT, memberId, e.externalId(), e.kind().name(), e.account(), e.symbol(), e.side(), e.quantity(), e.price(),
+                    e.currency(), e.realizedPnl(), e.verdict(), e.text(), Timestamp.from(e.at()), Timestamp.from(now));
+            if (n == 1) added++;
+            else duplicates++;
+        }
+        return new Reported(accounts, added, duplicates);
     }
 
     /** 화면 /trade: 계좌·체결·Gemini 판단·하루 요약 */
@@ -193,39 +204,47 @@ public class TradeBotSim {
 
     private List<Account> accounts(JsonNode arr) {
         if (!arr.isArray()) throw bad("accounts는 배열이에요.");
-        if (arr.size() > ACCOUNTS_MAX) throw bad("계좌는 한 번에 " + ACCOUNTS_MAX + "개까지예요.");
+        if (arr.size() > ACCOUNTS_MAX) throw bad("계좌는 한 번에 " + ACCOUNTS_MAX + UP_TO_COUNT);
         List<Account> out = new ArrayList<>();
         Set<String> seen = new HashSet<>();
-        for (JsonNode n : arr) {
-            String name = n.path("account").asString("").strip();
-            if (!ACCOUNT.matcher(name).matches()) throw bad("account는 영문·숫자·._- 80자까지예요: " + name);
-            if (name.startsWith("trade-live-") || "LIVE".equalsIgnoreCase(n.path("mode").asString(""))) {
-                throw bad("실계좌(" + name + ")는 이 화면에 보내지 않아요. 모의 계좌만 보내 주세요.");
-            }
-            if (!seen.add(name)) throw bad("같은 계좌가 두 번 있어요: " + name);
-            String exchange = n.path("exchange").asString("").strip().toUpperCase(Locale.ROOT);
-            if (!EXCHANGE.matcher(exchange).matches()) throw bad("exchange는 BINANCE·UPBIT 같은 코드예요.");
-            String market = n.path("market").asString("spot").strip().toUpperCase(Locale.ROOT);
-            if (!market.equals("SPOT") && !market.equals("FUTURES")) throw bad("market은 spot이나 futures예요.");
-            String currency = n.path("currency").asString("").strip().toUpperCase(Locale.ROOT);
-            if (!CURRENCY.matcher(currency).matches()) throw bad("currency는 KRW·USDT 같은 통화 코드예요.");
-            BigDecimal cash = amount(n, "cash", true, false);
-            JsonNode ps = n.path("positions");
-            if (!ps.isMissingNode() && !ps.isNull() && !ps.isArray()) throw bad("positions는 배열이에요.");
-            if (ps.size() > POSITIONS_MAX) throw bad("포지션은 계좌마다 " + POSITIONS_MAX + "개까지예요.");
-            List<Position> positions = new ArrayList<>();
-            for (JsonNode p : ps) {
-                String symbol = p.path("symbol").asString("").strip();
-                if (!SYMBOL.matcher(symbol).matches()) throw bad("포지션 symbol이 이상해요: " + symbol);
-                String side = p.path("side").asString("").strip().toUpperCase(Locale.ROOT);
-                if (!side.isEmpty() && !side.equals("LONG") && !side.equals("SHORT")) throw bad("포지션 side는 LONG이나 SHORT예요.");
-                BigDecimal avg = p.has("avg_price") ? amount(p, "avg_price", false, false) : amount(p, "entry", false, false);
-                positions.add(new Position(symbol, side, amount(p, "quantity", true, false), avg, amount(p, "price", false, false),
-                        amount(p, "unrealized_pnl", false, true)));
-            }
-            out.add(new Account(name, exchange, market, currency, cash, amount(n, "unrealized_pnl", false, true), positions, rules(n.path("rules")), null));
-        }
+        for (JsonNode n : arr) out.add(account(n, seen));
         return out;
+    }
+
+    private Account account(JsonNode n, Set<String> seen) {
+        String name = n.path("account").asString("").strip();
+        if (!ACCOUNT.matcher(name).matches()) throw bad("account는 영문·숫자·._- 80자까지예요: " + name);
+        if (name.startsWith("trade-live-") || "LIVE".equalsIgnoreCase(n.path("mode").asString(""))) {
+            throw bad("실계좌(" + name + ")는 이 화면에 보내지 않아요. 모의 계좌만 보내 주세요.");
+        }
+        if (!seen.add(name)) throw bad("같은 계좌가 두 번 있어요: " + name);
+        String exchange = n.path("exchange").asString("").strip().toUpperCase(Locale.ROOT);
+        if (!EXCHANGE.matcher(exchange).matches()) throw bad("exchange는 BINANCE·UPBIT 같은 코드예요.");
+        String market = n.path("market").asString("spot").strip().toUpperCase(Locale.ROOT);
+        if (!market.equals("SPOT") && !market.equals("FUTURES")) throw bad("market은 spot이나 futures예요.");
+        String currency = n.path("currency").asString("").strip().toUpperCase(Locale.ROOT);
+        if (!CURRENCY.matcher(currency).matches()) throw bad("currency는 KRW·USDT 같은 통화 코드예요.");
+        BigDecimal cash = amount(n, "cash", true, false);
+        List<Position> positions = positions(n.path("positions"));
+        return new Account(name, exchange, market, currency, cash, amount(n, "unrealized_pnl", false, true), positions, rules(n.path("rules")), null);
+    }
+
+    private static List<Position> positions(JsonNode ps) {
+        if (!ps.isMissingNode() && !ps.isNull() && !ps.isArray()) throw bad("positions는 배열이에요.");
+        if (ps.size() > POSITIONS_MAX) throw bad("포지션은 계좌마다 " + POSITIONS_MAX + UP_TO_COUNT);
+        List<Position> positions = new ArrayList<>();
+        for (JsonNode p : ps) positions.add(position(p));
+        return positions;
+    }
+
+    private static Position position(JsonNode p) {
+        String symbol = p.path("symbol").asString("").strip();
+        if (!SYMBOL.matcher(symbol).matches()) throw bad("포지션 symbol이 이상해요: " + symbol);
+        String side = p.path("side").asString("").strip().toUpperCase(Locale.ROOT);
+        if (!side.isEmpty() && !side.equals("LONG") && !side.equals("SHORT")) throw bad("포지션 side는 LONG이나 SHORT예요.");
+        BigDecimal avg = p.has("avg_price") ? amount(p, "avg_price", false, false) : amount(p, "entry", false, false);
+        return new Position(symbol, side, amount(p, "quantity", true, false), avg, amount(p, "price", false, false),
+                amount(p, "unrealized_pnl", false, true));
     }
 
     /** 규칙은 {"전략": "이동평균 20봉 돌파"} 같은 객체나 [{label, value}] 배열로 받는다 */
@@ -239,7 +258,7 @@ public class TradeBotSim {
         } else {
             throw bad("rules는 객체나 배열이에요.");
         }
-        if (out.size() > RULES_MAX) throw bad("규칙은 계좌마다 " + RULES_MAX + "개까지예요.");
+        if (out.size() > RULES_MAX) throw bad("규칙은 계좌마다 " + RULES_MAX + UP_TO_COUNT);
         return out;
     }
 
@@ -257,42 +276,57 @@ public class TradeBotSim {
         if (!arr.isArray()) throw bad("events는 배열이에요.");
         if (arr.size() > EVENTS_PER_CALL) throw bad("사건은 한 번에 " + EVENTS_PER_CALL + "건까지예요. 나눠 보내 주세요.");
         Instant now = Times.now(clock);
-        for (JsonNode n : arr) {
-            String id = n.path("id").asString("").strip();
-            if (!EXTERNAL.matcher(id).matches()) throw bad("사건 id는 빈칸 없는 영문·숫자·기호 120자까지예요: " + id);
-            Kind kind;
-            try {
-                kind = Kind.valueOf(n.path("kind").asString("").strip().toUpperCase(Locale.ROOT));
-            } catch (IllegalArgumentException e) {
-                throw bad("사건 kind는 FILL·AI·SUMMARY 중 하나예요.");
-            }
-            Instant at;
-            try {
-                at = n.hasNonNull("at") ? OffsetDateTime.parse(n.path("at").asString()).toInstant() : now;
-            } catch (DateTimeParseException e) {
-                throw bad("at은 2026-10-15T13:05:00+09:00처럼 시간대를 붙여 적어 주세요.");
-            }
-            if (at.isAfter(now.plus(Duration.ofMinutes(10)))) throw bad("at이 미래예요: " + n.path("at").asString());
-            String account = n.path("account").asString("").strip();
-            if (!account.isEmpty() && !ACCOUNT.matcher(account).matches()) throw bad("사건 account가 이상해요: " + account);
-            if (account.startsWith("trade-live-")) throw bad("실계좌 사건은 이 화면에 보내지 않아요.");
-            String symbol = n.path("symbol").asString("").strip();
-            if (!symbol.isEmpty() && !SYMBOL.matcher(symbol).matches()) throw bad("사건 symbol이 이상해요: " + symbol);
-            String side = n.path("side").asString("").strip().toUpperCase(Locale.ROOT);
-            if (!side.isEmpty() && !SIDES.contains(side)) throw bad("side는 BUY·SELL·LONG·SHORT·CLOSE 중 하나예요.");
-            String verdict = n.path("verdict").asString("").strip().toUpperCase(Locale.ROOT);
-            if (!verdict.isEmpty() && !verdict.equals("ALLOW") && !verdict.equals("BLOCK")) throw bad("verdict는 ALLOW나 BLOCK이에요.");
-            String currency = n.path("currency").asString("").strip().toUpperCase(Locale.ROOT);
-            if (!currency.isEmpty() && !CURRENCY.matcher(currency).matches()) throw bad("currency는 KRW·USDT 같은 통화 코드예요.");
-            String text = n.path("text").asString(n.path("reason").asString("")).strip();
-            if (text.length() > TEXT_MAX) throw bad("text는 " + TEXT_MAX + "자까지예요.");
-            if (kind == Kind.FILL && (symbol.isEmpty() || side.isEmpty())) throw bad("체결(FILL)에는 symbol과 side가 있어야 해요.");
-            if (kind == Kind.AI && verdict.isEmpty()) throw bad("AI 판단에는 verdict(ALLOW·BLOCK)가 있어야 해요.");
-            if (kind == Kind.SUMMARY && text.isEmpty()) throw bad("하루 요약에는 text가 있어야 해요.");
-            out.add(new EventIn(id, kind, account, symbol, side, amount(n, "quantity", false, false), amount(n, "price", false, false),
-                    currency, amount(n, "realized_pnl", false, true), verdict, text, at));
-        }
+        for (JsonNode n : arr) out.add(eventIn(n, now));
         return out;
+    }
+
+    private static EventIn eventIn(JsonNode n, Instant now) {
+        String id = n.path("id").asString("").strip();
+        if (!EXTERNAL.matcher(id).matches()) throw bad("사건 id는 빈칸 없는 영문·숫자·기호 120자까지예요: " + id);
+        Kind kind = kind(n);
+        Instant at = at(n, now);
+        String account = n.path("account").asString("").strip();
+        if (!account.isEmpty() && !ACCOUNT.matcher(account).matches()) throw bad("사건 account가 이상해요: " + account);
+        if (account.startsWith("trade-live-")) throw bad("실계좌 사건은 이 화면에 보내지 않아요.");
+        String symbol = n.path("symbol").asString("").strip();
+        if (!symbol.isEmpty() && !SYMBOL.matcher(symbol).matches()) throw bad("사건 symbol이 이상해요: " + symbol);
+        String side = n.path("side").asString("").strip().toUpperCase(Locale.ROOT);
+        if (!side.isEmpty() && !SIDES.contains(side)) throw bad("side는 BUY·SELL·LONG·SHORT·CLOSE 중 하나예요.");
+        String verdict = n.path("verdict").asString("").strip().toUpperCase(Locale.ROOT);
+        if (!verdict.isEmpty() && !verdict.equals("ALLOW") && !verdict.equals("BLOCK")) throw bad("verdict는 ALLOW나 BLOCK이에요.");
+        String currency = n.path("currency").asString("").strip().toUpperCase(Locale.ROOT);
+        if (!currency.isEmpty() && !CURRENCY.matcher(currency).matches()) throw bad("currency는 KRW·USDT 같은 통화 코드예요.");
+        String text = n.path("text").asString(n.path("reason").asString("")).strip();
+        if (text.length() > TEXT_MAX) throw bad("text는 " + TEXT_MAX + "자까지예요.");
+        requireKindFields(kind, symbol, side, verdict, text);
+        return new EventIn(id, kind, account, symbol, side, amount(n, "quantity", false, false), amount(n, "price", false, false),
+                currency, amount(n, "realized_pnl", false, true), verdict, text, at);
+    }
+
+    private static Kind kind(JsonNode n) {
+        try {
+            return Kind.valueOf(n.path("kind").asString("").strip().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw bad("사건 kind는 FILL·AI·SUMMARY 중 하나예요.");
+        }
+    }
+
+    private static Instant at(JsonNode n, Instant now) {
+        Instant at;
+        try {
+            at = n.hasNonNull("at") ? OffsetDateTime.parse(n.path("at").asString()).toInstant() : now;
+        } catch (DateTimeParseException e) {
+            throw bad("at은 2026-10-15T13:05:00+09:00처럼 시간대를 붙여 적어 주세요.");
+        }
+        if (at.isAfter(now.plus(Duration.ofMinutes(10)))) throw bad("at이 미래예요: " + n.path("at").asString());
+        return at;
+    }
+
+    /** 사건 종류마다 꼭 있어야 하는 값 */
+    private static void requireKindFields(Kind kind, String symbol, String side, String verdict, String text) {
+        if (kind == Kind.FILL && (symbol.isEmpty() || side.isEmpty())) throw bad("체결(FILL)에는 symbol과 side가 있어야 해요.");
+        if (kind == Kind.AI && verdict.isEmpty()) throw bad("AI 판단에는 verdict(ALLOW·BLOCK)가 있어야 해요.");
+        if (kind == Kind.SUMMARY && text.isEmpty()) throw bad("하루 요약에는 text가 있어야 해요.");
     }
 
     private static BigDecimal amount(JsonNode n, String field, boolean required, boolean signed) {
@@ -311,7 +345,7 @@ public class TradeBotSim {
             return null;
         }
         if (d.abs().compareTo(AMOUNT_MAX) > 0 || (!signed && d.signum() < 0)) throw bad(field + " 값이 범위를 벗어났어요.");
-        return d.setScale(Math.min(Math.max(d.scale(), 0), 10), RoundingMode.DOWN);
+        return d.setScale(Math.clamp(d.scale(), 0, 10), RoundingMode.DOWN);
     }
 
     private static String text(String s, int max) {

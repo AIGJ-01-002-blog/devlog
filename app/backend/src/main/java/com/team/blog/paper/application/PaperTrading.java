@@ -251,7 +251,7 @@ public class PaperTrading {
     }
 
     private long record(long memberId, Valid v, String externalId, TradeJournal.Side side, BigDecimal qty, BigDecimal price, long fee, BigDecimal pnl) {
-        TradeJournal.Recorded r = journal.record(memberId, new TradeJournal.Input(externalId, TradeJournal.Mode.PAPER, v.coin().symbol(), v.coin().name(),
+        TradeJournal.Recorded r = journal.recordFill(memberId, new TradeJournal.Input(externalId, TradeJournal.Mode.PAPER, v.coin().symbol(), v.coin().name(),
                 side, qty, price, BigDecimal.valueOf(fee), pnl, STRATEGY, v.reason(), Times.now(clock), "UPBIT", "KRW"));
         return r.id();
     }

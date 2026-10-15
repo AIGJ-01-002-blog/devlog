@@ -124,7 +124,7 @@ class TradeTools {
         } catch (DateTimeParseException e) {
             return McpTools.Result.fail("executed_at은 2026-10-14T10:03:00+09:00처럼 시간대를 붙여 적어 주세요.");
         }
-        TradeJournal.Recorded r = trades.record(caller.memberId(), new TradeJournal.Input(a.path("external_id").asString(""), mode,
+        TradeJournal.Recorded r = trades.recordFill(caller.memberId(), new TradeJournal.Input(a.path("external_id").asString(""), mode,
                 a.path("symbol").asString(""), a.path("symbol_name").asString(""), side, number(a, "quantity"), number(a, "price"),
                 number(a, "fee"), number(a, "realized_pnl"), a.path("strategy").asString(""), a.path("reason").asString(""), at,
                 a.path("exchange").asString(""), a.path("currency").asString(""), market, position, leverage, a.path("interval").asString("")));

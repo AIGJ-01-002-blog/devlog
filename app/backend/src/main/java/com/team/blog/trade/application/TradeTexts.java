@@ -26,6 +26,7 @@ public final class TradeTexts {
     static final int SHORTS_FILLS_MAX = 2;
     static final double SHORTS_SECONDS_TARGET = 57;
 
+    private static final String FUTURES = "FUTURES";
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm").withZone(KST);
 
     private TradeTexts() {}
@@ -78,13 +79,13 @@ public final class TradeTexts {
 
     /** 선물 포지션: "선물 롱 3배". 현물은 빈 문자열 */
     public static String positionLabel(TradeJournal.Fill f) {
-        if (!f.market().equals("FUTURES")) return "";
+        if (!f.market().equals(FUTURES)) return "";
         return "선물 " + (f.positionSide().equals("SHORT") ? "숏" : "롱") + " " + (f.leverage() == null ? 1 : f.leverage()) + "배";
     }
 
     /** 체결 구분: 현물 "매수"·"매도", 선물 "롱 진입"·"롱 청산"·"숏 진입"·"숏 청산" */
     public static String actionLabel(TradeJournal.Fill f) {
-        if (!f.market().equals("FUTURES")) return f.side().equals("BUY") ? "매수" : "매도";
+        if (!f.market().equals(FUTURES)) return f.side().equals("BUY") ? "매수" : "매도";
         return (f.positionSide().equals("SHORT") ? "숏 " : "롱 ") + (f.closes() ? "청산" : "진입");
     }
 
@@ -129,7 +130,7 @@ public final class TradeTexts {
         for (TradeJournal.Fill f : day.fills().stream().sorted(Comparator.comparing(TradeJournal.Fill::executedAt)).toList()) {
             md.append("| ").append(TIME.format(f.executedAt()))
                     .append(" | ").append(cell(nameWithExchange(f))).append(f.mode().equals("LIVE") ? " (실계좌)" : "")
-                    .append(f.market().equals("FUTURES") ? " (" + positionLabel(f) + ")" : "")
+                    .append(f.market().equals(FUTURES) ? " (" + positionLabel(f) + ")" : "")
                     .append(" | ").append(actionLabel(f))
                     .append(" | ").append(Money.crypto(f.exchange()) ? amountOf(f) : qty(f.quantity()))
                     .append(" | ").append(money(f, f.price(), false))
@@ -155,46 +156,10 @@ public final class TradeTexts {
      * 60초를 넘으면 체결 장면부터 뺀다.
      */
     static List<ShortsScript.Scene> shortsScenes(TradeJournal.Day day) {
-        TradeJournal.Summary s = day.summary();
-        LocalDate d = day.date();
         String mode = modeLabel(day);
-        List<ShortsScript.Scene> head = new ArrayList<>();
-        head.add(new ShortsScript.Scene(d.getMonthValue() + "/" + d.getDayOfMonth() + " 봇 성적은?",
-                d.getMonthValue() + "월 " + d.getDayOfMonth() + "일, 제 " + mode + " 봇은 돈을 벌었을까요?", null));
-        boolean futures = day.fills().stream().anyMatch(f -> f.market().equals("FUTURES"));
-        boolean spot = day.fills().stream().anyMatch(f -> !f.market().equals("FUTURES"));
-        String close = futures ? spot ? "매도·청산" : "청산" : "매도";
-        String open = futures ? spot ? "매수·진입" : "진입" : "매수";
-        String result = s.closes() > 0
-                ? "체결 " + s.trades() + "건 가운데 " + close + " " + s.closes() + "번에서 실현 손익은 " + pnl(day, s, ", ") + "이었어요."
-                : "체결은 " + s.trades() + "건이었고 모두 " + open + "라서 아직 확정된 손익은 없어요.";
-        String caption = s.closes() > 0 ? "실현 손익 " + pnl(day, s, " · ") : open + " " + s.trades() + "건";
-        head.add(new ShortsScript.Scene(clip(caption, ShortsScript.CAPTION_MAX), result, null));
-
-        List<ShortsScript.Scene> fills = new ArrayList<>();
-        Set<String> seen = new LinkedHashSet<>();
-        List<TradeJournal.Fill> notable = day.fills().stream()
-                .sorted(Comparator.comparing((TradeJournal.Fill f) -> f.realizedPnl() == null ? BigDecimal.ZERO : f.realizedPnl().abs()).reversed()
-                        .thenComparing(TradeJournal.Fill::executedAt))
-                .toList();
-        for (TradeJournal.Fill f : notable) {
-            if (fills.size() >= SHORTS_FILLS_MAX || !seen.add(f.symbol())) continue;
-            String why = f.reason().isBlank() ? f.strategy() : f.reason();
-            String verb = f.market().equals("FUTURES")
-                    ? positionLabel(f) + (f.closes() ? "로 청산했어요" : "로 들어갔어요")
-                    : f.side().equals("BUY") ? "샀어요" : "팔았어요";
-            String pnl = f.realizedPnl() == null ? "" : " 손익은 " + money(f, f.realizedPnl(), true) + ".";
-            String narration = name(f) + " " + amountOf(f) + "를 " + money(f, f.price(), false) + "에 " + verb + "." + pnl
-                    + (why.isBlank() ? "" : " 신호는 " + why + ".");
-            fills.add(new ShortsScript.Scene(clip(name(f) + " " + actionLabel(f), ShortsScript.CAPTION_MAX),
-                    clip(narration, ShortsScript.NARRATION_MAX), null));
-        }
-
-        List<ShortsScript.Scene> tail = new ArrayList<>();
-        String cumulative = money(day, day.cumulativePnl(), true);
-        tail.add(new ShortsScript.Scene("누적 " + cumulative, "봇을 돌린 뒤 지금까지 확정된 손익은 " + cumulative + "이에요.", null));
-        tail.add(new ShortsScript.Scene("오늘 배운 점", "제가 오늘 느낀 건, " + clip(day.memo().strip().replaceAll("\\s+", " "), SHORTS_MEMO_MAX), null));
-        tail.add(new ShortsScript.Scene("투자 권유 아님", "투자 권유가 아니라 제 " + mode + " 기록이에요.", null));
+        List<ShortsScript.Scene> head = headScenes(day, mode);
+        List<ShortsScript.Scene> fills = fillScenes(day);
+        List<ShortsScript.Scene> tail = tailScenes(day, mode);
 
         List<ShortsScript.Scene> out = new ArrayList<>();
         while (true) {
@@ -205,6 +170,70 @@ public final class TradeTexts {
             if (fills.isEmpty() || ShortsScript.estimateSeconds(out) <= SHORTS_SECONDS_TARGET) return List.copyOf(out);
             fills.removeLast();
         }
+    }
+
+    /** 첫 질문과 하루 성적 장면 */
+    private static List<ShortsScript.Scene> headScenes(TradeJournal.Day day, String mode) {
+        TradeJournal.Summary s = day.summary();
+        LocalDate d = day.date();
+        List<ShortsScript.Scene> head = new ArrayList<>();
+        head.add(new ShortsScript.Scene(d.getMonthValue() + "/" + d.getDayOfMonth() + " 봇 성적은?",
+                d.getMonthValue() + "월 " + d.getDayOfMonth() + "일, 제 " + mode + " 봇은 돈을 벌었을까요?", null));
+        boolean futures = day.fills().stream().anyMatch(f -> f.market().equals(FUTURES));
+        boolean spot = day.fills().stream().anyMatch(f -> !f.market().equals(FUTURES));
+        String close = marketWord(futures, spot, "매도", "청산");
+        String open = marketWord(futures, spot, "매수", "진입");
+        String result = s.closes() > 0
+                ? "체결 " + s.trades() + "건 가운데 " + close + " " + s.closes() + "번에서 실현 손익은 " + pnl(day, s, ", ") + "이었어요."
+                : "체결은 " + s.trades() + "건이었고 모두 " + open + "라서 아직 확정된 손익은 없어요.";
+        String caption = s.closes() > 0 ? "실현 손익 " + pnl(day, s, " · ") : open + " " + s.trades() + "건";
+        head.add(new ShortsScript.Scene(clip(caption, ShortsScript.CAPTION_MAX), result, null));
+        return head;
+    }
+
+    /** 현물만이면 spotWord, 선물만이면 futuresWord, 둘 다면 "spotWord·futuresWord" */
+    private static String marketWord(boolean futures, boolean spot, String spotWord, String futuresWord) {
+        if (!futures) return spotWord;
+        return spot ? spotWord + "·" + futuresWord : futuresWord;
+    }
+
+    /** 눈에 띄는 체결 장면: 손익이 큰 매도부터, 같은 종목은 한 번 */
+    private static List<ShortsScript.Scene> fillScenes(TradeJournal.Day day) {
+        List<ShortsScript.Scene> fills = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        List<TradeJournal.Fill> notable = day.fills().stream()
+                .sorted(Comparator.comparing((TradeJournal.Fill f) -> f.realizedPnl() == null ? BigDecimal.ZERO : f.realizedPnl().abs()).reversed()
+                        .thenComparing(TradeJournal.Fill::executedAt))
+                .toList();
+        for (TradeJournal.Fill f : notable) {
+            if (fills.size() >= SHORTS_FILLS_MAX || !seen.add(f.symbol())) continue;
+            fills.add(fillScene(f));
+        }
+        return fills;
+    }
+
+    private static ShortsScript.Scene fillScene(TradeJournal.Fill f) {
+        String why = f.reason().isBlank() ? f.strategy() : f.reason();
+        String pnl = f.realizedPnl() == null ? "" : " 손익은 " + money(f, f.realizedPnl(), true) + ".";
+        String narration = name(f) + " " + amountOf(f) + "를 " + money(f, f.price(), false) + "에 " + verb(f) + "." + pnl
+                + (why.isBlank() ? "" : " 신호는 " + why + ".");
+        return new ShortsScript.Scene(clip(name(f) + " " + actionLabel(f), ShortsScript.CAPTION_MAX),
+                clip(narration, ShortsScript.NARRATION_MAX), null);
+    }
+
+    private static String verb(TradeJournal.Fill f) {
+        if (f.market().equals(FUTURES)) return positionLabel(f) + (f.closes() ? "로 청산했어요" : "로 들어갔어요");
+        return f.side().equals("BUY") ? "샀어요" : "팔았어요";
+    }
+
+    /** 누적 손익·메모·고지 장면 */
+    private static List<ShortsScript.Scene> tailScenes(TradeJournal.Day day, String mode) {
+        List<ShortsScript.Scene> tail = new ArrayList<>();
+        String cumulative = money(day, day.cumulativePnl(), true);
+        tail.add(new ShortsScript.Scene("누적 " + cumulative, "봇을 돌린 뒤 지금까지 확정된 손익은 " + cumulative + "이에요.", null));
+        tail.add(new ShortsScript.Scene("오늘 배운 점", "제가 오늘 느낀 건, " + clip(day.memo().strip().replaceAll("\\s+", " "), SHORTS_MEMO_MAX), null));
+        tail.add(new ShortsScript.Scene("투자 권유 아님", "투자 권유가 아니라 제 " + mode + " 기록이에요.", null));
+        return tail;
     }
 
     static String clip(String s, int max) {
