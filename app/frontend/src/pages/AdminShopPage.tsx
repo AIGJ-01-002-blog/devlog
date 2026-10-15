@@ -36,6 +36,13 @@ export function AdminShopPage() {
   // 목록은 종류별 탭으로 나눠 한 번에 한 종류만 보여 준다 (블로그 주인 요청). 주소 #theme 등으로 남겨 새로 고쳐도 그 탭에 있는다
   const [tab, setTab] = useState<ItemKind>(kindFromHash)
   const openTab = (k: ItemKind) => { setTab(k); window.history.replaceState(null, '', `#${k.toLowerCase()}`) }
+  useEffect(() => {
+    // 주소창에서 #frame 등을 직접 바꾸거나 뒤로 가기를 해도 탭이 따라간다
+    const sync = () => setTab(kindFromHash())
+    window.addEventListener('hashchange', sync)
+    window.addEventListener('popstate', sync)
+    return () => { window.removeEventListener('hashchange', sync); window.removeEventListener('popstate', sync) }
+  }, [])
 
   useEffect(() => { document.title = '상점 아이템 - 관리자 - devlog' }, [])
   const reload = () => adminShopItems().then(setItems).catch(() => setMessage({ ok: false, text: '아이템을 불러오지 못했어요.' }))
