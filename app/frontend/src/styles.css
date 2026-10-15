@@ -2698,10 +2698,13 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
   :root:not([data-theme="light"]) .blog-themed { --color-brand: color-mix(in srgb, var(--blog-theme) 60%, white); }
 }
 .blog-themed .blog-tabs a[aria-current="page"] { color: var(--color-brand); }
-.deco-frame { position: relative; padding: 4px; border-radius: 50%; background: var(--frame-bg, var(--color-surface)); }
+/* 테두리는 사진 둘레의 얇은 고리(--frame-w). inline-flex·line-height 0으로 글줄 높이가 끼지 않게 해 사진에 딱 맞는 원으로 그린다 (블로그 주인 요청) */
+.deco-frame { --frame-w: 3px; position: relative; display: inline-flex; flex: none; line-height: 0; padding: var(--frame-w); border-radius: 50%; background: var(--frame-bg, var(--color-surface)); }
+.deco-frame .avatar { max-width: none; aspect-ratio: 1; }
 .deco-frame[data-frame="color"] { --frame-bg: var(--frame-color); }
-.blog-avatar.deco-frame { padding: 7px; }
-.blog-avatar.deco-frame .avatar { box-shadow: 0 0 0 3px var(--color-surface); }
+.deco-effect-avatar.deco-frame { --frame-w: 2px; }
+.blog-avatar.deco-frame { --frame-w: 4px; }
+.blog-avatar.deco-frame .avatar { box-shadow: 0 0 0 2px var(--color-surface); }
 
 /* 티어 색 (아이언~챌린저). 테두리·표지·문장이 같은 --ta·--tb를 쓴다 */
 :is(.tier-iron, [data-frame="iron"], [data-banner="iron"]) { --ta: var(--tier-iron-a); --tb: var(--tier-iron-b); }
@@ -2742,8 +2745,8 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
   content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
   background: conic-gradient(from 0deg, transparent 0 20%, var(--tg2) 30%, var(--tier-spark) 34%, transparent 46%,
     transparent 0 70%, var(--tg) 80%, var(--tier-spark) 84%, transparent 96%);
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 8px), black calc(100% - 7px));
-  mask: radial-gradient(farthest-side, transparent calc(100% - 8px), black calc(100% - 7px));
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - var(--frame-w) - 0.5px), black calc(100% - var(--frame-w)));
+  mask: radial-gradient(farthest-side, transparent calc(100% - var(--frame-w) - 0.5px), black calc(100% - var(--frame-w)));
   animation: tier-spin var(--spin) linear infinite;
 }
 /* 번쩍임: 테두리 바깥으로 자기 색 빛이 터졌다 사라진다 (얼굴은 가리지 않는다) */
@@ -2755,8 +2758,8 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 :is(.blog-hero, .deco-effect-preview)[data-effect="radiance"] :is(.blog-avatar, .deco-effect-avatar):not(:is([data-frame="master"], [data-frame="grandmaster"], [data-frame="challenger"]))::after {
   content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
   background: conic-gradient(from 0deg, transparent 0 70%, var(--tier-spark) 80%, transparent 90%);
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), black calc(100% - 6px));
-  mask: radial-gradient(farthest-side, transparent calc(100% - 7px), black calc(100% - 6px));
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - var(--frame-w, 4px) - 0.5px), black calc(100% - var(--frame-w, 4px)));
+  mask: radial-gradient(farthest-side, transparent calc(100% - var(--frame-w, 4px) - 0.5px), black calc(100% - var(--frame-w, 4px)));
   animation: tier-spin 2.4s linear infinite;
 }
 @keyframes tier-spin { to { transform: rotate(360deg); } }
@@ -2885,7 +2888,6 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 .shop-card.tier-card.t9:not(.locked) { box-shadow: 0 0 0 1px var(--ta), 0 0 16px -4px var(--ta); }
 .shop-need { margin-top: 2px; }
 .shop-tabs .shop-preview { height: 120px; }
-.shop-preview > .deco-frame { padding: 6px; }
 .shop-actions .btn svg { margin-right: 4px; }
 .shop-ladder ol { list-style: none; margin: 16px 0; padding: 12px; display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 8px;
   border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); }
