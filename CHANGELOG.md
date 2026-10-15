@@ -69,6 +69,8 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 | ![쇼츠 주제 묶음 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/studio-batch-pc.webp) | ![쇼츠 주제 묶음 휴대폰 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/studio-batch-m-dark.webp) | ![쇼츠 주제 묶음 360px](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/unreleased/studio-batch-360.webp) |
 
 ### 고침
+- 보안: 계정 상태 필터와 로그인 입구 필터가 퍼센트 디코딩한 경로로 비교한다. 전에는 `/api/%70osts`처럼 인코딩하면 이메일 인증 전 글쓰기 막기와 같은 IP 1분 20회 로그인 한도를 건너뛰었다. ([#292](https://github.com/AIGJ-01-002-blog/devlog/issues/292))
+- 보안: 클러스터 안 Cloudflare 터널 뒤에서 X-Forwarded-For가 모두 신뢰 대역이면 `CLIENT_IP_HEADER`(운영·시험은 `CF-Connecting-IP`)를 사용자 IP로 쓴다. 전에는 모든 방문자가 인그레스 파드 주소 하나로 묶여 IP별 한도가 사이트 전체 한도가 될 수 있었다. ([#293](https://github.com/AIGJ-01-002-blog/devlog/issues/293))
 - spec 목록(`specs/README.md`)에 빠져 있던 099 쇼츠 스튜디오와 100 블로그 포인트를 더한다. ([#289](https://github.com/AIGJ-01-002-blog/devlog/issues/289))
 
 ## [2.0.0] - 2026-10-14

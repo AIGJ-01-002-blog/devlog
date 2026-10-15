@@ -269,6 +269,20 @@ class SignupLoginTest extends IntegrationTest {
     }
 
     @Test
+    void 퍼센트_인코딩한_로그인_주소도_같은_IP_한도를_넘을_수_없다() throws Exception {
+        // 보안 점검(2026-10-15): 걸러내기 필터가 날 주소(getRequestURI)를 보면 /api/dev/%6cogin은 한도를 건너뛰고 컨트롤러에는 닿았다
+        int limited = 0;
+        for (int i = 0; i < 25; i++) {
+            String path = i % 2 == 0 ? "/api/dev/%6cogin" : "/api/dev/login";
+            int st = browser().from("203.0.113.9").perform(asJson(post(java.net.URI.create(path)),
+                            Map.of("providerUserId", "1", "login", "x", "name", "x")))
+                    .andReturn().getResponse().getStatus();
+            if (st == 429) limited++;
+        }
+        assertThat(limited).isEqualTo(5);
+    }
+
+    @Test
     void 가입_대기_정보가_없으면_410() throws Exception {
         browser().perform(asJson(post("/api/auth/signup"), form("whatever", "아무개")))
                 .andExpect(status().isGone()).andExpect(jsonPath("$.code").value("SIGNUP_EXPIRED"));

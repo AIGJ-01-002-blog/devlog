@@ -5,6 +5,7 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,17 +19,25 @@ import com.team.blog.shared.config.BlogProperties;
  * 사용자 IP 판정 (docs/02 §5, 2026-10-07 회의 H4).
  * 로드 밸런서 내부 대역에서 온 요청만 X-Forwarded-For를 믿고, 그중 가장 오른쪽의 "신뢰 밖" 주소를 쓴다.
  * 그 밖의 출처가 보낸 X-Forwarded-*는 무시하므로 헤더를 위조해도 요청 제한을 우회할 수 없다.
+ * 체인이 모두 신뢰 대역이면(클러스터 안 터널 뒤) 신뢰 프록시가 넘겨준 clientIpHeader를 쓴다. 그렇지 않으면 모든 방문자가
+ * 인그레스 파드 주소 하나로 묶여 IP별 로그인 한도가 사이트 전체 한도가 된다 (보안 점검 2026-10-15).
  */
 @Component
 public class ClientIpResolver {
     private final List<Cidr> trusted;
+    private final String clientIpHeader;
 
     @Autowired
     public ClientIpResolver(BlogProperties props) {
-        this(props.web().trustedProxies());
+        this(props.web().trustedProxies(), props.web().clientIpHeader());
     }
 
     ClientIpResolver(List<String> trustedProxies) {
+        this(trustedProxies, "");
+    }
+
+    ClientIpResolver(List<String> trustedProxies, String clientIpHeader) {
+        this.clientIpHeader = clientIpHeader == null ? "" : clientIpHeader.trim();
         List<Cidr> list = new ArrayList<>();
         for (String s : trustedProxies) {
             if (s != null && !s.isBlank()) list.add(Cidr.parse(s.trim()));
@@ -40,14 +49,25 @@ public class ClientIpResolver {
         String remote = request.getRemoteAddr();
         if (!isTrusted(remote)) return remote;
         String xff = request.getHeader("X-Forwarded-For");
-        if (xff == null || xff.isBlank()) return remote;
-        String[] hops = xff.split(",");
-        for (int i = hops.length - 1; i >= 0; i--) {
-            String hop = hops[i].trim();
-            if (hop.isEmpty()) continue;
-            if (!isTrusted(hop)) return hop;
+        if (xff != null && !xff.isBlank()) {
+            String[] hops = xff.split(",");
+            for (int i = hops.length - 1; i >= 0; i--) {
+                String hop = hops[i].trim();
+                if (hop.isEmpty()) continue;
+                if (!isTrusted(hop)) return hop;
+            }
         }
-        return remote;
+        return fromHeader(request).orElse(remote);
+    }
+
+    /** 숫자 주소이고 신뢰 대역 밖일 때만 쓴다. 이름이나 내부 주소가 오면 접속 주소로 돌아간다. */
+    private Optional<String> fromHeader(HttpServletRequest request) {
+        if (clientIpHeader.isEmpty()) return Optional.empty();
+        String value = request.getHeader(clientIpHeader);
+        if (value == null) return Optional.empty();
+        String ip = value.trim();
+        if (Cidr.toBytes(ip) == null || isTrusted(ip)) return Optional.empty();
+        return Optional.of(ip);
     }
 
     private boolean isTrusted(String ip) {

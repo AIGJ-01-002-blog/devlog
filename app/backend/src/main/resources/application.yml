@@ -124,6 +124,9 @@ blog:
   web:
     # 로드 밸런서(신뢰 프록시) 내부 대역. 이 대역에서 온 요청만 X-Forwarded-For를 믿는다 (docs/02 §5 H4)
     trusted-proxies: ${TRUSTED_PROXIES:}
+    # 클러스터 안 Cloudflare 터널 → ingress-nginx를 거치면 X-Forwarded-For에 터널 파드 주소만 남는다.
+    # 그때는 신뢰 프록시가 넘겨준 이 머리글(예: CF-Connecting-IP)을 사용자 IP로 쓴다. 비우면 쓰지 않는다 (보안 점검 2026-10-15)
+    client-ip-header: ${CLIENT_IP_HEADER:}
   agreements:
     terms-version: "2026-10-07"
     terms-effective-date: "2026-10-07"
