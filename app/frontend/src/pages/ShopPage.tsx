@@ -72,7 +72,7 @@ export function ShopPage() {
   return (
     <main className="container dashboard-page shop-page">
       <h1 className="page-title">{t('크레딧 상점')}</h1>
-      <p className="muted small shop-notice">{t('출석·글·모의투자 수익으로 번 크레딧으로 블로그를 꾸며요. 아래 티어를 사야 윗 티어가 열려요. 가입 때 받은 투자 전용 포인트로는 살 수 없어요.')}</p>
+      <p className="muted small shop-notice">{t('출석·글·모의투자 수익으로 번 크레딧으로 블로그를 꾸며요. 아래 티어를 사야 윗 티어가 열려요. 가입 때 받은 기본 크레딧으로는 살 수 없어요.')}</p>
       {error && <p className="error" role="alert">{t('상점을 불러오지 못했어요.')}</p>}
       {!shop && !error && <p className="muted center">{t('불러오는 중…')}</p>}
       {shop && (
@@ -84,7 +84,7 @@ export function ShopPage() {
               <span className="kpi-foot"><Link to="/points" className="kpi-prev" data-tip={t('출석하고 크레딧 얻는 법 보기')}>{t('크레딧 더 모으기')}</Link></span>
             </div>
             <div className="kpi" data-tip={t('가입할 때 받은 모의투자 자금이에요. 모의투자에만 쓰고 상점에서는 못 써요')}>
-              <span className="kpi-label">{t('투자 전용 포인트')}</span>
+              <span className="kpi-label">{t('기본 크레딧')}</span>
               <span className="kpi-value muted">{points(shop.investBalance)}</span>
               <span className="kpi-foot"><span className="kpi-prev">{t('상점에서는 못 써요')}</span></span>
             </div>

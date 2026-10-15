@@ -36,6 +36,8 @@ import com.team.blog.trade.application.TradeCharts.Exchange;
  * 결과를 spec 101 표에 계좌 server-paper-…로 남긴다. 회원이 자기 컴퓨터 봇을 함께 돌려도 계좌 이름이 달라 섞이지 않는다.
  * <p>모의만 한다: 공개 캔들(키 없음)만 쓰고 거래소 키를 받지 않는다. 실거래는 블로그 주인 맥에서만 돈다(2026-10-15 결정).
  * 규칙은 trade-bot(devlog_trade/strategy.py)의 MovingAverageCross와 같다. 처음 현금·한 번 금액·수수료도 봇 기본값과 같다.
+ * <p>포인트가 켜진 서버에서는 원화(업비트) 계좌가 가상 돈 대신 회원의 기본 크레딧으로 사고판다(#331, 블로그 주인 결정).
+ * 체결은 포인트 모의투자 보유분과 매매 일지에 함께 남는다. 바이낸스(USDT) 계좌는 늘 가상 돈이다.
  */
 @Service
 public class PaperBot {
@@ -50,6 +52,7 @@ public class PaperBot {
     private static final String POSITIONS = "positions";
     private static final String QUANTITY = "quantity";
     private static final String AVG_PRICE = "avg_price";
+    private static final String CREDIT = "credit";
 
     /** 거래소마다 처음 현금·한 번 금액·수수료율. trade-bot exchanges.py 기본값과 같다 */
     record Book(Exchange exchange, String currency, BigDecimal cash, BigDecimal budget, BigDecimal feeRate) {
@@ -109,16 +112,19 @@ public class PaperBot {
     private final TradeCharts charts;
     private final TradeProperties props;
     private final JobLock lock;
+    private final BotCredits credits;
     private final Clock clock;
     private final JsonMapper json = JsonMapper.builder().build();
 
-    public PaperBot(JdbcTemplate jdbc, PlatformTransactionManager txm, TradeCharts charts, TradeProperties props, JobLock lock, Clock clock) {
+    public PaperBot(JdbcTemplate jdbc, PlatformTransactionManager txm, TradeCharts charts, TradeProperties props, JobLock lock, Clock clock,
+                    BotCredits credits) {
         this.jdbc = jdbc;
         this.tx = new TransactionTemplate(txm);
         this.charts = charts;
         this.props = props;
         this.lock = lock;
         this.clock = clock;
+        this.credits = credits;
     }
 
     public record Switch(boolean enabled) {}
@@ -196,21 +202,30 @@ public class PaperBot {
 
     /** 거래소 계좌 하나: 종목마다 규칙을 돌리고 계좌·체결을 남긴다. state의 그 거래소 칸을 고친다 */
     private void runBook(long memberId, Book book, ObjectNode state, List<Coin> coins, Instant now) {
-        ObjectNode acc = state.has(book.exchange().name()) ? (ObjectNode) state.get(book.exchange().name()) : fresh(book);
+        boolean credit = usesCredits(book);
+        JsonNode had = state.get(book.exchange().name());
+        // 가상 돈으로 산 보유분을 크레딧 계좌로 가져가지 않는다: 모드가 바뀌면 새 계좌로 시작한다
+        ObjectNode acc = had instanceof ObjectNode o && o.path(CREDIT).asBoolean(false) == credit ? o : fresh(book, credit);
         List<Fill> fills = new ArrayList<>();
         Map<String, BigDecimal> last = new LinkedHashMap<>();
         for (Coin coin : coins) {
             if (coin.candles().isEmpty()) continue;
-            fills.addAll(trade(book, acc, coin));
+            fills.addAll(credit ? creditTrade(memberId, book, acc, coin) : trade(book, acc, coin));
             last.put(coin.symbol(), coin.candles().getLast().c());
         }
         state.set(book.exchange().name(), acc);
+        if (credit) acc.put("cash", String.valueOf(credits.invest(memberId)));
         writeAccount(memberId, book, acc, last, now);
         for (Fill f : fills) writeFill(memberId, book, f, now);
     }
 
-    private ObjectNode fresh(Book book) {
+    private boolean usesCredits(Book book) {
+        return book.exchange() == Exchange.UPBIT && credits != null && credits.enabled();
+    }
+
+    private ObjectNode fresh(Book book, boolean credit) {
         ObjectNode acc = json.createObjectNode();
+        acc.put(CREDIT, credit);
         acc.put("cash", book.cash().toPlainString());
         acc.set(POSITIONS, json.createObjectNode());
         acc.set("seen", json.createObjectNode());
@@ -236,6 +251,59 @@ public class PaperBot {
         }
         if (!coin.candles().isEmpty()) seen.put(coin.symbol(), Math.max(seenT, coin.candles().getLast().t()));
         return out;
+    }
+
+    /**
+     * 기본 크레딧으로 도는 원화 계좌 (#331). 켠 뒤 새로 닫힌 마지막 봉에서만 사고팔아 지난 봉을 되짚어 크레딧을 쓰지 않는다.
+     * 봇은 자기가 산 수량만 판다. 내가 손으로 먼저 팔았으면 남은 만큼만 팔고, 하나도 없으면 봇 보유분을 지운다.
+     */
+    List<Fill> creditTrade(long memberId, Book book, ObjectNode acc, Coin coin) {
+        ObjectNode positions = (ObjectNode) acc.get(POSITIONS);
+        ObjectNode seen = (ObjectNode) acc.get("seen");
+        long seenT = seen.path(coin.symbol()).asLong(0);
+        Rule rule = new Rule(WINDOW, STOP_LOSS);
+        Candle last = coin.candles().getLast();
+        String signal = null;
+        for (Candle c : coin.candles()) {
+            JsonNode pos = positions.get(coin.symbol());
+            BigDecimal avg = pos == null ? BigDecimal.ZERO : new BigDecimal(pos.path(AVG_PRICE).asString("0"));
+            signal = rule.onBar(c.c(), pos != null, avg);
+        }
+        seen.put(coin.symbol(), Math.max(seenT, last.t()));
+        if (last.t() <= seenT || signal == null) return List.of();
+        Fill f = signal.equals("BUY") ? creditBuy(memberId, book, positions, coin, last) : creditSell(memberId, book, positions, coin, last, signal.substring(5));
+        return f == null ? List.of() : List.of(f);
+    }
+
+    private Fill creditBuy(long memberId, Book book, ObjectNode positions, Coin coin, Candle c) {
+        long amount = Math.min(book.budget().longValue(), credits.invest(memberId));
+        if (amount <= 0) return null;
+        String text = "종가가 " + WINDOW + "개 1h봉 이동평균선 위로 올라섬";
+        return credits.buy(memberId, coin.coin(), amount, orderId(coin, c, "B"), text).map(f -> {
+            ObjectNode p = json.createObjectNode();
+            p.put(QUANTITY, f.quantity().toPlainString());
+            p.put(AVG_PRICE, f.price().toPlainString());
+            positions.set(coin.symbol(), p);
+            return new Fill(id(book, coin.symbol(), c.t(), "BUY"), coin.symbol(), "BUY", f.quantity(), f.price(), null, text, closedAt(c));
+        }).orElse(null);
+    }
+
+    private Fill creditSell(long memberId, Book book, ObjectNode positions, Coin coin, Candle c, String reason) {
+        BigDecimal mine = new BigDecimal(positions.get(coin.symbol()).path(QUANTITY).asString("0"));
+        BigDecimal held = credits.held(memberId, coin.coin());
+        if (held.signum() <= 0) {
+            positions.remove(coin.symbol()); // 내가 이미 다 팔았다
+            return null;
+        }
+        return credits.sell(memberId, coin.coin(), mine.min(held), orderId(coin, c, "S"), reason).map(f -> {
+            positions.remove(coin.symbol());
+            return new Fill(id(book, coin.symbol(), c.t(), "SELL"), coin.symbol(), "SELL", f.quantity(), f.price(), f.pnl(), reason, closedAt(c));
+        }).orElse(null);
+    }
+
+    /** 봇 주문 번호: 같은 봉의 같은 신호는 한 번만 체결된다 */
+    private static String orderId(Coin coin, Candle c, String side) {
+        return "bot-" + coin.coin() + "-" + c.t() + "-" + side;
     }
 
     /** 한 번 금액만큼 산다. 현금이 모자라면 null */
@@ -299,9 +367,9 @@ public class PaperBot {
         List<Map<String, String>> rules = List.of(
                 rule("전략", WINDOW + "봉 이동평균 교차"), rule("봉", INTERVAL),
                 rule("코인", String.join(", ", TradeCharts.COINS)),
-                rule("한 번 금액", book.budget().toPlainString() + " " + book.currency()),
+                rule("한 번 금액", book.budget().toPlainString() + " " + (usesCredits(book) ? "기본 크레딧" : book.currency())),
                 rule("손절", STOP_LOSS.movePointRight(2).stripTrailingZeros().toPlainString() + "%"),
-                rule("돌리는 곳", "devlog 서버 (모의)"));
+                rule("돌리는 곳", usesCredits(book) ? "devlog 서버 (모의 · 기본 크레딧)" : "devlog 서버 (모의)"));
         jdbc.update("DELETE FROM trade_bot_account WHERE member_id = ? AND account = ?", memberId, book.account());
         jdbc.update("""
                 INSERT INTO trade_bot_account (member_id, account, exchange, market, currency, cash, unrealized_pnl, positions, rules, reported_at)

@@ -67,7 +67,7 @@ export function AttendNudge({ path }: { path: string }) {
         <span className="attend-nudge-actions">
           <button type="button" className="btn btn-primary btn-small" disabled={busy} onClick={() => void go()}
             data-tip={t('하루에 한 번, 한국 시간 0시에 새로 출석할 수 있어요')}>{busy ? t('출석하는 중…') : t('출석하기')}</button>
-          <Link to="/points" className="btn btn-text btn-small" data-tip={t('출석하고 포인트 잔액과 내역 보기')}>{t('내 포인트')}</Link>
+          <Link to="/points" className="btn btn-text btn-small" data-tip={t('출석하고 크레딧 잔액과 내역 보기')}>{t('내 크레딧')}</Link>
           <button type="button" className="btn btn-text btn-small" onClick={close} aria-label={t('오늘은 닫기')} data-tip={t('오늘은 이 알림을 띄우지 않아요')}>✕</button>
         </span>
       </div>

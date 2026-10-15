@@ -86,7 +86,7 @@ public class PointController {
     private void admin(MemberPrincipal me) {
         points.requireEnabled();
         if (!me.isStaff()) throw new NotFoundException();
-        if (!me.isAdmin()) throw new ApiException(HttpStatus.FORBIDDEN, "ADMIN_ONLY", "포인트 규칙은 관리자만 바꿀 수 있어요.");
+        if (!me.isAdmin()) throw new ApiException(HttpStatus.FORBIDDEN, "ADMIN_ONLY", "크레딧 규칙은 관리자만 바꿀 수 있어요.");
     }
 
     private Wallet wallet(String raw) {

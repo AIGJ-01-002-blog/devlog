@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { amountOf, attendanceDots, attendanceReward, badgeName, credits, kstToday, points, reasonLabel, ruleValue, type PointAttendance } from './points'
 
 describe('points', () => {
-  it('포인트 숫자에 부호와 P를 붙인다', () => {
-    expect(points(1500)).toBe('1,500P')
-    expect(points(1500, true)).toBe('+1,500P')
-    expect(points(-60, true)).toBe('-60P')
-    expect(points(0, true)).toBe('0P')
+  it('기본 크레딧도 크레딧 단위로 부호를 붙인다', () => {
+    expect(points(1500)).toBe('1,500크레딧')
+    expect(points(1500, true)).toBe('+1,500크레딧')
+    expect(points(-60, true)).toBe('-60크레딧')
+    expect(points(0, true)).toBe('0크레딧')
   })
 
   it('출석 칸은 오늘을 끝으로 7일이고 출석한 날만 찬다', () => {
@@ -29,7 +29,7 @@ describe('points', () => {
     expect(credits(1500)).toBe('1,500크레딧')
     expect(credits(100, true)).toBe('+100크레딧')
     expect(amountOf('SHOP', -60, true)).toBe('-60크레딧')
-    expect(amountOf('INVEST_ONLY', 1000)).toBe('1,000P')
+    expect(amountOf('INVEST_ONLY', 1000)).toBe('1,000크레딧')
     expect(attendanceReward(100, 13_322_500, 1)).toBe(100)
     expect(attendanceReward(100, 13_322_500, 3)).toBe(900)
     expect(attendanceReward(100, 13_322_500, 365)).toBe(13_322_500)

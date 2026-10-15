@@ -35,7 +35,7 @@ export function PaperPage() {
   // 같은 주문을 두 번 보내도 한 번만 체결되게, 주문 내용이 바뀔 때만 새 번호를 쓴다
   const orderId = useRef(newOrderId())
 
-  useEffect(() => { document.title = t('포인트 모의투자 - devlog') }, [])
+  useEffect(() => { document.title = t('크레딧 모의투자 - devlog') }, [])
 
   // 늦게 온 새로고침 응답이 방금 받은 주문 결과를 덮지 않게, 가장 최근 요청의 응답만 쓴다
   const seq = useRef(0)
@@ -66,7 +66,7 @@ export function PaperPage() {
     if (!state || state.quotesError || !quote?.price) return t('시세를 받은 뒤에 주문할 수 있어요')
     if (side === 'BUY') {
       if (amountN < state.minOrder) return t('한 번에 {0} 이상 살 수 있어요', { 0: points(state.minOrder) })
-      if (amountN > spendable) return useShop ? t('포인트가 모자라요') : t('투자 전용 포인트가 모자라요. 크레딧도 쓰려면 아래에서 켜 주세요')
+      if (amountN > spendable) return useShop ? t('크레딧이 모자라요') : t('기본 크레딧이 모자라요. 번 크레딧도 쓰려면 아래에서 켜 주세요')
       return null
     }
     if (!position) return t('갖고 있지 않은 코인이에요')
@@ -120,8 +120,8 @@ export function PaperPage() {
   return (
     <main className="container dashboard-page paper-page">
       <div className="points-title">
-        <h1 className="page-title">{t('포인트 모의투자')}</h1>
-        <Link to="/points" className="btn btn-outline btn-small" data-tip={t('출석하고 포인트 잔액과 내역 보기')}>{t('내 포인트')}</Link>
+        <h1 className="page-title">{t('크레딧 모의투자')}</h1>
+        <Link to="/points" className="btn btn-outline btn-small" data-tip={t('출석하고 크레딧 잔액과 내역 보기')}>{t('내 크레딧')}</Link>
       </div>
       <p className="muted small points-notice">{t('거래소 원화 시세로 비트코인·이더리움·리플·솔라나·도지코인을 포인트로 사고팔아요. 체결은 매매 일지에 모의투자로 남고, 수익은 모두 크레딧으로 쌓여요.')}</p>
       {error && <p className="error" role="alert">{t('모의투자를 불러오지 못했어요.')}</p>}
@@ -130,7 +130,7 @@ export function PaperPage() {
         <>
           <div className="kpi-grid dashboard-kpis points-kpis" style={{ '--kpi-cols': 3 } as CSSProperties}>
             <div className="kpi" data-tip={t('가입할 때 받은 모의투자 자금과 판 돈이에요. 살 때 먼저 써요')}>
-              <span className="kpi-label">{t('투자 전용 포인트')}</span>
+              <span className="kpi-label">{t('기본 크레딧')}</span>
               <span className="kpi-value">{points(state.invest)}</span>
               <span className="kpi-foot"><span className="kpi-prev">{t('살 때 먼저 써요')}</span></span>
             </div>
@@ -172,7 +172,7 @@ export function PaperPage() {
             <section className="paper-order" aria-label={t('주문')}>
               <div className="paper-sides" role="tablist" aria-label={t('사기·팔기')}>
                 <button type="button" role="tab" aria-selected={side === 'BUY'} className={`paper-side buy${side === 'BUY' ? ' active' : ''}`}
-                  onClick={() => setSide('BUY')} data-tip={t('포인트로 사요')}>{t('사기')}</button>
+                  onClick={() => setSide('BUY')} data-tip={t('크레딧으로 사요')}>{t('사기')}</button>
                 <button type="button" role="tab" aria-selected={side === 'SELL'} className={`paper-side sell${side === 'SELL' ? ' active' : ''}`}
                   onClick={() => setSide('SELL')} data-tip={t('갖고 있는 코인을 팔아요')}>{t('팔기')}</button>
               </div>
@@ -199,13 +199,13 @@ export function PaperPage() {
                   {QUICK.map((p) => (
                     <button key={p} type="button" className="btn btn-outline btn-small" onClick={() => quick(p)}
                       disabled={side === 'SELL' && !position}
-                      data-tip={side === 'BUY' ? t('쓸 수 있는 포인트의 {0}%', { 0: p }) : t('갖고 있는 수량의 {0}%', { 0: p })}>
+                      data-tip={side === 'BUY' ? t('쓸 수 있는 크레딧의 {0}%', { 0: p }) : t('갖고 있는 수량의 {0}%', { 0: p })}>
                       {p === 100 ? t('최대') : `${p}%`}
                     </button>
                   ))}
                 </div>
                 {side === 'BUY' && (
-                  <label className="check" data-tip={t('투자 전용 포인트가 모자라면 크레딧으로 채워요. 판 돈은 낸 지갑으로 돌아가요')}>
+                  <label className="check" data-tip={t('기본 크레딧이 모자라면 번 크레딧으로 채워요. 판 돈은 낸 쪽으로 돌아가요')}>
                     <input type="checkbox" checked={useShop} onChange={(e) => setUseShop(e.target.checked)} />
                     <span>{t('크레딧도 쓰기 (지금 {0})', { 0: credits(state.shop) })}</span>
                   </label>
@@ -217,7 +217,7 @@ export function PaperPage() {
                 <p id="paper-est" className="muted small paper-est">
                   {side === 'BUY'
                     ? buyEst ? t('예상 {0}개 · 수수료 {1}', { 0: qty(buyEst.quantity), 1: points(buyEst.fee) }) : t('수수료 {0}%', { 0: num(state.feeRate * 100) })
-                    : sellEst ? t('예상 받는 포인트 {0} · 수수료 {1}', { 0: points(sellEst.proceeds), 1: points(sellEst.fee) }) : t('수수료 {0}%', { 0: num(state.feeRate * 100) })}
+                    : sellEst ? t('예상 받는 크레딧 {0} · 수수료 {1}', { 0: points(sellEst.proceeds), 1: points(sellEst.fee) }) : t('수수료 {0}%', { 0: num(state.feeRate * 100) })}
                 </p>
                 <button type="submit" className={`btn paper-submit ${side === 'BUY' ? 'buy' : 'sell'}`} disabled={busy || blocked !== null}
                   data-tip={blocked ?? (side === 'BUY' ? t('지금 시세로 사요') : t('지금 시세로 팔아요'))}>
@@ -258,7 +258,7 @@ export function PaperPage() {
                         </th>
                         <td className="num">{qty(p.quantity)}</td>
                         <td className="num hide-sm">{price(p.avgPrice)}</td>
-                        <td className="num hide-sm" title={t('투자 전용 {0} · 상점 {1}', { 0: points(p.costInvest), 1: points(p.costShop) })}>{points(p.cost)}</td>
+                        <td className="num hide-sm" title={t('기본 {0} · 상점 {1}', { 0: points(p.costInvest), 1: points(p.costShop) })}>{points(p.cost)}</td>
                         <td className="num">{points(p.value)}</td>
                         <td className={`num pnl ${tone(p.pnl)}`}>{points(p.pnl, true)} <span className="small paper-rate">({pnlRate(p)})</span></td>
                       </tr>
