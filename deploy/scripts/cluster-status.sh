@@ -42,7 +42,11 @@ for pod in $(k -n blog get pods -l app.kubernetes.io/name=blog-app -o name); do
   k -n blog logs "$pod" --all-containers --tail=20000 2>&1 | grep -E "업비트|[Uu]pbit" | tail -10 || true
 done
 echo "== 업비트 공개 시세 접속 (서버, 앱 파드)"
-curl -s -o /dev/null -m 10 -w "server: HTTP %{http_code}\n" "https://api.upbit.com/v1/ticker?markets=KRW-BTC" 2>&1 || echo "server: curl 실패"
+for url in "https://api.upbit.com/v1/ticker?markets=KRW-BTC" "https://api.bithumb.com/v1/ticker?markets=KRW-BTC" \
+           "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT" "https://data-api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT" \
+           "https://api.coinone.co.kr/public/v2/ticker_new/KRW/BTC" "https://api.korbit.co.kr/v2/tickers?symbol=btc_krw"; do
+  curl -s -o /dev/null -m 8 -w "server: HTTP %{http_code} ${url%%\?*}\n" "$url" 2>&1 || echo "server: 실패 ${url%%\?*}"
+done
 k -n blog exec deploy/blog-app -- sh -c 'command -v wget >/dev/null && wget -S -q -O /dev/null -T 10 "https://api.upbit.com/v1/ticker?markets=KRW-BTC" 2>&1 | head -3 || echo "wget 없음"' 2>&1 | head -5 || true
 # 조회문은 표준 입력으로 넘긴다(따옴표가 겹치지 않게). 공개 조건은 PostAccessPolicy.PUBLIC_LIST_CONDITION과 같다
 psql_read() {
