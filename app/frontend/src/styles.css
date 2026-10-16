@@ -2578,6 +2578,12 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 .trades-fills { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .trades-fills li { padding: 8px 10px; border: 1px solid var(--color-border); border-radius: var(--radius); overflow-wrap: anywhere; }
 .trades-fill-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.trades-trace { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 2px; }
+.trades-setups { margin-bottom: 16px; }
+.trades-setup-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.trades-setup-table th, .trades-setup-table td { padding: 6px 8px; border-bottom: 1px solid var(--color-border); text-align: left; white-space: nowrap; }
+.trades-setup-table th { font-size: 0.8125rem; font-weight: 600; color: var(--color-text-muted); }
+.trades-setup-table .num { text-align: right; font-variant-numeric: tabular-nums; }
 .trades-fill-delete { margin-left: auto; }
 .trades-buy { color: var(--color-up); }
 .trades-sell { color: var(--color-down); }

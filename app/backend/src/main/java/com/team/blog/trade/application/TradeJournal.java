@@ -8,12 +8,15 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -163,10 +166,63 @@ public class TradeJournal {
      * @param live·paper 모드와 상관없이 그 모드로 남긴 체결이 하나라도 있는지 (토글 기본값을 정할 때 쓴다)
      */
     public record Overview(LocalDate from, LocalDate to, List<DayRow> days, Summary total, Map<String, BigDecimal> cumulativePnl,
-                           boolean live, boolean paper, Mode mode) {}
+                           boolean live, boolean paper, Mode mode, List<SetupStat> setups) {}
 
+    /**
+     * 기법 버전·셋업별 성적 (#285). R배수를 남긴 정리 체결만 센다.
+     * @param mode LIVE·PAPER. 실거래와 모의 성적은 섞지 않는다
+     * @param wins R배수가 0보다 큰 정리 수
+     * @param avgR R배수 평균 (소수 둘째 자리)
+     */
+    public record SetupStat(String mode, String strategyVersion, String setup, int samples, int wins, BigDecimal avgR) {}
+
+    /**
+     * 정리 체결을 모드·기법 버전·셋업으로 묶어 표본 수, 이긴 수, 평균 R을 낸다. 표본이 많은 것부터.
+     * 정리 체결에 기법 버전·셋업이 비어 있으면 같은 decision_id로 이어진 진입 체결의 값을 쓴다.
+     */
+    public static List<SetupStat> setupStats(List<Fill> fills) {
+        return setupStats(fills, List.of());
+    }
+
+    /** @param earlier 기간 앞에 있는 진입 체결. 기법을 잇는 데만 쓰고 세지 않는다 */
+    static List<SetupStat> setupStats(List<Fill> fills, List<Fill> earlier) {
+        Map<String, TradeTrace> entries = new HashMap<>();
+        for (Fill f : java.util.stream.Stream.concat(fills.stream(), earlier.stream()).toList()) {
+            TradeTrace t = f.trace();
+            if (t != null && !f.closes() && !t.decisionId().isBlank()) entries.putIfAbsent(f.mode() + ":" + t.decisionId(), t);
+        }
+        Map<List<String>, List<BigDecimal>> groups = new LinkedHashMap<>();
+        for (Fill f : fills) {
+            TradeTrace t = f.trace();
+            if (t == null || t.rMultiple() == null || !f.closes()) continue;
+            TradeTrace in = t.decisionId().isBlank() ? null : entries.get(f.mode() + ":" + t.decisionId());
+            String version = t.strategyVersion().isBlank() && in != null ? in.strategyVersion() : t.strategyVersion();
+            String setup = t.setup().isBlank() && in != null ? in.setup() : t.setup();
+            groups.computeIfAbsent(List.of(f.mode(), version, setup), k -> new ArrayList<>()).add(t.rMultiple());
+        }
+        List<SetupStat> out = new ArrayList<>();
+        groups.forEach((k, rs) -> {
+            BigDecimal sum = rs.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+            int wins = (int) rs.stream().filter(r -> r.signum() > 0).count();
+            out.add(new SetupStat(k.get(0), k.get(1), k.get(2), rs.size(), wins,
+                    sum.divide(BigDecimal.valueOf(rs.size()), 2, java.math.RoundingMode.HALF_UP)));
+        });
+        out.sort(java.util.Comparator.comparingInt(SetupStat::samples).reversed());
+        return out;
+    }
+
+    /** earlier: 정리 체결의 기법을 잇는 데만 쓰는 하루 앞 진입 체결. 합계·응답에는 넣지 않는다 */
     public record Day(LocalDate date, List<Fill> fills, Summary summary, Map<String, BigDecimal> cumulativePnl, String memo, Long postId,
-                      Long shortsId) {}
+                      Long shortsId, @JsonIgnore List<Fill> earlier) {
+        public Day(LocalDate date, List<Fill> fills, Summary summary, Map<String, BigDecimal> cumulativePnl, String memo, Long postId,
+                   Long shortsId) {
+            this(date, fills, summary, cumulativePnl, memo, postId, shortsId, List.of());
+        }
+
+        public List<SetupStat> setupStats() {
+            return TradeJournal.setupStats(fills, earlier);
+        }
+    }
 
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
@@ -368,7 +424,27 @@ public class TradeJournal {
             rows.add(new DayRow(d, s, running, !m.memo().isBlank(), m.postId(), m.shortsId()));
         }
         List<Fill> all = fills.values().stream().flatMap(List::stream).toList();
-        return new Overview(from, to, rows.reversed(), summarize(all), running, has(memberId, Mode.LIVE), has(memberId, Mode.PAPER), mode);
+        return new Overview(from, to, rows.reversed(), summarize(all), running, has(memberId, Mode.LIVE), has(memberId, Mode.PAPER), mode,
+                setupStats(all, earlierEntries(memberId, from, all)));
+    }
+
+    /** 기간 안 정리 체결 가운데 기법이 비어 있는 것의 decision_id로, 기간 앞에 남긴 체결을 찾는다 */
+    private List<Fill> earlierEntries(long memberId, LocalDate from, List<Fill> all) {
+        List<String> ids = all.stream()
+                .filter(f -> f.closes() && f.trace() != null && f.trace().rMultiple() != null && !f.trace().decisionId().isBlank()
+                        && (f.trace().strategyVersion().isBlank() || f.trace().setup().isBlank()))
+                .map(f -> f.trace().decisionId()).distinct().toList();
+        List<Fill> out = new ArrayList<>();
+        // SQL 자리표시자 수를 넘지 않게 500개씩 나눠 읽는다
+        for (int i = 0; i < ids.size(); i += 500) {
+            List<String> batch = ids.subList(i, Math.min(i + 500, ids.size()));
+            List<Object> args = new ArrayList<>(List.of(memberId, Timestamp.from(start(from))));
+            args.addAll(batch);
+            String in = String.join(", ", java.util.Collections.nCopies(batch.size(), "?"));
+            out.addAll(jdbc.query("SELECT " + FILL_SELECT + " FROM trade WHERE member_id = ? AND executed_at < ? AND decision_id IN (" + in + ")"
+                    + " ORDER BY executed_at, id", TradeJournal::fill, args.toArray()));
+        }
+        return out;
     }
 
     private boolean has(long memberId, Mode mode) {
@@ -386,7 +462,7 @@ public class TradeJournal {
         Summary s = summarize(list);
         DayMeta m = meta(memberId, date, date).getOrDefault(date, DayMeta.EMPTY);
         Map<String, BigDecimal> cumulative = Money.plus(pnlBefore(memberId, date, mode), s.realizedPnl());
-        return new Day(date, list, s, cumulative, m.memo(), m.postId(), m.shortsId());
+        return new Day(date, list, s, cumulative, m.memo(), m.postId(), m.shortsId(), earlierEntries(memberId, date, list));
     }
 
     public Day saveMemo(long memberId, LocalDate date, String memo) {
@@ -464,13 +540,16 @@ public class TradeJournal {
         return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM shorts WHERE id = ?)", Boolean.class, shortsId));
     }
 
+    /** 체결 한 줄을 읽는 칸 */
+    private static final String FILL_SELECT = """
+            id, external_id, mode, exchange, symbol, symbol_name, side, quantity, price, currency, fee, realized_pnl, strategy,
+            reason, executed_at, market, position_side, leverage, timeframe, strategy_version, decision_id, basket, regime, setup,
+            trigger_name, news_score, news_flags, risk_pct, kelly_raw, kelly_used, ai_conf, equity_at_entry, stop_price, tp1_price,
+            tp2_price, liquidation_price, ai_model, ai_cost, exit_reason, r_multiple, funding""";
+
     private List<Fill> fills(long memberId, LocalDate from, LocalDate to, Mode mode) {
-        return jdbc.query("""
-                SELECT id, external_id, mode, exchange, symbol, symbol_name, side, quantity, price, currency, fee, realized_pnl, strategy,
-                       reason, executed_at, market, position_side, leverage, timeframe, strategy_version, decision_id, basket, regime, setup,
-                       trigger_name, news_score, news_flags, risk_pct, kelly_raw, kelly_used, ai_conf, equity_at_entry, stop_price, tp1_price,
-                       tp2_price, liquidation_price, ai_model, ai_cost, exit_reason, r_multiple, funding
-                FROM trade WHERE member_id = ? AND executed_at >= ? AND executed_at < ? AND (CAST(? AS text) IS NULL OR mode = ?)
+        return jdbc.query("SELECT " + FILL_SELECT + """
+                 FROM trade WHERE member_id = ? AND executed_at >= ? AND executed_at < ? AND (CAST(? AS text) IS NULL OR mode = ?)
                 ORDER BY executed_at, id
                 """, TradeJournal::fill, memberId, Timestamp.from(start(from)), Timestamp.from(start(to.plusDays(1))), name(mode), name(mode));
     }

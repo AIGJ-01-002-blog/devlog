@@ -89,9 +89,32 @@ class TradeTraceRecordTest extends IntegrationTest {
         assertThat(b.path("exitReason").asString()).isEqualTo("TP1");
         assertThat(b.path("rMultiple").decimalValue()).isEqualByComparingTo("1.8");
         assertThat(b.path("funding").decimalValue()).isEqualByComparingTo("-0.12");
+        // 기간 성적과 AI가 읽는 하루 기록에도 정리 이유·R이 보인다 (#285)
+        JsonNode setups = read(me.http().perform(get("/api/me/trades?days=7")).andExpect(status().isOk()).andReturn()).path("setups");
+        assertThat(setups).hasSize(1);
+        // 정리 체결에 기법이 비어 있어도 같은 decision_id의 진입 체결 기법으로 센다
+        assertThat(setups.get(0).path("mode").asString()).isEqualTo("PAPER");
+        assertThat(setups.get(0).path("strategyVersion").asString()).isEqualTo("ladder-v0.1");
+        assertThat(setups.get(0).path("setup").asString()).isEqualTo("PULLBACK");
+        assertThat(setups.get(0).path("samples").asInt()).isEqualTo(1);
+        assertThat(setups.get(0).path("avgR").decimalValue()).isEqualByComparingTo("1.8");
+        assertThat(text(call(t, "get_trade_day", Map.of("date", d.toString())))).contains("트레이딩 · PULLBACK", "TP1 정리 +1.8R");
         JsonNode c = fills.get(2).path("trace");
         assertThat(c.path("strategyVersion").asString()).isEmpty();
         assertThat(c.path("basket").isNull()).isTrue();
+
+        // 진입이 기간 앞(어제)에 있어도 오늘 정리 체결은 그 진입의 기법으로 센다
+        Map<String, Object> late = new HashMap<>(out);
+        late.putAll(Map.of("external_id", "tr-4", "executed_at", at(d.plusDays(1), "00:00:01"), "r_multiple", -1, "exit_reason", "STOP"));
+        assertThat(call(t, "record_trade", late).path("isError").asBoolean()).isFalse();
+        JsonNode today = read(me.http().perform(get("/api/me/trades?days=1")).andExpect(status().isOk()).andReturn()).path("setups");
+        assertThat(today).hasSize(1);
+        assertThat(today.get(0).path("strategyVersion").asString()).isEqualTo("ladder-v0.1");
+        assertThat(today.get(0).path("samples").asInt()).isEqualTo(1);
+        // 하루 응답에는 기간 앞 진입 체결을 싣지 않는다
+        JsonNode day = read(me.http().perform(get("/api/me/trades/" + d.plusDays(1))).andExpect(status().isOk()).andReturn());
+        assertThat(day.has("earlier")).isFalse();
+        assertThat(day.path("fills")).hasSize(1);
     }
 
     @Test

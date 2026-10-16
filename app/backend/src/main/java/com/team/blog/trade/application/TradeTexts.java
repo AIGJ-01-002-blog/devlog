@@ -98,6 +98,53 @@ public final class TradeTexts {
         return f.exchange().isBlank() ? name(f) : name(f) + " · " + Money.exchangeName(f.exchange());
     }
 
+    /** 정리 이유를 읽는 말 */
+    private static String exitWord(TradeTrace.ExitReason r) {
+        return switch (r) {
+            case STOP -> "손절";
+            case TP1 -> "1차 익절";
+            case TP2 -> "2차 익절";
+            case TRAIL -> "추적 손절";
+            case TIME -> "시간 정리";
+            case NEWS -> "뉴스 정리";
+            case MANUAL -> "직접 정리";
+        };
+    }
+
+    /** R배수: +1.8R, -1R */
+    static String rText(BigDecimal r) {
+        BigDecimal v = r.setScale(2, java.math.RoundingMode.HALF_UP).stripTrailingZeros();
+        return (v.signum() > 0 ? "+" : "") + v.toPlainString() + "R";
+    }
+
+    /** "TP1 정리 +1.8R"처럼 정리 이유와 R배수 (#285). 정리 흔적이 없으면 빈 글 */
+    public static String exitLabel(TradeJournal.Fill f) {
+        TradeTrace t = f.trace();
+        if (t == null || (t.exitReason() == null && t.rMultiple() == null)) return "";
+        String head = t.exitReason() == null ? "정리" : t.exitReason().name() + " 정리";
+        return t.rMultiple() == null ? head : head + " " + rText(t.rMultiple());
+    }
+
+    /** "트레이딩 · PULLBACK"처럼 바구니와 셋업 (#285). 둘 다 없으면 빈 글 */
+    public static String setupLabel(TradeJournal.Fill f) {
+        TradeTrace t = f.trace();
+        if (t == null) return "";
+        List<String> parts = new ArrayList<>();
+        if (t.basket() != null) parts.add(t.basket() == TradeTrace.Basket.CORE ? "코어" : "트레이딩");
+        if (!t.setup().isBlank()) parts.add(t.setup());
+        return String.join(" · ", parts);
+    }
+
+    /** 이유 칸: 바구니·셋업, 정리 이유·R, 봇이 적은 이유(없으면 전략) */
+    private static String why(TradeJournal.Fill f) {
+        List<String> parts = new ArrayList<>();
+        if (!setupLabel(f).isEmpty()) parts.add("[" + setupLabel(f) + "]");
+        if (!exitLabel(f).isEmpty()) parts.add(exitLabel(f));
+        String why = f.reason().isBlank() ? f.strategy() : f.reason();
+        if (!why.isBlank()) parts.add(why);
+        return String.join(" ", parts);
+    }
+
     static String draftTitle(TradeJournal.Day day) {
         TradeJournal.Summary s = day.summary();
         String head = "매매 일지 " + day.date() + " (" + modeLabel(day) + ")";
@@ -126,6 +173,18 @@ public final class TradeTexts {
         });
         md.append("- 수수료·세금: ").append(money(day, s.fees(), false)).append('\n');
         md.append("- 지금까지 실현 손익: ").append(money(day, day.cumulativePnl(), true)).append("\n\n");
+        List<TradeJournal.SetupStat> stats = day.setupStats();
+        if (!stats.isEmpty()) {
+            md.append("## 기법별 성적\n\n| 기법 버전 | 셋업 | 정리 | 승률 | 평균 R |\n|---|---|---:|---:|---:|\n");
+            for (TradeJournal.SetupStat st : stats) {
+                md.append("| ").append(cell(st.strategyVersion().isBlank() ? "-" : st.strategyVersion())).append(st.mode().equals("LIVE") ? " (실계좌)" : "")
+                        .append(" | ").append(cell(st.setup().isBlank() ? "-" : st.setup()))
+                        .append(" | ").append(st.samples()).append("번")
+                        .append(" | ").append(Math.round(st.wins() * 100.0 / st.samples())).append('%')
+                        .append(" | ").append(rText(st.avgR())).append(" |\n");
+            }
+            md.append('\n');
+        }
         md.append("## 체결\n\n| 시각 | 종목 | 구분 | 수량 | 가격 | 실현 손익 | 이유 |\n|---|---|---|---:|---:|---:|---|\n");
         for (TradeJournal.Fill f : day.fills().stream().sorted(Comparator.comparing(TradeJournal.Fill::executedAt)).toList()) {
             md.append("| ").append(TIME.format(f.executedAt()))
@@ -135,7 +194,7 @@ public final class TradeTexts {
                     .append(" | ").append(Money.crypto(f.exchange()) ? amountOf(f) : qty(f.quantity()))
                     .append(" | ").append(money(f, f.price(), false))
                     .append(" | ").append(f.realizedPnl() == null ? "" : money(f, f.realizedPnl(), true))
-                    .append(" | ").append(cell(f.reason().isBlank() ? f.strategy() : f.reason()))
+                    .append(" | ").append(cell(why(f)))
                     .append(" |\n");
         }
         return md.toString();
@@ -215,9 +274,16 @@ public final class TradeTexts {
     private static ShortsScript.Scene fillScene(TradeJournal.Fill f) {
         String why = f.reason().isBlank() ? f.strategy() : f.reason();
         String pnl = f.realizedPnl() == null ? "" : " 손익은 " + money(f, f.realizedPnl(), true) + ".";
+        TradeTrace t = f.trace();
+        if (t != null && t.exitReason() != null) {
+            pnl += " " + exitWord(t.exitReason()) + (t.rMultiple() == null ? "" : "로 " + rText(t.rMultiple())) + "이에요.";
+        } else if (t != null && t.rMultiple() != null) {
+            pnl += " " + rText(t.rMultiple()) + "이에요.";
+        }
         String narration = name(f) + " " + amountOf(f) + "를 " + money(f, f.price(), false) + "에 " + verb(f) + "." + pnl
                 + (why.isBlank() ? "" : " 신호는 " + why + ".");
-        return new ShortsScript.Scene(clip(name(f) + " " + actionLabel(f), ShortsScript.CAPTION_MAX),
+        String exit = exitLabel(f);
+        return new ShortsScript.Scene(clip(name(f) + " " + (exit.isEmpty() ? actionLabel(f) : exit), ShortsScript.CAPTION_MAX),
                 clip(narration, ShortsScript.NARRATION_MAX), null);
     }
 
