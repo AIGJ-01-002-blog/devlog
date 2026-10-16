@@ -3095,7 +3095,7 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 .paper-chart-legend .me { font-weight: 700; }
 .paper-chart-bot { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
 
-/* 서버 모의 봇 계정별 기준 (#340) */
+/* 서버 모의 봇 계정별 기준 (이슈 340) */
 .tradebot-settings { margin: 8px 0 12px; }
 .tradebot-settings > summary { cursor: pointer; font-weight: 600; font-size: 0.9rem; }
 .tradebot-settings-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px 16px; margin-top: 10px; align-items: start; }
