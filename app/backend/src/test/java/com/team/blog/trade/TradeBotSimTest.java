@@ -165,7 +165,12 @@ class TradeBotSimTest extends IntegrationTest {
         assertThat(eth.path("candles").get(0).path("t").asLong()).isLessThan(eth.path("candles").get(TradeCharts.CANDLES - 1).path("t").asLong());
         assertThat(eth.path("candles").get(TradeCharts.CANDLES - 1).path("c").decimalValue()).isEqualByComparingTo(String.valueOf(99 + TradeCharts.CANDLES));
         assertThat(eth.path("marks").findValuesAsString("text")).containsExactly("익절");
+    }
 
+    @Test
+    void 차트는_10초_안에_다시_부르면_거래소에_가지_않고_없는_거래소와_봉은_거절한다() throws Exception {
+        Session me = signup(uniqueLogin("tbotq"));
+        me.http().perform(get("/api/me/trade-bot/charts").param("exchange", "binance").param("interval", "15m")).andExpect(status().isOk());
         // 10초 안에 다시 부르면 거래소에 가지 않는다
         int before = com.team.blog.support.FakeExchanges.INSTANCE.calls.get();
         me.http().perform(get("/api/me/trade-bot/charts").param("exchange", "binance").param("interval", "15m")).andExpect(status().isOk());
