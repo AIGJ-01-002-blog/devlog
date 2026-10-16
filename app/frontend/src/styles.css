@@ -3101,8 +3101,21 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 .tradebot-settings-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px 16px; margin-top: 10px; align-items: start; }
 .tradebot-settings-form fieldset { grid-column: 1 / -1; border: 0; padding: 0; margin: 0; }
 .tradebot-settings-form legend, .tradebot-settings-form label > span { display: block; font-size: 0.75rem; color: var(--color-text-muted); margin-bottom: 4px; }
-.tradebot-settings-form input[type='number'], .tradebot-settings-form select { width: 100%; }
+/* 숫자 칸도 봉 간격 고르기와 같은 높이·테두리로 맞춘다. 브라우저 기본 칸이 그대로 나오던 것을 고친다 */
+.tradebot-settings-form input[type='number'], .tradebot-settings-form select {
+  width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--color-input-border); border-radius: var(--radius);
+  background: var(--color-surface); color: inherit; outline: none;
+}
+.tradebot-settings-form input[type='number']:focus-visible {
+  border-color: var(--color-focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-focus) 30%, transparent);
+}
 .tradebot-settings-form small { display: block; margin-top: 4px; }
-.tradebot-settings-coins { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.tradebot-settings-coins { display: flex; flex-wrap: wrap; gap: 8px; }
+/* 코인 고르기는 손가락으로 누르기 쉽게 40px 칩으로 */
+.tradebot-settings-coins label {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px; border: 1px solid var(--color-input-border);
+  border-radius: 999px; background: var(--color-surface); cursor: pointer;
+}
+.tradebot-settings-coins label:has(input:checked) { border-color: var(--color-brand); background: color-mix(in srgb, var(--color-brand) 8%, var(--color-surface)); }
 .tradebot-settings-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .tradebot-settings-form .error { grid-column: 1 / -1; margin: 0; }
