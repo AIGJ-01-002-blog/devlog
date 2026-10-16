@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { t } from '../lib/i18n'
 import { botPositions } from '../lib/proChart'
 import {
-  CHART_EXCHANGES, CHART_INTERVALS, KRW_INTERVALS, changeRate, eventTime, loadTradeCharts, sideLabel, sideUp,
+  CHART_EXCHANGES, CHART_INTERVALS, KRW_INTERVALS, changeRate, eventTime, krwSourceName, loadTradeCharts, sideLabel, sideUp,
   type BotAccount, type ChartCoin, type ChartExchange, type ChartInterval, type CoinChart,
 } from '../lib/tradeBot'
 import { money, pnlClass } from '../lib/trades'
@@ -54,7 +54,7 @@ export function TradeBotCharts({ accounts = [] }: { accounts?: BotAccount[] }) {
         <div className="segmented" role="group" aria-label={t('거래소')}>
           {CHART_EXCHANGES.map((x) => (
             <button key={x} type="button" aria-pressed={x === exchange} onClick={() => pickExchange(x)}
-              data-tip={x === 'binance' ? t('바이낸스 현물 USDT 시세로 봐요') : t('코빗 원화 시세로 봐요. 업비트 봇 체결도 여기에 찍혀요')}>
+              data-tip={x === 'binance' ? t('바이낸스 현물 USDT 시세로 봐요') : t('{0} 원화 시세로 봐요. 업비트 봇 체결도 여기에 찍혀요', { 0: t(krwSourceName(data?.exchange === 'UPBIT' ? data.source : undefined)) })}>
               {x === 'binance' ? t('바이낸스') : t('원화')}
             </button>
           ))}

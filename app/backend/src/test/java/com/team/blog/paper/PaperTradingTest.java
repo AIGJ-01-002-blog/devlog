@@ -206,6 +206,7 @@ class PaperTradingTest extends IntegrationTest {
         assertThat(state.path("invest").asLong()).isEqualTo(10_000_000L);
         assertThat(state.path("quotes").findValuesAsString("symbol")).containsExactly("BTC", "ETH", "XRP", "SOL", "DOGE");
         assertThat(state.path("quotesError").isNull()).isTrue();
+        assertThat(state.path("quotesSource").asString()).isIn("KORBIT", "UPBIT");
 
         // 1억 원짜리 BTC를 100만 P어치: 수수료 500P, 수량 0.009995
         String id = orderId();

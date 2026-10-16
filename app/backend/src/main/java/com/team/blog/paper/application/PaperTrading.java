@@ -100,9 +100,10 @@ public class PaperTrading implements BotCredits {
      * @param orders      미체결 지정가 주문 전부와 최근 끝난 지정가 주문
      * @param fills       최근 체결
      * @param quotesError 시세를 받지 못했으면 이유(화면이 주문을 막는다)
+     * @param quotesSource 주문 시세를 받는 곳(KORBIT·UPBIT, blog.paper.quotes.source)
      */
     public record State(List<CoinQuote> quotes, List<Position> positions, long invest, long shop, long holdings, long locked, BigDecimal feeRate,
-                        long minOrder, List<LimitView> orders, List<FillView> fills, String quotesError) {}
+                        long minOrder, List<LimitView> orders, List<FillView> fills, String quotesError, String quotesSource) {}
 
     /** 지정가 주문 (#332). 가격과 수량을 정하고, 살 때는 기본 크레딧이 모자라면 useShop으로 번 크레딧도 쓴다 */
     public record LimitOrder(String clientOrderId, String symbol, String side, BigDecimal price, BigDecimal quantity, Boolean useShop, String reason) {}
@@ -191,7 +192,7 @@ public class PaperTrading implements BotCredits {
                 SELECT COALESCE(SUM(locked_invest + locked_shop), 0) FROM paper_limit_order WHERE member_id = ? AND status = 'OPEN' AND side = 'BUY'
                 """, Long.class, memberId);
         return new State(list, positions, b.invest(), b.shop(), holdings, locked == null ? 0 : locked, props.feeRate(), props.minOrder(),
-                limitViews(memberId), fills(memberId), error);
+                limitViews(memberId), fills(memberId), error, props.source().toUpperCase(java.util.Locale.ROOT));
     }
 
     /** 미체결 지정가 전부와 최근 끝난 지정가 20건. 새 주문이 위로 */

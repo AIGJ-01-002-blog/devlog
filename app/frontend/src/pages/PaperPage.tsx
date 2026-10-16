@@ -4,6 +4,7 @@ import { t } from '../lib/i18n'
 import { change, loadPaper, pnlRate, price, qty, tone, type PaperState } from '../lib/paper'
 import { points } from '../lib/points'
 import { Link } from '../lib/router'
+import { krwSourceName } from '../lib/tradeBot'
 import { PaperChart } from '../components/PaperChart'
 import { PaperOrderPanel, type OrderTab } from '../components/PaperOrderPanel'
 
@@ -51,7 +52,7 @@ export function PaperPage() {
         <h1 className="page-title">{t('크레딧 모의투자')}</h1>
         <Link to="/points" className="btn btn-outline btn-small" data-tip={t('출석하고 크레딧 잔액과 내역 보기')}>{t('내 크레딧')}</Link>
       </div>
-      <p className="muted small points-notice">{t('코빗 원화 시세로 비트코인·이더리움·리플·솔라나·도지코인을 크레딧으로 사고팔아요. 처음 받은 기본 크레딧을 먼저 쓰고, 체결은 매매 일지에 남아요. 수익은 모두 크레딧으로 쌓여요.')}</p>
+      <p className="muted small points-notice">{t('{0} 원화 시세로 비트코인·이더리움·리플·솔라나·도지코인을 크레딧으로 사고팔아요. 처음 받은 기본 크레딧을 먼저 쓰고, 체결은 매매 일지에 남아요. 수익은 모두 크레딧으로 쌓여요.', { 0: t(krwSourceName(state?.quotesSource)) })}</p>
       {error && <p className="error" role="alert">{t('모의투자를 불러오지 못했어요.')}</p>}
       {!state && !error && <p className="muted center">{t('불러오는 중…')}</p>}
       {state && (
