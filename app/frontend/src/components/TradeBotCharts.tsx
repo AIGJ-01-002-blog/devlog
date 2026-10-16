@@ -1,41 +1,24 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { t } from '../lib/i18n'
+import { botPositions } from '../lib/proChart'
 import {
-  CHART_EXCHANGES, CHART_INTERVALS, changeRate, eventTime, loadTradeCharts, markIndex, sideLabel, sideUp,
-  type ChartCoin, type ChartExchange, type ChartInterval, type CoinChart,
+  CHART_EXCHANGES, CHART_INTERVALS, KRW_INTERVALS, changeRate, eventTime, loadTradeCharts, sideLabel, sideUp,
+  type BotAccount, type ChartCoin, type ChartExchange, type ChartInterval, type CoinChart,
 } from '../lib/tradeBot'
 import { money, pnlClass } from '../lib/trades'
+import { ProChart } from './ProChart'
 
 /** 서버가 캔들을 10초씩 들고 있으니 화면도 10초마다 다시 받는다 */
 const REFRESH_MS = 10_000
-/** 고른 종목 하나를 크게 그린다. PC에서는 넓게, 휴대폰에서는 화면 폭에 맞춰 같은 비율로 줄어든다 */
-const PC = { w: 900, h: 400 }
-// 모의투자 화면처럼 차트가 한 줄을 다 쓰면 낮게 그려 주문 칸이 화면 아래로 밀리지 않게 한다 (#324)
-const WIDE = { w: 1200, h: 340 }
-/** 휴대폰은 폭이 좁아 같은 비율이면 납작해지므로 세로를 늘린 비율로 그린다(봉·삼각형 크기는 그대로) */
-const MOBILE = { w: 420, h: 300 }
-const PAD = 10
-
-/** 휴대폰 폭인가. 화면을 돌리거나 창 크기를 바꾸면 따라 바뀐다 */
-function useNarrow(): boolean {
-  const query = '(max-width: 767px)'
-  const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.(query).matches)
-  useEffect(() => {
-    const m = window.matchMedia?.(query)
-    if (!m) return
-    const on = () => setNarrow(m.matches)
-    m.addEventListener('change', on)
-    return () => m.removeEventListener('change', on)
-  }, [])
-  return narrow
-}
 
 /**
- * 자동매매 화면의 차트 탭 (spec 101). 코인 5종 가운데 고른 종목을 고른 거래소의 실시간(10초마다) 캔들로 크게 그리고,
- * 봇이 알린 모의 체결을 봉 위(매도·청산)·아래(매수·진입)에 삼각형으로 찍는다. 삼각형에 마우스를 올리면 체결 내용이 보이고,
- * 휴대폰처럼 마우스가 없을 때를 위해 차트 아래에 같은 체결을 목록으로 둔다.
+ * 자동매매 화면의 차트 탭 (spec 101). 코인 5종 가운데 고른 종목을 고른 거래소의 실시간(10초마다) 캔들로 크게 그린다.
+ * #354부터 거래소 차트처럼 이동평균 7/25/99·거래량·십자선·24시간 요약과 봇 포지션의 평단선을 함께 그린다(ProChart).
+ * 휴대폰처럼 마우스가 없을 때를 위해 차트 아래에 봇 체결을 목록으로 둔다.
+ *
+ * @param accounts 봇이 알린 모의 계좌. 이 종목을 들고 있으면 계좌마다 평단선을 그린다
  */
-export function TradeBotCharts() {
+export function TradeBotCharts({ accounts = [] }: { accounts?: BotAccount[] }) {
   const [exchange, setExchange] = useState<ChartExchange>('binance')
   const [interval, setTimeframe] = useState<ChartInterval>('15m')
   const [picked, setPicked] = useState('BTC')
@@ -43,6 +26,13 @@ export function TradeBotCharts() {
   const [error, setError] = useState(false)
   const key = useRef('')
   key.current = `${exchange}:${interval}`
+  const intervals = exchange === 'upbit' ? KRW_INTERVALS : CHART_INTERVALS
+
+  const pickExchange = (x: ChartExchange) => {
+    setExchange(x)
+    // 원화 시세는 1초 봉이 없어 15분으로 바꾼다
+    if (x === 'upbit' && !KRW_INTERVALS.includes(interval)) setTimeframe('15m')
+  }
 
   useEffect(() => {
     const mine = `${exchange}:${interval}`
@@ -54,29 +44,25 @@ export function TradeBotCharts() {
     return () => window.clearInterval(id)
   }, [exchange, interval])
 
-  const shown = data && data.exchange.toLowerCase() === exchange && data.interval === interval ? data : null
+  // 간격을 바꾸는 동안에는 같은 거래소의 보던 차트를 그대로 두어 차트를 새로 만들지 않는다
+  const shown = data && data.exchange.toLowerCase() === exchange ? data : null
+  const loading = !shown || shown.interval !== interval
   return (
     <section className="tradebot-section">
       <h2>{t('실시간 차트')}</h2>
       <div className="admin-toolbar tradebot-chart-toolbar">
         <div className="segmented" role="group" aria-label={t('거래소')}>
           {CHART_EXCHANGES.map((x) => (
-            <button key={x} type="button" aria-pressed={x === exchange} onClick={() => setExchange(x)}
+            <button key={x} type="button" aria-pressed={x === exchange} onClick={() => pickExchange(x)}
               data-tip={x === 'binance' ? t('바이낸스 현물 USDT 시세로 봐요') : t('코빗 원화 시세로 봐요. 업비트 봇 체결도 여기에 찍혀요')}>
               {x === 'binance' ? t('바이낸스') : t('원화')}
             </button>
           ))}
         </div>
-        <div className="segmented" role="group" aria-label={t('봉 간격')}>
-          {CHART_INTERVALS.map((x) => (
-            <button key={x} type="button" aria-pressed={x === interval} onClick={() => setTimeframe(x)}
-              data-tip={t('봉 하나가 {0}예요', { 0: x })}>{x}</button>
-          ))}
-        </div>
       </div>
-      <p className="muted small">{t('10초마다 새로 받아요. ▲는 봇의 모의 매수·진입, ▼는 매도·청산이에요. 삼각형에 마우스를 올리면 이유가 보여요.')}</p>
+      <p className="muted small">{t('10초마다 새로 받아요. ▲는 봇의 모의 매수·진입, ▼는 매도·청산이에요. 십자선을 체결이 있는 봉에 대면 이유가 보여요.')}</p>
       {error && <p className="error small" role="alert">{t('차트를 불러오지 못했어요. 10초 뒤 다시 받아요.')}</p>}
-      {!shown && !error && <p className="muted center">{t('불러오는 중…')}</p>}
+      {loading && !error && <p className="muted small" role="status">{t('불러오는 중…')}</p>}
       {shown && (
         <>
           <div className="tradebot-coins" role="tablist" aria-label={t('종목')}>
@@ -94,30 +80,29 @@ export function TradeBotCharts() {
               )
             })}
           </div>
-          {shown.coins.filter((c) => c.coin === picked).map((c) => <CoinCard key={c.coin} coin={c} currency={shown.currency} />)}
+          {shown.coins.filter((c) => c.coin === picked).map((c) => (
+            <CoinCard key={c.coin} coin={c} currency={shown.currency} exchange={shown.exchange} accounts={accounts}
+              interval={interval} intervals={intervals} onInterval={setTimeframe} />
+          ))}
         </>
       )}
     </section>
   )
 }
 
-function CoinCard({ coin, currency }: { coin: ChartCoin; currency: string }) {
-  const last = coin.candles.at(-1)
-  const rate = changeRate(coin.candles)
+function CoinCard({ coin, currency, exchange, accounts, interval, intervals, onInterval }: {
+  coin: ChartCoin; currency: string; exchange: string; accounts: BotAccount[]
+  interval: ChartInterval; intervals: readonly ChartInterval[]; onInterval: (i: ChartInterval) => void
+}) {
+  // 계좌는 1분마다 새로 받으니 값이 같으면 같은 배열을 넘겨 차트가 다시 그리지 않게 한다
+  const found = botPositions(accounts, exchange, coin.symbol)
+  const sig = JSON.stringify(found)
+  const positions = useMemo(() => JSON.parse(sig) as typeof found, [sig])
   return (
     <article className="tradebot-chart">
-      <header className="trades-fill-head">
-        <strong>{t(coin.name)}</strong>
-        <span className="muted small">{coin.symbol}</span>
-        {last && <span className="tradebot-chart-price">{money(last.c, currency)}</span>}
-        {rate !== null && <span className={`pnl small ${pnlClass(rate)}`}>{rate > 0 ? '+' : ''}{rate.toFixed(2)}%</span>}
-      </header>
-      {coin.error ? <p className="muted small">{t('시세를 받지 못했어요. 잠시 뒤 다시 받아요.')}</p> : <CandleSvg coin={coin} currency={currency} />}
-      {coin.candles.length > 0 && (
-        <p className="muted small tradebot-range">
-          {t('구간 고가 {0} · 저가 {1}', { 0: money(Math.max(...coin.candles.map((x) => x.h)), currency), 1: money(Math.min(...coin.candles.map((x) => x.l)), currency) })}
-        </p>
-      )}
+      {coin.error ? <p className="muted small">{t('시세를 받지 못했어요. 잠시 뒤 다시 받아요.')}</p>
+        : coin.candles.length === 0 ? <p className="muted small">{t('아직 봉이 없어요.')}</p>
+        : <ProChart coin={coin} currency={currency} interval={interval} intervals={intervals} onInterval={onInterval} positions={positions} />}
       {coin.marks.length === 0 ? <p className="muted small">{t('이 구간에는 봇 체결이 없어요.')}</p> : (
         <ul className="tradebot-marks">
           {[...coin.marks].reverse().map((m, i) => (
@@ -131,50 +116,5 @@ function CoinCard({ coin, currency }: { coin: ChartCoin; currency: string }) {
         </ul>
       )}
     </article>
-  )
-}
-
-/** 캔들과 체결 삼각형. 내가 낸 체결(by=ME)은 테두리를 굵게 그려 봇 체결과 구분한다 (#324) */
-export function CandleSvg({ coin, currency, wide = false }: { coin: ChartCoin; currency: string; wide?: boolean }) {
-  const size = wide ? WIDE : PC
-  const { w: W, h: H } = useNarrow() ? MOBILE : size
-  const cs = coin.candles
-  if (cs.length === 0) return <p className="muted small">{t('아직 봉이 없어요.')}</p>
-  const marks = coin.marks.map((m) => ({ m, i: markIndex(cs, m.t) })).filter((x): x is { m: typeof x.m; i: number } => x.i !== null)
-  let lo = Math.min(...cs.map((c) => c.l), ...marks.map((x) => x.m.price))
-  let hi = Math.max(...cs.map((c) => c.h), ...marks.map((x) => x.m.price))
-  if (hi === lo) { hi += 1; lo -= 1 }
-  const top = PAD + 18
-  const bottom = H - PAD - 18
-  const y = (v: number) => top + ((hi - v) / (hi - lo)) * (bottom - top)
-  const step = (W - PAD * 2) / cs.length
-  const x = (i: number) => PAD + step * i + step / 2
-  const body = Math.max(1, step * 0.6)
-  const lastY = y(cs[cs.length - 1].c)
-  return (
-    <svg className="tradebot-candles" viewBox={`0 0 ${W} ${H}`} role="img"
-      aria-label={t('{0} 차트, 마지막 {1}', { 0: t(coin.name), 1: money(cs[cs.length - 1].c, currency) })}>
-      <line className="tradebot-last" x1={PAD} x2={W - PAD} y1={lastY} y2={lastY} />
-      {cs.map((c, i) => {
-        const up = c.c >= c.o
-        return (
-          <g key={c.t} className={up ? 'up' : 'down'}>
-            <line x1={x(i)} x2={x(i)} y1={y(c.h)} y2={y(c.l)} />
-            <rect x={x(i) - body / 2} width={body} y={y(Math.max(c.o, c.c))} height={Math.max(1, Math.abs(y(c.o) - y(c.c)))} />
-          </g>
-        )
-      })}
-      {marks.map(({ m, i }, k) => {
-        const buy = sideUp(m.side)
-        const cx = x(i)
-        const cy = buy ? Math.min(H - 2, y(cs[i].l) + 14) : Math.max(2, y(cs[i].h) - 14)
-        const d = buy ? `M${cx} ${cy - 8} L${cx - 8} ${cy + 6} L${cx + 8} ${cy + 6}Z` : `M${cx} ${cy + 8} L${cx - 8} ${cy - 6} L${cx + 8} ${cy - 6}Z`
-        return (
-          <path key={k} d={d} className={`tradebot-mark ${buy ? 'up' : 'down'}${m.by === 'ME' ? ' me' : ''}`}>
-            <title>{`${m.by === 'ME' ? `${t('내 체결')} · ` : m.by === 'BOT' ? `${t('봇')} · ` : ''}${eventTime(new Date(m.t).toISOString())} ${sideLabel(m.side)} @ ${money(m.price, currency)}${m.text ? ` · ${m.text}` : ''}`}</title>
-          </path>
-        )
-      })}
-    </svg>
   )
 }

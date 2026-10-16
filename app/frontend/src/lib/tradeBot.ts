@@ -162,10 +162,18 @@ export function eventTime(iso: string): string {
 /** 차트 탭 (spec 101): 서버 TradeCharts.Chart와 같은 모양. 캔들은 서버가 10초씩 들고 있는 거래소 공개 캔들이다 */
 export type ChartExchange = 'binance' | 'upbit'
 export const CHART_EXCHANGES: ChartExchange[] = ['binance', 'upbit']
-export const CHART_INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d'] as const
+/** 차트 봉 간격 버튼 (#354): 바이낸스 차트처럼 1초·15분·1시간·4시간·1일·1주 */
+export const CHART_INTERVALS = ['1s', '15m', '1h', '4h', '1d', '1w'] as const
 export type ChartInterval = (typeof CHART_INTERVALS)[number]
+/** 버튼에 쓰는 이름. 바이낸스처럼 시간 이상은 대문자 */
+export const INTERVAL_LABELS: Record<ChartInterval, string> = { '1s': '1s', '15m': '15m', '1h': '1H', '4h': '4H', '1d': '1D', '1w': '1W' }
+/** 원화 시세(코빗)는 1초 봉이 없다 */
+export const KRW_INTERVALS: ChartInterval[] = ['15m', '1h', '4h', '1d', '1w']
 
-export interface ChartCandle { t: number; o: number; h: number; l: number; c: number }
+/** v: 거래량(코인 개수). #354 전 응답에는 없다 */
+export interface ChartCandle { t: number; o: number; h: number; l: number; c: number; v?: number }
+/** 최근 24시간 고가·저가·거래량(코인)·거래대금 */
+export interface ChartDay { high: number; low: number; volume: number; quoteVolume: number }
 /** by: 누가 낸 체결인지. BOT은 봇의 모의 체결, ME는 포인트 모의투자에서 내가 직접 낸 체결(#324) */
 export interface ChartMark { t: number; side: string; price: number; text: string; by?: 'BOT' | 'ME' }
 export interface ChartCoin {
@@ -176,6 +184,8 @@ export interface ChartCoin {
   marks: ChartMark[]
   /** 캔들을 받지 못했으면 이유 */
   error: string | null
+  /** 최근 24시간 요약. 받지 못했으면 null */
+  day?: ChartDay | null
 }
 export interface CoinChart {
   exchange: 'BINANCE' | 'UPBIT'
