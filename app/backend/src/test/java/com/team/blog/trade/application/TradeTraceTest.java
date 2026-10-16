@@ -53,4 +53,16 @@ class TradeTraceTest {
         assertThat(fields(errors)).containsExactlyInAnyOrder("strategy_version", "decision_id", "regime", "news_score", "news_flags",
                 "equity_at_entry", "ai_model", "r_multiple");
     }
+
+    @Test
+    void AI_비용은_numeric_18_8_범위까지만_받는다() {
+        List<FieldErrorItem> ok = new ArrayList<>();
+        new TradeTrace(null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, new BigDecimal("9999999999.99999999"), null, null, null).validate(ok, false, false);
+        assertThat(ok).isEmpty();
+        List<FieldErrorItem> errors = new ArrayList<>();
+        new TradeTrace(null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, new BigDecimal("10000000000"), null, null, null).validate(errors, false, false);
+        assertThat(fields(errors)).containsExactly("ai_cost");
+    }
 }

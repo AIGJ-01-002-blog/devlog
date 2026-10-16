@@ -36,6 +36,8 @@ public record TradeTrace(String strategyVersion, String decisionId, Basket baske
     /** numeric(12, 4)에 넉넉히 들어가는 R배수 */
     private static final BigDecimal R_MAX = new BigDecimal("99999999");
     private static final BigDecimal AMOUNT_MAX = new BigDecimal("99999999999999");
+    /** ai_cost는 numeric(18, 8)이라 정수 10자리까지만 들어가요. */
+    private static final BigDecimal AI_COST_MAX = new BigDecimal("9999999999.99999999");
     private static final Pattern KEY = Pattern.compile("[A-Za-z0-9._:+-]*");
     private static final Pattern STAGE = Pattern.compile("[A-Z0-9_]{0," + STAGE_MAX + "}");
     private static final Pattern FLAGS = Pattern.compile("[A-Z0-9_,]{0," + NEWS_FLAGS_MAX + "}");
@@ -80,10 +82,13 @@ public record TradeTrace(String strategyVersion, String decisionId, Basket baske
         fraction(errors, "kelly_used", kellyUsed);
         fraction(errors, "ai_conf", aiConf);
         for (var p : List.of(new Named("equity_at_entry", equityAtEntry), new Named("stop_price", stopPrice), new Named("tp1_price", tp1Price),
-                new Named("tp2_price", tp2Price), new Named("liquidation_price", liquidationPrice), new Named("ai_cost", aiCost))) {
+                new Named("tp2_price", tp2Price), new Named("liquidation_price", liquidationPrice))) {
             if (p.value() != null && (p.value().signum() < 0 || p.value().compareTo(AMOUNT_MAX) > 0)) {
                 errors.add(new FieldErrorItem(p.name(), INVALID, p.name() + "은 0 이상이어야 해요."));
             }
+        }
+        if (aiCost != null && (aiCost.signum() < 0 || aiCost.compareTo(AI_COST_MAX) > 0)) {
+            errors.add(new FieldErrorItem("ai_cost", INVALID, "ai_cost는 0 이상 " + AI_COST_MAX.toPlainString() + " 이하여야 해요."));
         }
         if (model.length() > AI_MODEL_MAX) errors.add(new FieldErrorItem("ai_model", TOO_LONG, "AI 모델 이름은 " + AI_MODEL_MAX + "자까지예요."));
         if (!futures && liquidationPrice != null) {
