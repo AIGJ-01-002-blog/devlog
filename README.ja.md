@@ -390,6 +390,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | バージョン | 日付 | 主な内容 | リリースノート |
 | --- | --- | --- | --- |
+| v2.2.1 | 2026-10-16 | セキュリティ修正: 指値注文に非常に大きな数量を入れるとクレジットがほぼ拘束されずに買えた問題(注文金額・数量の上限) | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.2.1) |
 | v2.2.0 | 2026-10-16 | クレジット模擬投資: Upbit 風の注文欄と指値注文・取消、チャート上に自分と Bot の約定、サーバー模擬 Bot が基本クレジットでウォン・Binance 口座を売買し会員ごとの基準(コイン・足の間隔・損切り・利確・金額)を選択、ウォン足を Korbit から取得、管理者ショップの種類別タブ、ショート動画末尾 3 秒のブログ広告、SonarQube 指摘 0 件 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.2.0) |
 | v2.1.3 | 2026-10-16 | ポイント模擬投資で相場が表示されなかった問題を修正(学校サーバーから Upbit に接続できないため Korbit の相場に) | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.1.3) |
 | v2.1.2 | 2026-10-16 | 完成したショート動画が AccessDenied で開けなかった問題を修正 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.1.2) |
