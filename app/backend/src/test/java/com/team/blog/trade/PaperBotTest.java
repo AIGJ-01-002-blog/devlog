@@ -31,8 +31,9 @@ class PaperBotTest extends TradeBotSimTest {
         assertThat(v.path("status").path("reportedAt").isNull()).isFalse();
         assertThat(v.path("accounts").findValuesAsString("account"))
                 .containsExactly("server-paper-binance-spot-1h", "server-paper-upbit-spot-1h");
-        assertThat(v.path("accounts").get(0).path("cash").decimalValue()).isEqualByComparingTo("1000");
-        assertThat(v.path("accounts").get(0).path("rules").findValuesAsString("value")).contains("devlog 서버 (모의)");
+        // 포인트가 켜진 서버라 바이낸스 계좌도 기본 크레딧(1크레딧 = 1원)으로 돈다 (#339)
+        assertThat(v.path("accounts").get(0).path("currency").asString()).isEqualTo("KRW");
+        assertThat(v.path("accounts").get(0).path("rules").findValuesAsString("value")).contains("devlog 서버 (모의 · 기본 크레딧)", "100000 기본 크레딧");
 
         // 회원 컴퓨터 봇이 계좌 목록을 통째로 보내도 서버 계좌는 남는다
         String token = token(me);
