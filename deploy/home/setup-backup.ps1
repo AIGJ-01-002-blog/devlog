@@ -35,6 +35,7 @@ if (-not (Test-Path $key)) {
     if ($p.ExitCode -ne 0) { Fail "키를 만들지 못했어요." }
     # 키 파일은 이 사용자만 읽게 한다 (OpenSSH가 넓은 권한의 키를 거부한다)
     icacls $key /inheritance:r /grant:r "$($env:USERNAME):(R,W)" | Out-Null
+    if ($LASTEXITCODE -ne 0) { Fail "키 파일 권한을 설정하지 못했어요. $dir 를 지우고 다시 실행해 주세요." }
 } else {
     Write-Host "   이미 있어요: $key"
 }
