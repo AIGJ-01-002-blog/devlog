@@ -39,7 +39,7 @@ done
 echo "== 앱 로그의 업비트 시세 줄 (파드별, 최근 10줄)"
 for pod in $(k -n blog get pods -l app.kubernetes.io/name=blog-app -o name); do
   echo "-- $pod"
-  k -n blog logs "$pod" --all-containers --tail=20000 2>&1 | grep -E "업비트|[Uu]pbit" | tail -10 || true
+  k -n blog logs "$pod" --all-containers --tail=20000 2>&1 | grep -E "업비트|[Uu]pbit|코빗|[Kk]orbit" | tail -10 || true
 done
 echo "== 업비트 공개 시세 접속 (서버, 앱 파드)"
 for url in "https://api.upbit.com/v1/ticker?markets=KRW-BTC" "https://api.bithumb.com/v1/ticker?markets=KRW-BTC" \

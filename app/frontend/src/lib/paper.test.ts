@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { change, estimateBuy, estimateSell, newOrderId, pnlRate, price, qty, tone } from './paper'
+import { change, estimateBuy, estimateSell, floorQty, limitBuyCost, maxBuyQty, newOrderId, pnlRate, price, qty, stepPrice, tickSize, toTick, tone } from './paper'
 
 describe('paper', () => {
   it('서버와 같이 수수료는 올림, 수량은 그대로 나눈다', () => {
@@ -31,5 +31,30 @@ describe('paper', () => {
     const id = newOrderId()
     expect(id).toMatch(/^[A-Za-z0-9-]{8,64}$/)
     expect(newOrderId()).not.toBe(id)
+  })
+
+  it('호가 단위로 가격을 맞추고 −/＋는 한 호가씩 움직인다 (#332)', () => {
+    expect(tickSize(100_000_000)).toBe(1000)
+    expect(tickSize(250_000)).toBe(50)
+    expect(tickSize(800)).toBe(0.1)
+    expect(toTick(100_000_456)).toBe(100_000_000)
+    expect(toTick(812.37)).toBe(812.3)
+    expect(stepPrice(100_000_000, 1)).toBe(100_001_000)
+    expect(stepPrice(100_000_000, -1)).toBe(99_999_000)
+    // 구간 경계에서 내리면 아래 구간 호가를 쓴다
+    expect(stepPrice(2_000_000, -1)).toBe(1_999_500)
+    expect(stepPrice(1000, -1)).toBe(999.9)
+    expect(stepPrice(0.2, 1)).toBe(0.2001)
+  })
+
+  it('지정가 매수에 묶일 크레딧과 살 수 있는 최대 수량은 서버와 같이 올림으로 센다 (#332)', () => {
+    expect(limitBuyCost(90_000_000, 0.01, 0.0005)).toEqual({ gross: 900_000, fee: 450, total: 900_450 })
+    expect(limitBuyCost(0, 1, 0.0005).total).toBe(0)
+    const q = maxBuyQty(1_000_000, 100_000_000, 0.0005)
+    expect(limitBuyCost(100_000_000, q, 0.0005).total).toBeLessThanOrEqual(1_000_000)
+    expect(limitBuyCost(100_000_000, q + 1e-8, 0.0005).total).toBeGreaterThan(1_000_000)
+    expect(maxBuyQty(10_000, 300, 0.0005, 2)).toBe(33.31)
+    expect(floorQty(1.23456789, 4)).toBe(1.2345)
+    expect(floorQty(0.1 + 0.2, 8)).toBe(0.3)
   })
 })

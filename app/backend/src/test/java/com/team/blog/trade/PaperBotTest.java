@@ -31,8 +31,9 @@ class PaperBotTest extends TradeBotSimTest {
         assertThat(v.path("status").path("reportedAt").isNull()).isFalse();
         assertThat(v.path("accounts").findValuesAsString("account"))
                 .containsExactly("server-paper-binance-spot-1h", "server-paper-upbit-spot-1h");
-        assertThat(v.path("accounts").get(0).path("cash").decimalValue()).isEqualByComparingTo("1000");
-        assertThat(v.path("accounts").get(0).path("rules").findValuesAsString("value")).contains("devlog 서버 (모의)");
+        // 포인트가 켜진 서버라 바이낸스 계좌도 기본 크레딧(1크레딧 = 1원)으로 돈다 (#339)
+        assertThat(v.path("accounts").get(0).path("currency").asString()).isEqualTo("KRW");
+        assertThat(v.path("accounts").get(0).path("rules").findValuesAsString("value")).contains("devlog 서버 (모의 · 기본 크레딧)", "100000 기본 크레딧");
 
         // 회원 컴퓨터 봇이 계좌 목록을 통째로 보내도 서버 계좌는 남는다
         String token = token(me);
@@ -48,5 +49,35 @@ class PaperBotTest extends TradeBotSimTest {
         java.sql.Timestamp before = jdbc.queryForObject(reported, java.sql.Timestamp.class, me.memberId());
         paper.runAll();
         assertThat(jdbc.queryForObject(reported, java.sql.Timestamp.class, me.memberId())).isEqualTo(before);
+    }
+    @Test
+    void 계정마다_기준을_골라_저장하고_다음_바퀴부터_그_봉_계좌로_돈다() throws Exception {
+        Session me = signup(uniqueLogin("pbset"));
+        JsonNode v = read(me.http().perform(get("/api/me/trade-bot/paper")).andExpect(status().isOk()).andReturn());
+        assertThat(v.path("settings").path("interval").asString()).isEqualTo("1h");
+        assertThat(v.path("intervals")).hasToString("[\"15m\",\"1h\",\"4h\",\"1d\"]");
+        assertThat(v.path("coins").size()).isEqualTo(5);
+
+        Map<String, Object> settings = Map.of("coins", List.of("ETH", "BTC"), "stopLoss", 0.02, "takeProfit", 0.04, "interval", "4h", "budget", 30000);
+        me.http().perform(asJson(put("/api/me/trade-bot/paper"), Map.of("enabled", true, "settings", settings))).andExpect(status().isOk());
+        v = read(me.http().perform(get("/api/me/trade-bot/paper")).andReturn());
+        assertThat(v.path("enabled").asBoolean()).isTrue();
+        assertThat(v.path("settings").path("coins")).hasToString("[\"BTC\",\"ETH\"]");
+        assertThat(v.path("settings").path("takeProfit").decimalValue()).isEqualByComparingTo("0.04");
+
+        // 켜짐만 바꿔도 기준은 그대로다
+        me.http().perform(asJson(put("/api/me/trade-bot/paper"), Map.of("enabled", true))).andExpect(status().isOk());
+        JsonNode accounts = read(me.http().perform(get("/api/me/trade-bot")).andReturn()).path("accounts");
+        assertThat(accounts.findValuesAsString("account")).containsExactly("server-paper-binance-spot-4h", "server-paper-upbit-spot-4h");
+        assertThat(accounts.get(0).path("rules").findValuesAsString("value")).contains("4h", "BTC, ETH", "2%", "4%", "30000 기본 크레딧");
+
+        // 봉을 다시 바꾸면 예전 봉 계좌 줄은 남지 않는다
+        me.http().perform(asJson(put("/api/me/trade-bot/paper"), Map.of("settings", Map.of("coins", List.of("BTC"), "stopLoss", 0.03, "takeProfit", 0,
+                "interval", "1d", "budget", 10000)))).andExpect(status().isOk());
+        assertThat(read(me.http().perform(get("/api/me/trade-bot")).andReturn()).path("accounts").findValuesAsString("account"))
+                .containsExactly("server-paper-binance-spot-1d", "server-paper-upbit-spot-1d");
+
+        me.http().perform(asJson(put("/api/me/trade-bot/paper"), Map.of("settings", Map.of("coins", List.of("BTC"), "stopLoss", 0.03, "takeProfit", 0,
+                "interval", "1d", "budget", 100)))).andExpect(status().isBadRequest());
     }
 }

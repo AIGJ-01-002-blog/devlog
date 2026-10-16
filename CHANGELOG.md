@@ -10,6 +10,72 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-10-16
+
+**목표: 크레딧 모의투자와 서버 모의 봇** ([목표 이슈 #282](https://github.com/AIGJ-01-002-blog/devlog/issues/282) · 봇 판단 흔적 필드는 [v2.3.0 목표 #344](https://github.com/AIGJ-01-002-blog/devlog/issues/344)로 옮김)
+
+크레딧 모의투자가 업비트 주문창처럼 바뀌어 지정가로 걸어 두고 거래내역에서 취소할 수 있고, 차트 위에서 내 체결과 서버 모의 봇 체결을 함께 본다. 서버 모의 봇은 회원의 기본 크레딧으로 원화·바이낸스 두 계좌를 돌리고, 코인·봉 간격·손절·익절·한 번 금액을 회원마다 고른다. 학교 서버에서 막힌 업비트 대신 코빗에서 원화 캔들을 받아 자동매매 차트와 서버 모의 봇의 원화 계좌가 다시 채워진다. 관리자 상점은 종류별 탭으로 나뉘고, 쇼츠 끝에 3초 블로그 광고가 붙는다(스튜디오에서 대본마다 끌 수 있다). 릴리스 전에 SonarQube 이슈 25건을 고쳐 0건으로 맞췄다. 운영 DB에 V51(`shorts.outro`)과 V52(`paper_limit_order`)가 처음 적용된다. 블로그 주인 결정(2026-10-16)으로 원래 목표인 봇 판단 흔적 필드(#283~#285)는 v2.3.0으로 옮기고, develop에 머지된 작업을 먼저 내보낸다.
+
+### 화면
+| 크레딧 모의투자 · 차트와 주문창 (PC) |
+|---|
+| ![크레딧 모의투자 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.2.0/paper-pc.webp) |
+
+| 휴대폰 · 지정가 매수 | 휴대폰 · 다크 · 거래내역(미체결 취소) | 휴대폰 · 다크 · 모의 봇 기준 |
+|---|---|---|
+| ![지정가 주문창](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.2.0/paper-order-m.webp) | ![거래내역](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.2.0/paper-history-m-dark.webp) | ![모의 봇 기준 휴대폰](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.2.0/paper-bot-settings-m-dark.webp) |
+
+| 모의 봇 기준 (PC) |
+|---|
+| ![모의 봇 기준 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.2.0/paper-bot-settings-pc.webp) |
+
+| 관리자 상점 전 | 관리자 상점 후 (종류별 탭) |
+|---|---|
+| ![관리자 상점 전](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.2.0/admin-shop-before.webp) | ![관리자 상점 후](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.2.0/admin-shop-after.webp) |
+
+| 쇼츠 끝 3초 블로그 광고 | 쇼츠 도식 아이콘 고침 |
+|---|---|
+| ![쇼츠 끝 광고](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.2.0/shorts-outro.webp) | ![쇼츠 도식](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.2.0/shorts-diagram.webp) |
+
+### 추가
+- 모든 쇼츠 맨 끝 3초에 devlog 블로그 광고를 붙인다(블로그 주인 요청). 로고·"devlog"·"개발하며 배운 걸 기록해요 / 더 자세한 이야기는 블로그에서"·[devlog.life] 칩이 차례로 떠오르고, 대본과 상관없이 늘 같다. 문구는 `app/render-worker/remotion/src/Outro.tsx`의 `OUTRO`에서만 바꾼다. 스튜디오 대본 편집의 [영상 끝에 블로그 광고 3초 붙이기]로 대본마다 끌 수 있다(기본 켜짐, `shorts.outro`, V51)
+- 서버 모의 봇의 기준을 회원마다 고른다(#340, 블로그 주인 결정). /trade의 [모의 봇 기준]에서 코인, 봉 간격(15m·1h·4h·1d), 손절, 익절(0이면 없음), 한 번 금액(5,000~1,000,000 크레딧)을 정하면 다음 바퀴부터 그 기준으로 돈다. 바퀴는 5분마다지만 고른 봉이 새로 닫혀야 거래하고, 계좌 이름도 고른 봉(`server-paper-…-spot-4h`)을 따른다. 고르지 않은 코인은 새로 사지 않고 들고 있던 것만 판다.
+- 서버 모의 봇의 바이낸스 계좌도 기본 크레딧으로 사고판다(#339, 블로그 주인 결정: 1크레딧 = 1원). 신호는 바이낸스 USDT 1시간봉에서 받고 체결은 같은 코인의 원화 시세로 해서 환율을 쓰지 않는다. 한 번 금액은 두 계좌 모두 10만 크레딧이고, 손절선은 신호를 낸 봉 종가로 본다. 포인트가 꺼진 서버는 지금처럼 가상 USDT로 돈다.
+- 크레딧 모의투자 주문창을 업비트처럼 바꾼다. [매수]·[매도]·[거래내역] 탭에 지정가·시장가를 고르고, 지정가는 가격 −/＋(호가 단위)·수량·주문총액·10/25/50/100%·직접입력·초기화로 낸다. 지정가 매수는 지정가 × 수량 + 수수료만큼 크레딧을, 매도는 수량을 묶어 두고 시세가 닿으면 체결한다(사는 쪽은 지정가와 시세 가운데 낮은 값, 남은 몫은 돌려준다). [거래내역]에서 미체결 주문을 취소하면 묶인 것이 풀리고, 최근 체결(봇 체결 포함)도 본다. 체결기는 10초마다 돌고, 화면을 열거나 주문할 때도 바로 맞춰 본다. API `POST /api/me/paper/limit-orders`, `DELETE /api/me/paper/limit-orders/{id}`, 테이블 `paper_limit_order`(V52). ([#332](https://github.com/AIGJ-01-002-blog/devlog/issues/332), 목표 [#282](https://github.com/AIGJ-01-002-blog/devlog/issues/282))
+- 서버 모의 봇이 원화 계좌를 회원의 기본 크레딧으로 사고판다(블로그 주인 결정). 상점 크레딧은 쓰지 않고, 켠 뒤 새로 닫힌 1시간봉에서만 한 번 10만 크레딧까지 사며, 자기가 산 수량만 판다. 체결은 크레딧 모의투자 보유분과 매매 일지(전략 "서버 모의 봇")에 남고 차트에는 봇 체결로 찍힌다. 수익은 내 매매처럼 크레딧으로 쌓인다. 포인트가 꺼진 서버에서는 지금처럼 가상 돈으로 돈다. 화면과 안내의 "포인트"를 "크레딧"으로, "투자 전용 포인트"를 "기본 크레딧(상점에서는 못 써요)"으로 부른다. ([#331](https://github.com/AIGJ-01-002-blog/devlog/issues/331), 목표 [#282](https://github.com/AIGJ-01-002-blog/devlog/issues/282))
+- 포인트 모의투자(`/paper`)에 고른 코인의 원화 캔들 차트를 넣는다. 봉 간격(1분~1일)을 고르고 10초마다 새로 받으며, 내가 낸 체결(굵은 테두리 ▲▼)과 서버 모의 봇 체결(얇은 ▲▼)이 한 차트에 함께 찍힌다. 차트 위에서 모의 봇을 켜고 끈다. API `GET /api/me/paper/chart?interval=`. ([#324](https://github.com/AIGJ-01-002-blog/devlog/issues/324), 목표 [#282](https://github.com/AIGJ-01-002-blog/devlog/issues/282))
+
+### 고침
+- /trade [모의 봇 기준]의 손절·익절·한 번 금액 칸이 브라우저 기본 모양(각진 테두리, 낮은 높이)으로 나와 봉 간격 칸과 어긋나던 것을 같은 높이·테두리로 맞춘다. 코인 고르기는 휴대폰에서 누르기 쉽게 40px 칩으로 바꾼다
+- develop 기준 SonarQube 지적 23건(버그 6·코드 냄새 17, 보안 핫스팟 0건)과 다시 분석해서 나온 2건을 고친다. 크레딧 모의투자·서버 모의 봇·자동매매 차트의 널 검사와 긴 메서드를 나누고 테스트 단언을 정리했다. 동작은 그대로다
+- spec 목록(`specs/README.md`)에 빠져 있던 102 서버 모의 봇을 더하고, 100·101의 단계 칸을 v2.1.0으로, 102 FR-003의 켜기 API를 실제 코드(`PUT`)에 맞춰 고친다. ([#336](https://github.com/AIGJ-01-002-blog/devlog/issues/336))
+- 관리자 상점 목록을 아이템 종류별 탭(테마 색·프로필 테두리·블로그 표지·빛·반짝임 효과)으로 나눠 한 번에 한 종류만 보여 준다. 목록의 작은 미리보기가 칸 밖으로 넘쳐 옆 글자를 덮던 문제도 고쳤다(블로그 주인 요청).
+- 관리자 새 아이템의 색을 색 고르기 칸으로 고를 수 있다. 테두리·표지·효과는 이름으로 고르는 목록이 되고, 칸 아래에 무엇을 고르는지 안내가 보인다(블로그 주인 요청).
+- 자동매매 화면 차트의 원화 탭과 서버 모의 봇의 원화 계좌가 캔들을 코빗 공개 API(`/v2/candles`)에서 받는다([#325](https://github.com/AIGJ-01-002-blog/devlog/issues/325)). 학교 서버에서 업비트로 나가는 연결이 막혀 둘 다 비어 있었다. 탭 이름은 [업비트]에서 [원화]로 바뀌고, 업비트 봇 체결은 그대로 같은 차트에 찍힌다. 업비트로 돌리려면 `TRADES_KRW_SOURCE=upbit`
+- 쇼츠 설명 도식에서 아이콘을 짐작하지 못한 칸(헤더·빈 줄 등)이 빈 네모로, 지금 칸은 색만 칠한 네모로 나오던 문제를 고친다. 짐작하지 못하면 순서 번호를 보이고, "헤더"·"본문"은 목록·문서 아이콘으로 짐작한다. 흐름 도식 칸이 4개면 지금 칸이 커지며 화면 가장자리에 붙던 것도 양옆 여유를 두어 고친다
+- 쇼츠 스튜디오 [새 대본]에서 바탕이 될 글을 고르면 목록을 접고 고른 글 하나만 보여 준다. [다른 글 고르기]로 다시 펴면 검색어와 불러온 목록이 그대로 남아 있다. 그동안은 골라도 목록이 펼쳐진 채 남아 무엇을 골랐는지 보기 어려웠다
+
+### 포함된 작업
+| 이슈 | 브랜치 | PR |
+|---|---|---|
+| #324 포인트 모의투자에 실시간 차트, 내 체결·봇 체결 | `feature/trade-bot-coin-candles-ca44fu` | #330 |
+| #325 원화 캔들을 코빗에서 받기 | `feature/trade-bot-coin-candles-ca44fu` | #327 |
+| #331 서버 모의 봇이 기본 크레딧으로 사고팔기 | `feature/trade-bot-coin-candles-ca44fu` | #334 |
+| #332 크레딧 모의투자 업비트식 주문창·지정가 | `feature/trade-bot-coin-candles-ca44fu` | #335 |
+| #339 바이낸스 계좌도 기본 크레딧으로 | `feature/trade-bot-coin-candles-ca44fu` | #341 |
+| #340 서버 모의 봇 계정별 기준 | `feature/trade-bot-coin-candles-ca44fu` | #342 |
+| - 관리자 상점 종류별 탭·색 고르기 | `claude/project-thread-4hwzwn` | #326 |
+| - 쇼츠 새 대본 바탕 글 목록 접기 | `claude/project-thread-sz8mnc` | #322 |
+| - 쇼츠 도식 칸 아이콘 고침 | `claude/project-thread-sz8mnc` | #328 |
+| - 쇼츠 끝 3초 블로그 광고 | `claude/project-thread-sz8mnc` | #333 |
+| #336 spec 목록 고침 | `feature/daily-sync-check-1016` | #337 |
+| - README v2.1 기능 반영 | `claude/readme-v2-1` | #338 |
+| - SonarQube 지적 23건 | `feature/sonar-v2.2.0` | #343 |
+| - 모의 봇 기준 칸 모바일 다듬기 | `feature/paper-bot-settings-ux` | #345 |
+| - SonarQube 다시 분석해 남은 2건 | `feature/sonar-v2.2.0-2` | #346 |
+
+**비교:** [v2.1.3...v2.2.0](https://github.com/AIGJ-01-002-blog/devlog/compare/v2.1.3...v2.2.0)
+
 ## [2.1.3] - 2026-10-16
 
 포인트 모의투자 화면에 시세가 뜨지 않아 주문할 수 없던 문제를 고친다. 화면에는 "시세를 받지 못했어요"만 나오고 다섯 코인 값이 모두 "-"였다.

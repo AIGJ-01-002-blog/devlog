@@ -73,6 +73,31 @@ describe('StudioPostPicker', () => {
     const radio = host.querySelectorAll('input[type="radio"]')[1] as HTMLInputElement
     await act(async () => radio.click())
     expect(picked).toEqual({ id: 99, title: '도커 볼륨 복구' })
+  })
+
+  it('처음부터 골라져 있는 [글 없이 쓰기]를 눌러도 목록을 접는다', async () => {
+    await render()
+    const none = host.querySelectorAll('input[type="radio"]')[0] as HTMLInputElement
+    await act(async () => none.click())
+    expect(picked).toBeNull()
+    expect(host.querySelector('.post-picker-list')).toBeNull()
+    expect(host.querySelector('.post-picker-picked')?.textContent).toContain('글 없이 쓰기')
+  })
+
+  it('글을 고르면 목록을 접고, [다른 글 고르기]로 다시 펴면 검색어와 목록이 남아 있다', async () => {
+    await render()
+    await type('도커')
+    await settle(300)
+    const radio = host.querySelectorAll('input[type="radio"]')[1] as HTMLInputElement
+    await act(async () => radio.click())
+    await act(async () => root.render(<StudioPostPicker value={99} onChange={(p) => { picked = p }} />))
+    expect(host.querySelector('.post-picker-list')).toBeNull()
+    expect(host.querySelector('.post-picker-picked')?.textContent).toContain('도커 볼륨 복구')
+
+    const reopen = [...host.querySelectorAll('button')].find((b) => b.textContent === '다른 글 고르기')!
+    await act(async () => reopen.click())
+    expect((host.querySelector('input[type="search"]') as HTMLInputElement).value).toBe('도커')
+    expect(titles()).toEqual(['글 없이 쓰기', '도커 볼륨 복구'])
 
     await type('없는 글')
     await settle(300)

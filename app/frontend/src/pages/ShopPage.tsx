@@ -72,7 +72,7 @@ export function ShopPage() {
   return (
     <main className="container dashboard-page shop-page">
       <h1 className="page-title">{t('크레딧 상점')}</h1>
-      <p className="muted small shop-notice">{t('출석·글·모의투자 수익으로 번 크레딧으로 블로그를 꾸며요. 아래 티어를 사야 윗 티어가 열려요. 가입 때 받은 투자 전용 포인트로는 살 수 없어요.')}</p>
+      <p className="muted small shop-notice">{t('출석·글·모의투자 수익으로 번 크레딧으로 블로그를 꾸며요. 아래 티어를 사야 윗 티어가 열려요. 가입 때 받은 기본 크레딧으로는 살 수 없어요.')}</p>
       {error && <p className="error" role="alert">{t('상점을 불러오지 못했어요.')}</p>}
       {!shop && !error && <p className="muted center">{t('불러오는 중…')}</p>}
       {shop && (
@@ -84,7 +84,7 @@ export function ShopPage() {
               <span className="kpi-foot"><Link to="/points" className="kpi-prev" data-tip={t('출석하고 크레딧 얻는 법 보기')}>{t('크레딧 더 모으기')}</Link></span>
             </div>
             <div className="kpi" data-tip={t('가입할 때 받은 모의투자 자금이에요. 모의투자에만 쓰고 상점에서는 못 써요')}>
-              <span className="kpi-label">{t('투자 전용 포인트')}</span>
+              <span className="kpi-label">{t('기본 크레딧')}</span>
               <span className="kpi-value muted">{points(shop.investBalance)}</span>
               <span className="kpi-foot"><span className="kpi-prev">{t('상점에서는 못 써요')}</span></span>
             </div>
@@ -174,12 +174,17 @@ function LockIcon() {
   )
 }
 
-/** 아이템 미리보기: 테마는 색과 버튼, 테두리는 내 프로필 사진, 표지는 그 표지, 효과는 작은 표지와 프로필에 효과를 건 모습 */
-export function Preview({ item, kind, seed, name, image }: { item: Pick<ShopItem, 'value' | 'imageUrl' | 'name'>; kind: ItemKind; seed: string; name: string; image: string | null }) {
+/**
+ * 아이템 미리보기: 테마는 색과 버튼, 테두리는 내 프로필 사진, 표지는 그 표지, 효과는 작은 표지와 프로필에 효과를 건 모습.
+ * small은 관리자 목록처럼 좁은 칸용: 사진을 작게 그리고 테마는 색 동그라미만 보여 칸 밖으로 넘치지 않게 한다.
+ */
+export function Preview({ item, kind, seed, name, image, small = false }: { item: Pick<ShopItem, 'value' | 'imageUrl' | 'name'>; kind: ItemKind; seed: string; name: string; image: string | null; small?: boolean }) {
   const look = { itemId: 0, name: item.name, tier: 1, value: item.value, imageUrl: item.imageUrl }
+  const cls = `shop-preview${small ? ' shop-preview-small' : ''}`
   if (kind === 'THEME') {
+    if (small) return <div className={cls} aria-hidden="true"><span className="shop-swatch" style={{ '--swatch': item.value } as CSSProperties} /></div>
     return (
-      <div className="shop-preview" aria-hidden="true">
+      <div className={cls} aria-hidden="true">
         <span className="shop-preview-theme blog-themed" style={{ '--blog-theme': item.value } as CSSProperties}>
           {/* 내 블로그 머리 부분을 줄여 그린 모습: 고른 탭 밑줄·링크·버튼이 이 색으로 바뀐다 */}
           <span className="theme-mock">
@@ -194,8 +199,8 @@ export function Preview({ item, kind, seed, name, image }: { item: Pick<ShopItem
   if (kind === 'FRAME') {
     const f = frameProps(look)
     return (
-      <div className="shop-preview" aria-hidden="true">
-        <span className="deco-frame" data-frame={f['data-frame']} style={f.style}><Avatar src={image} name={name || '?'} seed={seed} size={68} /></span>
+      <div className={cls} aria-hidden="true">
+        <span className="deco-frame" data-frame={f['data-frame']} style={f.style}><Avatar src={image} name={name || '?'} seed={seed} size={small ? 36 : 68} /></span>
       </div>
     )
   }
@@ -203,12 +208,12 @@ export function Preview({ item, kind, seed, name, image }: { item: Pick<ShopItem
     // 효과는 그 효과가 놓인 티어의 표지·테두리 위에 걸어 보여 준다
     const tier = EFFECT_TIER[item.value] ?? 'diamond'
     return (
-      <div className="shop-preview deco-effect-preview" data-effect={item.value} aria-hidden="true">
+      <div className={`${cls} deco-effect-preview`} data-effect={item.value} aria-hidden="true">
         <span className="deco-banner deco-effect-cover" data-banner={tier} />
-        <span className="deco-frame deco-effect-avatar" data-frame={tier}><Avatar src={image} name={name || '?'} seed={seed} size={44} /></span>
+        <span className="deco-frame deco-effect-avatar" data-frame={tier}><Avatar src={image} name={name || '?'} seed={seed} size={small ? 24 : 44} /></span>
       </div>
     )
   }
   const b = bannerProps(look)
-  return <div className={`shop-preview deco-banner${b.image ? ' has-image' : ''}`} data-banner={b['data-banner']} style={b.style} aria-hidden="true" />
+  return <div className={`${cls} deco-banner${b.image ? ' has-image' : ''}`} data-banner={b['data-banner']} style={b.style} aria-hidden="true" />
 }

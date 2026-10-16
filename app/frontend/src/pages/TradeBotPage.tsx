@@ -1,10 +1,12 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { NavIcon, type IconName } from '../components/NavIcons'
+import { PaperBotSettingsForm } from '../components/PaperBotSettingsForm'
 import { TradeBotCharts } from '../components/TradeBotCharts'
 import { t } from '../lib/i18n'
 import { Link } from '../lib/router'
 import {
   accountInterval, eventTime, isStale, loadPaperBot, loadTradeBot, setPaperBot, sideLabel, sideUp, type BotAccount, type BotEvent, type BotView,
+  type PaperBotView,
 } from '../lib/tradeBot'
 import { exchangeName, money, pnlClass, qty } from '../lib/trades'
 
@@ -36,20 +38,21 @@ export function TradeBotPage() {
   const [error, setError] = useState(false)
   const [tab, setTab] = useState<TradeBotTab>(() => tradeBotTabFromHash(location.hash))
 
-  const [paper, setPaper] = useState<boolean | null>(null)
+  const [paperView, setPaperView] = useState<PaperBotView | null>(null)
+  const paper = paperView ? paperView.enabled : null
   const [switching, setSwitching] = useState(false)
   const [switchError, setSwitchError] = useState(false)
 
   const reload = () => {
     loadTradeBot().then((d) => { setData(d); setError(false) }).catch(() => setError(true))
-    loadPaperBot().then((p) => setPaper(p.enabled)).catch(() => setPaper(null))
+    loadPaperBot().then(setPaperView).catch(() => setPaperView(null))
   }
   const togglePaper = () => {
     if (paper === null || switching) return
     setSwitching(true)
     setSwitchError(false)
     setPaperBot(!paper)
-      .then((p) => { setPaper(p.enabled); reload() })
+      .then((p) => { setPaperView(p); reload() })
       .catch(() => setSwitchError(true))
       .finally(() => setSwitching(false))
   }
@@ -91,6 +94,7 @@ export function TradeBotPage() {
       </div>
       <p className="muted small trades-notice">{t('매매 기준은 내 AI가 정하고, 봇이 그 기준대로 5분마다 모의 주문을 내요. Gemini는 진입 직전 필터와 하루 요약만 맡아요. 투자 권유가 아니에요.')}</p>
       <TradeBotGuide />
+      {paperView && <PaperBotSettingsForm view={paperView} onSaved={(v) => { setPaperView(v); reload() }} />}
       {switchError && <p className="error" role="alert">{t('모의 봇을 바꾸지 못했어요. 다시 시도해 주세요.')}</p>}
       {error && <p className="error" role="alert">{t('자동매매 기록을 불러오지 못했어요.')}</p>}
       {!data && !error && <p className="muted center">{t('불러오는 중…')}</p>}

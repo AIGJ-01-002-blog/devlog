@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { accountInterval, changeRate, isStale, markIndex, sideUp, type ChartCandle } from './tradeBot'
+import {
+  accountInterval, changeRate, isStale, markIndex, paperBotForm, paperBotFormError, paperBotSettings, sideUp, type ChartCandle,
+} from './tradeBot'
 
 const c = (t: number, o: number, cl: number): ChartCandle => ({ t, o, h: Math.max(o, cl) + 1, l: Math.min(o, cl) - 1, c: cl })
 
@@ -30,5 +32,19 @@ describe('자동매매 화면 (spec 101)', () => {
     expect(isStale('2026-10-15T04:50:00Z', now)).toBe(false)
     expect(isStale('2026-10-15T04:40:00Z', now)).toBe(true)
     expect(isStale(null, now)).toBe(true)
+  })
+
+  it('모의 봇 기준(#340): %와 비율을 오차 없이 오가고, 서버와 같은 범위로 막는다', () => {
+    const form = paperBotForm({ coins: ['BTC', 'ETH'], stopLoss: 0.035, takeProfit: 0.07, interval: '4h', budget: 50_000 })
+    expect(form).toEqual({ coins: ['BTC', 'ETH'], stopLossPct: '3.5', takeProfitPct: '7', interval: '4h', budget: '50000' })
+    expect(paperBotFormError(form)).toBeNull()
+    expect(paperBotSettings(form)).toEqual({ coins: ['BTC', 'ETH'], stopLoss: 0.035, takeProfit: 0.07, interval: '4h', budget: 50_000 })
+    expect(paperBotSettings({ ...form, takeProfitPct: '' }).takeProfit).toBe(0)
+    expect(paperBotFormError({ ...form, coins: [] })).not.toBeNull()
+    expect(paperBotFormError({ ...form, stopLossPct: '0.1' })).not.toBeNull()
+    expect(paperBotFormError({ ...form, takeProfitPct: '0' })).toBeNull()
+    expect(paperBotFormError({ ...form, takeProfitPct: '0.2' })).not.toBeNull()
+    expect(paperBotFormError({ ...form, budget: '4000' })).not.toBeNull()
+    expect(paperBotFormError({ ...form, budget: '5000.5' })).not.toBeNull()
   })
 })

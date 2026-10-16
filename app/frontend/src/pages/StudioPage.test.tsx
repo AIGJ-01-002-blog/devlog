@@ -16,7 +16,7 @@ describe('StudioPage', () => {
     scenes: [{ caption: '소켓', narration: '소켓 하나로 시작해요.', code: null }],
     status: 'QUEUED', attempts: 0, videoUrl: null, durationMs: null, videoBytes: null, error: null,
     estimatedSeconds: 5, queuedAt: null, renderedAt: null, createdAt: '', updatedAt: '', version: 1,
-    postTags: [], uploads: [], replay: null, batchId: null, topic: null, character: null,
+    postTags: [], uploads: [], replay: null, batchId: null, topic: null, character: null, outro: true,
   }
 
   beforeEach(() => {
@@ -51,5 +51,27 @@ describe('StudioPage', () => {
     expect(location.search).toBe('?id=5')
     expect(heading()).not.toBe('새 대본')
     expect(host.querySelector<HTMLInputElement>('.studio-editor input')!.value).toBe('소켓 하나로 웹 서버 만들기')
+  })
+
+  it('끝 블로그 광고를 끄고 저장하면 outro: false로 보낸다', async () => {
+    const draft = { ...item, status: 'DRAFT' as const }
+    const sent: unknown[] = []
+    vi.stubGlobal('fetch', vi.fn(async (raw: string, init?: RequestInit) => {
+      const path = new URL(raw, 'http://x').pathname
+      if (path === '/api/me/shorts') return json({ items: [draft], workerSeenAt: null, rendersToday: 0, dailyRenders: 10 })
+      if (path === '/api/me/shorts/5' && init?.method === 'PUT') {
+        sent.push(JSON.parse(String(init.body)))
+        return json({ ...draft, outro: false, version: 2 })
+      }
+      if (path === '/api/me/shorts/batches') return json([])
+      return json({ items: [], nextCursor: null, counts: null })
+    }))
+    history.replaceState(null, '', '/studio?id=5')
+    await act(async () => root.render(<StudioPage />))
+    const toggle = host.querySelector<HTMLInputElement>('.studio-outro input')!
+    expect(toggle.checked).toBe(true)
+    await click(toggle)
+    await click([...host.querySelectorAll('button')].find((b) => b.textContent === '저장')!)
+    expect(sent).toEqual([expect.objectContaining({ outro: false })])
   })
 })

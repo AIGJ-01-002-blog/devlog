@@ -48,8 +48,9 @@ export const DiagramStage: React.FC<{scene: SceneData; tint: string; presenter?:
 const Flow: React.FC<{d: Diagram; c: Clock; tint: string}> = ({d, c, tint}) => {
   if (d.type !== 'flow') return null;
   const n = d.items.length;
-  const gap = 70;
-  const w = Math.min(300, (1000 - (n - 1) * gap) / n);
+  // 지금 칸은 커지고(1.06배) 테두리(6px)가 붙으니, 무대 폭(1000)을 꽉 채우지 않고 양옆에 여유를 둔다
+  const gap = n >= 4 ? 48 : 70;
+  const w = Math.min(300, (920 - (n - 1) * gap) / n);
   const cur = currentIndex(d.items, c.ms);
   const t = c.frame / c.fps;
   return (
@@ -64,7 +65,7 @@ const Flow: React.FC<{d: Diagram; c: Clock; tint: string}> = ({d, c, tint}) => {
           <div key={k} style={{position: 'relative', width: w, opacity: Math.min(1, s * 1.5), translate: `0 ${(1 - s) * 40}px`, scale: String(on ? 1.06 : 1)}}>
             <div style={card({padding: '34px 16px 28px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18,
               outline: on ? `6px solid ${tint}` : 'none'})}>
-              <IconBadge Icon={iconFor(it.label, it.icon)} color={tint} size={Math.min(130, w * 0.5)} on={on ? 1 : 0} />
+              <IconBadge Icon={iconFor(it.label, it.icon)} color={tint} size={Math.min(130, w * 0.5)} on={on ? 1 : 0} fallback={k + 1} />
               <div style={{font: theme.type.label, color: color.ink, textAlign: 'center', wordBreak: 'keep-all', fontSize: w < 220 ? 32 : 38}}>{it.label}</div>
               {it.note ? <div style={{font: theme.type.body, fontSize: 28, color: color.sub, textAlign: 'center', wordBreak: 'keep-all'}}>{it.note}</div> : null}
             </div>
@@ -100,7 +101,7 @@ const Stack: React.FC<{d: Diagram; c: Clock; tint: string}> = ({d, c, tint}) => 
         return (
           <div key={k} style={card({height: h, display: 'flex', alignItems: 'center', gap: 24, padding: '0 30px', opacity: Math.min(1, s * 1.5),
             translate: `${(1 - s) * 80}px 0`, background: on ? tint : color.surface, width: `${100 - k * 4}%`, alignSelf: 'center'})}>
-            <IconBadge Icon={iconFor(it.label, it.icon)} color={on ? '#ffffff' : tint} size={h * 0.66} on={0} />
+            <IconBadge Icon={iconFor(it.label, it.icon)} color={on ? '#ffffff' : tint} size={h * 0.66} on={0} fallback={k + 1} />
             <div style={{font: theme.type.label, color: on ? '#ffffff' : color.ink, flex: 1}}>{it.label}</div>
             {it.note ? <div style={{font: theme.type.body, fontSize: 28, color: on ? '#ffffffcc' : color.sub}}>{it.note}</div> : null}
           </div>

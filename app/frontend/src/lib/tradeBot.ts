@@ -67,9 +67,66 @@ export interface BotView {
 
 export const loadTradeBot = () => api<BotView>('/api/me/trade-bot')
 
+/** 서버 모의 봇의 내 기준 (#340). 손절·익절은 비율(0.03 = 3%), 익절 0은 쓰지 않음. 한 번 금액은 기본 크레딧 */
+export interface PaperBotSettings {
+  coins: string[]
+  stopLoss: number
+  takeProfit: number
+  interval: string
+  budget: number
+}
+
+export interface PaperBotView {
+  enabled: boolean
+  settings: PaperBotSettings
+  /** 고를 수 있는 코인과 봉 간격 */
+  coins: string[]
+  intervals: string[]
+}
+
 /** 서버가 돌리는 모의 봇 (spec 102). 켜면 devlog 서버가 5분마다 공개 시세로 모의 매매를 한다 */
-export const loadPaperBot = () => api<{ enabled: boolean }>('/api/me/trade-bot/paper')
-export const setPaperBot = (enabled: boolean) => api<{ enabled: boolean }>('/api/me/trade-bot/paper', { method: 'PUT', body: { enabled } })
+export const loadPaperBot = () => api<PaperBotView>('/api/me/trade-bot/paper')
+export const setPaperBot = (enabled: boolean) => api<PaperBotView>('/api/me/trade-bot/paper', { method: 'PUT', body: { enabled } })
+export const savePaperBotSettings = (settings: PaperBotSettings) =>
+  api<PaperBotView>('/api/me/trade-bot/paper', { method: 'PUT', body: { settings } })
+
+/** 화면에서 고치는 기준: 손절·익절은 % 숫자 그대로 */
+export interface PaperBotForm {
+  coins: string[]
+  stopLossPct: string
+  takeProfitPct: string
+  interval: string
+  budget: string
+}
+
+export const PAPER_BOT_MIN_BUDGET = 5_000
+export const PAPER_BOT_MAX_BUDGET = 1_000_000
+
+/** 소수 계산 오차 없이 비율을 %로 (0.035 → "3.5") */
+const pct = (ratio: number) => String(Math.round(ratio * 10_000) / 100)
+
+export function paperBotForm(s: PaperBotSettings): PaperBotForm {
+  return { coins: s.coins, stopLossPct: pct(s.stopLoss), takeProfitPct: pct(s.takeProfit), interval: s.interval, budget: String(s.budget) }
+}
+
+/** 서버 검사와 같은 범위. 틀린 곳이 있으면 그 문구, 없으면 null */
+export function paperBotFormError(f: PaperBotForm): string | null {
+  const sl = Number(f.stopLossPct)
+  const tp = f.takeProfitPct.trim() === '' ? 0 : Number(f.takeProfitPct)
+  const budget = Number(f.budget)
+  if (f.coins.length === 0) return t('코인을 하나 이상 골라 주세요.')
+  if (!Number.isFinite(sl) || sl < 0.5 || sl > 50) return t('손절은 0.5%에서 50% 사이로 정해 주세요.')
+  if (!Number.isFinite(tp) || tp < 0 || (tp > 0 && tp < 0.5) || tp > 100) return t('익절은 0(쓰지 않음)이나 0.5%에서 100% 사이로 정해 주세요.')
+  if (!Number.isInteger(budget) || budget < PAPER_BOT_MIN_BUDGET || budget > PAPER_BOT_MAX_BUDGET) {
+    return t('한 번 금액은 {0}에서 {1} 크레딧 사이로 정해 주세요.', { 0: PAPER_BOT_MIN_BUDGET.toLocaleString(), 1: PAPER_BOT_MAX_BUDGET.toLocaleString() })
+  }
+  return null
+}
+
+export function paperBotSettings(f: PaperBotForm): PaperBotSettings {
+  const ratio = (v: string) => Math.round(Number(v || 0) * 100) / 10_000
+  return { coins: f.coins, stopLoss: ratio(f.stopLossPct), takeProfit: ratio(f.takeProfitPct), interval: f.interval, budget: Number(f.budget) }
+}
 
 /** 봇이 5분마다 도니 15분 넘게 소식이 없으면 멈춘 것으로 본다 */
 export const STALE_MINUTES = 15
@@ -109,7 +166,8 @@ export const CHART_INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d'] as const
 export type ChartInterval = (typeof CHART_INTERVALS)[number]
 
 export interface ChartCandle { t: number; o: number; h: number; l: number; c: number }
-export interface ChartMark { t: number; side: string; price: number; text: string }
+/** by: 누가 낸 체결인지. BOT은 봇의 모의 체결, ME는 포인트 모의투자에서 내가 직접 낸 체결(#324) */
+export interface ChartMark { t: number; side: string; price: number; text: string; by?: 'BOT' | 'ME' }
 export interface ChartCoin {
   coin: string
   name: string

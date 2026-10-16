@@ -1,5 +1,6 @@
 // 쇼츠 새 대본의 바탕 글 고르기 (#308). 최신순 목록을 끝까지 내리면 다음 글을 더 불러오고,
 // 검색 칸에 제목 일부를 적으면 내 공개 글 전체에서 찾는다(/api/me/posts?q=).
+// 하나를 고르면 목록을 접고 고른 글만 보여 준다. [다른 글 고르기]로 다시 편다.
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../lib/api'
 import { t } from '../lib/i18n'
@@ -23,6 +24,8 @@ export function StudioPostPicker({ value, onChange }: { value: number | null; on
   const [cursor, setCursor] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [failed, setFailed] = useState(false)
+  const [open, setOpen] = useState(true)
+  const [picked, setPicked] = useState<PickedPost | null>(null)
   // 늦게 온 응답이 새 검색 결과를 덮지 않게 요청마다 번호를 매긴다
   const request = useRef(0)
   const list = useRef<HTMLDivElement>(null)
@@ -66,18 +69,37 @@ export function StudioPostPicker({ value, onChange }: { value: number | null; on
     if (cursor && !loading && el.scrollTop + el.clientHeight >= el.scrollHeight - 48) load(query.trim(), cursor)
   }
 
+  const choose = (post: PickedPost | null) => {
+    setPicked(post)
+    onChange(post)
+    setOpen(false)
+  }
+
+  if (!open) {
+    // 접힌 목록은 그리지 않으니, 다시 펴도 불러온 글·검색어·스크롤은 컴포넌트 상태로 남는다
+    return (
+      <div className="post-picker post-picker-picked">
+        <span>{value === null ? t('글 없이 쓰기') : picked?.title || t('(제목 없음)')}</span>
+        <button id="shorts-post" type="button" className="btn btn-text btn-small" aria-expanded={false} aria-controls="shorts-post-list"
+          onClick={() => setOpen(true)}>{t('다른 글 고르기')}</button>
+      </div>
+    )
+  }
+
   return (
     <div className="post-picker">
       <input id="shorts-post" type="search" value={query} placeholder={t('제목으로 내 글 찾기')} aria-label={t('바탕이 될 글 검색')}
         aria-controls="shorts-post-list" onChange={(e) => changeQuery(e.target.value)} />
       <div id="shorts-post-list" ref={list} className="post-picker-list" role="radiogroup" aria-label={t('바탕이 될 글')} aria-busy={loading} onScroll={onScroll}>
         <label className={`post-picker-item${value === null ? ' picked' : ''}`}>
-          <input type="radio" name="shorts-post" checked={value === null} onChange={() => onChange(null)} />
+          <input type="radio" name="shorts-post" checked={value === null} onChange={() => choose(null)}
+            // 처음부터 골라져 있는 칸은 눌러도 change가 없어서 click으로 고른 것을 확정한다
+            onClick={() => { if (value === null) choose(null) }} />
           <span>{t('글 없이 쓰기')}</span>
         </label>
         {posts.map((p) => (
           <label key={p.id} className={`post-picker-item${value === p.id ? ' picked' : ''}`}>
-            <input type="radio" name="shorts-post" checked={value === p.id} onChange={() => onChange(p)} />
+            <input type="radio" name="shorts-post" checked={value === p.id} onChange={() => choose(p)} />
             <span>{p.title || t('(제목 없음)')}</span>
           </label>
         ))}

@@ -33,7 +33,7 @@ type Filter = 'ALL' | Wallet
 const filters = (): { key: Filter; label: string; tip: string }[] => [
   { key: 'ALL', label: t('전체'), tip: t('모든 적립·사용 내역을 봐요') },
   { key: 'SHOP', label: t('크레딧'), tip: t('출석·글·모의투자 수익으로 번 크레딧 내역만 봐요') },
-  { key: 'INVEST_ONLY', label: t('투자 전용'), tip: t('가입 첫 지급과 모의투자에 쓴 내역만 봐요') },
+  { key: 'INVEST_ONLY', label: t('기본 크레딧'), tip: t('가입 첫 지급과 모의투자에 쓴 내역만 봐요') },
 ]
 
 /**
@@ -51,7 +51,7 @@ export function PointsPage() {
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
   const [tab, setTab] = useState<PointsTab>(() => pointsTabFromHash(location.hash))
 
-  useEffect(() => { document.title = t('내 포인트 - devlog') }, [])
+  useEffect(() => { document.title = t('내 크레딧 - devlog') }, [])
   useEffect(() => {
     const sync = () => setTab(pointsTabFromHash(location.hash))
     window.addEventListener('hashchange', sync)
@@ -120,14 +120,14 @@ export function PointsPage() {
   return (
     <main className="container dashboard-page points-page">
       <div className="points-title">
-        <h1 className="page-title">{t('내 포인트')}</h1>
+        <h1 className="page-title">{t('내 크레딧')}</h1>
         <span className="points-title-actions">
-          {me?.features?.trades && <Link to="/paper" className="btn btn-outline btn-small" data-tip={t('포인트로 코인을 사고파는 모의투자')}>{t('모의투자')}</Link>}
+          {me?.features?.trades && <Link to="/paper" className="btn btn-outline btn-small" data-tip={t('크레딧으로 코인을 사고파는 모의투자')}>{t('모의투자')}</Link>}
           <Link to="/shop" className="btn btn-primary btn-small" data-tip={t('크레딧으로 블로그 꾸미기 아이템 사기')}>{t('크레딧 상점')}</Link>
         </span>
       </div>
-      <p className="muted small points-notice">{t('포인트는 devlog 안에서만 써요. 현금이나 코인으로 바꾸거나 다른 사람에게 줄 수 없어요.')}</p>
-      {error && <p className="error" role="alert">{t('포인트를 불러오지 못했어요.')}</p>}
+      <p className="muted small points-notice">{t('크레딧은 devlog 안에서만 써요. 현금이나 코인으로 바꾸거나 다른 사람에게 줄 수 없어요.')}</p>
+      {error && <p className="error" role="alert">{t('크레딧을 불러오지 못했어요.')}</p>}
       {!data && !error && <p className="muted center">{t('불러오는 중…')}</p>}
       {data && (
         <>
@@ -138,7 +138,7 @@ export function PointsPage() {
               <span className="kpi-foot"><span className="kpi-prev">{t('꾸미기 아이템·모의투자에 써요')}</span></span>
             </div>
             <div className="kpi" data-tip={t('가입할 때 받은 모의투자 자금이에요. 모의투자에만 쓰고 상점에서는 못 써요')}>
-              <span className="kpi-label">{t('투자 전용 포인트')}</span>
+              <span className="kpi-label">{t('기본 크레딧')}</span>
               <span className="kpi-value">{points(data.balance.invest)}</span>
               <span className="kpi-foot"><span className="kpi-prev">{t('모의투자에만 써요')}</span></span>
             </div>
@@ -150,7 +150,7 @@ export function PointsPage() {
           </div>
 
           <div className="settings-layout points-tabs">
-            <nav className="settings-nav" aria-label={t('포인트 메뉴')}>
+            <nav className="settings-nav" aria-label={t('크레딧 메뉴')}>
               {POINTS_TABS.map((x) => (
                 <a key={x.id} href={`/points#${x.id}`} aria-current={x.id === tab ? 'page' : undefined} data-tip={x.hint}
                   onClick={(e) => { e.preventDefault(); open(x.id) }}>
@@ -248,9 +248,9 @@ export function PointsPage() {
             </section>
               )}
               {tab === 'history' && (
-          <section className="admin-card points-history" aria-label={t('포인트 내역')}>
+          <section className="admin-card points-history" aria-label={t('크레딧 내역')}>
             <div className="points-history-head">
-              <h2>{t('포인트 내역')}</h2>
+              <h2>{t('크레딧 내역')}</h2>
               <div className="segmented" role="group" aria-label={t('지갑')}>
                 {filters().map((f) => (
                   <button key={f.key} type="button" aria-pressed={filter === f.key} data-tip={f.tip} onClick={() => void pick(f.key)}>{f.label}</button>

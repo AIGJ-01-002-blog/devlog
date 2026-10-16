@@ -96,14 +96,14 @@ export const loadPointRules = () => api<PointRuleView[]>('/api/admin/points/rule
 export const savePointRules = (values: Record<string, number>) =>
   api<PointRuleView[]>('/api/admin/points/rules', { method: 'PUT', body: values })
 
-/** 크레딧 숫자 (활동으로 번 상점 지갑, 1크레딧 = 1P). sign이면 적립에 +를 붙인다 */
+/** 크레딧 숫자. sign이면 적립에 +를 붙인다 (색만으로 구분하지 않게) */
 export function credits(n: number, sign = false): string {
   const body = t('{0}크레딧', { 0: num(Math.abs(n)) })
   if (n < 0) return `-${body}`
   return sign && n > 0 ? `+${body}` : body
 }
 
-/** 원장 한 줄의 금액: 상점 지갑은 크레딧, 투자 전용은 P */
+/** 원장 한 줄의 금액 */
 export function amountOf(wallet: Wallet, n: number, sign = false): string {
   return wallet === 'SHOP' ? credits(n, sign) : points(n, sign)
 }
@@ -114,11 +114,9 @@ export function attendanceReward(base: number, max: number, streak: number): num
   return Math.min(max, base * streak * streak)
 }
 
-/** 포인트 숫자. sign이면 적립에 +를 붙인다 (색만으로 구분하지 않게) */
+/** 기본 크레딧(투자 전용 지갑) 숫자. 두 지갑 모두 크레딧이라 단위가 같다 (#331, 블로그 주인 결정) */
 export function points(n: number, sign = false): string {
-  const body = t('{0}P', { 0: num(Math.abs(n)) })
-  if (n < 0) return `-${body}`
-  return sign && n > 0 ? `+${body}` : body
+  return credits(n, sign)
 }
 
 export function ruleValue(rules: PointRuleView[], code: string): number {
@@ -141,7 +139,7 @@ export function reasonLabel(reason: string): string {
 }
 
 export function walletLabel(w: Wallet): string {
-  return w === 'INVEST_ONLY' ? t('투자 전용') : t('크레딧')
+  return w === 'INVEST_ONLY' ? t('기본 크레딧') : t('크레딧')
 }
 
 /**

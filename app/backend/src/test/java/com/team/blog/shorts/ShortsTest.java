@@ -262,6 +262,27 @@ class ShortsTest extends IntegrationTest {
     }
 
     @Test
+    void 끝_블로그_광고는_기본으로_켜지고_대본마다_끌_수_있다() throws Exception {
+        Session me = signup(uniqueLogin("shortsoutro"));
+        long postId = writePost(me, POST_BODY);
+        JsonNode item = read(me.http().perform(asJson(post("/api/me/shorts"), Map.of("postId", postId, "title", "광고 없는 로그아웃", "scenes", GOOD)))
+                .andExpect(status().isCreated()).andReturn());
+        assertThat(item.path("outro").asBoolean()).isTrue();
+        long id = item.path("id").asLong();
+
+        // 제목만 고치면 그대로, false를 주면 끈다
+        JsonNode kept = read(me.http().perform(asJson(put("/api/me/shorts/" + id), Map.of("title", "광고 없는 로그아웃 2"))).andExpect(status().isOk()).andReturn());
+        assertThat(kept.path("outro").asBoolean()).isTrue();
+        JsonNode off = read(me.http().perform(asJson(put("/api/me/shorts/" + id), Map.of("outro", false))).andExpect(status().isOk()).andReturn());
+        assertThat(off.path("outro").asBoolean()).isFalse();
+
+        me.http().perform(post("/api/me/shorts/" + id + "/render").with(csrf())).andExpect(status().isOk());
+        JsonNode job = claim();
+        assertThat(job.path("id").asLong()).isEqualTo(id);
+        assertThat(job.path("outro").asBoolean()).isFalse();
+    }
+
+    @Test
     void 효과음은_작업_단위로_펼쳐_보낸다() throws Exception {
         ImageJob r = claimWithImage();
         JsonNode job = r.job();

@@ -75,6 +75,8 @@ export interface ShortsItem {
   topic: number | null
   /** 연기할 캐릭터(#304). null이면 기본(로그냥) */
   character: ShortsCharacter | null
+  /** 영상 끝 3초 블로그 광고를 붙일지. 기본 true */
+  outro: boolean
 }
 
 /** 주제 묶음의 한 주제. 아직 대본이 없으면 shortsId·status가 null */
@@ -235,7 +237,7 @@ export function groupByBatch(items: ShortsItem[], batches: ShortsBatch[]): { bat
 }
 export const createShorts = (body: { postId: number | null; title: string; scenes: Scene[] }) =>
   api<ShortsItem>('/api/me/shorts', { method: 'POST', body })
-export const saveShorts = (id: number, body: { title: string; scenes: Scene[]; version: number; character?: string }) =>
+export const saveShorts = (id: number, body: { title: string; scenes: Scene[]; version: number; character?: string; outro?: boolean }) =>
   api<ShortsItem>(`/api/me/shorts/${id}`, { method: 'PUT', body })
 export const createReplay = (tradeIds: number[], interval: ReplayInterval | null) =>
   api<ShortsItem>('/api/me/shorts/replay', { method: 'POST', body: { tradeIds, interval } })
