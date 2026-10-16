@@ -38,6 +38,8 @@ class Client:
         self.server = server.rstrip("/")
         self.token = token
         self.timeout = timeout
+        #: 서버가 이 토큰을 한 번이라도 받아 줬는지(2xx). 그 뒤의 401·404는 배포 중 잠깐 생긴 것으로 본다
+        self.accepted = False
 
     def claim(self) -> dict | None:
         status, body = self._send("POST", "/api/render/jobs/claim", b"", "application/json")
@@ -57,6 +59,7 @@ class Client:
             TOKEN_HEADER: self.token, "Content-Type": content_type, "User-Agent": USER_AGENT, **(headers or {})})
         try:
             with urllib.request.urlopen(request, timeout=timeout or self.timeout) as response:
+                self.accepted = True
                 return response.status, response.read()
         except urllib.error.HTTPError as e:
             raise ServerError(e.code, e.read().decode("utf-8", "replace")) from None
@@ -99,13 +102,12 @@ def loop(client: Client, renderer: Renderer, site: str, interval: float = 15, on
     """켜 둔 채 두고 다니는 워커라 서버가 배포·재시작으로 잠깐 401·404·5xx를 줘도 끄지 않고 다시 묻는다.
     처음 켰을 때 한 번도 받아 주지 않으면(토큰이 틀림 등) 바로 알려 주고 끝낸다."""
     backoff = interval
-    accepted = False  # 서버가 한 번이라도 이 워커를 받아 줬는지
     while True:
         try:
             worked = run_once(client, renderer, site)
-            accepted, backoff = True, interval
+            backoff = interval
         except ServerError as e:
-            if e.status in (401, 404) and not accepted:
+            if e.status in (401, 404) and not client.accepted:
                 raise SystemExit(f"서버가 워커를 받지 않아요({e.status}). 토큰과 서버의 SHORTS_ENABLED를 확인해 주세요.")
             if e.status in (401, 404):
                 log.error("서버가 워커를 받지 않아요(%s). 서버 배포 중이면 곧 풀려요. 계속되면 토큰을 확인해 주세요.", e.status)

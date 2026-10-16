@@ -201,5 +201,27 @@ class ClientTest(unittest.TestCase):
         self.assertEqual(answers, [])
 
 
+@unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "ffmpeg 없음")
+class UploadBlipTest(unittest.TestCase):
+    def test_upload_404_on_first_job_does_not_stop_worker(self):
+        """첫 작업을 받아 렌더하는 사이 서버가 배포돼 올리기가 404여도 워커는 끄지 않는다"""
+        server = FakeServer(JOB, upload_status=404)
+        calls = []
+
+        def stop_after_three(*a, **k):
+            calls.append(1)
+            if len(calls) > 3:
+                raise KeyboardInterrupt
+            return run_once(*a, **k)
+
+        try:
+            with mock.patch("devlog_render.worker.time.sleep"), mock.patch("devlog_render.worker.run_once", side_effect=stop_after_three):
+                with self.assertRaises(KeyboardInterrupt):
+                    loop(Client(server.url, "tok"), renderer(), "devlog.life", interval=0.01)
+        finally:
+            server.close()
+        self.assertEqual(len(server.uploads), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
