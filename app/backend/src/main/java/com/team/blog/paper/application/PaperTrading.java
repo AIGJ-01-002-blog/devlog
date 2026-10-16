@@ -653,6 +653,35 @@ public class PaperTrading implements BotCredits {
         return botOrder(memberId, new Order(orderId, coin, Side.SELL.name(), null, all ? null : quantity, all, false, reason));
     }
 
+    @Override
+    public Optional<BigDecimal> usdtKrw() {
+        return enabled() ? quotes.usdtKrw() : Optional.empty();
+    }
+
+    @Override
+    public boolean exchangeOut(long memberId, long amount, String key, String memo) {
+        if (!enabled() || amount <= 0) return false;
+        try {
+            botTx.executeWithoutResult(st -> points.ensureWelcome(memberId));
+            // 봇 바퀴와 따로 끝낸다: 모자라서 거절돼도 봇 바퀴 트랜잭션은 그대로 간다
+            botTx.executeWithoutResult(st -> points.spend(memberId, Wallet.INVEST_ONLY, amount, PointReason.INVEST, key + ":out", null, memo));
+            return true;
+        } catch (ApiException e) {
+            return false;
+        }
+    }
+
+    @Override
+    public void exchangeIn(long memberId, long cost, long back, String key, String memo) {
+        if (!enabled()) return;
+        long invest = Math.min(cost, Math.max(0, back));
+        long profit = Math.max(0, back - cost);
+        botTx.executeWithoutResult(st -> {
+            points.credit(memberId, Wallet.INVEST_ONLY, invest, PointReason.INVEST, key + ":in", null, memo);
+            points.credit(memberId, Wallet.SHOP, profit, PointReason.TRADE_PROFIT, key + ":profit", null, memo + " 수익");
+        });
+    }
+
     /** 봇 주문 하나. 기본 크레딧만 쓰고(상점 크레딧은 쓰지 않는다), 거절되면 빈 값. 이미 낸 주문이면 그때 체결을 돌려준다 */
     private Optional<BotCredits.Filled> botOrder(long memberId, Order in) {
         if (!enabled()) return Optional.empty();

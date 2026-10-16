@@ -39,9 +39,10 @@ import com.team.blog.trade.application.TradeCharts.Exchange;
  * <p>모의만 한다: 공개 캔들(키 없음)만 쓰고 거래소 키를 받지 않는다. 실거래는 블로그 주인 맥에서만 돈다(2026-10-15 결정).
  * 규칙은 trade-bot(devlog_trade/strategy.py)의 MovingAverageCross와 같다. 처음 현금·한 번 금액·수수료도 봇 기본값과 같다.
  * <p>코인·손절·익절·봉 간격·한 번 금액은 회원마다 고른다(#340, trade_paper_bot.rules). 바퀴는 5분마다 돌지만 고른 봉이 새로 닫혀야 거래한다.
- * <p>포인트가 켜진 서버에서는 두 계좌 모두 가상 돈 대신 회원의 기본 크레딧으로 사고판다(#331, #339, 블로그 주인 결정: 1크레딧 = 1원).
- * 바이낸스 계좌도 신호는 USDT 봉에서 받고 체결은 포인트 모의투자의 같은 코인 원화 시세로 해서 환율을 쓰지 않는다.
- * 체결은 포인트 모의투자 보유분과 매매 일지에 함께 남는다. 포인트가 꺼진 서버에서는 거래소 통화의 가상 돈으로 돈다.
+ * <p>포인트가 켜진 서버에서는 모든 계좌가 가상 돈 대신 회원의 기본 크레딧으로 거래한다(#331, #352, 블로그 주인 결정: 1크레딧 = 1원).
+ * 업비트(원화) 계좌는 포인트 모의투자 보유분으로 사고판다. 바이낸스 현물·선물(3배, 롱·숏) 계좌는 진입할 때 한 번 금액(크레딧)을
+ * 그때 환율로 USDT로 바꿔 바이낸스 USDT 가격으로 거래하고, 정리할 때 USDT를 그때 환율로 크레딧으로 되돌린다.
+ * 포인트가 꺼진 서버에서는 현물 두 계좌만 거래소 통화의 가상 돈으로 돈다.
  */
 @Service
 public class PaperBot {
@@ -64,9 +65,17 @@ public class PaperBot {
     private static final String QUANTITY = "quantity";
     private static final String AVG_PRICE = "avg_price";
     private static final String CREDIT = "credit";
+    /** 계좌가 어떤 돈으로 도는지: 가상 돈, 포인트 모의투자 보유분(원화), 크레딧을 USDT로 바꾼 돈. 바뀌면 새 계좌로 시작한다 */
+    private static final String MODE = "mode";
+    private static final String SIDE = "side";
+    /** USDT 계좌 보유분: 들어갈 때 맡긴 USDT(수수료 포함)와 그만큼 뺀 크레딧 */
+    private static final String MARGIN = "margin";
+    private static final String COST = "cost";
+    /** USDT 계좌가 마지막으로 받은 환율(1 USDT = ?원). 환율을 못 받는 바퀴에도 정리는 이 값으로 한다 */
+    private static final String RATE = "usdt_krw";
     /** 신호를 낸 봉의 종가. 크레딧 체결가(원)와 봉(바이낸스는 USDT) 단위가 달라 손절은 이 값으로 본다 */
     private static final String REF_PRICE = "ref_price";
-    /** 크레딧 계좌의 한 번 금액. 두 거래소 모두 같다 */
+    /** 크레딧 계좌의 한 번 금액. 모든 계좌가 같다 */
     static final long CREDIT_BUDGET = 100_000;
     private static final long MIN_BUDGET = 5_000; // 포인트 모의투자 최소 주문
     private static final long MAX_BUDGET = 1_000_000;
@@ -83,14 +92,30 @@ public class PaperBot {
 
     public static final Settings DEFAULTS = new Settings(TradeCharts.COINS, STOP_LOSS, BigDecimal.ZERO, INTERVAL, CREDIT_BUDGET);
 
-    /** 거래소마다 처음 현금·한 번 금액·수수료율. trade-bot exchanges.py 기본값과 같다 */
-    record Book(Exchange exchange, String currency, BigDecimal cash, BigDecimal budget, BigDecimal feeRate) {
+    /**
+     * 거래소마다 처음 현금·한 번 금액·수수료율·시장·레버리지. trade-bot exchanges.py 기본값과 같다.
+     * 선물은 바이낸스 현물 봉을 가격으로 쓴다(선물 가격과 거의 같다).
+     */
+    record Book(Exchange exchange, String currency, BigDecimal cash, BigDecimal budget, BigDecimal feeRate, String market, int leverage) {
+        Book(Exchange exchange, String currency, BigDecimal cash, BigDecimal budget, BigDecimal feeRate) {
+            this(exchange, currency, cash, budget, feeRate, "spot", 1);
+        }
+
+        boolean futures() {
+            return market.equals("futures");
+        }
+
+        /** state 칸 이름. 현물은 #102 때 이름(BINANCE·UPBIT) 그대로 */
+        String key() {
+            return futures() ? exchange.name() + "_FUTURES" : exchange.name();
+        }
+
         String account(String interval) {
             return accountPrefix() + interval;
         }
 
         String accountPrefix() {
-            return PREFIX + exchange.name().toLowerCase(java.util.Locale.ROOT) + "-spot-";
+            return PREFIX + exchange.name().toLowerCase(java.util.Locale.ROOT) + "-" + market + "-";
         }
 
         BigDecimal money(BigDecimal v) {
@@ -101,6 +126,8 @@ public class PaperBot {
     static final List<Book> BOOKS = List.of(
             new Book(Exchange.BINANCE, "USDT", new BigDecimal("1000"), new BigDecimal("100"), new BigDecimal("0.001")),
             new Book(Exchange.UPBIT, "KRW", new BigDecimal("1000000"), new BigDecimal("100000"), new BigDecimal("0.0005")));
+    /** 크레딧으로만 도는 바이낸스 USDT-M 선물 (#352). 가상 돈 서버에는 없다 */
+    static final Book FUTURES = new Book(Exchange.BINANCE, "USDT", BigDecimal.ZERO, new BigDecimal("100"), new BigDecimal("0.0005"), "futures", 3);
 
     /** 체결 하나 (spec 101 FILL 사건 모양) */
     record Fill(String id, String symbol, String side, BigDecimal quantity, BigDecimal price, BigDecimal pnl, String text, Instant at) {}
@@ -143,6 +170,39 @@ public class PaperBot {
             if (!holding && "UP".equals(cross)) return "BUY";
             if (holding && "DOWN".equals(cross)) return "SELL:종가가 " + window + "개 " + interval + "봉 이동평균선 아래로 내려감";
             return null;
+        }
+
+        /**
+         * 선물: 위로 뚫으면 롱, 아래로 뚫으면 숏. 반대 신호·손절·익절이면 먼저 정리한다 (strategy.py on_bar_futures와 같다).
+         * @param side 들고 있는 방향 LONG·SHORT, 없으면 null
+         * @return "CLOSE:이유"·"LONG:이유"·"SHORT:이유" 차례
+         */
+        List<String> onBarFutures(BigDecimal close, String side, BigDecimal entry) {
+            boolean prevAbove = closes.size() >= window && closes.getLast().compareTo(avg()) > 0;
+            closes.add(close);
+            if (closes.size() <= window) return List.of();
+            boolean above = close.compareTo(avg()) > 0;
+            boolean long_ = "LONG".equals(side);
+            boolean short_ = "SHORT".equals(side);
+            if (long_ && close.compareTo(entry.multiply(BigDecimal.ONE.subtract(stopLoss))) <= 0
+                    || short_ && close.compareTo(entry.multiply(BigDecimal.ONE.add(stopLoss))) >= 0) {
+                return List.of("CLOSE:손절선 -" + percent(stopLoss) + "% 도달");
+            }
+            if (takeProfit.signum() > 0 && (long_ && close.compareTo(entry.multiply(BigDecimal.ONE.add(takeProfit))) >= 0
+                    || short_ && close.compareTo(entry.multiply(BigDecimal.ONE.subtract(takeProfit))) <= 0)) {
+                return List.of("CLOSE:익절선 +" + percent(takeProfit) + "% 도달");
+            }
+            List<String> out = new ArrayList<>();
+            String up = "종가가 " + window + "개 " + interval + "봉 이동평균선 위로 올라섬";
+            String down = "종가가 " + window + "개 " + interval + "봉 이동평균선 아래로 내려감";
+            if (above && !prevAbove) {
+                if (short_) out.add("CLOSE:" + up);
+                if (!long_) out.add("LONG:" + up);
+            } else if (!above && prevAbove) {
+                if (long_) out.add("CLOSE:" + down);
+                if (!short_) out.add("SHORT:" + down);
+            }
+            return out;
         }
 
         private BigDecimal avg() {
@@ -303,11 +363,7 @@ public class PaperBot {
             ObjectNode state = (ObjectNode) json.readTree(row[0]);
             Settings s = settings(row[1]);
             Map<Exchange, List<Coin>> candles = candlesOf.apply(s.interval());
-            Map<String, BigDecimal> krw = new LinkedHashMap<>(); // 크레딧 계좌 평가용 원화 종가 (코인 → 원)
-            for (Coin c : candles.getOrDefault(Exchange.UPBIT, List.of())) {
-                if (!c.candles().isEmpty()) krw.put(c.coin(), c.candles().getLast().c());
-            }
-            for (Book book : BOOKS) runBook(memberId, book, s, state, candles.getOrDefault(book.exchange(), List.of()), krw, now);
+            for (Book book : books()) runBook(memberId, book, s, state, candles.getOrDefault(book.exchange(), List.of()), now);
             jdbc.update("UPDATE trade_paper_bot SET state = ?::jsonb, updated_at = ? WHERE member_id = ?",
                     json.writeValueAsString(state), Timestamp.from(now), memberId);
             jdbc.update("""
@@ -317,24 +373,40 @@ public class PaperBot {
         });
     }
 
-    /** 거래소 계좌 하나: 종목마다 규칙을 돌리고 계좌·체결을 남긴다. state의 그 거래소 칸을 고친다 */
-    private void runBook(long memberId, Book book, Settings s, ObjectNode state, List<Coin> coins, Map<String, BigDecimal> krw, Instant now) {
-        boolean credit = usesCredits();
-        JsonNode had = state.get(book.exchange().name());
+    /** 포인트가 켜진 서버에는 선물 계좌가 더 있다 */
+    private List<Book> books() {
+        return usesCredits() ? List.of(BOOKS.get(0), FUTURES, BOOKS.get(1)) : BOOKS;
+    }
+
+    /** 거래소 계좌 하나: 종목마다 규칙을 돌리고 계좌·체결을 남긴다. state의 그 계좌 칸을 고친다 */
+    private void runBook(long memberId, Book book, Settings s, ObjectNode state, List<Coin> coins, Instant now) {
+        String mode = mode(book);
+        JsonNode had = state.get(book.key());
         // 가상 돈으로 산 보유분을 크레딧 계좌로 가져가지 않는다: 모드가 바뀌면 새 계좌로 시작한다
-        ObjectNode acc = had instanceof ObjectNode o && o.path(CREDIT).asBoolean(false) == credit ? o : fresh(book, credit);
+        ObjectNode acc = had instanceof ObjectNode o && mode.equals(modeOf(o)) ? o : fresh(book, mode);
+        BigDecimal rate = null;
+        if (mode.equals("usdt")) {
+            rate = credits.usdtKrw().orElse(null);
+            if (rate != null) acc.put(RATE, rate.toPlainString());
+            else if (acc.hasNonNull(RATE)) rate = new BigDecimal(acc.path(RATE).asString());
+        }
         List<Fill> fills = new ArrayList<>();
         Map<String, BigDecimal> last = new LinkedHashMap<>();
         for (Coin coin : coins) {
             // 고른 코인과, 고르지 않았어도 아직 들고 있는 코인(팔기만 한다)
             if (coin.candles().isEmpty() || !(s.coins().contains(coin.coin()) || acc.path(POSITIONS).has(coin.symbol()))) continue;
-            fills.addAll(credit ? creditTrade(memberId, book, s, acc, coin) : trade(book, s, acc, coin));
-            BigDecimal price = credit ? krw.get(coin.coin()) : coin.candles().getLast().c();
-            if (price != null) last.put(coin.symbol(), price);
+            fills.addAll(switch (mode) {
+                case "credit" -> creditTrade(memberId, book, s, acc, coin);
+                case "usdt" -> usdtTrade(memberId, book, s, acc, coin, rate);
+                default -> trade(book, s, acc, coin);
+            });
+            last.put(coin.symbol(), coin.candles().getLast().c());
         }
-        state.set(book.exchange().name(), acc);
-        if (credit) acc.put("cash", String.valueOf(credits.invest(memberId)));
-        writeAccount(memberId, book, s, acc, last, now);
+        state.set(book.key(), acc);
+        if (mode.equals("credit")) acc.put("cash", String.valueOf(credits.invest(memberId)));
+        // USDT 계좌의 현금: 지금 기본 크레딧을 지금 환율로 바꾸면 되는 USDT
+        if (mode.equals("usdt")) acc.put("cash", rate == null ? "0" : usdt(BigDecimal.valueOf(credits.invest(memberId)), rate).toPlainString());
+        writeAccount(memberId, book, s, acc, last, rate, now);
         for (Fill f : fills) writeFill(memberId, book, s, f, now);
     }
 
@@ -342,9 +414,22 @@ public class PaperBot {
         return credits != null && credits.enabled();
     }
 
-    private ObjectNode fresh(Book book, boolean credit) {
+    /** virtual: 가상 돈, credit: 포인트 모의투자 보유분(업비트), usdt: 크레딧을 USDT로 바꾼 돈(바이낸스) */
+    private String mode(Book book) {
+        if (!usesCredits()) return "virtual";
+        return book.exchange() == Exchange.UPBIT ? "credit" : "usdt";
+    }
+
+    /** #352 전 상태는 mode 없이 credit 참·거짓만 있다 */
+    private static String modeOf(JsonNode acc) {
+        if (acc.hasNonNull(MODE)) return acc.path(MODE).asString();
+        return acc.path(CREDIT).asBoolean(false) ? "credit" : "virtual";
+    }
+
+    private ObjectNode fresh(Book book, String mode) {
         ObjectNode acc = json.createObjectNode();
-        acc.put(CREDIT, credit);
+        acc.put(MODE, mode);
+        acc.put(CREDIT, !mode.equals("virtual"));
         acc.put("cash", book.cash().toPlainString());
         acc.set(POSITIONS, json.createObjectNode());
         acc.set("seen", json.createObjectNode());
@@ -443,6 +528,97 @@ public class PaperBot {
         }).orElse(null);
     }
 
+    /**
+     * 크레딧을 USDT로 바꿔 도는 바이낸스 현물·선물 계좌 (#352). 크레딧 계좌처럼 새로 닫힌 마지막 봉에서만 거래한다.
+     * 진입: 한 번 금액(크레딧)을 그때 환율로 USDT로 바꿔 맡기고(margin), 레버리지만큼 산다. 수수료는 맡긴 돈에서 낸다.
+     * 정리: 맡긴 돈 + 손익 - 수수료를 그때 환율로 크레딧으로 되돌린다(잃어도 맡긴 돈까지만).
+     * @param rate 1 USDT가 몇 크레딧인지. 모르면 진입하지 않고, 정리도 다음 바퀴로 미룬다
+     */
+    List<Fill> usdtTrade(long memberId, Book book, Settings s, ObjectNode acc, Coin coin, BigDecimal rate) {
+        ObjectNode positions = (ObjectNode) acc.get(POSITIONS);
+        ObjectNode seen = (ObjectNode) acc.get("seen");
+        long seenT = seen.path(coin.symbol()).asLong(0);
+        Candle last = coin.candles().getLast();
+        if (rate == null) return List.of(); // 환율을 한 번도 못 받았다: 봉을 넘기지 않고 다음 바퀴에 다시 본다
+        Rule rule = rule(s);
+        List<String> signals = List.of();
+        for (Candle c : coin.candles()) {
+            JsonNode pos = positions.get(coin.symbol());
+            BigDecimal entry = decimal(pos, AVG_PRICE);
+            if (book.futures()) {
+                signals = rule.onBarFutures(c.c(), pos == null ? null : pos.path(SIDE).asString(), entry);
+            } else {
+                String one = rule.onBar(c.c(), pos != null, entry);
+                signals = one == null ? List.of() : List.of(one.equals("BUY") ? "BUY:" + buyText(s) : one);
+            }
+        }
+        seen.put(coin.symbol(), Math.max(seenT, last.t()));
+        if (last.t() <= seenT) return List.of();
+        List<Fill> out = new ArrayList<>();
+        for (String signal : signals) {
+            String kind = signal.substring(0, signal.indexOf(':'));
+            String reason = signal.substring(signal.indexOf(':') + 1);
+            boolean exit = kind.equals("SELL") || kind.equals("CLOSE");
+            if (!exit && !s.coins().contains(coin.coin())) continue;
+            Fill f = exit ? usdtExit(memberId, book, s, positions, coin, last, rate, kind, reason)
+                    : usdtEntry(memberId, book, s, positions, coin, last, rate, kind, reason);
+            if (f != null) out.add(f);
+        }
+        return out;
+    }
+
+    /** 크레딧 → USDT (8자리에서 버림) */
+    static BigDecimal usdt(BigDecimal credits, BigDecimal rate) {
+        return credits.divide(rate, 8, RoundingMode.DOWN);
+    }
+
+    private Fill usdtEntry(long memberId, Book book, Settings s, ObjectNode positions, Coin coin, Candle c, BigDecimal rate, String kind, String reason) {
+        long amount = Math.min(s.budget(), credits.invest(memberId));
+        BigDecimal margin = usdt(BigDecimal.valueOf(amount), rate);
+        BigDecimal lev = BigDecimal.valueOf(book.leverage());
+        // 맡긴 돈 = 수량×가격/레버리지 + 수수료(수량×가격×수수료율)
+        BigDecimal q = margin.multiply(lev).divide(c.c().multiply(BigDecimal.ONE.add(book.feeRate().multiply(lev))), MC).setScale(8, RoundingMode.FLOOR);
+        if (amount <= 0 || q.signum() <= 0) return null;
+        String memo = "모의 봇 " + (book.futures() ? "선물 " : "") + coin.coin() + " USDT 환전";
+        if (!credits.exchangeOut(memberId, amount, usdtKey(book, coin, c, kind), memo)) return null;
+        ObjectNode p = json.createObjectNode();
+        p.put(QUANTITY, q.toPlainString());
+        p.put(AVG_PRICE, c.c().toPlainString());
+        p.put(SIDE, book.futures() ? kind : "");
+        p.put(MARGIN, margin.toPlainString());
+        p.put(COST, amount);
+        positions.set(coin.symbol(), p);
+        return new Fill(id(book, coin.symbol(), c.t(), kind), coin.symbol(), kind, q, c.c(), null, reason, closedAt(c, s));
+    }
+
+    private Fill usdtExit(long memberId, Book book, Settings s, ObjectNode positions, Coin coin, Candle c, BigDecimal rate, String kind, String reason) {
+        JsonNode pos = positions.get(coin.symbol());
+        if (pos == null) return null;
+        BigDecimal q = decimal(pos, QUANTITY);
+        BigDecimal entry = decimal(pos, AVG_PRICE);
+        BigDecimal margin = decimal(pos, MARGIN);
+        long cost = pos.path(COST).asLong(0);
+        BigDecimal dir = "SHORT".equals(pos.path(SIDE).asString()) ? BigDecimal.ONE.negate() : BigDecimal.ONE;
+        BigDecimal back = settle(q, entry, c.c(), dir, margin, book.feeRate());
+        BigDecimal pnl = back.subtract(margin).setScale(8, RoundingMode.HALF_UP);
+        long credited = back.multiply(rate).setScale(0, RoundingMode.DOWN).longValue();
+        credits.exchangeIn(memberId, cost, credited, usdtKey(book, coin, c, kind), "모의 봇 " + (book.futures() ? "선물 " : "") + coin.coin() + " USDT 되돌림");
+        positions.remove(coin.symbol());
+        return new Fill(id(book, coin.symbol(), c.t(), kind), coin.symbol(), kind, q, c.c(), pnl, reason, closedAt(c, s));
+    }
+
+    /** 정리하면 돌려받는 USDT: 맡긴 돈 - 들어갈 때 수수료 + 방향×수량×(지금가 - 진입가) - 나갈 때 수수료. 0보다 적어지지 않는다 */
+    static BigDecimal settle(BigDecimal q, BigDecimal entry, BigDecimal price, BigDecimal dir, BigDecimal margin, BigDecimal feeRate) {
+        BigDecimal in = q.multiply(entry).multiply(feeRate);
+        BigDecimal outFee = q.multiply(price).multiply(feeRate);
+        return margin.subtract(in).add(dir.multiply(q).multiply(price.subtract(entry))).subtract(outFee).max(BigDecimal.ZERO).setScale(8, RoundingMode.DOWN);
+    }
+
+    /** 크레딧 원장 키: 같은 봉의 같은 신호는 한 번만 바꾼다 */
+    private static String usdtKey(Book book, Coin coin, Candle c, String kind) {
+        return "bot-usdt-" + book.key().toLowerCase(java.util.Locale.ROOT) + "-" + coin.coin() + "-" + c.t() + "-" + kind;
+    }
+
     /** 봇 주문 번호: 같은 봉의 같은 신호는 한 번만 체결된다. 업비트는 #331 때 번호 그대로, 다른 거래소는 이름을 붙여 겹치지 않게 한다 */
     private static String orderId(Book book, Coin coin, Candle c, String side) {
         String ex = book.exchange() == Exchange.UPBIT ? "" : book.exchange().name().toLowerCase(java.util.Locale.ROOT) + "-";
@@ -497,47 +673,54 @@ public class PaperBot {
     }
 
     private static String id(Book book, String symbol, long t, String side) {
-        return "fill:" + PREFIX + book.exchange().name().toLowerCase(java.util.Locale.ROOT) + ":" + symbol + ":" + t + ":" + side;
+        String name = book.futures() ? book.key().toLowerCase(java.util.Locale.ROOT) : book.exchange().name().toLowerCase(java.util.Locale.ROOT);
+        return "fill:" + PREFIX + name + ":" + symbol + ":" + t + ":" + side;
     }
 
-    private void writeAccount(long memberId, Book book, Settings s, ObjectNode acc, Map<String, BigDecimal> last, Instant now) {
+    private void writeAccount(long memberId, Book book, Settings s, ObjectNode acc, Map<String, BigDecimal> last, BigDecimal rate, Instant now) {
         List<Map<String, Object>> positions = new ArrayList<>();
         BigDecimal unrealized = BigDecimal.ZERO;
         for (Map.Entry<String, JsonNode> e : acc.get(POSITIONS).properties()) {
             BigDecimal q = new BigDecimal(e.getValue().path(QUANTITY).asString("0"));
             BigDecimal avg = new BigDecimal(e.getValue().path(AVG_PRICE).asString("0"));
             BigDecimal price = last.getOrDefault(e.getKey(), avg);
+            String side = e.getValue().path(SIDE).asString("");
             BigDecimal diff = price.subtract(avg).multiply(q);
-            BigDecimal pnl = usesCredits() ? diff.setScale(0, RoundingMode.HALF_UP) : book.money(diff);
+            if (side.equals("SHORT")) diff = diff.negate();
+            BigDecimal pnl = currency(book).equals("KRW") ? diff.setScale(0, RoundingMode.HALF_UP) : diff.setScale(8, RoundingMode.HALF_UP);
             unrealized = unrealized.add(pnl);
             Map<String, Object> p = new LinkedHashMap<>();
             p.put("symbol", e.getKey());
-            p.put("side", "");
+            p.put("side", side);
             p.put(QUANTITY, q);
             p.put("avgPrice", avg);
             p.put("price", price);
             p.put("unrealizedPnl", pnl);
             positions.add(p);
         }
-        List<Map<String, String>> rules = List.of(
+        List<Map<String, String>> rules = new ArrayList<>(List.of(
                 rule("전략", WINDOW + "봉 이동평균 교차"), rule("봉", s.interval()),
                 rule("코인", String.join(", ", s.coins())),
                 rule("한 번 금액", usesCredits() ? s.budget() + " 기본 크레딧" : book.budget().toPlainString() + " " + book.currency()),
                 rule("손절", percent(s.stopLoss()) + "%"),
                 rule("익절", s.takeProfit().signum() > 0 ? percent(s.takeProfit()) + "%" : "없음"),
-                rule("돌리는 곳", usesCredits() ? "devlog 서버 (모의 · 기본 크레딧)" : "devlog 서버 (모의)"));
+                rule("돌리는 곳", usesCredits() ? "devlog 서버 (모의 · 기본 크레딧)" : "devlog 서버 (모의)")));
+        if (book.futures()) rules.add(rule("레버리지", book.leverage() + "배"));
+        if (mode(book).equals("usdt")) {
+            rules.add(rule("환전", rate == null ? "환율을 받는 중" : "1 USDT = " + rate.stripTrailingZeros().toPlainString() + " 크레딧 (진입·정리 때 그때 환율, 환전 수수료 없음)"));
+        }
         // 봉 간격을 바꾸면 계좌 이름이 바뀐다: 이 거래소의 예전 서버 계좌 줄도 함께 지운다
         jdbc.update("DELETE FROM trade_bot_account WHERE member_id = ? AND account LIKE ?", memberId, book.accountPrefix() + "%");
         jdbc.update("""
                 INSERT INTO trade_bot_account (member_id, account, exchange, market, currency, cash, unrealized_pnl, positions, rules, reported_at)
-                VALUES (?, ?, ?, 'SPOT', ?, ?, ?, ?::jsonb, ?::jsonb, ?)
-                """, memberId, book.account(s.interval()), book.exchange().name(), currency(book), new BigDecimal(acc.path("cash").asString("0")), unrealized,
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?)
+                """, memberId, book.account(s.interval()), book.exchange().name(), book.market().toUpperCase(java.util.Locale.ROOT), currency(book), new BigDecimal(acc.path("cash").asString("0")), unrealized,
                 json.writeValueAsString(positions), json.writeValueAsString(rules), Timestamp.from(now));
     }
 
-    /** 크레딧 계좌는 거래소와 상관없이 원(1크레딧 = 1원)으로 남긴다 */
+    /** 업비트 크레딧 계좌는 원(1크레딧 = 1원), USDT로 바꿔 도는 바이낸스 계좌와 가상 돈 계좌는 거래소 통화로 남긴다 */
     private String currency(Book book) {
-        return usesCredits() ? "KRW" : book.currency();
+        return mode(book).equals("credit") ? "KRW" : book.currency();
     }
 
     private static Map<String, String> rule(String label, String value) {
