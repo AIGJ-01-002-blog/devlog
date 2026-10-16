@@ -170,6 +170,10 @@ class PaperTradingTest extends IntegrationTest {
         assertThat(limit(me, limitBody(orderId(), "BTC", "BUY", "100000000", "1"), 409).path("code").asString()).isEqualTo("POINTS_SHORT");
         // 갖고 있지 않은 코인은 지정가로도 못 판다
         assertThat(limit(me, limitBody(orderId(), "ETH", "SELL", "5000000", "1"), 409).path("code").asString()).isEqualTo("NO_POSITION");
+        // 수량×가격이 long을 넘으면 묶는 크레딧이 잘려 거의 공짜로 살 수 있었다: 금액·수량 상한으로 거절한다
+        limit(me, limitBody(orderId(), "BTC", "BUY", "100", "184467440737095517"), 400);
+        limit(me, limitBody(orderId(), "BTC", "BUY", "10000000000000", "0.2"), 400);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM paper_limit_order WHERE member_id = ?", Long.class, me.memberId())).isZero();
     }
 
     /** #324 모의투자 차트: 원화 캔들 위에 내가 포인트로 낸 체결이 ME로 찍히고, 봇 체결은 BOT으로 따로 찍힌다 */
