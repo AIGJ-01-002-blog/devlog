@@ -390,6 +390,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v2.2.0 | 2026-10-16 | Credit paper trading: an Upbit-style order panel with limit orders and cancelling, my fills and bot fills on the chart, the server paper bot trading KRW and Binance accounts with base credits and per-member settings (coins, candle interval, stop loss, take profit, amount), KRW candles from Korbit, item-type tabs in the admin shop, a 3-second blog outro on Shorts, and zero SonarQube issues | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.2.0) |
 | v2.1.3 | 2026-10-16 | Fix point paper trading showing no prices (Upbit is blocked from the school server, so prices now come from Korbit) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.1.3) |
 | v2.1.2 | 2026-10-16 | Fix finished Shorts videos failing to open with AccessDenied | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.1.2) |
 | v2.1.1 | 2026-10-15 | Dubu the puppy as a Shorts character and searching every post as a Shorts source, live and paper views in the trading journal, a paper trading bot run by the server, a header split into shared tools and grouped menus, round profile frames in the shop and a shorter shop on phones, and the dev login turned off on staging | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.1.1) |
