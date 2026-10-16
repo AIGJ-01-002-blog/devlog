@@ -127,6 +127,36 @@ class KrwQuotes implements Quotes {
         return Optional.of(new Quote(symbol, price, change, now));
     }
 
+    /** USDT 환율은 천천히 움직여서 1분씩 들고 있는다. 실패해도 1분 동안은 다시 부르지 않는다 */
+    private static final Duration USDT_TTL = Duration.ofMinutes(1);
+    private volatile BigDecimal usdt;
+    private volatile Instant usdtAt = Instant.EPOCH;
+
+    @Override
+    public synchronized Optional<BigDecimal> usdtKrw() {
+        Instant now = Times.now(clock);
+        if (usdtAt.plus(USDT_TTL).isAfter(now)) return Optional.ofNullable(usdt);
+        usdtAt = now;
+        boolean korbit = PaperProperties.KORBIT.equals(props.source());
+        String base = props.baseUrl().endsWith("/") ? props.baseUrl().substring(0, props.baseUrl().length() - 1) : props.baseUrl();
+        String url = korbit ? base + "/v2/tickers?symbol=usdt_krw" : base + "/v1/ticker?markets=KRW-USDT";
+        try {
+            HttpRequest req = HttpRequest.newBuilder(URI.create(url)).timeout(TIMEOUT).header("Accept", "application/json").GET().build();
+            HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            if (res.statusCode() != 200) throw new QuotesUnavailable("HTTP " + res.statusCode());
+            JsonNode root = json.readTree(res.body());
+            JsonNode row = korbit ? root.path("data").path(0) : root.path(0);
+            BigDecimal price = decimal(korbit ? row.path("close") : row.path("trade_price"));
+            if (price == null || price.signum() <= 0) throw new QuotesUnavailable("USDT 시세 없음");
+            usdt = price;
+        } catch (IOException | RuntimeException e) {
+            log.warn("USDT 환율을 받지 못했습니다 (지난 값을 써요): {}", e.getClass().getSimpleName());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return Optional.ofNullable(usdt);
+    }
+
     /** 숫자나 숫자 문자열을 읽는다. 없거나 숫자가 아니면 null */
     private static BigDecimal decimal(JsonNode n) {
         if (n.isNumber()) return n.decimalValue();
