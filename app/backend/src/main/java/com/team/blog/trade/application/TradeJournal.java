@@ -421,13 +421,18 @@ public class TradeJournal {
         List<String> ids = all.stream()
                 .filter(f -> f.closes() && f.trace() != null && f.trace().rMultiple() != null && !f.trace().decisionId().isBlank()
                         && (f.trace().strategyVersion().isBlank() || f.trace().setup().isBlank()))
-                .map(f -> f.trace().decisionId()).distinct().limit(500).toList();
-        if (ids.isEmpty()) return List.of();
-        List<Object> args = new ArrayList<>(List.of(memberId, Timestamp.from(start(from))));
-        args.addAll(ids);
-        String in = String.join(", ", java.util.Collections.nCopies(ids.size(), "?"));
-        return jdbc.query("SELECT " + FILL_SELECT + " FROM trade WHERE member_id = ? AND executed_at < ? AND decision_id IN (" + in + ")"
-                + " ORDER BY executed_at, id", TradeJournal::fill, args.toArray());
+                .map(f -> f.trace().decisionId()).distinct().toList();
+        List<Fill> out = new ArrayList<>();
+        // SQL 자리표시자 수를 넘지 않게 500개씩 나눠 읽는다
+        for (int i = 0; i < ids.size(); i += 500) {
+            List<String> batch = ids.subList(i, Math.min(i + 500, ids.size()));
+            List<Object> args = new ArrayList<>(List.of(memberId, Timestamp.from(start(from))));
+            args.addAll(batch);
+            String in = String.join(", ", java.util.Collections.nCopies(batch.size(), "?"));
+            out.addAll(jdbc.query("SELECT " + FILL_SELECT + " FROM trade WHERE member_id = ? AND executed_at < ? AND decision_id IN (" + in + ")"
+                    + " ORDER BY executed_at, id", TradeJournal::fill, args.toArray()));
+        }
+        return out;
     }
 
     private boolean has(long memberId, Mode mode) {
