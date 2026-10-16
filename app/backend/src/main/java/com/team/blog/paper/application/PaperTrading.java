@@ -100,9 +100,10 @@ public class PaperTrading implements BotCredits {
      * @param orders      미체결 지정가 주문 전부와 최근 끝난 지정가 주문
      * @param fills       최근 체결
      * @param quotesError 시세를 받지 못했으면 이유(화면이 주문을 막는다)
+     * @param quotesSource 주문 시세를 받는 곳(KORBIT·UPBIT, blog.paper.quotes.source)
      */
     public record State(List<CoinQuote> quotes, List<Position> positions, long invest, long shop, long holdings, long locked, BigDecimal feeRate,
-                        long minOrder, List<LimitView> orders, List<FillView> fills, String quotesError) {}
+                        long minOrder, List<LimitView> orders, List<FillView> fills, String quotesError, String quotesSource) {}
 
     /** 지정가 주문 (#332). 가격과 수량을 정하고, 살 때는 기본 크레딧이 모자라면 useShop으로 번 크레딧도 쓴다 */
     public record LimitOrder(String clientOrderId, String symbol, String side, BigDecimal price, BigDecimal quantity, Boolean useShop, String reason) {}
@@ -191,7 +192,7 @@ public class PaperTrading implements BotCredits {
                 SELECT COALESCE(SUM(locked_invest + locked_shop), 0) FROM paper_limit_order WHERE member_id = ? AND status = 'OPEN' AND side = 'BUY'
                 """, Long.class, memberId);
         return new State(list, positions, b.invest(), b.shop(), holdings, locked == null ? 0 : locked, props.feeRate(), props.minOrder(),
-                limitViews(memberId), fills(memberId), error);
+                limitViews(memberId), fills(memberId), error, props.source().toUpperCase(java.util.Locale.ROOT));
     }
 
     /** 미체결 지정가 전부와 최근 끝난 지정가 20건. 새 주문이 위로 */
@@ -651,6 +652,35 @@ public class PaperTrading implements BotCredits {
         if (have.signum() <= 0) return Optional.empty();
         boolean all = quantity.compareTo(have) >= 0;
         return botOrder(memberId, new Order(orderId, coin, Side.SELL.name(), null, all ? null : quantity, all, false, reason));
+    }
+
+    @Override
+    public Optional<BigDecimal> usdtKrw() {
+        return enabled() ? quotes.usdtKrw() : Optional.empty();
+    }
+
+    @Override
+    public boolean exchangeOut(long memberId, long amount, String key, String memo) {
+        if (!enabled() || amount <= 0) return false;
+        try {
+            botTx.executeWithoutResult(st -> points.ensureWelcome(memberId));
+            // 봇 바퀴와 따로 끝낸다: 모자라서 거절돼도 봇 바퀴 트랜잭션은 그대로 간다
+            botTx.executeWithoutResult(st -> points.spend(memberId, Wallet.INVEST_ONLY, amount, PointReason.INVEST, key + ":out", null, memo));
+            return true;
+        } catch (ApiException e) {
+            return false;
+        }
+    }
+
+    @Override
+    public void exchangeIn(long memberId, long cost, long back, String key, String memo) {
+        if (!enabled()) return;
+        long invest = Math.clamp(back, 0, Math.max(0, cost));
+        long profit = Math.max(0, back - cost);
+        botTx.executeWithoutResult(st -> {
+            points.credit(memberId, Wallet.INVEST_ONLY, invest, PointReason.INVEST, key + ":in", null, memo);
+            points.credit(memberId, Wallet.SHOP, profit, PointReason.TRADE_PROFIT, key + ":profit", null, memo + " 수익");
+        });
     }
 
     /** 봇 주문 하나. 기본 크레딧만 쓰고(상점 크레딧은 쓰지 않는다), 거절되면 빈 값. 이미 낸 주문이면 그때 체결을 돌려준다 */

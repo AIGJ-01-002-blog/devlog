@@ -5,9 +5,9 @@ import { dayLabels, num } from '../lib/dashboard'
 import { t } from '../lib/i18n'
 import { Link, navigate, useLocation } from '../lib/router'
 import {
-  actionLabel, closes, coinUnit, createTradeDraft, createTradeShorts, deleteTradeFill, exchangeName, fillTime, isDate, loadTradeDay, loadTrades,
-  mainCurrency, MEMO_MAX, money, moneys, pnlClass, positionLabel, qty, replayHref, saveTradeMemo, TRADE_MODES, TRADE_PERIODS, tradeModeOf, tradePeriodOf, winRate,
-  type Money, type TradeDay, type TradeFill, type TradeMode, type TradeOverview, type TradePeriod, type TradeSummary,
+  actionLabel, closes, coinUnit, createTradeDraft, createTradeShorts, deleteTradeFill, exchangeName, exitLabel, exitWord, fillTime, isDate, loadTradeDay, loadTrades,
+  mainCurrency, rText, MEMO_MAX, money, moneys, pnlClass, positionLabel, qty, replayHref, saveTradeMemo, TRADE_MODES, TRADE_PERIODS, tradeModeOf, tradePeriodOf, winRate,
+  type Money, type SetupStat, type TradeDay, type TradeFill, type TradeMode, type TradeOverview, type TradePeriod, type TradeSummary,
 } from '../lib/trades'
 
 /**
@@ -107,6 +107,8 @@ export function TradesPage() {
             </div>
           </div>
 
+          {data.setups && data.setups.length > 0 && <SetupStats stats={data.setups} />}
+
           {data.days.length === 0 ? <EmptyTrades mode={mode} /> : (
             <div className="trades-layout">
               <section className="admin-card trades-days" aria-label={t('날짜별 기록')}>
@@ -160,6 +162,61 @@ function DayBars({ data, selected, href }: { data: TradeOverview; selected: stri
         )
       })}
     </ol>
+  )
+}
+
+/** 기법 버전·셋업별 승률과 평균 R (#285). 봇이 R배수를 남긴 정리 체결만 센다 */
+function SetupStats({ stats }: { stats: SetupStat[] }) {
+  // 토글에서 모드를 하나 고르면 한 모드만 오니, 둘이 섞였을 때만 모드 칸을 그린다
+  const mixed = new Set(stats.map((s) => s.mode)).size > 1
+  return (
+    <section className="admin-card trades-setups" aria-label={t('기법별 성적')}>
+      <h2 data-tip={t('봇이 R배수를 남긴 정리 체결만 기법 버전·셋업으로 묶어 세요. R은 처음 정한 위험 대비 손익이에요')}>{t('기법별 성적')}</h2>
+      <div className="admin-table-wrap">
+        <table className="trades-setup-table">
+          <thead>
+            <tr>{mixed && <th scope="col">{t('실거래·모의')}</th>}<th scope="col">{t('기법 버전')}</th><th scope="col">{t('셋업')}</th><th scope="col" className="num">{t('정리')}</th>
+              <th scope="col" className="num">{t('승률')}</th><th scope="col" className="num">{t('평균 R')}</th></tr>
+          </thead>
+          <tbody>
+            {stats.map((s) => (
+              <tr key={`${s.mode}:${s.strategyVersion}:${s.setup}`}>
+                {mixed && <td>{s.mode === 'LIVE' ? t('실거래') : t('모의')}</td>}
+                <td>{s.strategyVersion || '-'}</td>
+                <td>{s.setup || '-'}</td>
+                <td className="num">{num(s.samples)}</td>
+                <td className="num">{Math.round((s.wins / s.samples) * 100)}%</td>
+                <td className={`num pnl ${s.avgR > 0 ? 'good' : s.avgR < 0 ? 'bad' : 'flat'}`}>{rText(s.avgR)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
+}
+
+/** 체결 한 줄의 판단 흔적: 바구니·셋업, 진입 때 정한 손절·익절, 정리 이유와 R배수. 흔적이 없는 옛 체결은 아무것도 그리지 않는다 */
+function TraceLine({ f }: { f: TradeFill }) {
+  const tr = f.trace
+  if (!tr) return null
+  const filters = [tr.regime, tr.setup, tr.trigger].filter(Boolean).join(' → ')
+  const exit = exitLabel(f)
+  const levels = [
+    tr.stopPrice !== null ? t('손절 {0}', { 0: money(tr.stopPrice, f.currency) }) : null,
+    tr.tp1Price !== null ? t('익절 {0}', { 0: money(tr.tp1Price, f.currency) }) : null,
+    tr.tp2Price !== null ? t('2차 익절 {0}', { 0: money(tr.tp2Price, f.currency) }) : null,
+  ].filter((x): x is string => x !== null)
+  if (!tr.basket && !tr.setup && !exit && levels.length === 0) return null
+  return (
+    <div className="small trades-trace">
+      {tr.basket && <span className="badge" data-tip={tr.basket === 'CORE' ? t('오래 모아 가는 코어 적립 몫이에요') : t('짧게 사고파는 트레이딩 몫이에요')}>
+        {tr.basket === 'CORE' ? t('코어') : t('트레이딩')}</span>}
+      {tr.setup && <span className="muted" data-tip={filters ? t('세 겹 거름망: {0}', { 0: filters }) : undefined}>{tr.setup}</span>}
+      {levels.length > 0 && <span className="muted" data-tip={t('진입할 때 정한 값이에요')}>{levels.join(' · ')}</span>}
+      {exit && <span className={`pnl ${tr.rMultiple === null ? 'flat' : tr.rMultiple < 0 ? 'bad' : tr.rMultiple > 0 ? 'good' : 'flat'}`}
+        data-tip={tr.exitReason ? t('{0}로 정리했어요. R은 처음 정한 위험 대비 손익이에요', { 0: t(exitWord(tr.exitReason)) }) : t('R은 처음 정한 위험 대비 손익이에요')}>{exit}</span>}
+    </div>
   )
 }
 
@@ -236,6 +293,7 @@ function DayCard({ date, mode, onChanged }: { date: string; mode: TradeMode; onC
                 {fillAmount(f)}
                 {f.realizedPnl !== null && <> · <span className={`pnl ${pnlClass(f.realizedPnl, f.currency)}`}>{money(f.realizedPnl, f.currency, true)}</span></>}
               </div>
+              <TraceLine f={f} />
               {(f.reason || f.strategy) && <div className="muted small">{f.reason || f.strategy}</div>}
             </li>
           ))}

@@ -1,8 +1,5 @@
 package com.team.blog.search.web;
 
-import java.time.Duration;
-
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 
 import org.slf4j.Logger;
@@ -16,15 +13,9 @@ import org.springframework.web.bind.annotation.RestController;
 import com.team.blog.discovery.application.FeedQuery;
 import com.team.blog.search.application.SearchQuery;
 import com.team.blog.search.semantic.SemanticSearch;
-import com.team.blog.shared.config.BlogProperties;
 import com.team.blog.shared.error.NotFoundException;
 import com.team.blog.shared.security.CurrentMember;
 import com.team.blog.shared.security.MemberPrincipal;
-import com.team.blog.shared.web.ClientIpResolver;
-import com.team.blog.shared.web.RateLimiter;
-import com.team.blog.shared.web.TooManyRequestsException;
-import com.team.blog.view.application.ViewRecorder;
-import com.team.blog.view.web.ViewController;
 
 /**
  * 검색 API (spec 014, docs/33 §5). 결과는 보는 사람과 상관없이 같지만 검색어가 주소에 들어가므로 공유 캐시에 두지 않는다.
@@ -37,20 +28,13 @@ public class SearchController {
     private final SearchQuery search;
     private final SemanticSearch semantic;
     private final FeedQuery feed;
-    private final RateLimiter rateLimiter;
-    private final ViewRecorder visitors;
-    private final ClientIpResolver ipResolver;
-    private final int perMinute;
+    private final SearchRateLimit rateLimit;
 
-    public SearchController(SearchQuery search, SemanticSearch semantic, FeedQuery feed, RateLimiter rateLimiter, ViewRecorder visitors,
-                            ClientIpResolver ipResolver, BlogProperties props) {
+    public SearchController(SearchQuery search, SemanticSearch semantic, FeedQuery feed, SearchRateLimit rateLimit) {
         this.search = search;
         this.semantic = semantic;
         this.feed = feed;
-        this.rateLimiter = rateLimiter;
-        this.visitors = visitors;
-        this.ipResolver = ipResolver;
-        this.perMinute = props.search().perMinute();
+        this.rateLimit = rateLimit;
     }
 
     /**
@@ -93,25 +77,13 @@ public class SearchController {
         return "latest".equalsIgnoreCase(sort) ? SearchQuery.Sort.LATEST : SearchQuery.Sort.RELEVANCE;
     }
 
-    /** 조회수와 같은 방문자 구분(013)으로 1분 30번. 구분 값을 못 만들면(저장소 장애) 제한하지 않는다 (H8). */
     private void limit(MemberPrincipal me, HttpServletRequest request) {
-        String visitor = visitors.visitorKey(new ViewRecorder.Visit(me == null ? null : me.id(), false,
-                cookie(request, ViewController.VISITOR_COOKIE), null, ipResolver.resolve(request), request.getHeader("User-Agent"), false));
-        if (visitor != null && !rateLimiter.tryAcquire("search:" + visitor, perMinute, Duration.ofMinutes(1))) {
-            throw new TooManyRequestsException(60, "RATE_LIMITED", "검색을 너무 자주 했어요. 잠시 후 다시 시도해 주세요.");
-        }
+        rateLimit.check(me, request);
     }
 
     private static void logTiming(String kind, String query, long startedNanos) {
         if (log.isDebugEnabled()) {
             log.debug("search {} length={} took={}ms", kind, query.codePointCount(0, query.length()), (System.nanoTime() - startedNanos) / 1_000_000);
         }
-    }
-
-    private static String cookie(HttpServletRequest request, String name) {
-        Cookie[] cookies = request.getCookies();
-        if (cookies == null) return null;
-        for (Cookie c : cookies) if (name.equals(c.getName())) return c.getValue();
-        return null;
     }
 }

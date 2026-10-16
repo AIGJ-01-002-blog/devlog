@@ -8,12 +8,15 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -42,7 +45,8 @@ public class TradeJournal {
     public static final int SYMBOL_NAME_MAX = 60;
     public static final int EXTERNAL_ID_MAX = 80;
     public static final int STRATEGY_MAX = 60;
-    public static final int REASON_MAX = 300;
+    /** 봇의 판단 이유 JSON까지 받는다 (#283) */
+    public static final int REASON_MAX = 2000;
     public static final int MEMO_MAX = 2000;
     /** 한 번에 보는 날 수 */
     public static final int DAYS_MAX = 120;
@@ -90,10 +94,19 @@ public class TradeJournal {
      * @param currency 가격·수수료·손익의 통화. 비우면 KRW
      * @param market 비우면 SPOT. positionSide·leverage는 FUTURES에만 (leverage를 비우면 1배)
      * @param interval 봇이 판단한 봉(1m·5m·15m·1h·4h·1d). 비워도 된다
+     * @param trace 봇 판단 흔적 (#283·#284). 없으면 {@link TradeTrace#NONE}
      */
     public record Input(String externalId, Mode mode, String symbol, String symbolName, Side side, BigDecimal quantity, BigDecimal price,
                         BigDecimal fee, BigDecimal realizedPnl, String strategy, String reason, Instant executedAt, String exchange,
-                        String currency, Market market, PositionSide positionSide, Integer leverage, String interval) {
+                        String currency, Market market, PositionSide positionSide, Integer leverage, String interval, TradeTrace trace) {
+
+        /** 판단 흔적 없는 체결 */
+        public Input(String externalId, Mode mode, String symbol, String symbolName, Side side, BigDecimal quantity, BigDecimal price,
+                     BigDecimal fee, BigDecimal realizedPnl, String strategy, String reason, Instant executedAt, String exchange,
+                     String currency, Market market, PositionSide positionSide, Integer leverage, String interval) {
+            this(externalId, mode, symbol, symbolName, side, quantity, price, fee, realizedPnl, strategy, reason, executedAt, exchange,
+                    currency, market, positionSide, leverage, interval, TradeTrace.NONE);
+        }
 
         /** 현물 체결 */
         public Input(String externalId, Mode mode, String symbol, String symbolName, Side side, BigDecimal quantity, BigDecimal price,
@@ -107,10 +120,22 @@ public class TradeJournal {
     /** @param duplicate 같은 externalId로 이미 남긴 체결이면 true (새로 남기지 않았다) */
     public record Recorded(long id, boolean duplicate, LocalDate day) {}
 
-    /** @param positionSide·leverage 선물만 (현물은 null), interval 비어 있으면 알리지 않은 것 */
+    /**
+     * @param positionSide·leverage 선물만 (현물은 null), interval 비어 있으면 알리지 않은 것
+     * @param trace 봇 판단 흔적 (#283·#284). 옛 기록은 {@link TradeTrace#NONE}
+     */
     public record Fill(long id, String externalId, String mode, String exchange, String symbol, String symbolName, String side,
                        BigDecimal quantity, BigDecimal price, String currency, BigDecimal fee, BigDecimal realizedPnl, String strategy,
-                       String reason, Instant executedAt, String market, String positionSide, Integer leverage, String interval) {
+                       String reason, Instant executedAt, String market, String positionSide, Integer leverage, String interval,
+                       TradeTrace trace) {
+
+        /** 판단 흔적 없이 읽은 체결 */
+        public Fill(long id, String externalId, String mode, String exchange, String symbol, String symbolName, String side,
+                    BigDecimal quantity, BigDecimal price, String currency, BigDecimal fee, BigDecimal realizedPnl, String strategy,
+                    String reason, Instant executedAt, String market, String positionSide, Integer leverage, String interval) {
+            this(id, externalId, mode, exchange, symbol, symbolName, side, quantity, price, currency, fee, realizedPnl, strategy, reason,
+                    executedAt, market, positionSide, leverage, interval, TradeTrace.NONE);
+        }
 
         /** 포지션을 닫는 체결인가: 현물 매도, 선물 롱 청산(SELL)·숏 청산(BUY) */
         public boolean closes() {
@@ -141,10 +166,76 @@ public class TradeJournal {
      * @param live·paper 모드와 상관없이 그 모드로 남긴 체결이 하나라도 있는지 (토글 기본값을 정할 때 쓴다)
      */
     public record Overview(LocalDate from, LocalDate to, List<DayRow> days, Summary total, Map<String, BigDecimal> cumulativePnl,
-                           boolean live, boolean paper, Mode mode) {}
+                           boolean live, boolean paper, Mode mode, List<SetupStat> setups) {}
 
+    /**
+     * 기법 버전·셋업별 성적 (#285). R배수를 남긴 정리 체결만 센다.
+     * @param mode LIVE·PAPER. 실거래와 모의 성적은 섞지 않는다
+     * @param wins R배수가 0보다 큰 정리 수
+     * @param avgR R배수 평균 (소수 둘째 자리)
+     */
+    public record SetupStat(String mode, String strategyVersion, String setup, int samples, int wins, BigDecimal avgR) {}
+
+    /**
+     * 정리 체결을 모드·기법 버전·셋업으로 묶어 표본 수, 이긴 수, 평균 R을 낸다. 표본이 많은 것부터.
+     * 정리 체결에 기법 버전·셋업이 비어 있으면 같은 decision_id로 이어진 진입 체결의 값을 쓴다.
+     */
+    public static List<SetupStat> setupStats(List<Fill> fills) {
+        return setupStats(fills, List.of());
+    }
+
+    /** @param earlier 기간 앞에 있는 진입 체결. 기법을 잇는 데만 쓰고 세지 않는다 */
+    static List<SetupStat> setupStats(List<Fill> fills, List<Fill> earlier) {
+        Map<String, TradeTrace> entries = entryTraces(java.util.stream.Stream.concat(fills.stream(), earlier.stream()).toList());
+        Map<List<String>, List<BigDecimal>> groups = new LinkedHashMap<>();
+        for (Fill f : fills) {
+            TradeTrace t = f.trace();
+            if (t != null && t.rMultiple() != null && f.closes()) {
+                groups.computeIfAbsent(statKey(f, entries), k -> new ArrayList<>()).add(t.rMultiple());
+            }
+        }
+        List<SetupStat> out = new ArrayList<>();
+        groups.forEach((k, rs) -> {
+            BigDecimal sum = rs.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+            int wins = (int) rs.stream().filter(r -> r.signum() > 0).count();
+            out.add(new SetupStat(k.get(0), k.get(1), k.get(2), rs.size(), wins,
+                    sum.divide(BigDecimal.valueOf(rs.size()), 2, java.math.RoundingMode.HALF_UP)));
+        });
+        out.sort(java.util.Comparator.comparingInt(SetupStat::samples).reversed());
+        return out;
+    }
+
+    /** 모드·decision_id별 진입 체결 흔적 */
+    private static Map<String, TradeTrace> entryTraces(List<Fill> fills) {
+        Map<String, TradeTrace> entries = new HashMap<>();
+        for (Fill f : fills) {
+            TradeTrace t = f.trace();
+            if (t != null && !f.closes() && !t.decisionId().isBlank()) entries.putIfAbsent(f.mode() + ":" + t.decisionId(), t);
+        }
+        return entries;
+    }
+
+    /** 정리 체결을 묶는 키(모드·기법 버전·셋업). 비어 있으면 같은 판단 키의 진입 체결 값을 쓴다 */
+    private static List<String> statKey(Fill f, Map<String, TradeTrace> entries) {
+        TradeTrace t = f.trace();
+        TradeTrace in = t.decisionId().isBlank() ? null : entries.get(f.mode() + ":" + t.decisionId());
+        String version = t.strategyVersion().isBlank() && in != null ? in.strategyVersion() : t.strategyVersion();
+        String setup = t.setup().isBlank() && in != null ? in.setup() : t.setup();
+        return List.of(f.mode(), version, setup);
+    }
+
+    /** earlier: 정리 체결의 기법을 잇는 데만 쓰는 하루 앞 진입 체결. 합계·응답에는 넣지 않는다 */
     public record Day(LocalDate date, List<Fill> fills, Summary summary, Map<String, BigDecimal> cumulativePnl, String memo, Long postId,
-                      Long shortsId) {}
+                      Long shortsId, @JsonIgnore List<Fill> earlier) {
+        public Day(LocalDate date, List<Fill> fills, Summary summary, Map<String, BigDecimal> cumulativePnl, String memo, Long postId,
+                   Long shortsId) {
+            this(date, fills, summary, cumulativePnl, memo, postId, shortsId, List.of());
+        }
+
+        public List<SetupStat> setupStats() {
+            return TradeJournal.setupStats(fills, earlier);
+        }
+    }
 
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
@@ -180,6 +271,7 @@ public class TradeJournal {
     public Recorded recordFill(long memberId, Input in) {
         requireEnabled();
         Input v = validate(in);
+        TradeTrace t = v.trace();
         try {
             return tx.execute(st -> {
                 // 같은 회원의 기록은 한 줄로 세워 하루 상한을 넘기지 않게 한다 (봇을 여러 개 돌려도)
@@ -192,14 +284,13 @@ public class TradeJournal {
                 if (today != null && today >= props.dailyRecords()) {
                     throw ApiException.conflict("TRADE_DAILY_LIMIT", "체결 기록은 하루 " + props.dailyRecords() + "건까지예요. 봇이 같은 주문을 되풀이하고 있지 않은지 확인해 주세요.");
                 }
-                Long id = jdbc.queryForObject("""
-                        INSERT INTO trade (member_id, external_id, mode, exchange, symbol, symbol_name, side, quantity, price, currency, fee,
-                                           realized_pnl, strategy, reason, executed_at, created_at, market, position_side, leverage, timeframe)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
-                        """, Long.class, memberId, v.externalId(), v.mode().name(), v.exchange(), v.symbol(), v.symbolName(), v.side().name(),
+                Long id = jdbc.queryForObject(INSERT_TRADE, Long.class, memberId, v.externalId(), v.mode().name(), v.exchange(), v.symbol(),
+                        v.symbolName(), v.side().name(),
                         v.quantity(), v.price(), v.currency(), v.fee(), v.realizedPnl(), v.strategy(), v.reason(), Timestamp.from(v.executedAt()),
                         Timestamp.from(Times.now(clock)), v.market().name(), v.positionSide() == null ? null : v.positionSide().name(),
-                        v.leverage(), v.interval());
+                        v.leverage(), v.interval(), t.strategyVersion(), t.decisionId(), name(t.basket()), t.regime(), t.setup(), t.trigger(),
+                        t.newsScore(), t.newsFlags(), t.riskPct(), t.kellyRaw(), t.kellyUsed(), t.aiConf(), t.equityAtEntry(), t.stopPrice(),
+                        t.tp1Price(), t.tp2Price(), t.liquidationPrice(), t.aiModel(), t.aiCost(), name(t.exitReason()), t.rMultiple(), t.funding());
                 return new Recorded(id, false, LocalDate.ofInstant(v.executedAt(), TradeTexts.KST));
             });
         } catch (DuplicateKeyException e) {
@@ -239,12 +330,10 @@ public class TradeJournal {
         Market market = in.market() == null ? Market.SPOT : in.market();
         Integer leverage = validatePosition(errors, in, market);
         String interval = trim(in.interval()).toLowerCase(Locale.ROOT);
-        if (!interval.isEmpty() && !INTERVALS.contains(interval)) {
-            errors.add(new FieldErrorItem("interval", INVALID, "봉(interval)은 " + String.join(", ", INTERVALS) + " 가운데 하나예요."));
-        }
         validatePnlSide(errors, in, market);
-        if (strategy.length() > STRATEGY_MAX) errors.add(new FieldErrorItem("strategy", TOO_LONG, "전략 이름은 " + STRATEGY_MAX + UP_TO_CHARS));
-        if (reason.length() > REASON_MAX) errors.add(new FieldErrorItem("reason", TOO_LONG, "이유는 " + REASON_MAX + UP_TO_CHARS));
+        boolean closes = in.side() != null && Fill.closes(market.name(), in.positionSide() == null ? null : in.positionSide().name(), in.side().name());
+        TradeTrace trace = (in.trace() == null ? TradeTrace.NONE : in.trace()).validate(errors, market == Market.FUTURES, closes);
+        validateTexts(errors, strategy, reason, interval);
         Instant now = Times.now(clock);
         Instant at = in.executedAt() == null ? now : in.executedAt();
         // 시계가 조금 어긋난 것은 받되, 내일 이후로 적힌 기록은 받지 않는다
@@ -252,7 +341,15 @@ public class TradeJournal {
         if (!errors.isEmpty()) throw ApiException.validation(errors);
         return new Input(externalId, in.mode() == null ? Mode.PAPER : in.mode(), symbol, symbolName, in.side(), in.quantity(), in.price(),
                 in.fee() == null ? BigDecimal.ZERO : in.fee(), in.realizedPnl(), strategy, reason, at, exchange, currency, market,
-                market == Market.FUTURES ? in.positionSide() : null, market == Market.FUTURES ? leverage : null, interval);
+                market == Market.FUTURES ? in.positionSide() : null, market == Market.FUTURES ? leverage : null, interval, trace);
+    }
+
+    private static void validateTexts(List<FieldErrorItem> errors, String strategy, String reason, String interval) {
+        if (!interval.isEmpty() && !INTERVALS.contains(interval)) {
+            errors.add(new FieldErrorItem("interval", INVALID, "봉(interval)은 " + String.join(", ", INTERVALS) + " 가운데 하나예요."));
+        }
+        if (strategy.length() > STRATEGY_MAX) errors.add(new FieldErrorItem("strategy", TOO_LONG, "전략 이름은 " + STRATEGY_MAX + UP_TO_CHARS));
+        if (reason.length() > REASON_MAX) errors.add(new FieldErrorItem("reason", TOO_LONG, "이유는 " + REASON_MAX + UP_TO_CHARS));
     }
 
     private static void validateCodes(List<FieldErrorItem> errors, String externalId, String symbol, String symbolName, String exchange,
@@ -337,7 +434,28 @@ public class TradeJournal {
             rows.add(new DayRow(d, s, running, !m.memo().isBlank(), m.postId(), m.shortsId()));
         }
         List<Fill> all = fills.values().stream().flatMap(List::stream).toList();
-        return new Overview(from, to, rows.reversed(), summarize(all), running, has(memberId, Mode.LIVE), has(memberId, Mode.PAPER), mode);
+        return new Overview(from, to, rows.reversed(), summarize(all), running, has(memberId, Mode.LIVE), has(memberId, Mode.PAPER), mode,
+                setupStats(all, earlierEntries(memberId, from, all)));
+    }
+
+    /** 기간 안 정리 체결 가운데 기법이 비어 있는 것의 decision_id로, 기간 앞에 남긴 체결을 찾는다 */
+    private static final String INSERT_TRADE = """
+                INSERT INTO trade (member_id, external_id, mode, exchange, symbol, symbol_name, side, quantity, price, currency, fee,
+                                   realized_pnl, strategy, reason, executed_at, created_at, market, position_side, leverage, timeframe,
+                                   strategy_version, decision_id, basket, regime, setup, trigger_name, news_score, news_flags, risk_pct,
+                                   kelly_raw, kelly_used, ai_conf, equity_at_entry, stop_price, tp1_price, tp2_price, liquidation_price,
+                                   ai_model, ai_cost, exit_reason, r_multiple, funding)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
+                """;
+
+    private List<Fill> earlierEntries(long memberId, LocalDate from, List<Fill> all) {
+        List<String> ids = all.stream()
+                .filter(f -> f.closes() && f.trace() != null && f.trace().rMultiple() != null && !f.trace().decisionId().isBlank()
+                        && (f.trace().strategyVersion().isBlank() || f.trace().setup().isBlank()))
+                .map(f -> f.trace().decisionId()).distinct().toList();
+        if (ids.isEmpty()) return List.of();
+        return jdbc.query(EARLIER_ENTRIES, TradeJournal::fill, memberId, Timestamp.from(start(from)), ids.toArray(String[]::new));
     }
 
     private boolean has(long memberId, Mode mode) {
@@ -355,7 +473,7 @@ public class TradeJournal {
         Summary s = summarize(list);
         DayMeta m = meta(memberId, date, date).getOrDefault(date, DayMeta.EMPTY);
         Map<String, BigDecimal> cumulative = Money.plus(pnlBefore(memberId, date, mode), s.realizedPnl());
-        return new Day(date, list, s, cumulative, m.memo(), m.postId(), m.shortsId());
+        return new Day(date, list, s, cumulative, m.memo(), m.postId(), m.shortsId(), earlierEntries(memberId, date, list));
     }
 
     public Day saveMemo(long memberId, LocalDate date, String memo) {
@@ -433,25 +551,50 @@ public class TradeJournal {
         return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM shorts WHERE id = ?)", Boolean.class, shortsId));
     }
 
+    /** 체결 한 줄을 읽는 칸 */
+    private static final String FILL_SELECT = """
+            id, external_id, mode, exchange, symbol, symbol_name, side, quantity, price, currency, fee, realized_pnl, strategy,
+            reason, executed_at, market, position_side, leverage, timeframe, strategy_version, decision_id, basket, regime, setup,
+            trigger_name, news_score, news_flags, risk_pct, kelly_raw, kelly_used, ai_conf, equity_at_entry, stop_price, tp1_price,
+            tp2_price, liquidation_price, ai_model, ai_cost, exit_reason, r_multiple, funding""";
+
+    private static final String EARLIER_ENTRIES = "SELECT " + FILL_SELECT
+            + " FROM trade WHERE member_id = ? AND executed_at < ? AND decision_id = ANY (?) ORDER BY executed_at, id";
+
     private List<Fill> fills(long memberId, LocalDate from, LocalDate to, Mode mode) {
-        return jdbc.query("""
-                SELECT id, external_id, mode, exchange, symbol, symbol_name, side, quantity, price, currency, fee, realized_pnl, strategy,
-                       reason, executed_at, market, position_side, leverage, timeframe
-                FROM trade WHERE member_id = ? AND executed_at >= ? AND executed_at < ? AND (CAST(? AS text) IS NULL OR mode = ?)
+        return jdbc.query("SELECT " + FILL_SELECT + """
+                 FROM trade WHERE member_id = ? AND executed_at >= ? AND executed_at < ? AND (CAST(? AS text) IS NULL OR mode = ?)
                 ORDER BY executed_at, id
                 """, TradeJournal::fill, memberId, Timestamp.from(start(from)), Timestamp.from(start(to.plusDays(1))), name(mode), name(mode));
     }
 
-    private static String name(Mode mode) {
-        return mode == null ? null : mode.name();
-    }
 
     private static Fill fill(ResultSet rs, int i) throws SQLException {
         return new Fill(rs.getLong("id"), rs.getString(EXTERNAL_ID), rs.getString("mode"), rs.getString("exchange"), rs.getString("symbol"),
                 rs.getString("symbol_name"), rs.getString("side"), plain(rs.getBigDecimal("quantity")), plain(rs.getBigDecimal("price")),
                 rs.getString(CURRENCY_FIELD), plain(rs.getBigDecimal("fee")), plain(rs.getBigDecimal(REALIZED_PNL)), rs.getString("strategy"),
                 rs.getString("reason"), rs.getTimestamp(EXECUTED_AT).toInstant(), rs.getString("market"), rs.getString(POSITION_SIDE),
-                rs.getObject(LEVERAGE, Integer.class), rs.getString("timeframe"));
+                rs.getObject(LEVERAGE, Integer.class), rs.getString("timeframe"), trace(rs));
+    }
+
+    /** 체결 줄의 판단 흔적 (#283·#284) */
+    static TradeTrace trace(ResultSet rs) throws SQLException {
+        return new TradeTrace(rs.getString("strategy_version"), rs.getString("decision_id"), enumOrNull(TradeTrace.Basket.class, rs.getString("basket")),
+                rs.getString("regime"), rs.getString("setup"), rs.getString("trigger_name"), rs.getObject("news_score", Integer.class),
+                rs.getString("news_flags"), plain(rs.getBigDecimal("risk_pct")), plain(rs.getBigDecimal("kelly_raw")),
+                plain(rs.getBigDecimal("kelly_used")), plain(rs.getBigDecimal("ai_conf")), plain(rs.getBigDecimal("equity_at_entry")),
+                plain(rs.getBigDecimal("stop_price")), plain(rs.getBigDecimal("tp1_price")), plain(rs.getBigDecimal("tp2_price")),
+                plain(rs.getBigDecimal("liquidation_price")), rs.getString("ai_model"), plain(rs.getBigDecimal("ai_cost")),
+                enumOrNull(TradeTrace.ExitReason.class, rs.getString("exit_reason")), plain(rs.getBigDecimal("r_multiple")),
+                plain(rs.getBigDecimal("funding")));
+    }
+
+    private static <E extends Enum<E>> E enumOrNull(Class<E> type, String value) {
+        return value == null ? null : Enum.valueOf(type, value);
+    }
+
+    private static String name(Enum<?> e) {
+        return e == null ? null : e.name();
     }
 
     /** numeric(28, 10)의 꼬리 0을 지운다 (1.5000000000 → 1.5) */

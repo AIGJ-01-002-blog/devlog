@@ -22,6 +22,10 @@
   /* 매수·매도 버튼 바탕 (흰 글자 대비 4.5:1 이상, 이슈 267) */
   --color-up-fill: #0a7d64;
   --color-down-fill: #c92a3a;
+  /* 상세 차트 이동평균선 7·25·99 (이슈 354, 바이낸스와 같은 노랑·분홍·보라) */
+  --chart-ma-7: #b7791f;
+  --chart-ma-25: #c2255c;
+  --chart-ma-99: #6741d9;
   --thumb-empty: #e3e7ee;
   --color-code-bg: #f7f7f9;
   --color-focus: #2563eb;
@@ -178,6 +182,9 @@
   --color-down: #ef5350;
   --color-up-fill: #17776c;
   --color-down-fill: #c4313b;
+  --chart-ma-7: #f0b90b;
+  --chart-ma-25: #f06595;
+  --chart-ma-99: #9775fa;
   --thumb-empty: #242833;
   --color-code-bg: #171a20;
   --color-focus: #93c5fd;
@@ -251,6 +258,9 @@
     --color-down: #ef5350;
     --color-up-fill: #17776c;
     --color-down-fill: #c4313b;
+    --chart-ma-7: #f0b90b;
+    --chart-ma-25: #f06595;
+    --chart-ma-99: #9775fa;
     --thumb-empty: #242833;
     --color-code-bg: #171a20;
     --color-focus: #93c5fd;
@@ -2568,6 +2578,12 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 .trades-fills { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .trades-fills li { padding: 8px 10px; border: 1px solid var(--color-border); border-radius: var(--radius); overflow-wrap: anywhere; }
 .trades-fill-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.trades-trace { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 2px; }
+.trades-setups { margin-bottom: 16px; }
+.trades-setup-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.trades-setup-table th, .trades-setup-table td { padding: 6px 8px; border-bottom: 1px solid var(--color-border); text-align: left; white-space: nowrap; }
+.trades-setup-table th { font-size: 0.8125rem; font-weight: 600; color: var(--color-text-muted); }
+.trades-setup-table .num { text-align: right; font-variant-numeric: tabular-nums; }
 .trades-fill-delete { margin-left: auto; }
 .trades-buy { color: var(--color-up); }
 .trades-sell { color: var(--color-down); }
@@ -2625,14 +2641,6 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 }
 .tradebot-chart { padding: 10px 12px; border: 1px solid var(--color-border); border-radius: var(--radius); min-width: 0; }
 .tradebot-chart-price { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
-.tradebot-candles { display: block; width: 100%; height: auto; margin-top: 6px; }
-.tradebot-candles .up { stroke: var(--color-up); fill: var(--color-up); }
-.tradebot-candles .down { stroke: var(--color-down); fill: var(--color-down); }
-.tradebot-candles line { stroke-width: 1; }
-.tradebot-candles .tradebot-last { stroke: var(--color-text-muted); stroke-dasharray: 4 4; opacity: 0.6; }
-.tradebot-candles line { vector-effect: non-scaling-stroke; }
-.tradebot-mark { stroke: var(--color-surface); stroke-width: 1; cursor: help; }
-.tradebot-mark.me { stroke: var(--color-text); stroke-width: 2; }
 .tradebot-text { margin: 4px 0 0; overflow-wrap: anywhere; white-space: pre-line; }
 .tradebot-allow { color: var(--color-up); border-color: var(--color-up); }
 .tradebot-block { color: var(--color-down); border-color: var(--color-down); }
@@ -3089,11 +3097,8 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 
 /* 포인트 모의투자 차트 (이슈 324) */
 .paper-chart { margin: 12px 0; }
-.paper-chart-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-.paper-chart-head h2 { margin: 0; font-size: 1.05rem; }
-.paper-chart-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 6px 0 0; }
-.paper-chart-legend .me { font-weight: 700; }
-.paper-chart-bot { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
+.paper-chart-title { margin: 0 0 6px; font-size: 1.05rem; }
+.paper-chart-bot { display: inline-flex; align-items: center; gap: 6px; }
 
 /* 서버 모의 봇 계정별 기준 (이슈 340) */
 .tradebot-settings { margin: 8px 0 12px; }
@@ -3119,3 +3124,28 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 .tradebot-settings-coins label:has(input:checked) { border-color: var(--color-brand); background: color-mix(in srgb, var(--color-brand) 8%, var(--color-surface)); }
 .tradebot-settings-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .tradebot-settings-form .error { grid-column: 1 / -1; margin: 0; }
+
+/* 상세 차트 (이슈 354): 머리말(24시간 요약)·간격 버튼·OHLC·이동평균 값·평단 손익, 그 아래 캔버스 차트 */
+.prochart { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.prochart-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; }
+.prochart-title { display: flex; align-items: baseline; gap: 8px; }
+.prochart-price { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.prochart-day { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; }
+.prochart-day div { display: flex; flex-direction: column; }
+.prochart-day dt { color: var(--color-text-muted); }
+.prochart-day dd { margin: 0; font-variant-numeric: tabular-nums; }
+.prochart-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.prochart-intervals button:disabled { opacity: 0.45; cursor: not-allowed; }
+.prochart-ohlc, .prochart-ma, .prochart-position { display: flex; flex-wrap: wrap; gap: 2px 12px; margin: 0; font-variant-numeric: tabular-nums; }
+.prochart-ohlc b, .prochart-position b { font-weight: 600; }
+.prochart-ma-0 { color: var(--chart-ma-7); }
+.prochart-ma-1 { color: var(--chart-ma-25); }
+.prochart-ma-2 { color: var(--chart-ma-99); }
+.prochart-canvas { position: relative; width: 100%; height: 420px; touch-action: pan-y; }
+.prochart-fills { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 2px 14px; }
+.prochart-fills li { display: flex; gap: 6px; }
+.prochart-legend { display: flex; flex-wrap: wrap; gap: 2px 12px; margin: 0; }
+@media (max-width: 767px) {
+  .prochart-canvas { height: 320px; }
+  .prochart-price { font-size: 1.1rem; }
+}

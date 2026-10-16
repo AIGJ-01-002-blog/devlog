@@ -5,6 +5,7 @@ import java.io.IOException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,7 +13,9 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -24,7 +27,9 @@ import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.savedrequest.NullRequestCache;
+import org.springframework.security.web.util.matcher.AnyRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
 import com.team.blog.account.infra.AuthIdentityRepository;
@@ -51,6 +56,18 @@ import com.team.blog.shorts.web.RenderWorkerController;
 @EnableConfigurationProperties(BlogProperties.class)
 public class SecurityConfig {
     private static final String API_PATHS = "/api/**";
+    /** HSTS 1년. 하위 도메인은 따로 정하므로 includeSubDomains는 켜지 않는다 */
+    static final long HSTS_MAX_AGE_SECONDS = 31_536_000L;
+
+    /**
+     * 운영(COOKIE_SECURE=true)은 https로만 열린다. Cloudflare → cloudflared → ingress를 거치며 앱이 요청을 http로 볼 수 있어
+     * (X-Forwarded-Proto가 덮어써짐) 요청의 isSecure()에 맡기지 않고 이 값으로 HSTS와 CSRF 쿠키의 Secure를 정한다.
+     */
+    private final boolean httpsOnly;
+
+    public SecurityConfig(@Value("${server.servlet.session.cookie.secure:false}") boolean httpsOnly) {
+        this.httpsOnly = httpsOnly;
+    }
 
     /** 로그인하지 않아도 보낼 수 있는 쓰기 요청 (가입 대기·로그인·공개 기록 API). */
     static final String[] PUBLIC_WRITES = {
@@ -79,7 +96,7 @@ public class SecurityConfig {
                 .securityContext(c -> c.securityContextRepository(new RequestAttributeSecurityContextRepository()))
                 .requestCache(c -> c.requestCache(new NullRequestCache()))
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-                .headers(h -> h.cacheControl(c -> c.disable()).contentTypeOptions(c -> {}).frameOptions(f -> f.deny()).addHeaderWriter(csp));
+                .headers(h -> h.cacheControl(c -> c.disable()).contentTypeOptions(c -> {}).frameOptions(f -> f.deny()).httpStrictTransportSecurity(hsts()).addHeaderWriter(csp));
         return http.build();
     }
 
@@ -98,7 +115,7 @@ public class SecurityConfig {
                 .securityContext(c -> c.securityContextRepository(new RequestAttributeSecurityContextRepository()))
                 .requestCache(c -> c.requestCache(new NullRequestCache()))
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-                .headers(h -> h.contentTypeOptions(c -> {}).frameOptions(f -> f.deny()).addHeaderWriter(csp));
+                .headers(h -> h.contentTypeOptions(c -> {}).frameOptions(f -> f.deny()).httpStrictTransportSecurity(hsts()).addHeaderWriter(csp));
         return http.build();
     }
 
@@ -111,7 +128,7 @@ public class SecurityConfig {
                                             ContentSecurityPolicy csp) {
         RequestMatcher api = request -> RequestPaths.of(request).startsWith("/api/");
         http
-                .csrf(csrf -> csrf.spa())
+                .csrf(csrf -> csrf.spa().csrfTokenRepository(csrfTokens()))
                 .requestCache(c -> c.requestCache(new NullRequestCache()))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "MANAGER")
@@ -143,11 +160,31 @@ public class SecurityConfig {
                 .headers(h -> h
                         .contentTypeOptions(c -> {})
                         .frameOptions(f -> f.deny())
+                        .httpStrictTransportSecurity(hsts())
                         .referrerPolicy(r -> r.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
                         .addHeaderWriter(csp))
                 .addFilterBefore(new LoginGuardFilter(rateLimiter, ipResolver, redis, props), OAuth2AuthorizationRequestRedirectFilter.class)
                 .addFilterBefore(new AccountStateFilter(members, identities), AnonymousAuthenticationFilter.class);
         return http.build();
+    }
+
+    /** https 전용이면 모든 응답에 HSTS를 쓴다. 기본값은 https로 판정된 요청에만 써서 운영에서 빠졌었다 */
+    private Customizer<HeadersConfigurer<HttpSecurity>.HstsConfig> hsts() {
+        if (!httpsOnly) return HeadersConfigurer.HstsConfig::disable;
+        return s -> s.requestMatcher(AnyRequestMatcher.INSTANCE).maxAgeInSeconds(HSTS_MAX_AGE_SECONDS).includeSubDomains(false);
+    }
+
+    /**
+     * SPA가 읽어야 하니 HttpOnly는 끄고, https 전용이면 Secure를 붙인다. SameSite는 세션 쿠키와 같은 Lax.
+     * https 전용이 아니면 Secure를 정하지 않아 요청이 https인지 보고 붙이는 기본 동작을 남긴다
+     */
+    CookieCsrfTokenRepository csrfTokens() {
+        CookieCsrfTokenRepository repo = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        repo.setCookieCustomizer(c -> {
+            if (httpsOnly) c.secure(true);
+            c.sameSite("Lax");
+        });
+        return repo;
     }
 
     /** 비밀번호는 되돌릴 수 없는 BCrypt로만 저장한다 (004 FR-017). */

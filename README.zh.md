@@ -152,7 +152,7 @@ cd app/frontend && npm install && npm run dev            # http://localhost:5173
 - **交易日志**：交易机器人通过 MCP 记录的股票、加密货币现货和期货成交，按币种显示每日盈亏，实盘与模拟分开显示。用当天的笔记生成摘要草稿和短视频脚本，用选中的成交生成交易回放短视频。devlog 不会下真实订单。
 - **博客积分与商店**：通过签到（奖励随连续天数增加）、连续签到徽章和发布文章积累积分，在黑铁到王者 9 个段位中购买主题色、头像边框和博客封面来装饰博客。
 - **积分模拟投资**：用注册时获得的模拟投资积分，看着实时图表以市价或限价买卖比特币等 5 种币。卖出收益会变成可在商店使用的积分。
-- **自动交易模拟页面**：在 `/trade` 点击［开启模拟机器人］，服务器会按移动平均规则进行模拟交易，并显示账户、持仓、最近成交及原因。规则由你的 AI 通过 MCP 修改。
+- **自动交易模拟页面**：在 `/trade` 点击［开启模拟机器人］，服务器会按移动平均规则进行模拟交易，并显示账户、持仓、最近成交及原因。币种、K 线周期、止损、止盈和单次金额由每位会员在同一页面的［模拟机器人设置］中选择。
 - **AI 记录的依据链接**：AI 在开发日志和日记笔记中附上提交、PR、Issue 网址时，会作为链接出现在文章末尾的 `## 근거`（依据）和日记段落下方。
 - **迁移到家里电脑**：把数据库和文件存储下载到一个文件夹，再在 Windows、Mac 上用 Docker 恢复同一个博客的备份与恢复脚本（`deploy/home/`）。
 
@@ -166,7 +166,7 @@ flowchart LR
     T[Telegram] -->|Bot API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>多个 Pod]
     I -->|/blog-images| M[(MinIO / S3<br/>图片 · 附件)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V52)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V53)]
     A --> R[(Redis<br/>会话 · 限流 · 浏览数 · 缓存)]
     A --> M
     A -.可选.-> G[Google Gemini]
@@ -262,7 +262,7 @@ sequenceDiagram
 
 | 路径 | 说明 |
 | --- | --- |
-| [app/backend](app/backend) | 后端：Spring Boot 4.1、Java 21。功能模块、Flyway 迁移（V1~V52）、测试 |
+| [app/backend](app/backend) | 后端：Spring Boot 4.1、Java 21。功能模块、Flyway 迁移（V1~V53）、测试 |
 | [app/frontend](app/frontend) | 前端：React 19 SPA、TypeScript、Vite。界面、自动保存（IndexedDB）、深色模式 |
 | [deploy](deploy) | 部署：Dockerfile、Kubernetes 清单（base、selfhosted、nhn、local），部署、回滚、密钥检查脚本 |
 | [app/render-worker](app/render-worker) | 短视频渲染程序：Python 3.10、ffmpeg、Remotion（Node）。在你自己的电脑上把队列中的脚本做成 9:16 的 MP4 并上传 |
@@ -343,7 +343,7 @@ npm run dev        # http://localhost:5173
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub、Google、Kakao、Naver、Facebook 登录，会话，CSRF，按路径的权限 |
 | Spring Data JPA (Hibernate) | Boot 4.1 | 所有领域 | 保存会员、文章、评论等领域数据 |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | 会话、限流、浏览数、缓存 | 多个 Pod 共享同一会话，并发请求也由一个 Redis 脚本判定 |
-| Flyway | Boot 4.1 | 数据库 | 用 V1~V52 迁移管理模式，启动时自动应用 |
+| Flyway | Boot 4.1 | 数据库 | 用 V1~V53 迁移管理模式，启动时自动应用 |
 | commonmark-java (+ GFM 扩展) | 0.30.0 | 正文渲染 | Markdown → HTML。表格、删除线、任务清单、自动链接、标题锚点 |
 | OWASP Java HTML Sanitizer | 20260924.2 | 正文净化 | 按白名单净化渲染后的 HTML，防止 XSS |
 | AWS SDK for Java (S3) | 2.55.12 | media | 把图片和附件上传到 MinIO、S3 |
@@ -390,6 +390,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v2.3.0 | 2026-10-16 | 机器人决策痕迹与复盘: 每笔成交记录策略版本、篮子、形态、止损止盈、平仓原因与R倍数,并在交易日志、摘要草稿和短视频中显示按形态的战绩;服务器模拟机器人的币安账户将积分兑换为USDT并交易3倍合约;交易所风格图表(均线、成交量、1秒至1周K线、保本线);修复渲染工作器在服务器重启时自行停止的问题 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.3.0) |
 | v2.2.1 | 2026-10-16 | 安全修复: 限价单填入极大数量时几乎不冻结积分即可买入(订单金额与数量上限) | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.2.1) |
 | v2.2.0 | 2026-10-16 | 积分模拟投资:Upbit 式下单面板与限价单·撤单,图表上同时显示我的成交与机器人成交,服务器模拟机器人用基本积分交易韩元·Binance 账户并可按会员设置(币种·K线周期·止损·止盈·金额),韩元K线改从 Korbit 获取,管理员商店按类型分标签,短视频结尾 3 秒博客广告,SonarQube 问题清零 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.2.0) |
 | v2.1.3 | 2026-10-16 | 修复积分模拟投资不显示行情的问题(学校服务器无法连接 Upbit,改用 Korbit 行情) | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.1.3) |

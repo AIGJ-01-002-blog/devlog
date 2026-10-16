@@ -152,7 +152,7 @@ If you have agreed to AI use, the AI adds a title and tidies up the text; otherw
 - **Trade journal**: stock and crypto spot and futures fills that a trading bot records over MCP, shown as daily profit and loss per currency, with live and paper trades kept apart. A note for the day turns into a summary draft and a shorts script, and selected fills turn into a trade replay short. devlog never places real orders.
 - **Blog points and shop**: earn credits from check-ins (the reward grows with your streak), streak badges and publishing posts, then buy theme colors, profile rings and blog covers across nine tiers from Iron to Challenger to decorate your blog.
 - **Paper trading with points**: use the paper-trading points you get at sign-up to buy and sell five coins, including Bitcoin, with market and limit orders while watching a live chart. Profits from sales become credits you can spend in the shop.
-- **Auto-trading paper screen**: on `/trade`, press [Turn on paper bot] and the server runs paper trades with a moving-average rule, showing the account, holdings, recent fills and why each was made. Your AI changes the rules over MCP.
+- **Auto-trading paper screen**: on `/trade`, press [Turn on paper bot] and the server runs paper trades with a moving-average rule, showing the account, holdings, recent fills and why each was made. Each member picks the coins, candle interval, stop loss, take profit and order size under [Paper bot settings] on the same screen.
 - **Evidence links for AI records**: when your AI adds commit, PR and issue URLs to a devlog post or diary note, they appear as links under `## 근거` (Evidence) at the end of the post and under the diary paragraph.
 - **Move to a home computer**: backup and restore scripts (`deploy/home/`) that download the database and file storage into one folder and bring the same blog back up with Docker on Windows or macOS.
 
@@ -166,7 +166,7 @@ flowchart LR
     T[Telegram] -->|Bot API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>multiple pods]
     I -->|/blog-images| M[(MinIO / S3<br/>images · attachments)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V52)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V53)]
     A --> R[(Redis<br/>sessions · rate limits · views · cache)]
     A --> M
     A -.optional.-> G[Google Gemini]
@@ -262,7 +262,7 @@ Code lives in this repository; design documents live in the documentation reposi
 
 | Path | Description |
 | --- | --- |
-| [app/backend](app/backend) | Backend: Spring Boot 4.1, Java 21. Feature modules, Flyway migrations (V1~V52), tests |
+| [app/backend](app/backend) | Backend: Spring Boot 4.1, Java 21. Feature modules, Flyway migrations (V1~V53), tests |
 | [app/frontend](app/frontend) | Frontend: React 19 SPA, TypeScript, Vite. Screens, autosave (IndexedDB), dark mode |
 | [deploy](deploy) | Deployment: Dockerfile, Kubernetes manifests (base, selfhosted, nhn, local), deploy, rollback and secret-check scripts |
 | [app/render-worker](app/render-worker) | Shorts render worker: Python 3.10, ffmpeg, Remotion (Node). Runs on your computer and turns queued scripts into 9:16 MP4s |
@@ -343,7 +343,7 @@ To try it on Kubernetes, run `kubectl apply -k deploy/k8s/overlays/local` on kin
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub, Google, Kakao, Naver and Facebook login, sessions, CSRF, per-path authorization |
 | Spring Data JPA (Hibernate) | Boot 4.1 | All domains | Storing members, posts, comments and other domain data |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | Sessions, rate limits, views, cache | Lets multiple pods share sessions, and decides concurrent requests with a single Redis script |
-| Flyway | Boot 4.1 | Database | Manages the schema as migrations V1~V52, applied at startup |
+| Flyway | Boot 4.1 | Database | Manages the schema as migrations V1~V53, applied at startup |
 | commonmark-java (+ GFM extensions) | 0.30.0 | Body rendering | Markdown → HTML: tables, strikethrough, task lists, autolinks, heading anchors |
 | OWASP Java HTML Sanitizer | 20260924.2 | Body sanitizing | Sanitizes rendered HTML against an allow list to prevent XSS |
 | AWS SDK for Java (S3) | 2.55.12 | media | Uploads images and attachments to MinIO and S3 |
@@ -390,6 +390,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v2.3.0 | 2026-10-16 | Bot decision traces and review: each fill keeps strategy version, basket, setup, stop/take-profit, exit reason and R multiple, with per-setup stats in the trade journal, summary drafts and shorts; the server paper bot's Binance account converts credits to USDT and trades 3x futures; exchange-style charts (moving averages, volume, 1s–1w candles, break-even line); render worker no longer stops on server restarts | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.3.0) |
 | v2.2.1 | 2026-10-16 | Security fix: a huge limit-order quantity could buy almost for free because the credit total overflowed (order total and quantity caps) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.2.1) |
 | v2.2.0 | 2026-10-16 | Credit paper trading: an Upbit-style order panel with limit orders and cancelling, my fills and bot fills on the chart, the server paper bot trading KRW and Binance accounts with base credits and per-member settings (coins, candle interval, stop loss, take profit, amount), KRW candles from Korbit, item-type tabs in the admin shop, a 3-second blog outro on Shorts, and zero SonarQube issues | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.2.0) |
 | v2.1.3 | 2026-10-16 | Fix point paper trading showing no prices (Upbit is blocked from the school server, so prices now come from Korbit) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.1.3) |

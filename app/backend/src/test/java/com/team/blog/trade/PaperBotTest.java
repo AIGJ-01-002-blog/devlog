@@ -30,15 +30,20 @@ class PaperBotTest extends TradeBotSimTest {
         JsonNode v = read(me.http().perform(get("/api/me/trade-bot")).andExpect(status().isOk()).andReturn());
         assertThat(v.path("status").path("reportedAt").isNull()).isFalse();
         assertThat(v.path("accounts").findValuesAsString("account"))
-                .containsExactly("server-paper-binance-spot-1h", "server-paper-upbit-spot-1h");
-        // 포인트가 켜진 서버라 바이낸스 계좌도 기본 크레딧(1크레딧 = 1원)으로 돈다 (#339)
-        assertThat(v.path("accounts").get(0).path("currency").asString()).isEqualTo("KRW");
-        assertThat(v.path("accounts").get(0).path("rules").findValuesAsString("value")).contains("devlog 서버 (모의 · 기본 크레딧)", "100000 기본 크레딧");
+                .containsExactly("server-paper-binance-futures-1h", "server-paper-binance-spot-1h", "server-paper-upbit-spot-1h");
+        // 포인트가 켜진 서버라 바이낸스 현물·선물은 기본 크레딧을 그때 환율로 USDT로 바꿔 돈다 (#352)
+        JsonNode futures = v.path("accounts").get(0);
+        assertThat(futures.path("currency").asString()).isEqualTo("USDT");
+        assertThat(futures.path("market").asString()).isEqualTo("FUTURES");
+        assertThat(futures.path("rules").findValuesAsString("value")).contains("devlog 서버 (모의 · 기본 크레딧)", "100000 기본 크레딧", "3배")
+                .anyMatch(r -> r.startsWith("1 USDT = 1400 크레딧"));
+        assertThat(v.path("accounts").get(1).path("currency").asString()).isEqualTo("USDT");
+        assertThat(v.path("accounts").get(2).path("currency").asString()).isEqualTo("KRW");
 
         // 회원 컴퓨터 봇이 계좌 목록을 통째로 보내도 서버 계좌는 남는다
         String token = token(me);
         call(token, Map.of("accounts", List.of(Map.of("account", "trade-state-binance-spot-1h.json", "currency", "USDT", "cash", 900))));
-        assertThat(read(me.http().perform(get("/api/me/trade-bot")).andReturn()).path("accounts").size()).isEqualTo(3);
+        assertThat(read(me.http().perform(get("/api/me/trade-bot")).andReturn()).path("accounts").size()).isEqualTo(4);
         JsonNode taken = call(token, Map.of("accounts", List.of(Map.of("account", "server-paper-x", "currency", "USDT", "cash", 1))));
         assertThat(taken.path("isError").asBoolean()).isTrue();
 
@@ -56,6 +61,8 @@ class PaperBotTest extends TradeBotSimTest {
         JsonNode v = read(me.http().perform(get("/api/me/trade-bot/paper")).andExpect(status().isOk()).andReturn());
         assertThat(v.path("settings").path("interval").asString()).isEqualTo("1h");
         assertThat(v.path("intervals")).hasToString("[\"15m\",\"1h\",\"4h\",\"1d\"]");
+        assertThat(v.path("budgetMin").asLong()).isEqualTo(5_000);
+        assertThat(v.path("budgetMax").asLong()).isEqualTo(1_000_000);
         assertThat(v.path("coins").size()).isEqualTo(5);
 
         Map<String, Object> settings = Map.of("coins", List.of("ETH", "BTC"), "stopLoss", 0.02, "takeProfit", 0.04, "interval", "4h", "budget", 30000);
@@ -68,14 +75,14 @@ class PaperBotTest extends TradeBotSimTest {
         // 켜짐만 바꿔도 기준은 그대로다
         me.http().perform(asJson(put("/api/me/trade-bot/paper"), Map.of("enabled", true))).andExpect(status().isOk());
         JsonNode accounts = read(me.http().perform(get("/api/me/trade-bot")).andReturn()).path("accounts");
-        assertThat(accounts.findValuesAsString("account")).containsExactly("server-paper-binance-spot-4h", "server-paper-upbit-spot-4h");
-        assertThat(accounts.get(0).path("rules").findValuesAsString("value")).contains("4h", "BTC, ETH", "2%", "4%", "30000 기본 크레딧");
+        assertThat(accounts.findValuesAsString("account")).containsExactly("server-paper-binance-futures-4h", "server-paper-binance-spot-4h", "server-paper-upbit-spot-4h");
+        assertThat(accounts.get(1).path("rules").findValuesAsString("value")).contains("4h", "BTC, ETH", "2%", "4%", "30000 기본 크레딧");
 
         // 봉을 다시 바꾸면 예전 봉 계좌 줄은 남지 않는다
         me.http().perform(asJson(put("/api/me/trade-bot/paper"), Map.of("settings", Map.of("coins", List.of("BTC"), "stopLoss", 0.03, "takeProfit", 0,
                 "interval", "1d", "budget", 10000)))).andExpect(status().isOk());
         assertThat(read(me.http().perform(get("/api/me/trade-bot")).andReturn()).path("accounts").findValuesAsString("account"))
-                .containsExactly("server-paper-binance-spot-1d", "server-paper-upbit-spot-1d");
+                .containsExactly("server-paper-binance-futures-1d", "server-paper-binance-spot-1d", "server-paper-upbit-spot-1d");
 
         me.http().perform(asJson(put("/api/me/trade-bot/paper"), Map.of("settings", Map.of("coins", List.of("BTC"), "stopLoss", 0.03, "takeProfit", 0,
                 "interval", "1d", "budget", 100)))).andExpect(status().isBadRequest());

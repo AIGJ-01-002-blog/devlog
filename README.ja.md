@@ -152,7 +152,7 @@ AI の利用に同意していれば AI がタイトルを付けて文章を整�
 - **売買日誌**：売買ボットが MCP で記録した株・暗号資産の現物・先物の約定を通貨ごとの日別損益で見て、実取引とペーパートレードを分けて表示します。その日のメモから要約の下書きとショート動画の台本を、選んだ約定から売買再現ショートを作ります。devlog は実際の注文を出しません。
 - **ブログポイントとショップ**：出席（連続日数に応じて増える報酬）・連続出席バッジ・記事の公開でクレジットを貯め、アイアン〜チャレンジャーの 9 ティアのテーマ色・プロフィール枠・ブログ表紙を買ってブログを飾ります。
 - **ポイントでペーパートレード**：登録時にもらうペーパートレード用ポイントで、ビットコインなど 5 種類のコインをリアルタイムチャートを見ながら成行・指値で売買します。売却益はショップで使えるクレジットになります。
-- **自動売買ペーパー画面**：`/trade` で［ペーパーボットをオン］を押すと、サーバーが移動平均のルールでペーパー売買を回し、口座・保有・最近の約定と理由を表示します。ルールは自分の AI が MCP で変えます。
+- **自動売買ペーパー画面**：`/trade` で［ペーパーボットをオン］を押すと、サーバーが移動平均のルールでペーパー売買を回し、口座・保有・最近の約定と理由を表示します。コイン・足の間隔・損切り・利確・1回の金額は、同じ画面の［ペーパーボットの基準］で会員ごとに選びます。
 - **AI 記録の根拠リンク**：AI が開発日誌や日記メモにコミット・PR・Issue の URL を添えると、記事末尾の `## 근거`（根拠）と日記の段落の下にリンクとして付きます。
 - **自宅パソコンへの移行**：DB とファイルストレージを 1 つのフォルダーに取得し、Windows・Mac の Docker で同じブログを復元するバックアップ・復元スクリプト（`deploy/home/`）。
 
@@ -166,7 +166,7 @@ flowchart LR
     T[Telegram] -->|Bot API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>複数 Pod]
     I -->|/blog-images| M[(MinIO / S3<br/>画像・添付)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V52)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V53)]
     A --> R[(Redis<br/>セッション・レート制限・閲覧数・キャッシュ)]
     A --> M
     A -.任意.-> G[Google Gemini]
@@ -262,7 +262,7 @@ GitHub Actions でテストし、イメージを作って GHCR に上げたあ�
 
 | パス | 説明 |
 | --- | --- |
-| [app/backend](app/backend) | バックエンド：Spring Boot 4.1、Java 21。機能モジュール、Flyway マイグレーション（V1~V52）、テスト |
+| [app/backend](app/backend) | バックエンド：Spring Boot 4.1、Java 21。機能モジュール、Flyway マイグレーション（V1~V53）、テスト |
 | [app/frontend](app/frontend) | フロントエンド：React 19 SPA、TypeScript、Vite。画面、自動保存（IndexedDB）、ダークモード |
 | [deploy](deploy) | デプロイ：Dockerfile、Kubernetes マニフェスト（base・selfhosted・nhn・local）、デプロイ・ロールバック・シークレット検査のスクリプト |
 | [app/render-worker](app/render-worker) | ショート動画のレンダーワーカー：Python 3.10、ffmpeg、Remotion（Node）。自分のパソコンで待ち行列の台本を 9:16 の MP4 にしてアップロードします |
@@ -343,7 +343,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub・Google・カカオ・NAVER・Facebook ログイン、セッション、CSRF、パスごとの権限 |
 | Spring Data JPA (Hibernate) | Boot 4.1 | ドメイン全体 | 会員・記事・コメントなどドメインデータの保存 |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | セッション、レート制限、閲覧数、キャッシュ | 複数の Pod が同じセッションを共有し、同時リクエストも Redis スクリプト 1 つで判定します |
-| Flyway | Boot 4.1 | DB | スキーマを V1~V52 のマイグレーションで管理し、起動時に適用します |
+| Flyway | Boot 4.1 | DB | スキーマを V1~V53 のマイグレーションで管理し、起動時に適用します |
 | commonmark-java (+ GFM 拡張) | 0.30.0 | 本文のレンダリング | Markdown → HTML。表・取り消し線・チェックリスト・自動リンク・見出しアンカー |
 | OWASP Java HTML Sanitizer | 20260924.2 | 本文のサニタイズ | レンダリングした HTML を許可リストでサニタイズし XSS を防ぎます |
 | AWS SDK for Java (S3) | 2.55.12 | media | MinIO・S3 に画像と添付をアップロードします |
@@ -390,6 +390,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | バージョン | 日付 | 主な内容 | リリースノート |
 | --- | --- | --- | --- |
+| v2.3.0 | 2026-10-16 | ボット判断の記録と振り返り: 約定ごとに戦略バージョン・バスケット・セットアップ・損切り利確・決済理由・R倍数を残し、売買日誌・要約記事・ショートに手法別成績、サーバー模擬ボットのBinance口座のUSDT両替と3倍先物、取引所風チャート(移動平均線・出来高・1秒〜1週足・平均単価線)、レンダーワーカーがサーバー再起動で止まる問題を修正 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.3.0) |
 | v2.2.1 | 2026-10-16 | セキュリティ修正: 指値注文に非常に大きな数量を入れるとクレジットがほぼ拘束されずに買えた問題(注文金額・数量の上限) | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.2.1) |
 | v2.2.0 | 2026-10-16 | クレジット模擬投資: Upbit 風の注文欄と指値注文・取消、チャート上に自分と Bot の約定、サーバー模擬 Bot が基本クレジットでウォン・Binance 口座を売買し会員ごとの基準(コイン・足の間隔・損切り・利確・金額)を選択、ウォン足を Korbit から取得、管理者ショップの種類別タブ、ショート動画末尾 3 秒のブログ広告、SonarQube 指摘 0 件 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.2.0) |
 | v2.1.3 | 2026-10-16 | ポイント模擬投資で相場が表示されなかった問題を修正(学校サーバーから Upbit に接続できないため Korbit の相場に) | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.1.3) |

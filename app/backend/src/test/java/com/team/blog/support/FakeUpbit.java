@@ -52,6 +52,7 @@ public final class FakeUpbit {
         prices.put("XRP", new BigDecimal("800"));
         prices.put("SOL", new BigDecimal("250000"));
         prices.put("DOGE", new BigDecimal("300"));
+        prices.put("USDT", new BigDecimal("1400")); // 바이낸스 모의 봇의 환율 (#352)
     }
 
     private void handle(HttpExchange ex) throws IOException {

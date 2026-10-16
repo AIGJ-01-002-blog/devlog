@@ -7,6 +7,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -19,6 +20,7 @@ import com.team.blog.shared.config.BlogProperties;
 import com.team.blog.trade.application.TradeBotSim;
 import com.team.blog.trade.application.TradeJournal;
 import com.team.blog.trade.application.TradeTexts;
+import com.team.blog.trade.application.TradeTrace;
 
 /**
  * 매매 일지 MCP 도구 (#243). record_trade는 집 컴퓨터의 매매 봇이 쓰기 토큰으로 체결마다 부르고,
@@ -47,8 +49,30 @@ class TradeTools {
               "fee":{"type":"number","minimum":0,"description":"수수료·세금 (currency 통화)"},
               "realized_pnl":{"type":"number","description":"청산으로 확정된 손익 (currency 통화, 수수료·세금·펀딩비를 반영한 값). 현물 매도와 선물 청산에만"},
               "strategy":{"type":"string","description":"전략 이름 (60자까지)"},
-              "reason":{"type":"string","description":"주문을 낸 신호·이유 (300자까지)"},
-              "executed_at":{"type":"string","description":"체결 시각 ISO-8601 (예: 2026-10-14T10:03:00+09:00). 없으면 지금"}},
+              "reason":{"type":"string","description":"주문을 낸 신호·이유 (2000자까지, 판단 이유 JSON도 된다). 비밀값이 들어 있으면 남기지 않는다"},
+              "executed_at":{"type":"string","description":"체결 시각 ISO-8601 (예: 2026-10-14T10:03:00+09:00). 없으면 지금"},
+              "strategy_version":{"type":"string","description":"판단 흔적: 기법 버전 (예: ladder-v0.1, 40자까지)"},
+              "decision_id":{"type":"string","description":"판단 흔적: 봇 로컬 판단 기록과 잇는 키 (예: 20261015T09-BTC-1h, 80자까지). 진입·분할 익절·정리 체결에 같은 키를 보내면 한 포지션으로 묶인다"},
+              "basket":{"type":"string","enum":["CORE","TRADING"],"description":"판단 흔적: CORE 코어 적립, TRADING 트레이딩"},
+              "regime":{"type":"string","description":"세 겹 거름망 1단 장세 (예: UP)"},
+              "setup":{"type":"string","description":"세 겹 거름망 2단 셋업 (예: PULLBACK)"},
+              "trigger":{"type":"string","description":"세 겹 거름망 3단 방아쇠 (예: BREAKOUT10)"},
+              "news_score":{"type":"integer","minimum":-10,"maximum":10,"description":"뉴스 점수"},
+              "news_flags":{"type":"string","description":"뉴스 표시, 쉼표로 이어서 (예: MACRO_EVENT)"},
+              "risk_pct":{"type":"number","minimum":0,"maximum":1,"description":"이번 거래에 건 위험 (잔고 대비, 예: 0.005)"},
+              "kelly_raw":{"type":"number","minimum":0,"maximum":1,"description":"계산한 켈리 비율"},
+              "kelly_used":{"type":"number","minimum":0,"maximum":1,"description":"실제로 쓴 켈리 비율"},
+              "ai_conf":{"type":"number","minimum":0,"maximum":1,"description":"AI 확신도"},
+              "equity_at_entry":{"type":"number","minimum":0,"description":"크기 계산에 쓴 아침 잔고 (currency 통화)"},
+              "stop_price":{"type":"number","minimum":0,"description":"진입 때 정한 손절가"},
+              "tp1_price":{"type":"number","minimum":0,"description":"진입 때 정한 1차 익절가"},
+              "tp2_price":{"type":"number","minimum":0,"description":"진입 때 정한 2차 익절가"},
+              "liquidation_price":{"type":"number","minimum":0,"description":"청산가. 선물에만"},
+              "ai_model":{"type":"string","description":"판단에 쓴 AI 모델 (예: gemini-2.5-flash-lite)"},
+              "ai_cost":{"type":"number","minimum":0,"description":"판단에 든 AI 비용"},
+              "exit_reason":{"type":"string","enum":["STOP","TP1","TP2","TRAIL","TIME","NEWS","MANUAL"],"description":"정리 이유. 포지션을 닫는 체결(현물 매도, 선물 청산)에만"},
+              "r_multiple":{"type":"number","description":"정리 손익 ÷ 처음 위험 (예: 1.8, 손해는 -1). 포지션을 닫는 체결에만"},
+              "funding":{"type":"number","description":"선물 펀딩비 (currency 통화, 낸 돈은 음수). 선물에만. 수수료는 fee에 적는다"}},
              "required":["external_id","symbol","side","quantity","price"]}""";
 
     static final String REPORT_SCHEMA = """
@@ -97,6 +121,18 @@ class TradeTools {
         return trades.enabled();
     }
 
+    /** leverage는 비었거나 1~상한 정수. 범위는 TradeJournal이 본다 */
+    private static Integer leverage(JsonNode a) {
+        String message = "leverage는 1~" + TradeJournal.LEVERAGE_MAX + " 사이 정수예요.";
+        BigDecimal raw = number(a, "leverage");
+        if (a.hasNonNull("leverage") && raw == null) throw new IllegalArgumentException(message);
+        try {
+            return raw == null ? null : raw.intValueExact();
+        } catch (ArithmeticException e) {
+            throw new IllegalArgumentException(message, e);
+        }
+    }
+
     McpTools.Result recordTrade(AccessTokens.Caller caller, JsonNode a) {
         TradeJournal.Side side = enumOf(TradeJournal.Side.class, a.path("side").asString(""));
         String modeRaw = a.path("mode").asString("");
@@ -108,15 +144,16 @@ class TradeTools {
         String positionRaw = a.path("position_side").asString("");
         TradeJournal.PositionSide position = enumOf(TradeJournal.PositionSide.class, positionRaw);
         if (!positionRaw.isBlank() && position == null) return McpTools.Result.fail("position_side는 LONG이나 SHORT예요.");
-        BigDecimal leverageRaw = number(a, "leverage");
-        if (a.hasNonNull("leverage") && leverageRaw == null) {
-            return McpTools.Result.fail("leverage는 1~" + TradeJournal.LEVERAGE_MAX + " 사이 정수예요.");
-        }
+        String reason = a.path("reason").asString("");
+        List<String> secrets = SecretScanner.find(reason);
+        if (!secrets.isEmpty()) return McpTools.Result.fail(SecretScanner.warning(secrets) + " 이유(reason)에서 빼고 다시 보내 주세요. 남기지 않았어요.");
         Integer leverage;
+        TradeTrace trace;
         try {
-            leverage = leverageRaw == null ? null : leverageRaw.intValueExact();
-        } catch (ArithmeticException e) {
-            return McpTools.Result.fail("leverage는 1~" + TradeJournal.LEVERAGE_MAX + " 사이 정수예요.");
+            leverage = leverage(a);
+            trace = trace(a);
+        } catch (IllegalArgumentException e) {
+            return McpTools.Result.fail(e.getMessage());
         }
         Instant at;
         try {
@@ -126,12 +163,41 @@ class TradeTools {
         }
         TradeJournal.Recorded r = trades.recordFill(caller.memberId(), new TradeJournal.Input(a.path("external_id").asString(""), mode,
                 a.path("symbol").asString(""), a.path("symbol_name").asString(""), side, number(a, "quantity"), number(a, "price"),
-                number(a, "fee"), number(a, "realized_pnl"), a.path("strategy").asString(""), a.path("reason").asString(""), at,
-                a.path("exchange").asString(""), a.path("currency").asString(""), market, position, leverage, a.path("interval").asString("")));
+                number(a, "fee"), number(a, "realized_pnl"), a.path("strategy").asString(""), reason, at,
+                a.path("exchange").asString(""), a.path("currency").asString(""), market, position, leverage, a.path("interval").asString(""), trace));
         String link = baseUrl + "/trades?date=" + r.day();
         return McpTools.Result.ok(r.duplicate()
                 ? "이미 남긴 체결이에요 (체결 번호 " + r.id() + "). 다시 남기지 않았어요. 매매 일지: " + link
                 : "체결을 남겼어요 (체결 번호 " + r.id() + "). 매매 일지: " + link);
+    }
+
+    /** 판단 흔적 (#283·#284). 범위는 TradeJournal이 보고, 여기서는 글자를 열거·숫자로 읽기만 한다 */
+    private static TradeTrace trace(JsonNode a) {
+        String basketRaw = a.path("basket").asString("");
+        TradeTrace.Basket basket = enumOf(TradeTrace.Basket.class, basketRaw);
+        if (!basketRaw.isBlank() && basket == null) throw new IllegalArgumentException("basket은 CORE나 TRADING이에요.");
+        String exitRaw = a.path("exit_reason").asString("");
+        TradeTrace.ExitReason exit = enumOf(TradeTrace.ExitReason.class, exitRaw);
+        if (!exitRaw.isBlank() && exit == null) throw new IllegalArgumentException("exit_reason은 STOP, TP1, TP2, TRAIL, TIME, NEWS, MANUAL 가운데 하나예요.");
+        Integer newsScore = null;
+        if (a.hasNonNull("news_score")) {
+            BigDecimal n = number(a, "news_score");
+            try {
+                newsScore = n == null ? null : n.intValueExact();
+            } catch (ArithmeticException e) {
+                newsScore = null;
+            }
+            if (newsScore == null) throw new IllegalArgumentException("news_score는 -10~10 사이 정수예요.");
+        }
+        for (String f : List.of("risk_pct", "kelly_raw", "kelly_used", "ai_conf", "equity_at_entry", "stop_price", "tp1_price", "tp2_price",
+                "liquidation_price", "ai_cost", "r_multiple", "funding")) {
+            if (a.hasNonNull(f) && number(a, f) == null) throw new IllegalArgumentException(f + "는 숫자예요.");
+        }
+        return new TradeTrace(a.path("strategy_version").asString(""), a.path("decision_id").asString(""), basket, a.path("regime").asString(""),
+                a.path("setup").asString(""), a.path("trigger").asString(""), newsScore, a.path("news_flags").asString(""), number(a, "risk_pct"),
+                number(a, "kelly_raw"), number(a, "kelly_used"), number(a, "ai_conf"), number(a, "equity_at_entry"), number(a, "stop_price"),
+                number(a, "tp1_price"), number(a, "tp2_price"), number(a, "liquidation_price"), a.path("ai_model").asString(""),
+                number(a, "ai_cost"), exit, number(a, "r_multiple"), number(a, "funding"));
     }
 
     McpTools.Result day(AccessTokens.Caller caller, JsonNode a) {
@@ -166,6 +232,8 @@ class TradeTools {
                 .append(' ').append(TradeTexts.actionLabel(f)).append(' ').append(plain(f.quantity()))
                 .append(unit.equals("주") ? "주" : " " + unit).append(" @ ").append(plain(f.price(), f.currency()));
         if (f.realizedPnl() != null) sb.append(" · 손익 ").append(plain(f.realizedPnl(), f.currency()));
+        if (!TradeTexts.setupLabel(f).isEmpty()) sb.append(" · ").append(TradeTexts.setupLabel(f));
+        if (!TradeTexts.exitLabel(f).isEmpty()) sb.append(" · ").append(TradeTexts.exitLabel(f));
         if (!f.reason().isBlank()) sb.append(" · 이유: ").append(f.reason());
         else if (!f.strategy().isBlank()) sb.append(" · 전략: ").append(f.strategy());
         sb.append('\n');

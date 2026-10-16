@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { actionLabel, closes, coinUnit, exchangeName, fillTime, isDate, mainCurrency, money, moneyClass, moneys, pnlClass, positionLabel, qty, replayHref, tradePeriodOf, winRate, won } from './trades'
+import { actionLabel, closes, coinUnit, exchangeName, exitLabel, rText, fillTime, isDate, mainCurrency, money, moneyClass, moneys, pnlClass, positionLabel, qty, replayHref, tradePeriodOf, winRate, won } from './trades'
+import type { TradeFill, TradeTrace } from './trades'
 
 const summary = { trades: 0, buys: 0, sells: 0, closes: 0, wins: 0, losses: 0, realizedPnl: {}, fees: {} }
 
@@ -80,5 +81,29 @@ describe('매매 일지 (#243)', () => {
     expect(actionLabel({ ...long, side: 'BUY' })).toBe('롱 진입')
     expect(actionLabel({ ...long, side: 'SELL' })).toBe('롱 청산')
     expect(replayHref('2026-10-14')).toBe('/studio?replay=2026-10-14')
+  })
+})
+
+describe('봇 판단 흔적 (#285)', () => {
+  const trace = (over: Partial<TradeTrace>): TradeTrace => ({
+    strategyVersion: '', decisionId: '', basket: null, regime: '', setup: '', trigger: '', stopPrice: null, tp1Price: null, tp2Price: null,
+    liquidationPrice: null, exitReason: null, rMultiple: null, funding: null, ...over,
+  })
+  const fill = (tr?: TradeTrace) => ({ trace: tr }) as TradeFill
+
+  it('R배수는 부호와 소수 둘째 자리까지', () => {
+    expect(rText(1.8)).toBe('+1.8R')
+    expect(rText(-1)).toBe('-1R')
+    expect(rText(-0.005)).toBe('-0.01R')
+    expect(rText(1.005)).toBe('+1.01R')
+    expect(rText(0)).toBe('0R')
+    expect(rText(0.456)).toBe('+0.46R')
+  })
+
+  it('정리 이유와 R배수를 한 줄로, 흔적이 없으면 빈 글', () => {
+    expect(exitLabel(fill(trace({ exitReason: 'TP1', rMultiple: 1.8 })))).toBe('TP1 정리 +1.8R')
+    expect(exitLabel(fill(trace({ rMultiple: -1 })))).toBe('정리 -1R')
+    expect(exitLabel(fill(trace({ setup: 'PULLBACK' })))).toBe('')
+    expect(exitLabel(fill())).toBe('')
   })
 })

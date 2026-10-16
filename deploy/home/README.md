@@ -7,11 +7,35 @@
 | 파일 | 하는 일 |
 |---|---|
 | `fetch-backup.sh` | 집 맥에서 실행. 학교 서버에 SSH로 들어가 `backup.sh`를 돌리고 폴더를 내려받아 확인한 뒤 서버 사본을 지운다 |
+| `setup-backup.ps1` | 집 PC(Windows)에서 한 번만 실행. 백업 전용 SSH 키를 만들어 학교 서버에 묶고, 작업 스케줄러에 매일 받기를 건다 |
+| `pull-backup.ps1` | 작업 스케줄러가 켤 때와 매일 한 번 실행. 백업을 받아 확인하고 최근 7개만 남긴다 |
+| `backup-stream.sh` | 학교 서버에서 백업 전용 키로만 돈다. `backup.sh`로 만든 폴더를 tar로 보내고 서버 사본을 지운다 |
 | `backup.sh` | 클러스터에 `kubectl`이 닿는 곳에서 실행. `db.dump`(pg_dump), `media/`(MinIO 버킷 전체), `MANIFEST.txt`(크기·개수·SHA-256)를 만든다 |
 | `restore.sh` / `restore.ps1` | 맥·리눅스 / Windows에서 실행. DB를 넣고, 옛 주소를 이 컴퓨터 주소로 바꾸고, 주인 계정 비밀번호 로그인을 만들고, 앱을 띄운다 |
 | `compose.yaml` | 집에서 띄우는 구성: PostgreSQL 17(pgvector)·Redis·앱. 사진은 백업 폴더의 `media/`를 그대로 쓴다 |
 | `rebase-urls.sql` | `https://devlog.life/blog-images/…` → `http://localhost:8080/media/…`, `https://devlog.life/…` → `http://localhost:8080/…` |
 | `owner-login.sql` | 주인 계정의 로그인 수단을 이메일·비밀번호로 바꾼다(되살린 DB에서만) |
+
+## 0. 매일 집 PC로 백업 받기 (#356)
+
+학교 서버에 있는 DB와 사진·첨부(MinIO)를 집 PC가 매일 한 번 받아 와요. 집 PC가 학교 서버에 접속해서 가져오는 방식이라 집 공유기에 포트를 열 필요가 없어요. PC가 꺼져 있던 날은 켜고 5분 뒤에 따라잡아요.
+
+필요한 것: 집 PC의 `D:\devlog`(이 저장소, `git pull`로 최신), 학교 서버 SSH 주소·포트·아이디·비밀번호(설정할 때 한 번만 물어요).
+
+```powershell
+cd D:\devlog
+git pull
+powershell -ExecutionPolicy Bypass -File deploy\home\setup-backup.ps1 -Target <아이디>@<학교 서버 주소> -Port <SSH 포트> -KnownHosts D:\school_known_hosts.txt
+```
+
+- `-KnownHosts`에는 GitHub 저장소 Settings → Secrets and variables → Actions → Variables의 `SCHOOL_SSH_KNOWN_HOSTS` 값을 그대로 저장한 파일을 줘요. 학교 서버 SSH 키가 이 값과 다르면 비밀번호를 보내지 않고 멈춰요. 한 번 설정한 뒤 다시 실행할 때는 생략해도 고정한 키를 그대로 써요.
+- 비밀번호를 한 번 묻고, 시험으로 한 번 받아요. 끝나면 `D:\devlog-backups\devlog-backup-날짜-시각\`이 생겨요.
+- 작업 스케줄러에 "devlog 백업 받기"가 생겨요(로그인하고 5분 뒤, 매일 21:00). 같은 날 이미 받았으면 그냥 넘어가요.
+- 받은 백업은 `db.dump`의 SHA-256과 사진 수를 서버 목록과 맞춰 본 뒤에만 남기고, 최근 7개만 둬요. 기록은 `D:\devlog-backups\backup.log`예요.
+- 이틀 넘게 못 받으면 창으로 알려 줘요.
+- 다른 곳·개수·시각: `-Dest E:\devlog-backups -Keep 14 -Time 13:00`. 지금 바로 받기: `powershell -ExecutionPolicy Bypass -File deploy\home\pull-backup.ps1 -Now`.
+- 이 키로는 서버에서 백업 말고 아무것도 할 수 없어요(`restrict,command=`). 키는 `%USERPROFILE%\.devlog-backup`에만 있어요. 그만두려면 학교 서버 `~/.ssh/authorized_keys`에서 `devlog-home-backup` 줄을 지우고 작업 스케줄러에서 작업을 지워요.
+- 받은 폴더는 아래 "2. 집 컴퓨터에서 되살리기"에 그대로 넣을 수 있어요.
 
 ## 1. 백업 받기 (반납 전, 11월 마지막 주 권장)
 
