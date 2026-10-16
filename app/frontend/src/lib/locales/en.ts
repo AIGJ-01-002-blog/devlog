@@ -2134,7 +2134,7 @@ export const en: Record<string, string> = {
   "0이면 익절선 없이 이동평균선 아래로 내려갈 때 팔아요": "With 0 there is no take-profit line; it sells when the price falls below the moving average",
   "한 번 금액 (크레딧)": "Order size (credits)",
   "저장했어요. 다음 바퀴부터 이 기준으로 돌아요": "Saved. The bot uses these settings from its next round",
-  "24h 거래대금({0})": "24h Vol({0})",
+  "24h 거래대금({0})": "24h Turnover({0})",
   "24h 거래량({0})": "24h Vol({0})",
   "24h 고가": "24h High",
   "24h 저가": "24h Low",

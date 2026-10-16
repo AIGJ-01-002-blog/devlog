@@ -96,6 +96,8 @@ public class TradeCharts {
     private final HttpClient client = HttpClient.newBuilder().connectTimeout(TIMEOUT).build();
     private final JsonMapper json = JsonMapper.builder().build();
     private final Map<String, Cached> cache = new ConcurrentHashMap<>();
+    /** 캐시 키(거래소:간격)마다 따로 잠근다. 다른 간격·24시간 요약을 받는 요청끼리 서로 기다리지 않는다 (#354) */
+    private final Map<String, Object> locks = new ConcurrentHashMap<>();
 
     public TradeCharts(TradeProperties props, JdbcTemplate jdbc, Clock clock) {
         this.props = props;
@@ -199,7 +201,7 @@ public class TradeCharts {
         Instant now = Times.now(clock);
         Cached hit = cache.get(key);
         if (hit != null && hit.at().plus(props.chartTtl()).isAfter(now)) return hit;
-        synchronized (cache) {
+        synchronized (locks.computeIfAbsent(key, k -> new Object())) {
             hit = cache.get(key);
             Instant attempt = Times.now(clock);
             if (hit != null && hit.at().plus(props.chartTtl()).isAfter(attempt)) return hit;

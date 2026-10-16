@@ -227,12 +227,12 @@ export function ProChart({ coin, currency, interval, onInterval, intervals = CHA
           })}
         </p>
       )}
-      {lastPrice !== undefined && positions.map((pos) => {
+      {lastPrice !== undefined && positions.map((pos, k) => {
         const { pnl: raw, rate } = positionPnl(pos, lastPrice)
         // 원화는 원 단위, USDT는 센트까지만 보인다
         const pnl = currency === 'KRW' ? Math.round(raw) : Math.round(raw * 100) / 100
         return (
-          <p key={pos.label} className="prochart-position small" data-tip={t('점선이 평단(손익분기)이에요. 손익은 마지막 값 기준이에요')}>
+          <p key={`${k}:${pos.label}`} className="prochart-position small" data-tip={t('점선이 평단(손익분기)이에요. 손익은 마지막 값 기준이에요')}>
             <span>{pos.label}{pos.side ? ` · ${sideLabel(pos.side)}` : ''}</span>
             <span>{t('평단')} <b>{priceText(pos.avgPrice, precision)}</b></span>
             <span className={`pnl ${pnlClass(pnl, currency)}`}>{t('손익')} <b>{money(pnl, currency, true)}</b> ({rate > 0 ? '+' : ''}{rate.toFixed(2)}%)</span>
