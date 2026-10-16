@@ -139,7 +139,7 @@ export function TradeBotPage() {
               ))}
             </nav>
             <div className="settings-panel" role="region" aria-label={TRADE_BOT_TABS.find((x) => x.id === tab)!.label}>
-              {tab === 'chart' && <TradeBotCharts />}
+              {tab === 'chart' && <TradeBotCharts accounts={data.accounts} />}
               {tab === 'accounts' && (
                 <section className="tradebot-section">
                   <h2>{t('모의 계좌')}</h2>

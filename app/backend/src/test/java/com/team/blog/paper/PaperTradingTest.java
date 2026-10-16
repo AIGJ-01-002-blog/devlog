@@ -190,7 +190,7 @@ class PaperTradingTest extends IntegrationTest {
         assertThat(chart.path("currency").asString()).isEqualTo("KRW");
         JsonNode btc = chart.path("coins").get(0);
         assertThat(btc.path("symbol").asString()).isEqualTo("KRW-BTC");
-        assertThat(btc.path("candles").size()).isEqualTo(60);
+        assertThat(btc.path("candles").size()).isEqualTo(com.team.blog.trade.application.TradeCharts.CANDLES);
         assertThat(btc.path("marks").findValuesAsString("by")).containsExactlyInAnyOrder("ME", "BOT");
         assertThat(btc.path("marks").findValuesAsString("text")).contains("시험 매수", "봇 매도");
         // 다른 코인에는 찍히지 않는다

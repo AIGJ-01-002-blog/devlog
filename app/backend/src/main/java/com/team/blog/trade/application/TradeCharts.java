@@ -42,21 +42,31 @@ import com.team.blog.shared.time.Times;
 public class TradeCharts {
     private static final Logger log = LoggerFactory.getLogger(TradeCharts.class);
     private static final Duration TIMEOUT = Duration.ofSeconds(5);
-    /** 차트 한 장의 봉 수 */
-    public static final int CANDLES = 60;
+    /** 차트 한 장의 봉 수. 99개 이동평균선이 차트 절반 넘게 그려지도록 거래소 한 번 요청의 최대(코빗·업비트 200)까지 받는다 (#354) */
+    public static final int CANDLES = 200;
     public static final List<String> COINS = List.of("BTC", "ETH", "XRP", "SOL", "DOGE");
     private static final Map<String, String> NAMES = Map.of("BTC", "비트코인", "ETH", "이더리움", "XRP", "리플", "SOL", "솔라나", "DOGE", "도지코인");
     /** 봉 간격 → 업비트 분봉 단위 (일봉은 따로) */
-    private static final Map<String, String> UPBIT_UNITS = Map.of("1m", "minutes/1", "5m", "minutes/5", "15m", "minutes/15", "1h", "minutes/60",
-            "4h", "minutes/240", "1d", "days");
-    /** 봉 간격 → 코빗 /v2/candles interval (분 단위, 일봉은 1D) */
-    private static final Map<String, String> KORBIT_UNITS = Map.of("1m", "1", "5m", "5", "15m", "15", "1h", "60", "4h", "240", "1d", "1D");
-    public static final List<String> INTERVALS = List.of("1m", "5m", "15m", "1h", "4h", "1d");
+    private static final Map<String, String> UPBIT_UNITS = Map.of("1s", "seconds", "1m", "minutes/1", "5m", "minutes/5", "15m", "minutes/15",
+            "1h", "minutes/60", "4h", "minutes/240", "1d", "days", "1w", "weeks");
+    /** 봉 간격 → 코빗 /v2/candles interval (분 단위, 일봉은 1D). 코빗은 1초 봉이 없다 */
+    private static final Map<String, String> KORBIT_UNITS = Map.of("1m", "1", "5m", "5", "15m", "15", "1h", "60", "4h", "240", "1d", "1D", "1w", "1W");
+    public static final List<String> INTERVALS = List.of("1s", "1m", "5m", "15m", "1h", "4h", "1d", "1w");
 
     public enum Exchange { BINANCE, UPBIT }
 
-    /** @param t 봉이 열린 시각(밀리초) */
-    public record Candle(long t, BigDecimal o, BigDecimal h, BigDecimal l, BigDecimal c) {}
+    /**
+     * @param t 봉이 열린 시각(밀리초)
+     * @param v 거래량(코인 개수). 거래소가 주지 않으면 0
+     */
+    public record Candle(long t, BigDecimal o, BigDecimal h, BigDecimal l, BigDecimal c, BigDecimal v) {
+        public Candle(long t, BigDecimal o, BigDecimal h, BigDecimal l, BigDecimal c) {
+            this(t, o, h, l, c, BigDecimal.ZERO);
+        }
+    }
+
+    /** 최근 24시간 고가·저가·거래량(코인)·거래대금(코인 × 종가 합). 1시간 봉 24개로 센다 (#354) */
+    public record Day(BigDecimal high, BigDecimal low, BigDecimal volume, BigDecimal quoteVolume) {}
 
     /** 봇이 알린 모의 체결 */
     public static final String BY_BOT = "BOT";
@@ -66,8 +76,15 @@ public class TradeCharts {
     /** 차트 위에 찍을 체결. by는 누가 냈는지(BOT·ME) */
     public record Mark(long t, String side, BigDecimal price, String text, String by) {}
 
-    /** @param error 이 코인 캔들을 받지 못했으면 이유, 받았으면 null */
-    public record Coin(String coin, String name, String symbol, List<Candle> candles, List<Mark> marks, String error) {}
+    /**
+     * @param error 이 코인 캔들을 받지 못했으면 이유, 받았으면 null
+     * @param day 최근 24시간 요약. 1시간 봉을 받지 못했으면 null
+     */
+    public record Coin(String coin, String name, String symbol, List<Candle> candles, List<Mark> marks, String error, Day day) {
+        public Coin(String coin, String name, String symbol, List<Candle> candles, List<Mark> marks, String error) {
+            this(coin, name, symbol, candles, marks, error, null);
+        }
+    }
 
     public record Chart(String exchange, String interval, String currency, List<Coin> coins, Instant fetchedAt) {}
 
@@ -94,13 +111,13 @@ public class TradeCharts {
         } catch (IllegalArgumentException e) {
             throw ApiException.badRequest("INVALID_EXCHANGE", "거래소는 binance나 upbit예요.");
         }
-        String interval = intervalRaw.strip();
-        if (!INTERVALS.contains(interval)) throw ApiException.badRequest("INVALID_INTERVAL", "봉은 " + String.join(", ", INTERVALS) + " 중 하나예요.");
+        String interval = interval(exchange, intervalRaw.strip());
         Cached c = candles(exchange, interval);
+        Map<String, Day> days = days(exchange);
         List<Coin> coins = new ArrayList<>();
         for (Coin coin : c.coins()) {
             long from = coin.candles().isEmpty() ? Long.MAX_VALUE : coin.candles().getFirst().t();
-            coins.add(new Coin(coin.coin(), coin.name(), coin.symbol(), coin.candles(), marks(memberId, coin.symbol(), from), coin.error()));
+            coins.add(new Coin(coin.coin(), coin.name(), coin.symbol(), coin.candles(), marks(memberId, coin.symbol(), from), coin.error(), days.get(coin.coin())));
         }
         return new Chart(exchange.name(), interval, exchange == Exchange.UPBIT ? "KRW" : "USDT", coins, c.at());
     }
@@ -112,18 +129,54 @@ public class TradeCharts {
      */
     public Chart krw(long memberId, String intervalRaw, String myStrategy) {
         if (!props.enabled()) throw new NotFoundException();
-        String interval = intervalRaw == null ? "15m" : intervalRaw.strip();
-        if (!INTERVALS.contains(interval)) throw ApiException.badRequest("INVALID_INTERVAL", "봉은 " + String.join(", ", INTERVALS) + " 중 하나예요.");
+        String interval = interval(Exchange.UPBIT, intervalRaw == null ? "15m" : intervalRaw.strip());
         Cached c = candles(Exchange.UPBIT, interval);
+        Map<String, Day> days = days(Exchange.UPBIT);
         List<Coin> coins = new ArrayList<>();
         for (Coin coin : c.coins()) {
             long from = coin.candles().isEmpty() ? Long.MAX_VALUE : coin.candles().getFirst().t();
             List<Mark> marks = new ArrayList<>(marks(memberId, coin.symbol(), from));
             marks.addAll(myFills(memberId, coin.coin(), myStrategy, from));
             marks.sort(Comparator.comparingLong(Mark::t));
-            coins.add(new Coin(coin.coin(), coin.name(), coin.symbol(), coin.candles(), marks, coin.error()));
+            coins.add(new Coin(coin.coin(), coin.name(), coin.symbol(), coin.candles(), marks, coin.error(), days.get(coin.coin())));
         }
         return new Chart(Exchange.UPBIT.name(), interval, "KRW", coins, c.at());
+    }
+
+    /** 고른 봉 간격을 확인한다. 원화를 코빗에서 받으면 1초 봉은 없다 */
+    private String interval(Exchange exchange, String interval) {
+        if (!INTERVALS.contains(interval)) throw ApiException.badRequest("INVALID_INTERVAL", "봉은 " + String.join(", ", INTERVALS) + " 중 하나예요.");
+        if (exchange == Exchange.UPBIT && props.korbit() && !KORBIT_UNITS.containsKey(interval)) {
+            throw ApiException.badRequest("INVALID_INTERVAL", "원화 차트는 " + interval + " 봉이 없어요.");
+        }
+        return interval;
+    }
+
+    /** 코인마다 최근 24시간 요약. 1시간 봉 캐시를 함께 써서 거래소 호출이 늘지 않는다 */
+    private Map<String, Day> days(Exchange exchange) {
+        Map<String, Day> out = new java.util.HashMap<>();
+        for (Coin coin : candles(exchange, "1h").coins()) {
+            Day d = day(coin.candles());
+            if (d != null) out.put(coin.coin(), d);
+        }
+        return out;
+    }
+
+    /** 마지막 1시간 봉 24개(지금 열린 봉 포함)로 24시간 고가·저가·거래량을 센다. 봉이 없으면 null */
+    static Day day(List<Candle> hourly) {
+        if (hourly.isEmpty()) return null;
+        List<Candle> last = hourly.subList(Math.max(0, hourly.size() - 24), hourly.size());
+        BigDecimal high = last.getFirst().h();
+        BigDecimal low = last.getFirst().l();
+        BigDecimal volume = BigDecimal.ZERO;
+        BigDecimal quote = BigDecimal.ZERO;
+        for (Candle c : last) {
+            high = high.max(c.h());
+            low = low.min(c.l());
+            volume = volume.add(c.v());
+            quote = quote.add(c.v().multiply(c.c()));
+        }
+        return new Day(high, low, volume.stripTrailingZeros(), quote.setScale(0, java.math.RoundingMode.HALF_UP));
     }
 
     /**
@@ -197,7 +250,7 @@ public class TradeCharts {
     private static List<Candle> binance(JsonNode body) {
         List<Candle> out = new ArrayList<>();
         for (JsonNode k : body) {
-            out.add(new Candle(k.get(0).asLong(), dec(k.get(1)), dec(k.get(2)), dec(k.get(3)), dec(k.get(4))));
+            out.add(new Candle(k.get(0).asLong(), dec(k.get(1)), dec(k.get(2)), dec(k.get(3)), dec(k.get(4)), volume(k.get(5))));
         }
         return out;
     }
@@ -207,7 +260,8 @@ public class TradeCharts {
         if (!body.path("success").asBoolean(false)) throw new IllegalStateException("korbit " + body.path("error").path("description").asString(""));
         List<Candle> out = new ArrayList<>();
         for (JsonNode k : body.path("data")) {
-            out.add(new Candle(k.path("timestamp").asLong(), dec(k.path("open")), dec(k.path("high")), dec(k.path("low")), dec(k.path("close"))));
+            out.add(new Candle(k.path("timestamp").asLong(), dec(k.path("open")), dec(k.path("high")), dec(k.path("low")), dec(k.path("close")),
+                    volume(k.path("volume"))));
         }
         out.sort(Comparator.comparingLong(Candle::t));
         return out;
@@ -218,7 +272,8 @@ public class TradeCharts {
         List<Candle> out = new ArrayList<>();
         for (JsonNode k : body) {
             long t = LocalDateTime.parse(k.path("candle_date_time_utc").asString()).toInstant(ZoneOffset.UTC).toEpochMilli();
-            out.add(new Candle(t, dec(k.path("opening_price")), dec(k.path("high_price")), dec(k.path("low_price")), dec(k.path("trade_price"))));
+            out.add(new Candle(t, dec(k.path("opening_price")), dec(k.path("high_price")), dec(k.path("low_price")), dec(k.path("trade_price")),
+                    volume(k.path("candle_acc_trade_volume"))));
         }
         out.sort(Comparator.comparingLong(Candle::t));
         return out;
@@ -244,6 +299,16 @@ public class TradeCharts {
                 ORDER BY executed_at DESC, id DESC LIMIT 200
                 """, (rs, i) -> new Mark(rs.getTimestamp(1).toInstant().toEpochMilli(), rs.getString(2), rs.getBigDecimal(3).stripTrailingZeros(),
                 rs.getString(4), BY_ME), memberId, strategy, coin, Timestamp.from(Instant.ofEpochMilli(fromMillis)));
+    }
+
+    /** 거래량 칸. 없거나 숫자가 아니면 0 (거래량이 없어도 캔들은 그린다) */
+    private static BigDecimal volume(JsonNode n) {
+        if (n == null || n.isMissingNode() || n.isNull()) return BigDecimal.ZERO;
+        try {
+            return dec(n);
+        } catch (NumberFormatException e) {
+            return BigDecimal.ZERO;
+        }
     }
 
     private static BigDecimal dec(JsonNode n) {

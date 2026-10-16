@@ -40,6 +40,10 @@ export function PaperPage() {
 
   const total = state ? state.invest + state.shop + state.locked + state.holdings : 0
   const pnl = useMemo(() => state?.positions.reduce((s, p) => s + p.pnl, 0) ?? 0, [state])
+  // 고른 코인을 갖고 있으면 차트에 내 평단선을 그린다. 10초마다 새로 받아도 값이 같으면 같은 것을 넘긴다
+  const held = state?.positions.find((p) => p.symbol === symbol)
+  const position = useMemo(() => (held ? { avgPrice: held.avgPrice, quantity: held.quantity, side: '', label: t('내 보유') } : null),
+    [symbol, held?.avgPrice, held?.quantity])
 
   return (
     <main className="container dashboard-page paper-page">
@@ -71,7 +75,7 @@ export function PaperPage() {
           </div>
           {state.quotesError && <p className="error small" role="alert">{state.quotesError}</p>}
 
-          <PaperChart symbol={symbol} refresh={filled} />
+          <PaperChart symbol={symbol} refresh={filled} position={position} />
 
           <div className="paper-layout">
             <section className="paper-market" aria-label={t('시세')}>

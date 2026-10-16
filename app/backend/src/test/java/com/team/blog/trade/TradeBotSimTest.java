@@ -18,6 +18,7 @@ import org.springframework.http.MediaType;
 import tools.jackson.databind.JsonNode;
 
 import com.team.blog.support.IntegrationTest;
+import com.team.blog.trade.application.TradeCharts;
 
 /** spec 101: 봇이 report_trade_bot으로 알린 모의 계좌·체결·Gemini 판단·요약이 /trade 화면 API에 보이고, 매매 일지와 섞이지 않는다 */
 class TradeBotSimTest extends IntegrationTest {
@@ -139,8 +140,12 @@ class TradeBotSimTest extends IntegrationTest {
         assertThat(b.path("coins").findValuesAsString("coin")).containsExactly("BTC", "ETH", "XRP", "SOL", "DOGE");
         JsonNode btc = b.path("coins").get(0);
         assertThat(btc.path("symbol").asString()).isEqualTo("BTCUSDT");
-        assertThat(btc.path("candles").size()).isEqualTo(60);
-        assertThat(btc.path("candles").get(59).path("c").decimalValue()).isEqualByComparingTo("159");
+        assertThat(btc.path("candles").size()).isEqualTo(TradeCharts.CANDLES);
+        assertThat(btc.path("candles").get(TradeCharts.CANDLES - 1).path("c").decimalValue()).isEqualByComparingTo(String.valueOf(99 + TradeCharts.CANDLES));
+        assertThat(btc.path("candles").get(0).path("v").decimalValue()).isEqualByComparingTo("1");
+        // 24시간 요약은 1시간 봉 24개로 센다: 거래량 1 × 24
+        assertThat(btc.path("day").path("volume").decimalValue()).isEqualByComparingTo("24");
+        assertThat(btc.path("day").path("high").decimalValue()).isEqualByComparingTo(String.valueOf(100 + TradeCharts.CANDLES));
         assertThat(btc.path("marks").size()).isEqualTo(1);
         assertThat(btc.path("marks").get(0).path("side").asString()).isEqualTo("BUY");
         // 거래소가 실패한 코인은 이유만 오고 나머지는 그대로
@@ -154,9 +159,9 @@ class TradeBotSimTest extends IntegrationTest {
         assertThat(eth.path("symbol").asString()).isEqualTo("KRW-ETH");
         // 원화 탭은 코빗 캔들로 받고(#325) 오래된 순이다. 체결 표시는 업비트 심볼 그대로 맞는다
         assertThat(com.team.blog.support.FakeExchanges.INSTANCE.paths).contains("/v2/candles");
-        assertThat(eth.path("candles").size()).isEqualTo(60);
-        assertThat(eth.path("candles").get(0).path("t").asLong()).isLessThan(eth.path("candles").get(59).path("t").asLong());
-        assertThat(eth.path("candles").get(59).path("c").decimalValue()).isEqualByComparingTo("159");
+        assertThat(eth.path("candles").size()).isEqualTo(TradeCharts.CANDLES);
+        assertThat(eth.path("candles").get(0).path("t").asLong()).isLessThan(eth.path("candles").get(TradeCharts.CANDLES - 1).path("t").asLong());
+        assertThat(eth.path("candles").get(TradeCharts.CANDLES - 1).path("c").decimalValue()).isEqualByComparingTo(String.valueOf(99 + TradeCharts.CANDLES));
         assertThat(eth.path("marks").findValuesAsString("text")).containsExactly("익절");
 
         // 10초 안에 다시 부르면 거래소에 가지 않는다
@@ -166,5 +171,9 @@ class TradeBotSimTest extends IntegrationTest {
 
         me.http().perform(get("/api/me/trade-bot/charts").param("exchange", "bybit")).andExpect(status().isBadRequest());
         me.http().perform(get("/api/me/trade-bot/charts").param("interval", "2m")).andExpect(status().isBadRequest());
+        // 바이낸스는 1초·1주 봉이 있고, 코빗에서 받는 원화는 1초 봉이 없다
+        me.http().perform(get("/api/me/trade-bot/charts").param("exchange", "binance").param("interval", "1s")).andExpect(status().isOk());
+        me.http().perform(get("/api/me/trade-bot/charts").param("exchange", "upbit").param("interval", "1w")).andExpect(status().isOk());
+        me.http().perform(get("/api/me/trade-bot/charts").param("exchange", "upbit").param("interval", "1s")).andExpect(status().isBadRequest());
     }
 }
