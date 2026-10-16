@@ -82,6 +82,21 @@ jobs:
                   print(f'GATE\t{c["status"]}\t{c["metricKey"]}\t{c.get("comparator", "")}\t{c.get("errorThreshold", "")}\tactual={c.get("actualValue", "")}')
           except urllib.error.HTTPError as e:
               print(f"::warning::품질 게이트 상태를 받지 못했습니다(HTTP {e.code})")
+          # 새 코드 커버리지가 기준에 못 미칠 때 어디에 테스트를 더할지: 새 코드에서 덮지 못한 줄이 많은 파일부터
+          try:
+              files = pages("/api/measures/component_tree", "components", component=project, qualifiers="FIL",
+                            metricKeys="new_uncovered_lines,new_lines_to_cover")
+              def new_value(c, metric):
+                  for m in c.get("measures", []):
+                      if m["metric"] == metric:
+                          v = m.get("period", (m.get("periods") or [{}])[0]).get("value")
+                          return int(float(v)) if v else 0
+                  return 0
+              rows = sorted(((new_value(c, "new_uncovered_lines"), new_value(c, "new_lines_to_cover"), c["path"]) for c in files), reverse=True)
+              for miss, total, path in [r for r in rows if r[0] > 0][:40]:
+                  print(f"COVER\t{miss}\t{total}\t{path}")
+          except urllib.error.HTTPError as e:
+              print(f"::warning::새 코드 커버리지를 받지 못했습니다(HTTP {e.code})")
           issues = pages("/api/issues/search", "issues", componentKeys=project, resolved="false")
           try:
               hotspots = pages("/api/hotspots/search", "hotspots", projectKey=project, status="TO_REVIEW")
