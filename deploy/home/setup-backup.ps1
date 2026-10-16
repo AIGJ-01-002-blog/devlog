@@ -77,9 +77,9 @@ echo devlog-backup-installed
 "@
 # 줄 끝(CRLF)·한글이 PowerShell 판마다 다르게 넘어가지 않게 설치 스크립트 전체를 base64로 한 줄에 담는다
 $b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($remote -replace "`r", "")))
-# 고정한 키와 다른 서버에는 비밀번호를 묻기 전에 끊는다
+# 고정한 키와 다른 서버에는 비밀번호를 묻기 전에 끊는다. PC 전체 known_hosts는 보지 않고 이 파일만 믿는다
 $installArgs = @("-p", $Port, "-o", "UserKnownHostsFile=`"$knownHostsFile`"", "-o", "StrictHostKeyChecking=yes",
-    "-o", "PubkeyAuthentication=no", $Target, "echo $b64 | base64 -d | bash")
+    "-o", "GlobalKnownHostsFile=none", "-o", "PubkeyAuthentication=no", $Target, "echo $b64 | base64 -d | bash")
 $installLog = Join-Path $dir "install.log"
 $p = Start-Process -FilePath "ssh.exe" -ArgumentList $installArgs -NoNewWindow -Wait -PassThru -RedirectStandardOutput $installLog
 if ($p.ExitCode -ne 0 -or -not (Select-String -Quiet -Path $installLog -Pattern "devlog-backup-installed")) {
