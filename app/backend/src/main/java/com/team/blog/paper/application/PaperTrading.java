@@ -675,7 +675,7 @@ public class PaperTrading implements BotCredits {
     @Override
     public void exchangeIn(long memberId, long cost, long back, String key, String memo) {
         if (!enabled()) return;
-        long invest = Math.min(cost, Math.max(0, back));
+        long invest = Math.clamp(back, 0, Math.max(0, cost));
         long profit = Math.max(0, back - cost);
         botTx.executeWithoutResult(st -> {
             points.credit(memberId, Wallet.INVEST_ONLY, invest, PointReason.INVEST, key + ":in", null, memo);
