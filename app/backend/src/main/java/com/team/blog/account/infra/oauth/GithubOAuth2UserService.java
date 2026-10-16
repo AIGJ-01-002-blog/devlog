@@ -1,5 +1,7 @@
 package com.team.blog.account.infra.oauth;
 
+import java.net.http.HttpClient;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,6 +15,7 @@ import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Component;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
@@ -31,7 +34,11 @@ public class GithubOAuth2UserService extends DefaultOAuth2UserService {
 
     /** 테스트가 가짜 GitHub API 주소를 넣는다 */
     GithubOAuth2UserService(String apiBaseUrl) {
-        this.rest = RestClient.builder().baseUrl(apiBaseUrl).build();
+        // 시간 제한이 없으면 GitHub가 느릴 때 로그인 요청이 끝없이 묶인다
+        JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(
+                HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build());
+        factory.setReadTimeout(Duration.ofSeconds(10));
+        this.rest = RestClient.builder().baseUrl(apiBaseUrl).requestFactory(factory).build();
     }
 
     @Override

@@ -253,6 +253,22 @@ class SearchTest extends IntegrationTest {
     }
 
     @Test
+    void 비회원이_쿠키를_바꿔도_같은_IP는_1분에_60번까지_검색한다() throws Exception {
+        String ip = "203.0.113.90";
+        for (int i = 0; i < 60; i++) {
+            browser().from(ip).perform(uri("/api/search/posts?q=abc").header("User-Agent", "t")
+                    .cookie(new jakarta.servlet.http.Cookie("vid", UUID.randomUUID().toString()))).andExpect(status().isOk());
+        }
+        browser().from(ip).perform(uri("/api/search/posts?q=abc").header("User-Agent", "t")
+                .cookie(new jakarta.servlet.http.Cookie("vid", UUID.randomUUID().toString()))).andExpect(status().isTooManyRequests());
+        // 화면 주소도 같은 상한을 쓴다. 넘으면 결과 없이 빈 화면만 그리고, 결과는 화면이 API로 다시 찾는다
+        String html = browser().from(ip).perform(uri("/search?q=abc")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(html).contains("<main><h1>검색</h1></main>");
+        // 다른 IP는 영향 없다
+        browser().from("203.0.113.91").perform(uri("/api/search/posts?q=abc")).andExpect(status().isOk());
+    }
+
+    @Test
     void 검색_화면은_수집을_거부하고_저장하지_않는다() throws Exception {
         Session a = signup(uniqueLogin("sri"));
         publish(a, "화면검사어휘 글", "본문 <b>굵게</b>");

@@ -29,6 +29,7 @@ import com.team.blog.post.access.Viewer;
 import com.team.blog.post.domain.PostStatus;
 import com.team.blog.search.application.SearchQuery;
 import com.team.blog.search.web.SearchController;
+import com.team.blog.search.web.SearchIpLimit;
 import com.team.blog.release.ReleaseNotes;
 import com.team.blog.portfolio.application.PortfolioQuery;
 import com.team.blog.series.application.SeriesQuery;
@@ -74,6 +75,7 @@ public class PageController {
     private final TagController tagApi;
     private final CommentQuery comments;
     private final SearchQuery search;
+    private final SearchIpLimit searchLimit;
     private final FollowQuery follows;
     private final TrendingService trending;
     private final SeriesQuery series;
@@ -94,6 +96,7 @@ public class PageController {
         this.tags = tagPages.tags();
         this.tagApi = tagPages.tagApi();
         this.search = tagPages.search();
+        this.searchLimit = tagPages.searchLimit();
         this.follows = blogPages.follows();
         this.series = blogPages.series();
         this.about = blogPages.about();
@@ -152,14 +155,14 @@ public class PageController {
 
     /**
      * 검색 결과 화면 (014, docs/33 §5). 검색 엔진 수집 거부(FR-022), 저장 안 함. 글 탭은 첫 결과를 함께 내려준다.
-     * 요청 제한은 API에만 둔다(화면 주소는 링크 미리보기 등이 열 수 있어 같은 결과를 그린다).
+     * 같은 IP가 너무 자주 열면 결과 없이 빈 화면만 내려준다. 화면이 API로 다시 찾고, 요청 제한 안내는 API가 보여 준다.
      */
     @GetMapping("/search")
     public ResponseEntity<String> search(@RequestParam(required = false) String q, @RequestParam(required = false) String tab,
-                                         @RequestParam(required = false) String sort) {
+                                         @RequestParam(required = false) String sort, HttpServletRequest request) {
         String title = q == null || q.isBlank() ? "검색" : "'" + truncate(q.strip(), 50) + "' 검색";
         HeadMeta meta = HeadMeta.privatePage(site.name(), title);
-        if (q == null || q.isBlank() || "people".equals(tab)) {
+        if (q == null || q.isBlank() || "people".equals(tab) || !searchLimit.tryAcquire(request)) {
             return html(HttpStatus.OK, shell.render(meta, "<main><h1>검색</h1></main>", Map.of("page", "search")), CacheControl.noStore());
         }
         SearchQuery.PostPage result = search.posts(q, SearchController.parseSort(sort), null, null);

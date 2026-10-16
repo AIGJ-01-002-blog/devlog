@@ -7,6 +7,8 @@
 # 접속 정보는 클러스터의 Secret에서 그때그때 읽고, 파일로 남기지 않는다(mc 설정은 임시 폴더에 두었다가 끝나면 지운다).
 # 만들어지는 폴더: db.dump(pg_restore 형식), media/(저장소 키 그대로), MANIFEST.txt(크기·개수·SHA-256)
 set -euo pipefail
+# 덤프에는 회원 이메일·비밀번호 해시·토큰이 들어 있다. 여럿이 쓰는 서버에서 다른 계정이 읽지 못하게 만드는 파일·폴더를 나만 읽게 한다
+umask 077
 
 NS="${NAMESPACE:-blog}"
 OUT="${1:-./devlog-backup-$(date +%Y%m%d-%H%M)}"
