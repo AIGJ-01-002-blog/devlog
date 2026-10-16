@@ -56,16 +56,16 @@ export function PaperBotSettingsForm({ view, onSaved }: { view: PaperBotView; on
         </label>
         <label>
           <span>{t('손절 (%)')}</span>
-          <input type="number" inputMode="decimal" min={0.5} max={50} step={0.5} value={form.stopLossPct} onChange={(e) => edit({ stopLossPct: e.target.value })} />
+          <input type="number" inputMode="decimal" min={0.5} max={50} step="any" value={form.stopLossPct} onChange={(e) => edit({ stopLossPct: e.target.value })} />
         </label>
         <label>
           <span>{t('익절 (%)')}</span>
-          <input type="number" inputMode="decimal" min={0} max={100} step={0.5} value={form.takeProfitPct} onChange={(e) => edit({ takeProfitPct: e.target.value })} />
+          <input type="number" inputMode="decimal" min={0} max={100} step="any" value={form.takeProfitPct} onChange={(e) => edit({ takeProfitPct: e.target.value })} />
           <small className="muted">{t('0이면 익절선 없이 이동평균선 아래로 내려갈 때 팔아요')}</small>
         </label>
         <label>
           <span>{t('한 번 금액 (크레딧)')}</span>
-          <input type="number" inputMode="numeric" min={PAPER_BOT_MIN_BUDGET} max={PAPER_BOT_MAX_BUDGET} step={1000} value={form.budget}
+          <input type="number" inputMode="numeric" min={PAPER_BOT_MIN_BUDGET} max={PAPER_BOT_MAX_BUDGET} step={1} value={form.budget}
             onChange={(e) => edit({ budget: e.target.value })} />
         </label>
         <div className="tradebot-settings-actions">

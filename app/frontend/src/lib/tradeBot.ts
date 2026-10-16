@@ -193,7 +193,12 @@ export interface CoinChart {
   currency: string
   coins: ChartCoin[]
   fetchedAt: string
+  /** 캔들을 실제로 받은 곳. 원화 탭은 서버 설정에 따라 코빗이나 업비트 */
+  source?: 'BINANCE' | 'KORBIT' | 'UPBIT'
 }
+
+/** 원화 시세를 받는 곳의 이름(번역 키). 서버가 알리지 않으면 기본값 코빗 */
+export const krwSourceName = (source?: string | null) => (source === 'UPBIT' ? '업비트' : '코빗')
 
 export const loadTradeCharts = (exchange: ChartExchange, interval: ChartInterval) =>
   api<CoinChart>(`/api/me/trade-bot/charts?exchange=${exchange}&interval=${interval}`)

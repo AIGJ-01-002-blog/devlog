@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { NavIcon, type IconName } from '../components/NavIcons'
 import { PaperBotSettingsForm } from '../components/PaperBotSettingsForm'
 import { TradeBotCharts } from '../components/TradeBotCharts'
@@ -42,17 +42,26 @@ export function TradeBotPage() {
   const paper = paperView ? paperView.enabled : null
   const [switching, setSwitching] = useState(false)
   const [switchError, setSwitchError] = useState(false)
+  // 모의 봇 조회 순번: 저장·전환 뒤에 늦게 온 옛 조회가 새 기준과 입력값을 덮지 않게 한다
+  const paperSeq = useRef(0)
+  const applyPaper = (v: PaperBotView | null) => {
+    paperSeq.current += 1
+    setPaperView(v)
+  }
 
   const reload = () => {
     loadTradeBot().then((d) => { setData(d); setError(false) }).catch(() => setError(true))
-    loadPaperBot().then(setPaperView).catch(() => setPaperView(null))
+    const seq = ++paperSeq.current
+    loadPaperBot()
+      .then((v) => { if (seq === paperSeq.current) setPaperView(v) })
+      .catch(() => { if (seq === paperSeq.current) setPaperView(null) })
   }
   const togglePaper = () => {
     if (paper === null || switching) return
     setSwitching(true)
     setSwitchError(false)
     setPaperBot(!paper)
-      .then((p) => { setPaperView(p); reload() })
+      .then((p) => { applyPaper(p); reload() })
       .catch(() => setSwitchError(true))
       .finally(() => setSwitching(false))
   }
@@ -94,7 +103,7 @@ export function TradeBotPage() {
       </div>
       <p className="muted small trades-notice">{t('매매 기준은 내 AI가 정하고, 봇이 그 기준대로 5분마다 모의 주문을 내요. Gemini는 진입 직전 필터와 하루 요약만 맡아요. 투자 권유가 아니에요.')}</p>
       <TradeBotGuide />
-      {paperView && <PaperBotSettingsForm view={paperView} onSaved={(v) => { setPaperView(v); reload() }} />}
+      {paperView && <PaperBotSettingsForm view={paperView} onSaved={(v) => { applyPaper(v); reload() }} />}
       {switchError && <p className="error" role="alert">{t('모의 봇을 바꾸지 못했어요. 다시 시도해 주세요.')}</p>}
       {error && <p className="error" role="alert">{t('자동매매 기록을 불러오지 못했어요.')}</p>}
       {!data && !error && <p className="muted center">{t('불러오는 중…')}</p>}
