@@ -8,6 +8,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.math.BigDecimal;
+import java.util.concurrent.Future;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Callable;
+import java.util.List;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -209,6 +215,7 @@ class PaperTradingTest extends IntegrationTest {
         assertThat(state.path("invest").asLong()).isEqualTo(10_000_000L);
         assertThat(state.path("quotes").findValuesAsString("symbol")).containsExactly("BTC", "ETH", "XRP", "SOL", "DOGE");
         assertThat(state.path("quotesError").isNull()).isTrue();
+        assertThat(state.path("quotesSource").asString()).isIn("KORBIT", "UPBIT");
 
         // 1억 원짜리 BTC를 100만 P어치: 수수료 500P, 수량 0.009995
         String id = orderId();
@@ -315,6 +322,33 @@ class PaperTradingTest extends IntegrationTest {
         assertThat(paper.exchangeOut(me.memberId(), 14_000, "bot-usdt-3", "모의 봇")).isTrue();
         paper.exchangeIn(me.memberId(), 14_000, 5_000, "bot-usdt-3", "모의 봇");
         assertThat(wallet(me, "INVEST_ONLY")).isEqualTo(invest + 14_000 - 14_000 + 5_000);
+        assertThat(wallet(me, "SHOP")).isEqualTo(shop + 6_000);
+    }
+
+    /** #352 같은 key의 환전이 동시에 와도 원장에는 한 번만 남는다 */
+    @Test
+    void 봇_USDT_환전은_같은_key로_동시에_와도_한_번만_반영한다() throws Exception {
+        Session me = signup(uniqueLogin("ppusdtrace"));
+        assertThat(paper.exchangeOut(me.memberId(), 1, "bot-usdt-warm", "모의 봇")).isTrue();
+        long invest = wallet(me, "INVEST_ONLY");
+        long shop = wallet(me, "SHOP");
+        ExecutorService pool = Executors.newFixedThreadPool(8);
+        try {
+            List<Callable<Boolean>> outs = new ArrayList<>();
+            for (int i = 0; i < 8; i++) outs.add(() -> paper.exchangeOut(me.memberId(), 14_000, "bot-usdt-race", "모의 봇"));
+            for (Future<Boolean> f : pool.invokeAll(outs)) f.get();
+            assertThat(wallet(me, "INVEST_ONLY")).isEqualTo(invest - 14_000);
+
+            List<Callable<Boolean>> ins = new ArrayList<>();
+            for (int i = 0; i < 8; i++) ins.add(() -> {
+                paper.exchangeIn(me.memberId(), 14_000, 20_000, "bot-usdt-race", "모의 봇");
+                return true;
+            });
+            for (Future<Boolean> f : pool.invokeAll(ins)) f.get();
+        } finally {
+            pool.shutdownNow();
+        }
+        assertThat(wallet(me, "INVEST_ONLY")).isEqualTo(invest);
         assertThat(wallet(me, "SHOP")).isEqualTo(shop + 6_000);
     }
 }

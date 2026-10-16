@@ -86,7 +86,17 @@ public class TradeCharts {
         }
     }
 
-    public record Chart(String exchange, String interval, String currency, List<Coin> coins, Instant fetchedAt) {}
+    /**
+     * @param exchange 고른 탭(BINANCE·UPBIT). 원화 탭은 이름이 UPBIT로 남는다
+     * @param source   캔들을 실제로 받은 곳(BINANCE·KORBIT·UPBIT). 원화는 blog.trades.krw-source를 따른다
+     */
+    public record Chart(String exchange, String interval, String currency, List<Coin> coins, Instant fetchedAt, String source) {}
+
+    /** 이 탭의 캔들을 실제로 받는 곳 */
+    private String source(Exchange exchange) {
+        if (exchange == Exchange.BINANCE) return "BINANCE";
+        return props.korbit() ? "KORBIT" : "UPBIT";
+    }
 
     private record Cached(Instant at, List<Coin> coins) {}
 
@@ -121,7 +131,7 @@ public class TradeCharts {
             long from = coin.candles().isEmpty() ? Long.MAX_VALUE : coin.candles().getFirst().t();
             coins.add(new Coin(coin.coin(), coin.name(), coin.symbol(), coin.candles(), marks(memberId, coin.symbol(), from), coin.error(), days.get(coin.coin())));
         }
-        return new Chart(exchange.name(), interval, exchange == Exchange.UPBIT ? "KRW" : "USDT", coins, c.at());
+        return new Chart(exchange.name(), interval, exchange == Exchange.UPBIT ? "KRW" : "USDT", coins, c.at(), source(exchange));
     }
 
     /**
@@ -142,7 +152,7 @@ public class TradeCharts {
             marks.sort(Comparator.comparingLong(Mark::t));
             coins.add(new Coin(coin.coin(), coin.name(), coin.symbol(), coin.candles(), marks, coin.error(), days.get(coin.coin())));
         }
-        return new Chart(Exchange.UPBIT.name(), interval, "KRW", coins, c.at());
+        return new Chart(Exchange.UPBIT.name(), interval, "KRW", coins, c.at(), source(Exchange.UPBIT));
     }
 
     /** 고른 봉 간격을 확인한다. 원화를 코빗에서 받으면 1초 봉은 없다 */

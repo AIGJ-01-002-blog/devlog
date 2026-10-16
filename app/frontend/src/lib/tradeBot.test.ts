@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  accountInterval, changeRate, isStale, markIndex, paperBotForm, paperBotFormError, paperBotSettings, sideUp, type ChartCandle,
+  accountInterval, changeRate, isStale, markIndex, paperBotBudgetRange, paperBotForm, paperBotFormError, paperBotSettings, sideUp, type ChartCandle,
 } from './tradeBot'
 
 const c = (t: number, o: number, cl: number): ChartCandle => ({ t, o, h: Math.max(o, cl) + 1, l: Math.min(o, cl) - 1, c: cl })
@@ -46,5 +46,10 @@ describe('자동매매 화면 (spec 101)', () => {
     expect(paperBotFormError({ ...form, takeProfitPct: '0.2' })).not.toBeNull()
     expect(paperBotFormError({ ...form, budget: '4000' })).not.toBeNull()
     expect(paperBotFormError({ ...form, budget: '5000.5' })).not.toBeNull()
+    // 서버가 범위를 바꿔 보내면 그 범위로 본다
+    const wide = paperBotBudgetRange({ budgetMin: 1_500_000, budgetMax: 3_000_000 })
+    expect(paperBotFormError({ ...form, budget: '2000000' }, wide)).toBeNull()
+    expect(paperBotFormError({ ...form, budget: '1000000' }, wide)).not.toBeNull()
+    expect(paperBotBudgetRange({})).toEqual({ min: 5_000, max: 1_000_000 })
   })
 })

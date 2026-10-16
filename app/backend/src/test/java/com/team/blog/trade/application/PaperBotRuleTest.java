@@ -78,6 +78,10 @@ class PaperBotRuleTest {
     static final class FakeCredits implements BotCredits {
         long invest = 1_000_000;
         BigDecimal held = BigDecimal.ZERO;
+        /** 참이면 주문·환전이 실패한다(시세를 못 받음 등) */
+        boolean fail;
+        /** 이 글자로 끝나는 환전만 실패한다 (선물 반전에서 진입만 실패) */
+        String failKey;
         final List<String> calls = new ArrayList<>();
 
         public boolean enabled() { return true; }
@@ -86,6 +90,7 @@ class PaperBotRuleTest {
 
         public Optional<Filled> buy(long memberId, String coin, long amount, String orderId, String reason) {
             calls.add("BUY " + coin + " " + amount + " " + orderId);
+            if (fail) return Optional.empty();
             BigDecimal q = new BigDecimal("0.5");
             held = held.add(q);
             return Optional.of(new Filled(q, new BigDecimal("200000"), null));
@@ -102,7 +107,7 @@ class PaperBotRuleTest {
 
         public boolean exchangeOut(long memberId, long amount, String key, String memo) {
             calls.add("OUT " + amount + " " + key);
-            return true;
+            return !fail && (failKey == null || !key.endsWith(failKey));
         }
 
         public void exchangeIn(long memberId, long cost, long back, String key, String memo) {
@@ -132,6 +137,61 @@ class PaperBotRuleTest {
         // 같은 봉을 다시 받아도 다시 사지 않는다
         assertThat(bot.creditTrade(7, book, acc, krw(100, 99, 98, 97, 96, 95, 101, 104, 106, 99, 97, 300))).isEmpty();
         assertThat(credits.calls).hasSize(1);
+    }
+
+    @Test
+    void 크레딧_주문이_실패하면_그_봉을_끝냈다고_적지_않고_다음_바퀴에_다시_산다() {
+        FakeCredits credits = new FakeCredits();
+        credits.fail = true;
+        PaperBot bot = new PaperBot(null, null, null, null, null, null, credits);
+        PaperBot.Book book = PaperBot.BOOKS.getLast();
+        ObjectNode acc = fresh(JsonMapper.builder().build());
+        Coin c = krw(100, 99, 98, 97, 96, 95, 101, 104, 106, 99, 97, 300);
+        assertThat(bot.creditTrade(7, book, acc, c)).isEmpty();
+        assertThat(acc.path("seen").has("KRW-BTC")).isFalse();
+
+        credits.fail = false;
+        assertThat(bot.creditTrade(7, book, acc, c)).extracting(PaperBot.Fill::side).containsExactly("BUY");
+        assertThat(credits.calls).containsExactly("BUY BTC 100000 bot-BTC-" + 11 * HOUR + "-B", "BUY BTC 100000 bot-BTC-" + 11 * HOUR + "-B");
+        assertThat(acc.path("seen").path("KRW-BTC").asLong()).isEqualTo(11 * HOUR);
+    }
+
+    @Test
+    void USDT_환전이_실패하면_그_봉을_다시_본다() {
+        FakeCredits credits = new FakeCredits();
+        credits.fail = true;
+        PaperBot bot = new PaperBot(null, null, null, null, null, null, credits);
+        ObjectNode acc = fresh(JsonMapper.builder().build());
+        Coin c = coin(100, 99, 98, 97, 96, 95, 101, 104, 106, 99, 97, 300);
+        assertThat(bot.usdtTrade(7, PaperBot.BOOKS.getFirst(), PaperBot.DEFAULTS, acc, c, new BigDecimal("1400"))).isEmpty();
+        assertThat(acc.path("seen").has("BTCUSDT")).isFalse();
+        credits.fail = false;
+        assertThat(bot.usdtTrade(7, PaperBot.BOOKS.getFirst(), PaperBot.DEFAULTS, acc, c, new BigDecimal("1400"))).hasSize(1);
+        assertThat(acc.path("seen").path("BTCUSDT").asLong()).isEqualTo(11 * HOUR);
+    }
+
+    @Test
+    void 가상_돈_계좌도_회원이_고른_한_번_금액을_쓴다() {
+        PaperBot bot = new PaperBot(null, null, null, null, null, null, null);
+        PaperBot.Settings half = new PaperBot.Settings(PaperBot.DEFAULTS.coins(), new BigDecimal("0.03"), BigDecimal.ZERO, "1h", 50_000);
+        assertThat(bot.virtualBudget(PaperBot.BOOKS.getLast(), half)).isEqualByComparingTo("50000");
+        assertThat(bot.virtualBudget(PaperBot.BOOKS.getFirst(), half)).isEqualByComparingTo("50");
+        assertThat(bot.virtualBudget(PaperBot.BOOKS.getFirst(), PaperBot.DEFAULTS)).isEqualByComparingTo("100");
+    }
+
+    @Test
+    void 한_번_금액_범위는_설정값을_따른다() {
+        PaperBotBudget narrow = new PaperBotBudget(20_000, 10_000, 30_000);
+        PaperBot.Settings s = new PaperBot.Settings(PaperBot.DEFAULTS.coins(), new BigDecimal("0.03"), BigDecimal.ZERO, "1h", 50_000);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> PaperBot.checked(s, narrow)).isInstanceOf(com.team.blog.shared.error.ApiException.class);
+        assertThat(PaperBot.checked(s).budget()).isEqualTo(50_000);
+        // 운영 범위가 바뀌어 저장된 금액이 벗어나도 고른 코인·봉은 그대로 두고 금액만 범위 끝으로 맞춘다
+        PaperBot bot = new PaperBot(null, null, null, null, null, null, null, narrow);
+        PaperBot.Settings kept = bot.settings("{\"coins\":[\"ETH\"],\"stop_loss\":\"0.05\",\"interval\":\"1d\",\"budget\":5000}");
+        assertThat(kept.coins()).containsExactly("ETH");
+        assertThat(kept.interval()).isEqualTo("1d");
+        assertThat(kept.budget()).isEqualTo(10_000);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> new PaperBotBudget(1_000, 5_000, 10_000)).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -270,6 +330,25 @@ class PaperBotRuleTest {
         assertThat(flip.getFirst().pnl()).isNegative();
         assertThat(credits.calls.get(1)).startsWith("IN 14000 ").endsWith("-CLOSE");
         assertThat(acc.path("positions").path("BTCUSDT").path("side").asString()).isEqualTo("SHORT");
+    }
+
+    @Test
+    void 선물_반전에서_반대_진입만_실패하면_그_봉을_다시_보고_진입만_다시_낸다() {
+        FakeCredits credits = new FakeCredits();
+        PaperBot bot = new PaperBot(null, null, null, null, null, null, credits);
+        PaperBot.Settings s = new PaperBot.Settings(List.of("BTC"), new BigDecimal("0.9"), BigDecimal.ZERO, "1h", 14_000);
+        ObjectNode acc = fresh(JsonMapper.builder().build());
+        BigDecimal rate = new BigDecimal("1400");
+        bot.usdtTrade(7, PaperBot.FUTURES, s, acc, coin(100, 99, 98, 97, 96, 95, 101, 104, 106, 99, 97, 300), rate);
+
+        credits.failKey = "-SHORT";
+        Coin down = coin(100, 99, 98, 97, 96, 95, 101, 104, 106, 99, 97, 300, 250, 100);
+        assertThat(bot.usdtTrade(7, PaperBot.FUTURES, s, acc, down, rate)).extracting(PaperBot.Fill::side).containsExactly("CLOSE");
+        assertThat(acc.path("seen").path("BTCUSDT").asLong()).isEqualTo(11 * HOUR);
+
+        credits.failKey = null;
+        assertThat(bot.usdtTrade(7, PaperBot.FUTURES, s, acc, down, rate)).extracting(PaperBot.Fill::side).containsExactly("SHORT");
+        assertThat(acc.path("seen").path("BTCUSDT").asLong()).isEqualTo(13 * HOUR);
     }
 
     @Test

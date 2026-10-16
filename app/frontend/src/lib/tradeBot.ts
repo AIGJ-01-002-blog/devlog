@@ -82,6 +82,9 @@ export interface PaperBotView {
   /** 고를 수 있는 코인과 봉 간격 */
   coins: string[]
   intervals: string[]
+  /** 이 서버의 한 번 금액 범위(설정 blog.trades.bot-budget). 옛 서버는 보내지 않는다 */
+  budgetMin?: number
+  budgetMax?: number
 }
 
 /** 서버가 돌리는 모의 봇 (spec 102). 켜면 devlog 서버가 5분마다 공개 시세로 모의 매매를 한다 */
@@ -102,6 +105,12 @@ export interface PaperBotForm {
 export const PAPER_BOT_MIN_BUDGET = 5_000
 export const PAPER_BOT_MAX_BUDGET = 1_000_000
 
+export interface BudgetRange { min: number; max: number }
+
+/** 서버가 준 범위, 없으면 기본 범위 */
+export const paperBotBudgetRange = (v: Pick<PaperBotView, 'budgetMin' | 'budgetMax'>): BudgetRange =>
+  ({ min: v.budgetMin ?? PAPER_BOT_MIN_BUDGET, max: v.budgetMax ?? PAPER_BOT_MAX_BUDGET })
+
 /** 소수 계산 오차 없이 비율을 %로 (0.035 → "3.5") */
 const pct = (ratio: number) => String(Math.round(ratio * 10_000) / 100)
 
@@ -110,15 +119,15 @@ export function paperBotForm(s: PaperBotSettings): PaperBotForm {
 }
 
 /** 서버 검사와 같은 범위. 틀린 곳이 있으면 그 문구, 없으면 null */
-export function paperBotFormError(f: PaperBotForm): string | null {
+export function paperBotFormError(f: PaperBotForm, range: BudgetRange = { min: PAPER_BOT_MIN_BUDGET, max: PAPER_BOT_MAX_BUDGET }): string | null {
   const sl = Number(f.stopLossPct)
   const tp = f.takeProfitPct.trim() === '' ? 0 : Number(f.takeProfitPct)
   const budget = Number(f.budget)
   if (f.coins.length === 0) return t('코인을 하나 이상 골라 주세요.')
   if (!Number.isFinite(sl) || sl < 0.5 || sl > 50) return t('손절은 0.5%에서 50% 사이로 정해 주세요.')
   if (!Number.isFinite(tp) || tp < 0 || (tp > 0 && tp < 0.5) || tp > 100) return t('익절은 0(쓰지 않음)이나 0.5%에서 100% 사이로 정해 주세요.')
-  if (!Number.isInteger(budget) || budget < PAPER_BOT_MIN_BUDGET || budget > PAPER_BOT_MAX_BUDGET) {
-    return t('한 번 금액은 {0}에서 {1} 크레딧 사이로 정해 주세요.', { 0: PAPER_BOT_MIN_BUDGET.toLocaleString(), 1: PAPER_BOT_MAX_BUDGET.toLocaleString() })
+  if (!Number.isInteger(budget) || budget < range.min || budget > range.max) {
+    return t('한 번 금액은 {0}에서 {1} 크레딧 사이로 정해 주세요.', { 0: range.min.toLocaleString(), 1: range.max.toLocaleString() })
   }
   return null
 }
@@ -193,7 +202,12 @@ export interface CoinChart {
   currency: string
   coins: ChartCoin[]
   fetchedAt: string
+  /** 캔들을 실제로 받은 곳. 원화 탭은 서버 설정에 따라 코빗이나 업비트 */
+  source?: 'BINANCE' | 'KORBIT' | 'UPBIT'
 }
+
+/** 원화 시세를 받는 곳의 이름(번역 키). 서버가 알리지 않으면 기본값 코빗 */
+export const krwSourceName = (source?: string | null) => (source === 'UPBIT' ? '업비트' : '코빗')
 
 export const loadTradeCharts = (exchange: ChartExchange, interval: ChartInterval) =>
   api<CoinChart>(`/api/me/trade-bot/charts?exchange=${exchange}&interval=${interval}`)
