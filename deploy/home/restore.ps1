@@ -1,4 +1,4 @@
-# 백업 폴더로 devlog를 Windows 집 PC에 되살린다 (#241). 맥·리눅스는 restore.sh.
+﻿# 백업 폴더로 devlog를 Windows 집 PC에 되살린다 (#241). 맥·리눅스는 restore.sh.
 #
 #   powershell -ExecutionPolicy Bypass -File deploy\home\restore.ps1 -Backup E:\devlog\devlog-backup-20261130-2100 [-Force]
 #
