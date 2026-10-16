@@ -42,10 +42,15 @@ spec:
           readinessProbe:
             exec: {command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]}
             periodSeconds: 5
-          # 멈춘 채 살아만 있으면 다시 띄운다. 복구(재시작 직후 WAL 재생) 중에 끊지 않게 넉넉히 기다린다 (2분 연속 실패)
+          # 재시작 직후 WAL 재생은 오래 걸릴 수 있어 최대 15분 기다린다. 여기를 지나야 liveness가 돈다
+          startupProbe:
+            exec: {command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]}
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 90
+          # 시작한 뒤 멈춘 채 살아만 있으면 다시 띄운다 (2분 연속 실패)
           livenessProbe:
             exec: {command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]}
-            initialDelaySeconds: 60
             periodSeconds: 20
             timeoutSeconds: 5
             failureThreshold: 6
