@@ -30,16 +30,16 @@ public class TradeBotController {
         this.paper = paper;
     }
 
-    /** 서버가 돌리는 모의 봇(spec 102)이 켜져 있는지 */
+    /** 서버가 돌리는 모의 봇(spec 102)이 켜져 있는지와 내가 고른 기준(#340) */
     @GetMapping("/api/me/trade-bot/paper")
     public ResponseEntity<PaperBot.Switch> paper(@CurrentMember MemberPrincipal me) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(paper.get(me.id()));
     }
 
-    /** 켜면 바로 한 바퀴 돌고, 그 뒤로 5분마다 돈다. 끄면 다음 바퀴부터 멈추고 기록은 남는다 */
+    /** 켜면 바로 한 바퀴 돌고, 그 뒤로 5분마다 돈다. 끄면 다음 바퀴부터 멈추고 기록은 남는다. 기준(#340)은 보낸 것만 바꾼다 */
     @PutMapping("/api/me/trade-bot/paper")
-    public PaperBot.Switch setPaper(@CurrentMember MemberPrincipal me, @RequestBody PaperBot.Switch body) {
-        return paper.set(me.id(), body.enabled());
+    public PaperBot.Switch setPaper(@CurrentMember MemberPrincipal me, @RequestBody PaperBot.Change body) {
+        return paper.set(me.id(), body);
     }
 
     @GetMapping("/api/me/trade-bot")

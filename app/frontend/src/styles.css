@@ -3094,3 +3094,15 @@ html:is(:lang(ja), :lang(zh)) :is(.post-title, .markdown, .markdown *, .card-tit
 .paper-chart-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 6px 0 0; }
 .paper-chart-legend .me { font-weight: 700; }
 .paper-chart-bot { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
+
+/* 서버 모의 봇 계정별 기준 (이슈 340) */
+.tradebot-settings { margin: 8px 0 12px; }
+.tradebot-settings > summary { cursor: pointer; font-weight: 600; font-size: 0.9rem; }
+.tradebot-settings-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px 16px; margin-top: 10px; align-items: start; }
+.tradebot-settings-form fieldset { grid-column: 1 / -1; border: 0; padding: 0; margin: 0; }
+.tradebot-settings-form legend, .tradebot-settings-form label > span { display: block; font-size: 0.75rem; color: var(--color-text-muted); margin-bottom: 4px; }
+.tradebot-settings-form input[type='number'], .tradebot-settings-form select { width: 100%; }
+.tradebot-settings-form small { display: block; margin-top: 4px; }
+.tradebot-settings-coins { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.tradebot-settings-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tradebot-settings-form .error { grid-column: 1 / -1; margin: 0; }
