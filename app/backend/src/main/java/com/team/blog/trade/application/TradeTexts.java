@@ -173,7 +173,7 @@ public final class TradeTexts {
         });
         md.append("- 수수료·세금: ").append(money(day, s.fees(), false)).append('\n');
         md.append("- 지금까지 실현 손익: ").append(money(day, day.cumulativePnl(), true)).append("\n\n");
-        List<TradeJournal.SetupStat> stats = TradeJournal.setupStats(day.fills());
+        List<TradeJournal.SetupStat> stats = day.setupStats();
         if (!stats.isEmpty()) {
             md.append("## 기법별 성적\n\n| 기법 버전 | 셋업 | 정리 | 승률 | 평균 R |\n|---|---|---:|---:|---:|\n");
             for (TradeJournal.SetupStat st : stats) {

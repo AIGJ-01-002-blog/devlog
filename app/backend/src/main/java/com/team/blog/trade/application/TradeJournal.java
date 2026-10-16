@@ -16,6 +16,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowCallbackHandler;
@@ -209,8 +211,18 @@ public class TradeJournal {
         return out;
     }
 
+    /** earlier: 정리 체결의 기법을 잇는 데만 쓰는 하루 앞 진입 체결. 합계·응답에는 넣지 않는다 */
     public record Day(LocalDate date, List<Fill> fills, Summary summary, Map<String, BigDecimal> cumulativePnl, String memo, Long postId,
-                      Long shortsId) {}
+                      Long shortsId, @JsonIgnore List<Fill> earlier) {
+        public Day(LocalDate date, List<Fill> fills, Summary summary, Map<String, BigDecimal> cumulativePnl, String memo, Long postId,
+                   Long shortsId) {
+            this(date, fills, summary, cumulativePnl, memo, postId, shortsId, List.of());
+        }
+
+        public List<SetupStat> setupStats() {
+            return TradeJournal.setupStats(fills, earlier);
+        }
+    }
 
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
@@ -450,7 +462,7 @@ public class TradeJournal {
         Summary s = summarize(list);
         DayMeta m = meta(memberId, date, date).getOrDefault(date, DayMeta.EMPTY);
         Map<String, BigDecimal> cumulative = Money.plus(pnlBefore(memberId, date, mode), s.realizedPnl());
-        return new Day(date, list, s, cumulative, m.memo(), m.postId(), m.shortsId());
+        return new Day(date, list, s, cumulative, m.memo(), m.postId(), m.shortsId(), earlierEntries(memberId, date, list));
     }
 
     public Day saveMemo(long memberId, LocalDate date, String memo) {

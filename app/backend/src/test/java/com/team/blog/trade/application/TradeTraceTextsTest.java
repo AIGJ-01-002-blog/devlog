@@ -86,6 +86,10 @@ class TradeTraceTextsTest {
         assertThat(TradeJournal.setupStats(fills, earlier)).containsExactly(
                 new TradeJournal.SetupStat("PAPER", "v1", "PULLBACK", 1, 1, new BigDecimal("1.80")));
         assertThat(TradeJournal.setupStats(fills)).containsExactly(new TradeJournal.SetupStat("PAPER", "", "", 1, 1, new BigDecimal("1.80")));
+        // 하루 요약 임시글도 앞 진입의 기법으로 세고, 앞 진입 체결은 그날 체결로 넣지 않는다
+        TradeJournal.Day d = day(fills);
+        TradeJournal.Day withEarlier = new TradeJournal.Day(d.date(), fills, d.summary(), d.cumulativePnl(), d.memo(), null, null, earlier);
+        assertThat(TradeTexts.draftBody(withEarlier)).contains("| v1 | PULLBACK | 1번 | 100% | +1.8R |").doesNotContain("[트레이딩 · PULLBACK]");
     }
 
     @Test

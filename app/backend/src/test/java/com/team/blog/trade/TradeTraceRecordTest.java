@@ -111,6 +111,10 @@ class TradeTraceRecordTest extends IntegrationTest {
         assertThat(today).hasSize(1);
         assertThat(today.get(0).path("strategyVersion").asString()).isEqualTo("ladder-v0.1");
         assertThat(today.get(0).path("samples").asInt()).isEqualTo(1);
+        // 하루 응답에는 기간 앞 진입 체결을 싣지 않는다
+        JsonNode day = read(me.http().perform(get("/api/me/trades/" + d.plusDays(1))).andExpect(status().isOk()).andReturn());
+        assertThat(day.has("earlier")).isFalse();
+        assertThat(day.path("fills")).hasSize(1);
     }
 
     @Test
