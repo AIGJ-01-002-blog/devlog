@@ -33,6 +33,7 @@ public record TradeTrace(String strategyVersion, String decisionId, Basket baske
     public static final int NEWS_FLAGS_MAX = 120;
     public static final int AI_MODEL_MAX = 60;
     public static final int NEWS_SCORE_MAX = 10;
+    static final int FRACTION_SCALE = 8;
     /** numeric(12, 4)에 넉넉히 들어가는 R배수 */
     private static final String CHARS_MAX = "자까지예요.";
     private static final BigDecimal R_MAX = new BigDecimal("99999999");
@@ -75,7 +76,7 @@ public record TradeTrace(String strategyVersion, String decisionId, Basket baske
         if (!FLAGS.matcher(flags).matches()) {
             errors.add(new FieldErrorItem("news_flags", INVALID, "뉴스 표시(news_flags)는 MACRO_EVENT처럼 영문 대문자를 쉼표로 이어 " + NEWS_FLAGS_MAX + CHARS_MAX));
         }
-        if (newsScore != null && Math.abs(newsScore) > NEWS_SCORE_MAX) {
+        if (newsScore != null && (newsScore > NEWS_SCORE_MAX || newsScore < -NEWS_SCORE_MAX)) {
             errors.add(new FieldErrorItem("news_score", INVALID, "뉴스 점수(news_score)는 -" + NEWS_SCORE_MAX + "~" + NEWS_SCORE_MAX + "예요."));
         }
         amounts(errors);
@@ -134,8 +135,9 @@ public record TradeTrace(String strategyVersion, String decisionId, Basket baske
     }
 
     private static void fraction(List<FieldErrorItem> errors, String field, BigDecimal value) {
-        if (value != null && (value.signum() < 0 || value.compareTo(BigDecimal.ONE) > 0)) {
-            errors.add(new FieldErrorItem(field, INVALID, field + "는 0~1 사이 비율이에요 (예: 0.005)."));
+        // numeric(9,8)에 반올림 없이 들어가는 값만 받는다 — 0.000000001처럼 더 잘게 오면 0으로 저장돼 흔적이 바뀐다
+        if (value != null && (value.signum() < 0 || value.compareTo(BigDecimal.ONE) > 0 || value.stripTrailingZeros().scale() > FRACTION_SCALE)) {
+            errors.add(new FieldErrorItem(field, INVALID, field + "는 0~1 사이 비율이고 소수 " + FRACTION_SCALE + "자리까지예요 (예: 0.005)."));
         }
     }
 

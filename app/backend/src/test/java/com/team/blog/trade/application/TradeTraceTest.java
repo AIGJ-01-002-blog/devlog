@@ -65,4 +65,18 @@ class TradeTraceTest {
                 null, null, null, null, new BigDecimal("10000000000"), null, null, null).validate(errors, false, false);
         assertThat(fields(errors)).containsExactly("ai_cost");
     }
+
+    @Test
+    void 뉴스_점수_최솟값과_저장할_수_없는_자릿수의_비율은_막는다() {
+        List<FieldErrorItem> errors = new ArrayList<>();
+        new TradeTrace(null, null, null, null, null, null, Integer.MIN_VALUE, null, new BigDecimal("0.000000001"), new BigDecimal("0.123456789"),
+                new BigDecimal("0.500000001"), new BigDecimal("0.999999999"), null, null, null, null, null, null, null, null, null, null)
+                .validate(errors, false, false);
+        assertThat(fields(errors)).containsExactlyInAnyOrder("news_score", "risk_pct", "kelly_raw", "kelly_used", "ai_conf");
+        List<FieldErrorItem> ok = new ArrayList<>();
+        new TradeTrace(null, null, null, null, null, null, -TradeTrace.NEWS_SCORE_MAX, null, new BigDecimal("0.00000001"), new BigDecimal("0.50000000000"),
+                BigDecimal.ONE, new BigDecimal("0.12345678"), null, null, null, null, null, null, null, null, null, null)
+                .validate(ok, false, false);
+        assertThat(ok).isEmpty();
+    }
 }
