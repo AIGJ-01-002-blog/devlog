@@ -159,4 +159,45 @@ class PaperBotRuleTest {
         assertThat(bot.creditTrade(7, book, acc, coin(100, 99, 98, 97, 96, 95, 101, 104, 106, 99, 97, 300, 299))).isEmpty();
         assertThat(credits.calls).hasSize(1);
     }
+    @Test
+    void 익절선에_닿으면_판다() {
+        PaperBot.Rule r = new PaperBot.Rule(3, new BigDecimal("0.03"), new BigDecimal("0.04"), "4h");
+        String last = null;
+        for (int c : new int[] {100, 101, 102, 103, 104}) last = r.onBar(BigDecimal.valueOf(c), true, BigDecimal.valueOf(100));
+        assertThat(last).isEqualTo("SELL:익절선 +4% 도달");
+    }
+
+    @Test
+    void 계정별_기준은_범위를_확인하고_코인을_정해진_순서로_맞춘다() {
+        PaperBot.Settings s = PaperBot.checked(new PaperBot.Settings(List.of("SOL", "BTC", "SOL"), new BigDecimal("0.020"), BigDecimal.ZERO, "4h", 50_000));
+        assertThat(s.coins()).containsExactly("BTC", "SOL");
+        assertThat(s.stopLoss()).isEqualByComparingTo("0.02");
+        assertThat(s.step()).hasHours(4);
+        for (PaperBot.Settings bad : List.of(
+                new PaperBot.Settings(List.of(), new BigDecimal("0.02"), BigDecimal.ZERO, "1h", 50_000),
+                new PaperBot.Settings(List.of("PEPE"), new BigDecimal("0.02"), BigDecimal.ZERO, "1h", 50_000),
+                new PaperBot.Settings(List.of("BTC"), new BigDecimal("0.001"), BigDecimal.ZERO, "1h", 50_000),
+                new PaperBot.Settings(List.of("BTC"), new BigDecimal("0.02"), new BigDecimal("0.001"), "1h", 50_000),
+                new PaperBot.Settings(List.of("BTC"), new BigDecimal("0.02"), BigDecimal.ZERO, "1m", 50_000),
+                new PaperBot.Settings(List.of("BTC"), new BigDecimal("0.02"), BigDecimal.ZERO, "1h", 4_000))) {
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> PaperBot.checked(bad)).isInstanceOf(com.team.blog.shared.error.ApiException.class);
+        }
+        // 저장된 값이 비었거나 깨졌으면 기본값으로 돈다
+        PaperBot bot = new PaperBot(null, null, null, null, null, null, null);
+        assertThat(bot.settings("{}")).isEqualTo(PaperBot.DEFAULTS);
+        assertThat(bot.settings("{\"stop_loss\":\"9\"}")).isEqualTo(PaperBot.DEFAULTS);
+        assertThat(bot.settings("{\"coins\":[\"ETH\"],\"interval\":\"1d\",\"budget\":20000}").coins()).containsExactly("ETH");
+    }
+
+    @Test
+    void 고르지_않은_코인은_새로_사지_않는다() {
+        FakeCredits credits = new FakeCredits();
+        PaperBot bot = new PaperBot(null, null, null, null, null, null, credits);
+        PaperBot.Settings ethOnly = new PaperBot.Settings(List.of("ETH"), new BigDecimal("0.03"), BigDecimal.ZERO, "1h", 20_000);
+        ObjectNode acc = fresh(JsonMapper.builder().build());
+        assertThat(bot.creditTrade(7, PaperBot.BOOKS.getLast(), ethOnly, acc, krw(100, 99, 98, 97, 96, 95, 101, 104, 106, 99, 97, 300))).isEmpty();
+        assertThat(bot.trade(PaperBot.BOOKS.getFirst(), ethOnly, fresh(JsonMapper.builder().build()), coin(100, 99, 98, 97, 96, 95, 101, 104, 106, 99, 97, 300)))
+                .isEmpty();
+        assertThat(credits.calls).isEmpty();
+    }
 }
