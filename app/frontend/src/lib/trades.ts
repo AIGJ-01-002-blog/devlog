@@ -74,6 +74,8 @@ export interface TradeTrace {
 
 /** 기법 버전·셋업별 성적 (#285). R배수를 남긴 정리 체결만 센다 */
 export interface SetupStat {
+  /** LIVE·PAPER. 실거래와 모의 성적은 따로 센다 */
+  mode: string
   strategyVersion: string
   setup: string
   samples: number

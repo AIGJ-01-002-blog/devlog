@@ -8,6 +8,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -167,24 +168,37 @@ public class TradeJournal {
 
     /**
      * 기법 버전·셋업별 성적 (#285). R배수를 남긴 정리 체결만 센다.
+     * @param mode LIVE·PAPER. 실거래와 모의 성적은 섞지 않는다
      * @param wins R배수가 0보다 큰 정리 수
      * @param avgR R배수 평균 (소수 둘째 자리)
      */
-    public record SetupStat(String strategyVersion, String setup, int samples, int wins, BigDecimal avgR) {}
+    public record SetupStat(String mode, String strategyVersion, String setup, int samples, int wins, BigDecimal avgR) {}
 
-    /** 정리 체결을 기법 버전·셋업으로 묶어 표본 수, 이긴 수, 평균 R을 낸다. 표본이 많은 것부터 */
+    /**
+     * 정리 체결을 모드·기법 버전·셋업으로 묶어 표본 수, 이긴 수, 평균 R을 낸다. 표본이 많은 것부터.
+     * 정리 체결에 기법 버전·셋업이 비어 있으면 같은 decision_id로 이어진 진입 체결의 값을 쓴다.
+     */
     public static List<SetupStat> setupStats(List<Fill> fills) {
+        Map<String, TradeTrace> entries = new HashMap<>();
+        for (Fill f : fills) {
+            TradeTrace t = f.trace();
+            if (t != null && !f.closes() && !t.decisionId().isBlank()) entries.putIfAbsent(f.mode() + ":" + t.decisionId(), t);
+        }
         Map<List<String>, List<BigDecimal>> groups = new LinkedHashMap<>();
         for (Fill f : fills) {
             TradeTrace t = f.trace();
             if (t == null || t.rMultiple() == null || !f.closes()) continue;
-            groups.computeIfAbsent(List.of(t.strategyVersion(), t.setup()), k -> new ArrayList<>()).add(t.rMultiple());
+            TradeTrace in = t.decisionId().isBlank() ? null : entries.get(f.mode() + ":" + t.decisionId());
+            String version = t.strategyVersion().isBlank() && in != null ? in.strategyVersion() : t.strategyVersion();
+            String setup = t.setup().isBlank() && in != null ? in.setup() : t.setup();
+            groups.computeIfAbsent(List.of(f.mode(), version, setup), k -> new ArrayList<>()).add(t.rMultiple());
         }
         List<SetupStat> out = new ArrayList<>();
         groups.forEach((k, rs) -> {
             BigDecimal sum = rs.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
             int wins = (int) rs.stream().filter(r -> r.signum() > 0).count();
-            out.add(new SetupStat(k.get(0), k.get(1), rs.size(), wins, sum.divide(BigDecimal.valueOf(rs.size()), 2, java.math.RoundingMode.HALF_UP)));
+            out.add(new SetupStat(k.get(0), k.get(1), k.get(2), rs.size(), wins,
+                    sum.divide(BigDecimal.valueOf(rs.size()), 2, java.math.RoundingMode.HALF_UP)));
         });
         out.sort(java.util.Comparator.comparingInt(SetupStat::samples).reversed());
         return out;

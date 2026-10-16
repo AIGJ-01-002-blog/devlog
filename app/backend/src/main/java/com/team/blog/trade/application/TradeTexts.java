@@ -177,7 +177,7 @@ public final class TradeTexts {
         if (!stats.isEmpty()) {
             md.append("## 기법별 성적\n\n| 기법 버전 | 셋업 | 정리 | 승률 | 평균 R |\n|---|---|---:|---:|---:|\n");
             for (TradeJournal.SetupStat st : stats) {
-                md.append("| ").append(cell(st.strategyVersion().isBlank() ? "-" : st.strategyVersion()))
+                md.append("| ").append(cell(st.strategyVersion().isBlank() ? "-" : st.strategyVersion())).append(st.mode().equals("LIVE") ? " (실계좌)" : "")
                         .append(" | ").append(cell(st.setup().isBlank() ? "-" : st.setup()))
                         .append(" | ").append(st.samples()).append("번")
                         .append(" | ").append(Math.round(st.wins() * 100.0 / st.samples())).append('%')

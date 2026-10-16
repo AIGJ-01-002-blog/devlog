@@ -167,18 +167,21 @@ function DayBars({ data, selected, href }: { data: TradeOverview; selected: stri
 
 /** 기법 버전·셋업별 승률과 평균 R (#285). 봇이 R배수를 남긴 정리 체결만 센다 */
 function SetupStats({ stats }: { stats: SetupStat[] }) {
+  // 토글에서 모드를 하나 고르면 한 모드만 오니, 둘이 섞였을 때만 모드 칸을 그린다
+  const mixed = new Set(stats.map((s) => s.mode)).size > 1
   return (
     <section className="admin-card trades-setups" aria-label={t('기법별 성적')}>
       <h2 data-tip={t('봇이 R배수를 남긴 정리 체결만 기법 버전·셋업으로 묶어 세요. R은 처음 정한 위험 대비 손익이에요')}>{t('기법별 성적')}</h2>
       <div className="admin-table-wrap">
         <table className="trades-setup-table">
           <thead>
-            <tr><th scope="col">{t('기법 버전')}</th><th scope="col">{t('셋업')}</th><th scope="col" className="num">{t('정리')}</th>
+            <tr>{mixed && <th scope="col">{t('실거래·모의')}</th>}<th scope="col">{t('기법 버전')}</th><th scope="col">{t('셋업')}</th><th scope="col" className="num">{t('정리')}</th>
               <th scope="col" className="num">{t('승률')}</th><th scope="col" className="num">{t('평균 R')}</th></tr>
           </thead>
           <tbody>
             {stats.map((s) => (
-              <tr key={`${s.strategyVersion}:${s.setup}`}>
+              <tr key={`${s.mode}:${s.strategyVersion}:${s.setup}`}>
+                {mixed && <td>{s.mode === 'LIVE' ? t('실거래') : t('모의')}</td>}
                 <td>{s.strategyVersion || '-'}</td>
                 <td>{s.setup || '-'}</td>
                 <td className="num">{num(s.samples)}</td>

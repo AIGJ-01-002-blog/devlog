@@ -27,7 +27,11 @@ class TradeTraceTextsTest {
     }
 
     static TradeJournal.Fill fill(long id, String side, BigDecimal pnl, TradeTrace t, int minutes) {
-        return new TradeJournal.Fill(id, "x-" + id, "PAPER", "BINANCE", "BTCUSDT", "비트코인", side, new BigDecimal("0.01"), new BigDecimal("60000"),
+        return fill("PAPER", id, side, pnl, t, minutes);
+    }
+
+    static TradeJournal.Fill fill(String mode, long id, String side, BigDecimal pnl, TradeTrace t, int minutes) {
+        return new TradeJournal.Fill(id, "x-" + id, mode, "BINANCE", "BTCUSDT", "비트코인", side, new BigDecimal("0.01"), new BigDecimal("60000"),
                 "USDT", BigDecimal.ZERO, pnl, "", "눌림 뒤 돌파", AT.plusSeconds(minutes * 60L), "SPOT", null, null, "1h", t);
     }
 
@@ -56,11 +60,23 @@ class TradeTraceTextsTest {
                 fill(5, "SELL", BigDecimal.ONE, TradeTrace.NONE, 40));
         List<TradeJournal.SetupStat> stats = TradeJournal.setupStats(fills);
         assertThat(stats).containsExactly(
-                new TradeJournal.SetupStat("v1", "PULLBACK", 2, 1, new BigDecimal("0.40")),
-                new TradeJournal.SetupStat("v2", "BREAKOUT", 1, 1, new BigDecimal("2.50")));
+                new TradeJournal.SetupStat("PAPER", "v1", "PULLBACK", 2, 1, new BigDecimal("0.40")),
+                new TradeJournal.SetupStat("PAPER", "v2", "BREAKOUT", 1, 1, new BigDecimal("2.50")));
 
         String body = TradeTexts.draftBody(day(fills));
         assertThat(body).contains("## 기법별 성적", "| v1 | PULLBACK | 2번 | 50% | +0.4R |", "[트레이딩 · PULLBACK] 눌림 뒤 돌파", "TP1 정리 +1.8R 눌림 뒤 돌파");
+    }
+
+    @Test
+    void 정리_체결에_기법이_비면_진입_체결에서_잇고_실거래와_모의는_따로_센다() {
+        List<TradeJournal.Fill> fills = List.of(
+                fill(1, "BUY", null, entry("v1", "PULLBACK"), 0),
+                fill(2, "SELL", BigDecimal.ONE, exit("", "", TradeTrace.ExitReason.TP1, "1.8"), 10),
+                fill("LIVE", 3, "SELL", BigDecimal.ONE.negate(), exit("v1", "PULLBACK", TradeTrace.ExitReason.STOP, "-1"), 20));
+        assertThat(TradeJournal.setupStats(fills)).containsExactlyInAnyOrder(
+                new TradeJournal.SetupStat("PAPER", "v1", "PULLBACK", 1, 1, new BigDecimal("1.80")),
+                new TradeJournal.SetupStat("LIVE", "v1", "PULLBACK", 1, 0, new BigDecimal("-1.00")));
+        assertThat(TradeTexts.draftBody(day(fills))).contains("| v1 | PULLBACK | 1번 | 100% | +1.8R |", "| v1 (실계좌) | PULLBACK | 1번 | 0% | -1R |");
     }
 
     @Test

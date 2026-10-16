@@ -92,7 +92,10 @@ class TradeTraceRecordTest extends IntegrationTest {
         // 기간 성적과 AI가 읽는 하루 기록에도 정리 이유·R이 보인다 (#285)
         JsonNode setups = read(me.http().perform(get("/api/me/trades?days=7")).andExpect(status().isOk()).andReturn()).path("setups");
         assertThat(setups).hasSize(1);
-        assertThat(setups.get(0).path("strategyVersion").asString()).isEqualTo("");
+        // 정리 체결에 기법이 비어 있어도 같은 decision_id의 진입 체결 기법으로 센다
+        assertThat(setups.get(0).path("mode").asString()).isEqualTo("PAPER");
+        assertThat(setups.get(0).path("strategyVersion").asString()).isEqualTo("ladder-v0.1");
+        assertThat(setups.get(0).path("setup").asString()).isEqualTo("PULLBACK");
         assertThat(setups.get(0).path("samples").asInt()).isEqualTo(1);
         assertThat(setups.get(0).path("avgR").decimalValue()).isEqualByComparingTo("1.8");
         assertThat(text(call(t, "get_trade_day", Map.of("date", d.toString())))).contains("트레이딩 · PULLBACK", "TP1 정리 +1.8R");
