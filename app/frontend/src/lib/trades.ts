@@ -81,9 +81,9 @@ export interface SetupStat {
   avgR: number
 }
 
-/** R배수: +1.8R, -1R */
+/** R배수: +1.8R, -1R. 서버(TradeTexts.rText)처럼 0에서 먼 쪽으로 반올림한다(HALF_UP, -0.005 → -0.01) */
 export function rText(r: number): string {
-  const v = Math.round(r * 100) / 100
+  const v = Math.sign(r) * Math.round(Math.abs(r) * 100 + 1e-9) / 100
   return `${v > 0 ? '+' : ''}${v}R`
 }
 

@@ -94,6 +94,9 @@ describe('봇 판단 흔적 (#285)', () => {
   it('R배수는 부호와 소수 둘째 자리까지', () => {
     expect(rText(1.8)).toBe('+1.8R')
     expect(rText(-1)).toBe('-1R')
+    expect(rText(-0.005)).toBe('-0.01R')
+    expect(rText(1.005)).toBe('+1.01R')
+    expect(rText(0)).toBe('0R')
     expect(rText(0.456)).toBe('+0.46R')
   })
 
