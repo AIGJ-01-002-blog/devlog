@@ -149,7 +149,9 @@ class KrwQuotesTest {
 
     @Test
     void 시세_거래소는_코빗이나_업비트만_된다() {
-        assertThatThrownBy(() -> new PaperProperties("http://x", new BigDecimal("0.0005"), 5000, Duration.ofSeconds(5), "bithumb"))
+        BigDecimal fee = new BigDecimal("0.0005");
+        Duration timeout = Duration.ofSeconds(5);
+        assertThatThrownBy(() -> new PaperProperties("http://x", fee, 5000, timeout, "bithumb"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 

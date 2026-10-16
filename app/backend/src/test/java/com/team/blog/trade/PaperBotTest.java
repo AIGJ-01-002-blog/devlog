@@ -55,14 +55,14 @@ class PaperBotTest extends TradeBotSimTest {
         Session me = signup(uniqueLogin("pbset"));
         JsonNode v = read(me.http().perform(get("/api/me/trade-bot/paper")).andExpect(status().isOk()).andReturn());
         assertThat(v.path("settings").path("interval").asString()).isEqualTo("1h");
-        assertThat(v.path("intervals").toString()).isEqualTo("[\"15m\",\"1h\",\"4h\",\"1d\"]");
+        assertThat(v.path("intervals")).hasToString("[\"15m\",\"1h\",\"4h\",\"1d\"]");
         assertThat(v.path("coins").size()).isEqualTo(5);
 
         Map<String, Object> settings = Map.of("coins", List.of("ETH", "BTC"), "stopLoss", 0.02, "takeProfit", 0.04, "interval", "4h", "budget", 30000);
         me.http().perform(asJson(put("/api/me/trade-bot/paper"), Map.of("enabled", true, "settings", settings))).andExpect(status().isOk());
         v = read(me.http().perform(get("/api/me/trade-bot/paper")).andReturn());
         assertThat(v.path("enabled").asBoolean()).isTrue();
-        assertThat(v.path("settings").path("coins").toString()).isEqualTo("[\"BTC\",\"ETH\"]");
+        assertThat(v.path("settings").path("coins")).hasToString("[\"BTC\",\"ETH\"]");
         assertThat(v.path("settings").path("takeProfit").decimalValue()).isEqualByComparingTo("0.04");
 
         // 켜짐만 바꿔도 기준은 그대로다

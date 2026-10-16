@@ -162,24 +162,35 @@ public class TradeCharts {
         String symbol = exchange == Exchange.UPBIT ? "KRW-" + coin : coin + "USDT";
         // 원화(UPBIT 탭)는 기본으로 코빗에서 받는다. 봇 체결 표시는 그대로 업비트 심볼(KRW-BTC)로 맞춘다 (#325)
         boolean korbit = exchange == Exchange.UPBIT && props.korbit();
-        String url = exchange == Exchange.BINANCE
-                ? base(props.binanceUrl()) + "/api/v3/klines?symbol=" + symbol + "&interval=" + interval + "&limit=" + CANDLES
-                : korbit
-                ? base(props.korbitUrl()) + "/v2/candles?symbol=" + coin.toLowerCase(Locale.ROOT) + "_krw&interval=" + KORBIT_UNITS.get(interval) + "&limit=" + CANDLES
-                : base(props.upbitUrl()) + "/v1/candles/" + UPBIT_UNITS.get(interval) + "?market=" + symbol + "&count=" + CANDLES;
+        String url = candlesUrl(exchange, korbit, interval, coin, symbol);
         HttpRequest req = HttpRequest.newBuilder(URI.create(url)).timeout(TIMEOUT).header("Accept", "application/json").GET().build();
         String name = NAMES.get(coin);
         return client.sendAsync(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
                 .thenApply(res -> {
                     if (res.statusCode() != 200) throw new IllegalStateException("HTTP " + res.statusCode());
                     JsonNode body = json.readTree(res.body());
-                    List<Candle> candles = exchange == Exchange.BINANCE ? binance(body) : korbit ? korbit(body) : upbit(body);
+                    List<Candle> candles = parse(exchange, korbit, body);
                     return new Coin(coin, name, symbol, candles, List.of(), null);
                 })
                 .exceptionally(e -> {
                     log.warn("차트 캔들을 받지 못함 {} {} {}: {}", exchange, symbol, interval, e.getMessage());
                     return new Coin(coin, name, symbol, List.of(), List.of(), "시세를 받지 못했어요. 잠시 뒤 다시 받아요.");
                 });
+    }
+
+    private String candlesUrl(Exchange exchange, boolean korbit, String interval, String coin, String symbol) {
+        if (exchange == Exchange.BINANCE) {
+            return base(props.binanceUrl()) + "/api/v3/klines?symbol=" + symbol + "&interval=" + interval + "&limit=" + CANDLES;
+        }
+        if (korbit) {
+            return base(props.korbitUrl()) + "/v2/candles?symbol=" + coin.toLowerCase(Locale.ROOT) + "_krw&interval=" + KORBIT_UNITS.get(interval) + "&limit=" + CANDLES;
+        }
+        return base(props.upbitUrl()) + "/v1/candles/" + UPBIT_UNITS.get(interval) + "?market=" + symbol + "&count=" + CANDLES;
+    }
+
+    private static List<Candle> parse(Exchange exchange, boolean korbit, JsonNode body) {
+        if (exchange == Exchange.BINANCE) return binance(body);
+        return korbit ? korbit(body) : upbit(body);
     }
 
     /** 바이낸스 klines: [열린 시각, 시가, 고가, 저가, 종가, …], 오래된 순 */
