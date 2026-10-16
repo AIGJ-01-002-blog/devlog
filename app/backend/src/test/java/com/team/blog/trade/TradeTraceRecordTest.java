@@ -56,12 +56,8 @@ class TradeTraceRecordTest extends IntegrationTest {
         return a;
     }
 
-    @Test
-    void 진입과_정리_체결에_판단_흔적을_남기고_같은_판단_키로_읽는다() throws Exception {
-        Session me = signup(uniqueLogin("trace"));
-        String t = token(me);
-        LocalDate d = LocalDate.now(KST).minusDays(1);
-
+    /** 어제 9시 진입(흔적 모두)과 15시 정리(기법 없이 판단 키·정리 이유·R)를 남기고 정리 체결 입력을 돌려준다 */
+    Map<String, Object> entryAndExit(String t, LocalDate d) throws Exception {
         JsonNode in = call(t, "record_trade", entry("tr-1", d));
         assertThat(in.path("isError").asBoolean()).as(text(in)).isFalse();
         Map<String, Object> out = new HashMap<>(Map.of("external_id", "tr-2", "exchange", "BINANCE", "currency", "USDT", "market", "FUTURES",
@@ -70,6 +66,15 @@ class TradeTraceRecordTest extends IntegrationTest {
                 "r_multiple", 1.8, "funding", -0.12, "fee", 0.5));
         JsonNode exit = call(t, "record_trade", out);
         assertThat(exit.path("isError").asBoolean()).as(text(exit)).isFalse();
+        return out;
+    }
+
+    @Test
+    void 진입과_정리_체결에_판단_흔적을_남기고_같은_판단_키로_읽는다() throws Exception {
+        Session me = signup(uniqueLogin("trace"));
+        String t = token(me);
+        LocalDate d = LocalDate.now(KST).minusDays(1);
+        entryAndExit(t, d);
         // 흔적 없는 옛 호출도 그대로 남는다
         assertThat(call(t, "record_trade", Map.of("external_id", "tr-3", "symbol", "005930", "side", "BUY", "quantity", 1, "price", 70000,
                 "executed_at", at(d, "16:00:00"))).path("isError").asBoolean()).isFalse();
@@ -89,6 +94,17 @@ class TradeTraceRecordTest extends IntegrationTest {
         assertThat(b.path("exitReason").asString()).isEqualTo("TP1");
         assertThat(b.path("rMultiple").decimalValue()).isEqualByComparingTo("1.8");
         assertThat(b.path("funding").decimalValue()).isEqualByComparingTo("-0.12");
+        JsonNode c = fills.get(2).path("trace");
+        assertThat(c.path("strategyVersion").asString()).isEmpty();
+        assertThat(c.path("basket").isNull()).isTrue();
+    }
+
+    @Test
+    void 기법별_성적은_정리_체결에_기법이_비면_진입_체결로_세고_진입이_기간_앞이어도_잇는다() throws Exception {
+        Session me = signup(uniqueLogin("trace"));
+        String t = token(me);
+        LocalDate d = LocalDate.now(KST).minusDays(1);
+        Map<String, Object> out = entryAndExit(t, d);
         // 기간 성적과 AI가 읽는 하루 기록에도 정리 이유·R이 보인다 (#285)
         JsonNode setups = read(me.http().perform(get("/api/me/trades?days=7")).andExpect(status().isOk()).andReturn()).path("setups");
         assertThat(setups).hasSize(1);
@@ -99,10 +115,6 @@ class TradeTraceRecordTest extends IntegrationTest {
         assertThat(setups.get(0).path("samples").asInt()).isEqualTo(1);
         assertThat(setups.get(0).path("avgR").decimalValue()).isEqualByComparingTo("1.8");
         assertThat(text(call(t, "get_trade_day", Map.of("date", d.toString())))).contains("트레이딩 · PULLBACK", "TP1 정리 +1.8R");
-        JsonNode c = fills.get(2).path("trace");
-        assertThat(c.path("strategyVersion").asString()).isEmpty();
-        assertThat(c.path("basket").isNull()).isTrue();
-
         // 진입이 기간 앞(어제)에 있어도 오늘 정리 체결은 그 진입의 기법으로 센다
         Map<String, Object> late = new HashMap<>(out);
         late.putAll(Map.of("external_id", "tr-4", "executed_at", at(d.plusDays(1), "00:00:01"), "r_multiple", -1, "exit_reason", "STOP"));

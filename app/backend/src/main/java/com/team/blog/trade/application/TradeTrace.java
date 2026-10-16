@@ -34,6 +34,7 @@ public record TradeTrace(String strategyVersion, String decisionId, Basket baske
     public static final int AI_MODEL_MAX = 60;
     public static final int NEWS_SCORE_MAX = 10;
     /** numeric(12, 4)에 넉넉히 들어가는 R배수 */
+    private static final String CHARS_MAX = "자까지예요.";
     private static final BigDecimal R_MAX = new BigDecimal("99999999");
     private static final BigDecimal AMOUNT_MAX = new BigDecimal("99999999999999");
     /** ai_cost는 numeric(18, 8)이라 정수 10자리까지만 들어가요. */
@@ -72,11 +73,20 @@ public record TradeTrace(String strategyVersion, String decisionId, Basket baske
         stage(errors, "setup", set);
         stage(errors, "trigger", trg);
         if (!FLAGS.matcher(flags).matches()) {
-            errors.add(new FieldErrorItem("news_flags", INVALID, "뉴스 표시(news_flags)는 MACRO_EVENT처럼 영문 대문자를 쉼표로 이어 " + NEWS_FLAGS_MAX + "자까지예요."));
+            errors.add(new FieldErrorItem("news_flags", INVALID, "뉴스 표시(news_flags)는 MACRO_EVENT처럼 영문 대문자를 쉼표로 이어 " + NEWS_FLAGS_MAX + CHARS_MAX));
         }
         if (newsScore != null && Math.abs(newsScore) > NEWS_SCORE_MAX) {
             errors.add(new FieldErrorItem("news_score", INVALID, "뉴스 점수(news_score)는 -" + NEWS_SCORE_MAX + "~" + NEWS_SCORE_MAX + "예요."));
         }
+        amounts(errors);
+        if (model.length() > AI_MODEL_MAX) errors.add(new FieldErrorItem("ai_model", TOO_LONG, "AI 모델 이름은 " + AI_MODEL_MAX + CHARS_MAX));
+        placement(errors, futures, closes);
+        return new TradeTrace(version, decision, basket, reg, set, trg, newsScore, flags, riskPct, kellyRaw, kellyUsed, aiConf, equityAtEntry,
+                stopPrice, tp1Price, tp2Price, liquidationPrice, model, aiCost, exitReason, rMultiple, funding);
+    }
+
+    /** 비율·금액 칸의 범위 */
+    private void amounts(List<FieldErrorItem> errors) {
         fraction(errors, "risk_pct", riskPct);
         fraction(errors, "kelly_raw", kellyRaw);
         fraction(errors, "kelly_used", kellyUsed);
@@ -90,7 +100,10 @@ public record TradeTrace(String strategyVersion, String decisionId, Basket baske
         if (aiCost != null && (aiCost.signum() < 0 || aiCost.compareTo(AI_COST_MAX) > 0)) {
             errors.add(new FieldErrorItem("ai_cost", INVALID, "ai_cost는 0 이상 " + AI_COST_MAX.toPlainString() + " 이하여야 해요."));
         }
-        if (model.length() > AI_MODEL_MAX) errors.add(new FieldErrorItem("ai_model", TOO_LONG, "AI 모델 이름은 " + AI_MODEL_MAX + "자까지예요."));
+    }
+
+    /** 선물에만 적는 칸(청산가·펀딩비)과 정리 체결에만 적는 칸(정리 이유·R배수) */
+    private void placement(List<FieldErrorItem> errors, boolean futures, boolean closes) {
         if (!futures && liquidationPrice != null) {
             errors.add(new FieldErrorItem("liquidation_price", INVALID, "청산가(liquidation_price)는 선물(market=FUTURES)에만 적어요."));
         }
@@ -103,14 +116,12 @@ public record TradeTrace(String strategyVersion, String decisionId, Basket baske
             errors.add(new FieldErrorItem("r_multiple", INVALID, "R배수(r_multiple)는 포지션을 닫는 체결(현물 매도, 선물 청산)에만 적어요."));
         }
         if (rMultiple != null && rMultiple.abs().compareTo(R_MAX) > 0) errors.add(new FieldErrorItem("r_multiple", INVALID, "R배수가 너무 커요."));
-        return new TradeTrace(version, decision, basket, reg, set, trg, newsScore, flags, riskPct, kellyRaw, kellyUsed, aiConf, equityAtEntry,
-                stopPrice, tp1Price, tp2Price, liquidationPrice, model, aiCost, exitReason, rMultiple, funding);
     }
 
     private record Named(String name, BigDecimal value) {}
 
     private static void key(List<FieldErrorItem> errors, String field, String value, int max, String label) {
-        if (value.length() > max) errors.add(new FieldErrorItem(field, TOO_LONG, label + "(" + field + ")는 " + max + "자까지예요."));
+        if (value.length() > max) errors.add(new FieldErrorItem(field, TOO_LONG, label + "(" + field + ")는 " + max + CHARS_MAX));
         else if (!KEY.matcher(value).matches()) {
             errors.add(new FieldErrorItem(field, INVALID, label + "(" + field + ")는 영문·숫자와 . _ : + -만 써요."));
         }
@@ -118,7 +129,7 @@ public record TradeTrace(String strategyVersion, String decisionId, Basket baske
 
     private static void stage(List<FieldErrorItem> errors, String field, String value) {
         if (!STAGE.matcher(value).matches()) {
-            errors.add(new FieldErrorItem(field, INVALID, field + "는 UP, PULLBACK처럼 영문 대문자·숫자·_로 " + STAGE_MAX + "자까지예요."));
+            errors.add(new FieldErrorItem(field, INVALID, field + "는 UP, PULLBACK처럼 영문 대문자·숫자·_로 " + STAGE_MAX + CHARS_MAX));
         }
     }
 

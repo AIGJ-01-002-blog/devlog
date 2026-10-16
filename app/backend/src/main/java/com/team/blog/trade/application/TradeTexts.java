@@ -153,10 +153,17 @@ public final class TradeTexts {
 
     /** 하루 요약 임시글 본문 (Markdown). 체결 표·요약·메모·고지 */
     static String draftBody(TradeJournal.Day day) {
-        TradeJournal.Summary s = day.summary();
         StringBuilder md = new StringBuilder();
         md.append("> ").append(DISCLAIMER).append("\n\n");
         if (!day.memo().isBlank()) md.append("## 오늘 메모\n\n").append(day.memo().strip()).append("\n\n");
+        appendSummary(md, day);
+        appendSetupStats(md, day.setupStats());
+        appendFills(md, day);
+        return md.toString();
+    }
+
+    private static void appendSummary(StringBuilder md, TradeJournal.Day day) {
+        TradeJournal.Summary s = day.summary();
         md.append("## 요약\n\n");
         md.append("- 체결 ").append(s.trades()).append("건 (매수 ").append(s.buys()).append(" · 매도 ").append(s.sells()).append(")\n");
         if (s.closes() > 0) {
@@ -173,18 +180,22 @@ public final class TradeTexts {
         });
         md.append("- 수수료·세금: ").append(money(day, s.fees(), false)).append('\n');
         md.append("- 지금까지 실현 손익: ").append(money(day, day.cumulativePnl(), true)).append("\n\n");
-        List<TradeJournal.SetupStat> stats = day.setupStats();
-        if (!stats.isEmpty()) {
-            md.append("## 기법별 성적\n\n| 기법 버전 | 셋업 | 정리 | 승률 | 평균 R |\n|---|---|---:|---:|---:|\n");
-            for (TradeJournal.SetupStat st : stats) {
-                md.append("| ").append(cell(st.strategyVersion().isBlank() ? "-" : st.strategyVersion())).append(st.mode().equals("LIVE") ? " (실계좌)" : "")
-                        .append(" | ").append(cell(st.setup().isBlank() ? "-" : st.setup()))
-                        .append(" | ").append(st.samples()).append("번")
-                        .append(" | ").append(Math.round(st.wins() * 100.0 / st.samples())).append('%')
-                        .append(" | ").append(rText(st.avgR())).append(" |\n");
-            }
-            md.append('\n');
+    }
+
+    private static void appendSetupStats(StringBuilder md, List<TradeJournal.SetupStat> stats) {
+        if (stats.isEmpty()) return;
+        md.append("## 기법별 성적\n\n| 기법 버전 | 셋업 | 정리 | 승률 | 평균 R |\n|---|---|---:|---:|---:|\n");
+        for (TradeJournal.SetupStat st : stats) {
+            md.append("| ").append(cell(st.strategyVersion().isBlank() ? "-" : st.strategyVersion())).append(st.mode().equals("LIVE") ? " (실계좌)" : "")
+                    .append(" | ").append(cell(st.setup().isBlank() ? "-" : st.setup()))
+                    .append(" | ").append(st.samples()).append("번")
+                    .append(" | ").append(Math.round(st.wins() * 100.0 / st.samples())).append('%')
+                    .append(" | ").append(rText(st.avgR())).append(" |\n");
         }
+        md.append('\n');
+    }
+
+    private static void appendFills(StringBuilder md, TradeJournal.Day day) {
         md.append("## 체결\n\n| 시각 | 종목 | 구분 | 수량 | 가격 | 실현 손익 | 이유 |\n|---|---|---|---:|---:|---:|---|\n");
         for (TradeJournal.Fill f : day.fills().stream().sorted(Comparator.comparing(TradeJournal.Fill::executedAt)).toList()) {
             md.append("| ").append(TIME.format(f.executedAt()))
@@ -197,7 +208,6 @@ public final class TradeTexts {
                     .append(" | ").append(cell(why(f)))
                     .append(" |\n");
         }
-        return md.toString();
     }
 
     private static String cell(String s) {

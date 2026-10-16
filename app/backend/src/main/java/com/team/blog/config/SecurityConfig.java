@@ -174,10 +174,16 @@ public class SecurityConfig {
         return s -> s.requestMatcher(AnyRequestMatcher.INSTANCE).maxAgeInSeconds(HSTS_MAX_AGE_SECONDS).includeSubDomains(false);
     }
 
-    /** SPA가 읽어야 하니 HttpOnly는 끄고, https 전용이면 Secure를 붙인다. SameSite는 세션 쿠키와 같은 Lax */
+    /**
+     * SPA가 읽어야 하니 HttpOnly는 끄고, https 전용이면 Secure를 붙인다. SameSite는 세션 쿠키와 같은 Lax.
+     * https 전용이 아니면 Secure를 정하지 않아 요청이 https인지 보고 붙이는 기본 동작을 남긴다
+     */
     CookieCsrfTokenRepository csrfTokens() {
         CookieCsrfTokenRepository repo = CookieCsrfTokenRepository.withHttpOnlyFalse();
-        repo.setCookieCustomizer(c -> c.secure(httpsOnly).sameSite("Lax"));
+        repo.setCookieCustomizer(c -> {
+            if (httpsOnly) c.secure(true);
+            c.sameSite("Lax");
+        });
         return repo;
     }
 
