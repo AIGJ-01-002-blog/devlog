@@ -4,6 +4,7 @@ import json
 import shutil
 import threading
 import unittest
+from unittest import mock
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -160,6 +161,66 @@ class ClientTest(unittest.TestCase):
                 loop(Client(f"http://127.0.0.1:{httpd.server_port}", "bad"), BrokenRenderer(), "x", interval=0.01, once=True)
         finally:
             httpd.shutdown()
+
+    def test_server_blip_after_start_does_not_stop_worker(self):
+        """배포 중 잠깐 404·끊긴 응답이 와도 처음에 받아 준 워커는 끄지 않고 다시 묻는다"""
+        answers = [204, 404, "broken", 401, 204]
+
+        class Blip(BaseHTTPRequestHandler):
+            def log_message(self, *args):
+                pass
+
+            def do_POST(self):
+                code = answers.pop(0) if answers else 204
+                if code == "broken":  # 길이만 말하고 몸통 없이 끊는다
+                    self.send_response(200)
+                    self.send_header("Content-Length", "50")
+                    self.end_headers()
+                    return
+                self.send_response(code)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+
+        httpd = ThreadingHTTPServer(("127.0.0.1", 0), Blip)
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        client = Client(f"http://127.0.0.1:{httpd.server_port}", "tok", timeout=2)
+        calls = []
+
+        def stop_after_five(*a, **k):  # 다섯 번 물은 뒤 Ctrl+C처럼 끊는다
+            calls.append(1)
+            if len(calls) > 5:
+                raise KeyboardInterrupt
+            return run_once(*a, **k)
+
+        try:
+            with mock.patch("devlog_render.worker.time.sleep"), mock.patch("devlog_render.worker.run_once", side_effect=stop_after_five):
+                with self.assertRaises(KeyboardInterrupt):
+                    loop(client, BrokenRenderer(), "x", interval=0.01)
+        finally:
+            httpd.shutdown()
+        self.assertEqual(answers, [])
+
+
+@unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "ffmpeg 없음")
+class UploadBlipTest(unittest.TestCase):
+    def test_upload_404_on_first_job_does_not_stop_worker(self):
+        """첫 작업을 받아 렌더하는 사이 서버가 배포돼 올리기가 404여도 워커는 끄지 않는다"""
+        server = FakeServer(JOB, upload_status=404)
+        calls = []
+
+        def stop_after_three(*a, **k):
+            calls.append(1)
+            if len(calls) > 3:
+                raise KeyboardInterrupt
+            return run_once(*a, **k)
+
+        try:
+            with mock.patch("devlog_render.worker.time.sleep"), mock.patch("devlog_render.worker.run_once", side_effect=stop_after_three):
+                with self.assertRaises(KeyboardInterrupt):
+                    loop(Client(server.url, "tok"), renderer(), "devlog.life", interval=0.01)
+        finally:
+            server.close()
+        self.assertEqual(len(server.uploads), 1)
 
 
 if __name__ == "__main__":
