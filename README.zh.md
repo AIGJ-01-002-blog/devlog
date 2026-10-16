@@ -390,6 +390,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v2.2.1 | 2026-10-16 | 安全修复: 限价单填入极大数量时几乎不冻结积分即可买入(订单金额与数量上限) | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.2.1) |
 | v2.2.0 | 2026-10-16 | 积分模拟投资:Upbit 式下单面板与限价单·撤单,图表上同时显示我的成交与机器人成交,服务器模拟机器人用基本积分交易韩元·Binance 账户并可按会员设置(币种·K线周期·止损·止盈·金额),韩元K线改从 Korbit 获取,管理员商店按类型分标签,短视频结尾 3 秒博客广告,SonarQube 问题清零 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.2.0) |
 | v2.1.3 | 2026-10-16 | 修复积分模拟投资不显示行情的问题(学校服务器无法连接 Upbit,改用 Korbit 行情) | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.1.3) |
 | v2.1.2 | 2026-10-16 | 修复已完成的短视频因 AccessDenied 无法打开的问题 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.1.2) |

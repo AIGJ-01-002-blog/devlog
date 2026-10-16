@@ -390,6 +390,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v2.2.1 | 2026-10-16 | Security fix: a huge limit-order quantity could buy almost for free because the credit total overflowed (order total and quantity caps) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.2.1) |
 | v2.2.0 | 2026-10-16 | Credit paper trading: an Upbit-style order panel with limit orders and cancelling, my fills and bot fills on the chart, the server paper bot trading KRW and Binance accounts with base credits and per-member settings (coins, candle interval, stop loss, take profit, amount), KRW candles from Korbit, item-type tabs in the admin shop, a 3-second blog outro on Shorts, and zero SonarQube issues | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.2.0) |
 | v2.1.3 | 2026-10-16 | Fix point paper trading showing no prices (Upbit is blocked from the school server, so prices now come from Korbit) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.1.3) |
 | v2.1.2 | 2026-10-16 | Fix finished Shorts videos failing to open with AccessDenied | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.1.2) |

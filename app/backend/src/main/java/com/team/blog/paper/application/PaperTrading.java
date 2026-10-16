@@ -51,6 +51,10 @@ public class PaperTrading implements BotCredits {
     private static final Pattern ORDER_ID = Pattern.compile("[A-Za-z0-9-]{8,64}");
     private static final int REASON_MAX = 300;
     private static final BigDecimal MAX_PRICE = new BigDecimal("10000000000000");
+    /** 한 주문의 최대 금액(크레딧). 수량×가격을 long으로 바꿀 때 넘치지 않게 지정가에도 같은 상한을 둔다 */
+    private static final long MAX_ORDER = 1_000_000_000_000L;
+    /** 지정가 수량 상한. 저장 칸(numeric(28,10))과 곱셈이 넘치지 않을 만큼 */
+    private static final BigDecimal MAX_QUANTITY = new BigDecimal("1000000000000");
     private static final String TOO_SMALL = "TOO_SMALL";
     private static final String INVALID = "INVALID";
     private static final String SYMBOL = "symbol";
@@ -436,7 +440,7 @@ public class PaperTrading implements BotCredits {
     }
 
     private long lockBuy(long memberId, Valid v) {
-        long gross = v.quantity().multiply(v.price()).setScale(0, RoundingMode.CEILING).longValue();
+        long gross = v.quantity().multiply(v.price()).setScale(0, RoundingMode.CEILING).longValueExact();
         long fee = BigDecimal.valueOf(gross).multiply(props.feeRate()).setScale(0, RoundingMode.CEILING).longValue();
         long need = gross + fee;
         PointLedger.Balance b = points.balance(memberId);
@@ -460,7 +464,7 @@ public class PaperTrading implements BotCredits {
         BigDecimal reserved = reserved(memberId, v.coin().symbol(), null);
         BigDecimal free = pos.quantity().subtract(reserved).max(BigDecimal.ZERO);
         if (v.quantity().compareTo(free) > 0) throw notEnough(v, free, reserved);
-        long gross = v.quantity().multiply(v.price()).setScale(0, RoundingMode.DOWN).longValue();
+        long gross = v.quantity().multiply(v.price()).setScale(0, RoundingMode.DOWN).longValueExact();
         if (gross < props.minOrder() && v.quantity().compareTo(free) != 0) {
             throw ApiException.badRequest(TOO_SMALL, minOrderText("팔") + " 남은 것을 모두 팔 때는 금액 제한이 없어요.");
         }
@@ -610,6 +614,10 @@ public class PaperTrading implements BotCredits {
         if (side == Side.BUY && price != null && qty != null && qty.multiply(price).compareTo(BigDecimal.valueOf(props.minOrder())) < 0) {
             errors.add(new FieldErrorItem(QUANTITY, TOO_SMALL, minOrderText("살")));
         }
+        // 수량×가격이 long을 넘으면 묶는 크레딧이 잘려 거의 공짜로 살 수 있었다 (CWE-197). 사고팔기 모두 막는다
+        if (price != null && qty != null && qty.multiply(price).compareTo(BigDecimal.valueOf(MAX_ORDER)) > 0) {
+            errors.add(new FieldErrorItem(QUANTITY, INVALID, "한 번에 주문할 수 있는 금액은 1조 크레딧까지예요."));
+        }
         String reason = reason(in.reason(), errors);
         if (!errors.isEmpty()) throw ApiException.validation(errors);
         return new Valid(orderId, coin, side, 0, qty, false, Boolean.TRUE.equals(in.useShop()), reason, STRATEGY, price);
@@ -703,7 +711,7 @@ public class PaperTrading implements BotCredits {
         Side side = side(in.side(), errors);
         long amount = in.amount() == null ? 0 : in.amount();
         boolean all = Boolean.TRUE.equals(in.all());
-        if (side == Side.BUY && (amount < props.minOrder() || amount > 1_000_000_000_000L)) {
+        if (side == Side.BUY && (amount < props.minOrder() || amount > MAX_ORDER)) {
             errors.add(new FieldErrorItem("amount", INVALID, minOrderText("살")));
         }
         if (side == Side.SELL && !all && (in.quantity() == null || in.quantity().signum() <= 0)) {
@@ -725,7 +733,7 @@ public class PaperTrading implements BotCredits {
     /** 지정가 수량. 코인 소수 자리로 자르고, 0 이하이면 오류를 더하고 null */
     private static BigDecimal limitQuantity(BigDecimal raw, PaperCoins.Coin coin, List<FieldErrorItem> errors) {
         BigDecimal qty = raw == null || coin == null ? null : raw.setScale(coin.scale(), RoundingMode.DOWN);
-        if (qty != null && qty.signum() > 0) return qty;
+        if (qty != null && qty.signum() > 0 && qty.compareTo(MAX_QUANTITY) <= 0) return qty;
         errors.add(new FieldErrorItem(QUANTITY, INVALID, "주문 수량을 적어 주세요."));
         return null;
     }
