@@ -113,14 +113,20 @@ class PaperTradingTest extends IntegrationTest {
 
         // 한 번 더 열어도 다시 체결하지 않는다
         assertThat(state(me).path("positions").get(0).path("quantity").decimalValue()).isEqualByComparingTo("0.01");
+    }
 
-        // 아직 닿지 않은 매수는 취소하면 묶은 크레딧이 그대로 돌아온다
+    /** #332 아직 닿지 않은 지정가 매수는 취소하면 묶은 크레딧이 그대로 돌아오고, 남의 주문은 없는 주문이다 */
+    @Test
+    void 닿지_않은_지정가_매수를_취소하면_묶은_크레딧이_돌아온다() throws Exception {
+        Session me = signup(uniqueLogin("pplimcan"));
+        state(me);
         JsonNode open = limit(me, limitBody(orderId(), "BTC", "BUY", "50000000", "0.02"), 200);
         assertThat(open.path("order").path("locked").asLong()).isEqualTo(1_000_500);
+        assertThat(wallet(me, "INVEST_ONLY")).isEqualTo(10_000_000L - 1_000_500);
         long id2 = open.path("order").path("id").asLong();
         JsonNode canceled = read(me.http().perform(delete("/api/me/paper/limit-orders/" + id2).with(csrf())).andExpect(status().isOk()).andReturn());
         assertThat(canceled.path("locked").asLong()).isZero();
-        assertThat(wallet(me, "INVEST_ONLY")).isEqualTo(10_000_000L - 890_445);
+        assertThat(wallet(me, "INVEST_ONLY")).isEqualTo(10_000_000L);
         assertThat(read(me.http().perform(delete("/api/me/paper/limit-orders/" + id2).with(csrf())).andExpect(status().isConflict()).andReturn())
                 .path("code").asString()).isEqualTo("CLOSED");
         // 남의 주문은 없는 주문이다

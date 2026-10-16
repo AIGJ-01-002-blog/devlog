@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -52,6 +53,9 @@ public class PaperTrading implements BotCredits {
     private static final BigDecimal MAX_PRICE = new BigDecimal("10000000000000");
     private static final String TOO_SMALL = "TOO_SMALL";
     private static final String INVALID = "INVALID";
+    private static final String SYMBOL = "symbol";
+    private static final String QUANTITY = "quantity";
+    private static final String PRICE = "price";
     public static final String STRATEGY = "포인트 모의투자";
     /** 서버 모의 봇이 기본 크레딧으로 낸 체결의 매매 일지 전략 이름 (#331) */
     public static final String BOT_STRATEGY = "서버 모의 봇";
@@ -165,9 +169,9 @@ public class PaperTrading implements BotCredits {
         long holdings = 0;
         for (Map<String, Object> row : jdbc.queryForList(
                 "SELECT symbol, quantity, cost_invest, cost_shop FROM paper_position WHERE member_id = ? ORDER BY symbol", memberId)) {
-            String symbol = (String) row.get("symbol");
+            String symbol = (String) row.get(SYMBOL);
             PaperCoins.Coin coin = PaperCoins.of(symbol).orElse(new PaperCoins.Coin(symbol, symbol, 8));
-            BigDecimal qty = (BigDecimal) row.get("quantity");
+            BigDecimal qty = (BigDecimal) row.get(QUANTITY);
             long ci = ((Number) row.get("cost_invest")).longValue();
             long cs = ((Number) row.get("cost_shop")).longValue();
             long cost = ci + cs;
@@ -196,11 +200,11 @@ public class PaperTrading implements BotCredits {
                     SELECT id FROM paper_limit_order WHERE member_id = ? AND status <> 'OPEN' ORDER BY id DESC LIMIT 20))
                 ORDER BY o.id DESC
                 """, (rs, i) -> {
-            String symbol = rs.getString("symbol");
+            String symbol = rs.getString(SYMBOL);
             BigDecimal filledPrice = rs.getBigDecimal("filled_price");
             Timestamp closed = rs.getTimestamp("closed_at");
-            return new LimitView(rs.getLong("id"), symbol, nameOf(symbol), rs.getString("side"), rs.getBigDecimal("price").stripTrailingZeros(),
-                    rs.getBigDecimal("quantity").stripTrailingZeros(), rs.getLong("locked"), rs.getString("status"),
+            return new LimitView(rs.getLong("id"), symbol, nameOf(symbol), rs.getString("side"), rs.getBigDecimal(PRICE).stripTrailingZeros(),
+                    rs.getBigDecimal(QUANTITY).stripTrailingZeros(), rs.getLong("locked"), rs.getString("status"),
                     filledPrice == null ? null : filledPrice.stripTrailingZeros(), rs.getTimestamp("created_at").toInstant(),
                     closed == null ? null : closed.toInstant());
         }, memberId, memberId);
@@ -213,10 +217,10 @@ public class PaperTrading implements BotCredits {
                 WHERE member_id = ? AND mode = 'PAPER' AND exchange = 'UPBIT' AND strategy IN (?, ?)
                 ORDER BY executed_at DESC, id DESC LIMIT 30
                 """, (rs, i) -> {
-            String symbol = rs.getString("symbol");
+            String symbol = rs.getString(SYMBOL);
             BigDecimal pnl = rs.getBigDecimal("realized_pnl");
-            return new FillView(rs.getLong("id"), symbol, nameOf(symbol), rs.getString("side"), rs.getBigDecimal("quantity").stripTrailingZeros(),
-                    rs.getBigDecimal("price").stripTrailingZeros(), rs.getBigDecimal("fee").stripTrailingZeros(), pnl == null ? null : pnl.stripTrailingZeros(),
+            return new FillView(rs.getLong("id"), symbol, nameOf(symbol), rs.getString("side"), rs.getBigDecimal(QUANTITY).stripTrailingZeros(),
+                    rs.getBigDecimal(PRICE).stripTrailingZeros(), rs.getBigDecimal("fee").stripTrailingZeros(), pnl == null ? null : pnl.stripTrailingZeros(),
                     BOT_STRATEGY.equals(rs.getString("strategy")), rs.getTimestamp("executed_at").toInstant());
         }, memberId, STRATEGY, BOT_STRATEGY);
     }
@@ -298,13 +302,7 @@ public class PaperTrading implements BotCredits {
         BigDecimal have = pos.quantity();
         BigDecimal free = have.subtract(reserved).max(BigDecimal.ZERO);
         BigDecimal qty = v.all() ? free : v.quantity().setScale(v.coin().scale(), RoundingMode.DOWN);
-        if (qty.signum() <= 0) {
-            throw ApiException.badRequest(TOO_SMALL, v.all() && reserved.signum() > 0 ? "지정가 매도에 묶이지 않은 수량이 없어요. 주문을 취소하면 풀려요." : "팔 수량을 적어 주세요.");
-        }
-        if (qty.compareTo(free) > 0) {
-            throw ApiException.conflict("NOT_ENOUGH", "팔 수 있는 " + v.coin().name() + "은(는) " + free.stripTrailingZeros().toPlainString() + "개예요."
-                    + (reserved.signum() > 0 ? " 지정가 매도에 " + reserved.stripTrailingZeros().toPlainString() + "개가 묶여 있어요." : ""));
-        }
+        requireSellable(v, qty, free, reserved);
         boolean whole = qty.compareTo(have) == 0;
         long ci = pos.costInvest();
         long cs = pos.costShop();
@@ -313,24 +311,14 @@ public class PaperTrading implements BotCredits {
         long partShop = whole ? cs : BigDecimal.valueOf(cs).multiply(ratio).setScale(0, RoundingMode.HALF_UP).longValue();
         long gross = qty.multiply(price).setScale(0, RoundingMode.DOWN).longValue();
         if (checkMin && gross < props.minOrder() && qty.compareTo(free) != 0) {
-            throw ApiException.badRequest(TOO_SMALL, "한 번에 " + won(props.minOrder()) + " 이상 팔 수 있어요. 남은 것을 모두 팔 때는 금액 제한이 없어요.");
+            throw ApiException.badRequest(TOO_SMALL, minOrderText("팔") + " 남은 것을 모두 팔 때는 금액 제한이 없어요.");
         }
         long fee = BigDecimal.valueOf(gross).multiply(props.feeRate()).setScale(0, RoundingMode.CEILING).longValue();
         long proceeds = Math.max(0, gross - fee);
         long cost = partInvest + partShop;
         long pnl = proceeds - cost;
-        long backInvest;
-        long backShop;
-        if (pnl >= 0) {
-            // 원금은 낸 지갑으로 돌려주고, 수익은 아래에서 전부 크레딧으로 넣는다 (블로그 주인 결정)
-            backInvest = partInvest;
-            backShop = partShop;
-        } else {
-            // 손실은 원금을 낸 비율대로 나눠 뺀다
-            backShop = cost == 0 ? 0 : BigDecimal.valueOf(partShop).multiply(BigDecimal.valueOf(proceeds))
-                    .divide(BigDecimal.valueOf(cost), 0, RoundingMode.DOWN).longValue();
-            backInvest = proceeds - backShop;
-        }
+        long backShop = shopBack(partShop, proceeds, cost, pnl);
+        long backInvest = pnl >= 0 ? partInvest : proceeds - backShop;
         String memo = v.coin().name() + " 매도";
         points.credit(memberId, Wallet.INVEST_ONLY, backInvest, PointReason.INVEST, key(v, "sell-invest"), null, memo);
         points.credit(memberId, Wallet.SHOP, backShop, PointReason.INVEST, key(v, "sell-shop"), null, memo);
@@ -338,6 +326,29 @@ public class PaperTrading implements BotCredits {
         long tradeId = recordTrade(memberId, v, TradeJournal.Side.SELL, qty, price, fee, BigDecimal.valueOf(pnl));
         long reward = points.creditTradeProfit(memberId, tradeId, pnl);
         return new Filled(false, tradeId, Side.SELL.name(), v.coin().symbol(), qty, price, fee, pnl, reward, null);
+    }
+
+    /** 팔 수량이 0이거나 팔 수 있는 것보다 많으면 거절한다 */
+    private static void requireSellable(Valid v, BigDecimal qty, BigDecimal free, BigDecimal reserved) {
+        if (qty.signum() <= 0) {
+            throw ApiException.badRequest(TOO_SMALL, v.all() && reserved.signum() > 0 ? "지정가 매도에 묶이지 않은 수량이 없어요. 주문을 취소하면 풀려요." : "팔 수량을 적어 주세요.");
+        }
+        if (qty.compareTo(free) > 0) throw notEnough(v, free, reserved);
+    }
+
+    private static ApiException notEnough(Valid v, BigDecimal free, BigDecimal reserved) {
+        return ApiException.conflict("NOT_ENOUGH", "팔 수 있는 " + v.coin().name() + "은(는) " + free.stripTrailingZeros().toPlainString() + "개예요."
+                + (reserved.signum() > 0 ? " 지정가 매도에 " + reserved.stripTrailingZeros().toPlainString() + "개가 묶여 있어요." : ""));
+    }
+
+    /**
+     * 판 돈 가운데 번 크레딧 지갑으로 돌려줄 몫. 이익이면 원금은 낸 지갑으로 돌려주고 수익은 따로 크레딧으로 넣는다(블로그 주인 결정).
+     * 손실이면 원금을 낸 비율대로 나눠 뺀다
+     */
+    private static long shopBack(long partShop, long proceeds, long cost, long pnl) {
+        if (pnl >= 0) return partShop;
+        if (cost == 0) return 0;
+        return BigDecimal.valueOf(partShop).multiply(BigDecimal.valueOf(proceeds)).divide(BigDecimal.valueOf(cost), 0, RoundingMode.DOWN).longValue();
     }
 
     /** 보유분 하나: 수량과 지갑별 남은 원금 */
@@ -383,6 +394,8 @@ public class PaperTrading implements BotCredits {
                             long lockedShop, String reason) {}
 
     private static final String LIMIT_COLUMNS = "id, client_order_id, symbol, side, price, quantity, locked_invest, locked_shop, reason";
+    /** 지정가 주문 줄을 읽는 SELECT. 뒤에 조건을 붙여 쓴다 */
+    private static final String SELECT_LIMIT = "SELECT " + LIMIT_COLUMNS + " FROM paper_limit_order WHERE ";
 
     private static LimitRow limitRow(java.sql.ResultSet rs, int i) throws java.sql.SQLException {
         return new LimitRow(rs.getLong(1), rs.getString(2), rs.getString(3), Side.valueOf(rs.getString(4)), rs.getBigDecimal(5), rs.getBigDecimal(6),
@@ -397,13 +410,14 @@ public class PaperTrading implements BotCredits {
         requireEnabled();
         points.ensureWelcome(memberId);
         Valid v = validateLimit(in);
-        Long id = tx.execute(st -> {
+        // 같은 주문 번호를 이미 받았으면 빈 값. 그때는 먼저 받은 주문을 보여 준다
+        Optional<Long> placed = tx.execute(st -> {
             points.lock(memberId);
-            if (limitId(memberId, v.orderId()) != null) return null;
-            return v.side() == Side.BUY ? lockBuy(memberId, v) : lockSell(memberId, v);
+            if (!limitIds(memberId, v.orderId()).isEmpty()) return Optional.<Long>empty();
+            return Optional.of(v.side() == Side.BUY ? lockBuy(memberId, v) : lockSell(memberId, v));
         });
-        boolean duplicate = id == null;
-        long orderId = duplicate ? limitId(memberId, v.orderId()) : id;
+        boolean duplicate = placed.isEmpty();
+        long orderId = placed.orElseGet(() -> limitIds(memberId, v.orderId()).getFirst());
         Map<String, Quotes.Quote> q;
         try {
             q = quotes.latest();
@@ -416,9 +430,8 @@ public class PaperTrading implements BotCredits {
         return new LimitPlaced(duplicate, view, state);
     }
 
-    private Long limitId(long memberId, String clientOrderId) {
-        return jdbc.query("SELECT id FROM paper_limit_order WHERE member_id = ? AND client_order_id = ?", rs -> rs.next() ? rs.getLong(1) : null,
-                memberId, clientOrderId);
+    private List<Long> limitIds(long memberId, String clientOrderId) {
+        return jdbc.queryForList("SELECT id FROM paper_limit_order WHERE member_id = ? AND client_order_id = ?", Long.class, memberId, clientOrderId);
     }
 
     private long lockBuy(long memberId, Valid v) {
@@ -445,23 +458,21 @@ public class PaperTrading implements BotCredits {
         Holding pos = holding(memberId, v);
         BigDecimal reserved = reserved(memberId, v.coin().symbol(), null);
         BigDecimal free = pos.quantity().subtract(reserved).max(BigDecimal.ZERO);
-        if (v.quantity().compareTo(free) > 0) {
-            throw ApiException.conflict("NOT_ENOUGH", "팔 수 있는 " + v.coin().name() + "은(는) " + free.stripTrailingZeros().toPlainString() + "개예요."
-                    + (reserved.signum() > 0 ? " 지정가 매도에 " + reserved.stripTrailingZeros().toPlainString() + "개가 묶여 있어요." : ""));
-        }
+        if (v.quantity().compareTo(free) > 0) throw notEnough(v, free, reserved);
         long gross = v.quantity().multiply(v.price()).setScale(0, RoundingMode.DOWN).longValue();
         if (gross < props.minOrder() && v.quantity().compareTo(free) != 0) {
-            throw ApiException.badRequest(TOO_SMALL, "한 번에 " + won(props.minOrder()) + " 이상 팔 수 있어요. 남은 것을 모두 팔 때는 금액 제한이 없어요.");
+            throw ApiException.badRequest(TOO_SMALL, minOrderText("팔") + " 남은 것을 모두 팔 때는 금액 제한이 없어요.");
         }
         return insertLimit(memberId, v, 0, 0);
     }
 
     private long insertLimit(long memberId, Valid v, long lockedInvest, long lockedShop) {
-        return jdbc.queryForObject("""
+        Long id = jdbc.queryForObject("""
                 INSERT INTO paper_limit_order (member_id, client_order_id, symbol, side, price, quantity, locked_invest, locked_shop, reason, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
                 """, Long.class, memberId, v.orderId(), v.coin().symbol(), v.side().name(), v.price(), v.quantity(), lockedInvest, lockedShop,
                 v.reason(), Timestamp.from(Times.now(clock)));
+        return Objects.requireNonNull(id, "RETURNING id가 비었습니다");
     }
 
     /** 미체결 지정가 매도에 묶인 수량. except 주문은 빼고 센다(그 주문을 체결할 때) */
@@ -482,7 +493,7 @@ public class PaperTrading implements BotCredits {
                     memberId);
             if (status.isEmpty()) throw new NotFoundException();
             if (!"OPEN".equals(status.getFirst())) throw ApiException.conflict("CLOSED", "이미 체결됐거나 취소된 주문이에요.");
-            LimitRow o = jdbc.query("SELECT " + LIMIT_COLUMNS + " FROM paper_limit_order WHERE id = ?", PaperTrading::limitRow, id).getFirst();
+            LimitRow o = jdbc.query(SELECT_LIMIT + "id = ?", PaperTrading::limitRow, id).getFirst();
             close(memberId, o, "취소", "cancel");
         });
         return state(memberId);
@@ -499,7 +510,8 @@ public class PaperTrading implements BotCredits {
     /** 모든 회원의 미체결 지정가를 지금 시세에 맞춰 본다(체결기가 부른다). 미체결이 없으면 거래소도 부르지 않는다 */
     public int matchAll() {
         if (!enabled()) return 0;
-        List<Long> members = jdbc.queryForList("SELECT DISTINCT member_id FROM paper_limit_order WHERE status = 'OPEN'", Long.class);
+        List<Long> members = Objects.requireNonNullElse(
+                jdbc.queryForList("SELECT DISTINCT member_id FROM paper_limit_order WHERE status = 'OPEN'", Long.class), List.of());
         if (members.isEmpty()) return 0;
         Map<String, Quotes.Quote> q;
         try {
@@ -516,34 +528,40 @@ public class PaperTrading implements BotCredits {
     int matchMember(long memberId, Map<String, Quotes.Quote> q) {
         if (q.isEmpty()) return 0;
         int n = 0;
-        for (LimitRow o : jdbc.query("SELECT " + LIMIT_COLUMNS + " FROM paper_limit_order WHERE member_id = ? AND status = 'OPEN' ORDER BY id",
-                PaperTrading::limitRow, memberId)) {
-            Quotes.Quote quote = q.get(o.symbol());
-            if (quote == null) continue;
-            BigDecimal market = quote.price();
-            boolean reached = o.side() == Side.BUY ? market.compareTo(o.price()) <= 0 : market.compareTo(o.price()) >= 0;
-            if (!reached) continue;
-            BigDecimal at = o.side() == Side.BUY ? market.min(o.price()) : market.max(o.price());
-            try {
-                if (Boolean.TRUE.equals(tx.execute(st -> fillLimit(memberId, o.id(), at)))) n++;
-            } catch (ApiException e) {
-                // 체결할 수 없게 된 주문(보유분이 사라짐 등)은 묶은 것을 풀고 닫는다. 다음 바퀴에 같은 실패를 되풀이하지 않는다
-                log.warn("지정가 주문 {} 체결 실패, 취소합니다: {}", o.id(), e.getMessage());
-                tx.executeWithoutResult(st -> {
-                    points.lock(memberId);
-                    List<LimitRow> cur = jdbc.query("SELECT " + LIMIT_COLUMNS + " FROM paper_limit_order WHERE id = ? AND status = 'OPEN' FOR UPDATE",
-                            PaperTrading::limitRow, o.id());
-                    if (!cur.isEmpty()) close(memberId, cur.getFirst(), "자동 취소", "void");
-                });
-            }
+        for (LimitRow o : jdbc.query(SELECT_LIMIT + "member_id = ? AND status = 'OPEN' ORDER BY id", PaperTrading::limitRow, memberId)) {
+            BigDecimal at = reachedPrice(o, q.get(o.symbol()));
+            if (at != null && fillOrVoid(memberId, o, at)) n++;
         }
         return n;
+    }
+
+    /** 시세가 지정가에 닿았으면 체결할 값(사는 쪽은 둘 가운데 낮은 값, 파는 쪽은 높은 값), 아니면 null */
+    private static BigDecimal reachedPrice(LimitRow o, Quotes.Quote quote) {
+        if (quote == null) return null;
+        BigDecimal market = quote.price();
+        if (o.side() == Side.BUY) return market.compareTo(o.price()) <= 0 ? market.min(o.price()) : null;
+        return market.compareTo(o.price()) >= 0 ? market.max(o.price()) : null;
+    }
+
+    /** 체결해 보고 체결했으면 true. 체결할 수 없게 된 주문(보유분이 사라짐 등)은 묶은 것을 풀고 닫는다. 다음 바퀴에 같은 실패를 되풀이하지 않는다 */
+    private boolean fillOrVoid(long memberId, LimitRow o, BigDecimal at) {
+        try {
+            return Boolean.TRUE.equals(tx.execute(st -> fillLimit(memberId, o.id(), at)));
+        } catch (ApiException e) {
+            log.warn("지정가 주문 {} 체결 실패, 취소합니다: {}", o.id(), e.getMessage());
+            tx.executeWithoutResult(st -> {
+                points.lock(memberId);
+                List<LimitRow> cur = jdbc.query(SELECT_LIMIT + "id = ? AND status = 'OPEN' FOR UPDATE", PaperTrading::limitRow, o.id());
+                if (!cur.isEmpty()) close(memberId, cur.getFirst(), "자동 취소", "void");
+            });
+            return false;
+        }
     }
 
     /** 체결 한 건. 다른 쪽에서 먼저 체결·취소했으면 false */
     private boolean fillLimit(long memberId, long id, BigDecimal at) {
         points.lock(memberId);
-        List<LimitRow> rows = jdbc.query("SELECT " + LIMIT_COLUMNS + " FROM paper_limit_order WHERE id = ? AND status = 'OPEN' FOR UPDATE",
+        List<LimitRow> rows = jdbc.query(SELECT_LIMIT + "id = ? AND status = 'OPEN' FOR UPDATE",
                 PaperTrading::limitRow, id);
         if (rows.isEmpty()) return false;
         LimitRow o = rows.getFirst();
@@ -583,23 +601,15 @@ public class PaperTrading implements BotCredits {
     private Valid validateLimit(LimitOrder in) {
         if (in == null) throw ApiException.badRequest("EMPTY", "주문 내용을 보내 주세요.");
         List<FieldErrorItem> errors = new ArrayList<>();
-        String orderId = in.clientOrderId() == null ? "" : in.clientOrderId().strip();
-        if (!ORDER_ID.matcher(orderId).matches()) errors.add(new FieldErrorItem("clientOrderId", INVALID, "주문 번호가 올바르지 않아요. 화면을 새로 고쳐 주세요."));
-        PaperCoins.Coin coin = PaperCoins.of(in.symbol()).orElse(null);
-        if (coin == null) errors.add(new FieldErrorItem("symbol", INVALID, "BTC·ETH·XRP·SOL·DOGE 가운데 하나를 골라 주세요."));
+        String orderId = orderId(in.clientOrderId(), errors);
+        PaperCoins.Coin coin = coin(in.symbol(), errors);
         Side side = side(in.side(), errors);
-        BigDecimal price = in.price() == null ? null : in.price().stripTrailingZeros();
-        if (price == null || price.signum() <= 0 || price.scale() > 8 || price.compareTo(MAX_PRICE) > 0) {
-            errors.add(new FieldErrorItem("price", INVALID, "주문 가격을 적어 주세요."));
+        BigDecimal price = limitPrice(in.price(), errors);
+        BigDecimal qty = limitQuantity(in.quantity(), coin, errors);
+        if (side == Side.BUY && price != null && qty != null && qty.multiply(price).compareTo(BigDecimal.valueOf(props.minOrder())) < 0) {
+            errors.add(new FieldErrorItem(QUANTITY, TOO_SMALL, minOrderText("살")));
         }
-        BigDecimal qty = in.quantity() == null || coin == null ? null : in.quantity().setScale(coin.scale(), RoundingMode.DOWN);
-        if (qty == null || qty.signum() <= 0) errors.add(new FieldErrorItem("quantity", INVALID, "주문 수량을 적어 주세요."));
-        if (side == Side.BUY && price != null && qty != null && price.signum() > 0 && qty.signum() > 0
-                && qty.multiply(price).compareTo(BigDecimal.valueOf(props.minOrder())) < 0) {
-            errors.add(new FieldErrorItem("quantity", TOO_SMALL, "한 번에 " + won(props.minOrder()) + " 이상 살 수 있어요."));
-        }
-        String reason = in.reason() == null ? "" : in.reason().strip().replaceAll("\\s+", " ");
-        if (reason.length() > REASON_MAX) errors.add(new FieldErrorItem("reason", "TOO_LONG", "이유는 " + REASON_MAX + "자까지예요."));
+        String reason = reason(in.reason(), errors);
         if (!errors.isEmpty()) throw ApiException.validation(errors);
         return new Valid(orderId, coin, side, 0, qty, false, Boolean.TRUE.equals(in.useShop()), reason, STRATEGY, price);
     }
@@ -620,9 +630,8 @@ public class PaperTrading implements BotCredits {
 
     @Override
     public BigDecimal held(long memberId, String coin) {
-        BigDecimal have = jdbc.query("SELECT quantity FROM paper_position WHERE member_id = ? AND symbol = ?",
-                rs -> rs.next() ? rs.getBigDecimal(1) : BigDecimal.ZERO, memberId, coin);
-        if (have == null) return BigDecimal.ZERO;
+        List<BigDecimal> rows = jdbc.queryForList("SELECT quantity FROM paper_position WHERE member_id = ? AND symbol = ?", BigDecimal.class, memberId, coin);
+        BigDecimal have = rows.isEmpty() ? BigDecimal.ZERO : rows.getFirst();
         return have.subtract(reserved(memberId, coin, null)).max(BigDecimal.ZERO);
     }
 
@@ -644,16 +653,17 @@ public class PaperTrading implements BotCredits {
             if (ordered(memberId, v.orderId())) return done(memberId, v.orderId());
             Quotes.Quote quote = quotes.latest().get(v.coin().symbol());
             if (quote == null) return Optional.empty();
-            Filled f = botTx.execute(st -> {
+            Optional<Filled> placed = botTx.execute(st -> {
                 points.lock(memberId);
-                if (ordered(memberId, v.orderId())) return null;
+                if (ordered(memberId, v.orderId())) return Optional.<Filled>empty();
                 Filled r = v.side() == Side.BUY ? buy(memberId, v, quote.price())
                         : sell(memberId, v, quote.price(), reserved(memberId, v.coin().symbol(), null), true);
                 jdbc.update("INSERT INTO paper_order (member_id, client_order_id, trade_id, created_at) VALUES (?, ?, ?, ?)", memberId, v.orderId(),
                         r.tradeId(), Timestamp.from(Times.now(clock)));
-                return r;
+                return Optional.of(r);
             });
-            if (f == null) return done(memberId, v.orderId());
+            if (placed.isEmpty()) return done(memberId, v.orderId());
+            Filled f = placed.get();
             return Optional.of(new BotCredits.Filled(f.quantity(), f.price(), f.pnl() == null ? null : BigDecimal.valueOf(f.pnl())));
         } catch (ApiException | Quotes.QuotesUnavailable e) {
             return Optional.empty();
@@ -686,23 +696,54 @@ public class PaperTrading implements BotCredits {
     private Valid validate(Order in) {
         if (in == null) throw ApiException.badRequest("EMPTY", "주문 내용을 보내 주세요.");
         List<FieldErrorItem> errors = new ArrayList<>();
-        String orderId = in.clientOrderId() == null ? "" : in.clientOrderId().strip();
-        if (!ORDER_ID.matcher(orderId).matches()) errors.add(new FieldErrorItem("clientOrderId", INVALID, "주문 번호가 올바르지 않아요. 화면을 새로 고쳐 주세요."));
-        PaperCoins.Coin coin = PaperCoins.of(in.symbol()).orElse(null);
-        if (coin == null) errors.add(new FieldErrorItem("symbol", INVALID, "BTC·ETH·XRP·SOL·DOGE 가운데 하나를 골라 주세요."));
+        String orderId = orderId(in.clientOrderId(), errors);
+        PaperCoins.Coin coin = coin(in.symbol(), errors);
         Side side = side(in.side(), errors);
         long amount = in.amount() == null ? 0 : in.amount();
         boolean all = Boolean.TRUE.equals(in.all());
         if (side == Side.BUY && (amount < props.minOrder() || amount > 1_000_000_000_000L)) {
-            errors.add(new FieldErrorItem("amount", INVALID, "한 번에 " + won(props.minOrder()) + " 이상 살 수 있어요."));
+            errors.add(new FieldErrorItem("amount", INVALID, minOrderText("살")));
         }
         if (side == Side.SELL && !all && (in.quantity() == null || in.quantity().signum() <= 0)) {
-            errors.add(new FieldErrorItem("quantity", INVALID, "팔 수량을 적어 주세요."));
+            errors.add(new FieldErrorItem(QUANTITY, INVALID, "팔 수량을 적어 주세요."));
         }
-        String reason = in.reason() == null ? "" : in.reason().strip().replaceAll("\\s+", " ");
-        if (reason.length() > REASON_MAX) errors.add(new FieldErrorItem("reason", "TOO_LONG", "이유는 " + REASON_MAX + "자까지예요."));
+        String reason = reason(in.reason(), errors);
         if (!errors.isEmpty()) throw ApiException.validation(errors);
         return new Valid(orderId, coin, side, amount, in.quantity(), all, Boolean.TRUE.equals(in.useShop()), reason, STRATEGY, null);
+    }
+
+    /** 지정가 가격. 올바르지 않으면 오류를 더하고 null */
+    private static BigDecimal limitPrice(BigDecimal raw, List<FieldErrorItem> errors) {
+        BigDecimal price = raw == null ? null : raw.stripTrailingZeros();
+        if (price != null && price.signum() > 0 && price.scale() <= 8 && price.compareTo(MAX_PRICE) <= 0) return price;
+        errors.add(new FieldErrorItem(PRICE, INVALID, "주문 가격을 적어 주세요."));
+        return null;
+    }
+
+    /** 지정가 수량. 코인 소수 자리로 자르고, 0 이하이면 오류를 더하고 null */
+    private static BigDecimal limitQuantity(BigDecimal raw, PaperCoins.Coin coin, List<FieldErrorItem> errors) {
+        BigDecimal qty = raw == null || coin == null ? null : raw.setScale(coin.scale(), RoundingMode.DOWN);
+        if (qty != null && qty.signum() > 0) return qty;
+        errors.add(new FieldErrorItem(QUANTITY, INVALID, "주문 수량을 적어 주세요."));
+        return null;
+    }
+
+    private static String orderId(String raw, List<FieldErrorItem> errors) {
+        String orderId = raw == null ? "" : raw.strip();
+        if (!ORDER_ID.matcher(orderId).matches()) errors.add(new FieldErrorItem("clientOrderId", INVALID, "주문 번호가 올바르지 않아요. 화면을 새로 고쳐 주세요."));
+        return orderId;
+    }
+
+    private static PaperCoins.Coin coin(String symbol, List<FieldErrorItem> errors) {
+        PaperCoins.Coin coin = PaperCoins.of(symbol).orElse(null);
+        if (coin == null) errors.add(new FieldErrorItem(SYMBOL, INVALID, "BTC·ETH·XRP·SOL·DOGE 가운데 하나를 골라 주세요."));
+        return coin;
+    }
+
+    private static String reason(String raw, List<FieldErrorItem> errors) {
+        String reason = raw == null ? "" : raw.strip().replaceAll("\\s+", " ");
+        if (reason.length() > REASON_MAX) errors.add(new FieldErrorItem("reason", "TOO_LONG", "이유는 " + REASON_MAX + "자까지예요."));
+        return reason;
     }
 
     private static Side side(String side, List<FieldErrorItem> errors) {
@@ -716,6 +757,11 @@ public class PaperTrading implements BotCredits {
 
     private static String key(Valid v, String part) {
         return "paper:" + v.orderId() + ":" + part;
+    }
+
+    /** "한 번에 5,000크레딧 이상 살 수 있어요." 같은 최소 주문 안내. verb는 "살"·"팔" */
+    private String minOrderText(String verb) {
+        return "한 번에 " + won(props.minOrder()) + " 이상 " + verb + " 수 있어요.";
     }
 
     private static String won(long n) {
