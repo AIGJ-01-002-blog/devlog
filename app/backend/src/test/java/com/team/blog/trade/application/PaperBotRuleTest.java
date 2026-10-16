@@ -144,4 +144,19 @@ class PaperBotRuleTest {
         assertThat(credits.calls).hasSize(before);
         assertThat(acc.path("positions").has("KRW-BTC")).isFalse();
     }
+    @Test
+    void 바이낸스_계좌도_기본_크레딧으로_사고_손절은_봉_종가로_본다() {
+        FakeCredits credits = new FakeCredits();
+        PaperBot bot = new PaperBot(null, null, null, null, null, null, credits);
+        PaperBot.Book book = PaperBot.BOOKS.getFirst(); // 바이낸스: USDT 봉
+        ObjectNode acc = fresh(JsonMapper.builder().build());
+        bot.creditTrade(7, book, acc, coin(100, 99, 98, 97, 96, 95, 101, 104, 106, 99, 97, 300));
+        // 한 번 금액은 10만 크레딧이고, 업비트 계좌 주문과 번호가 겹치지 않는다
+        assertThat(credits.calls).containsExactly("BUY BTC 100000 bot-binance-BTC-" + 11 * HOUR + "-B");
+        assertThat(acc.path("positions").path("BTCUSDT").path("ref_price").asString()).isEqualTo("300");
+
+        // 체결가는 원(200,000)이고 봉은 USDT(299)라도 손절선은 봉 종가 300 기준이라 팔지 않는다
+        assertThat(bot.creditTrade(7, book, acc, coin(100, 99, 98, 97, 96, 95, 101, 104, 106, 99, 97, 300, 299))).isEmpty();
+        assertThat(credits.calls).hasSize(1);
+    }
 }
