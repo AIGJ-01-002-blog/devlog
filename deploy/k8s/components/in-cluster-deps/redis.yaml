@@ -36,6 +36,13 @@ spec:
           readinessProbe:
             exec: {command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]}
             periodSeconds: 5
+          # 멈춘 채 살아만 있으면 다시 띄운다 (AOF를 읽는 동안은 기다리도록 1분 연속 실패)
+          livenessProbe:
+            exec: {command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]}
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 4
           resources:
             requests: {cpu: 50m, memory: 64Mi}
             limits: {memory: 256Mi}

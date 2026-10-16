@@ -38,6 +38,13 @@ spec:
           readinessProbe:
             httpGet: {path: /minio/health/ready, port: 9000}
             periodSeconds: 5
+          # 멈춘 채 살아만 있으면 다시 띄운다 (1분 연속 실패)
+          livenessProbe:
+            httpGet: {path: /minio/health/live, port: 9000}
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 4
           resources:
             requests: {cpu: 50m, memory: 128Mi}
             limits: {memory: 512Mi}

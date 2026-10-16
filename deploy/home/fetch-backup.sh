@@ -13,7 +13,8 @@ PORT="${2:-22}"
 DEST="${3:-.}"
 NAME="devlog-backup-$(date +%Y%m%d-%H%M)"
 HERE="$(cd "$(dirname "$0")" && pwd)"
-REMOTE="/tmp/$NAME"
+# 서버의 /tmp는 다른 계정도 보는 곳이라 내 홈 폴더 아래에 만든다 (ssh·rsync의 상대 경로는 홈 기준)
+REMOTE="devlog-backups/$NAME"
 
 mkdir -p "$DEST"
 echo "== 학교 서버에서 백업 만드는 중 (DB와 파일 저장소)"

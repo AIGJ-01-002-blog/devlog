@@ -17,12 +17,16 @@ class ContextTest extends IntegrationTest {
                 .andExpect(jsonPath("$.authenticated").value(false))
                 .andExpect(header().string("X-Content-Type-Options", "nosniff"))
                 .andExpect(header().string("Referrer-Policy", "strict-origin-when-cross-origin"))
-                .andExpect(header().exists("Content-Security-Policy"));
+                .andExpect(header().exists("Content-Security-Policy"))
+                // 시험 설정은 http(COOKIE_SECURE=false)라 HSTS를 쓰지 않는다. https 전용일 때는 HttpsOnlyHeadersTest가 본다
+                .andExpect(header().doesNotExist("Strict-Transport-Security"));
     }
 
     @Test
     void 쿠버네티스_프로브가_응답한다() throws Exception {
         mvc.perform(get("/actuator/health/liveness")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("UP"));
         mvc.perform(get("/actuator/health/readiness")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("UP"));
+        // 탐색 목록은 바깥에 알리지 않는다
+        mvc.perform(get("/actuator")).andExpect(status().isNotFound());
     }
 }
