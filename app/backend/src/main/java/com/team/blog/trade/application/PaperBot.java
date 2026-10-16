@@ -365,16 +365,24 @@ public class PaperBot {
         List<Fill> out = new ArrayList<>();
         for (Candle c : coin.candles()) {
             JsonNode pos = positions.get(coin.symbol());
-            BigDecimal qty = pos == null ? BigDecimal.ZERO : new BigDecimal(pos.path(QUANTITY).asString("0"));
-            BigDecimal avg = pos == null ? BigDecimal.ZERO : new BigDecimal(pos.path(AVG_PRICE).asString("0"));
-            String signal = rule.onBar(c.c(), qty.signum() > 0, avg);
-            if (c.t() > seenT && signal != null && (canBuy || !signal.equals("BUY"))) {
+            String signal = rule.onBar(c.c(), decimal(pos, QUANTITY).signum() > 0, decimal(pos, AVG_PRICE));
+            if (c.t() > seenT && allowed(signal, canBuy)) {
                 Fill f = signal.equals("BUY") ? buy(book, s, acc, positions, coin, c) : sell(book, s, acc, positions, coin, c, signal.substring(5));
                 if (f != null) out.add(f);
             }
         }
         if (!coin.candles().isEmpty()) seen.put(coin.symbol(), Math.max(seenT, coin.candles().getLast().t()));
         return out;
+    }
+
+    /** 보유분 칸의 숫자. 보유분이 없으면 0 */
+    private static BigDecimal decimal(JsonNode pos, String field) {
+        return pos == null ? BigDecimal.ZERO : new BigDecimal(pos.path(field).asString("0"));
+    }
+
+    /** 신호가 있고, 사는 신호면 고른 코인일 때만 따른다(고르지 않은 코인은 팔기만 한다) */
+    private static boolean allowed(String signal, boolean canBuy) {
+        return signal != null && (canBuy || !signal.equals("BUY"));
     }
 
     /**
