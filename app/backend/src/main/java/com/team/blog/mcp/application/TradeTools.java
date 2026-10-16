@@ -228,6 +228,8 @@ class TradeTools {
                 .append(' ').append(TradeTexts.actionLabel(f)).append(' ').append(plain(f.quantity()))
                 .append(unit.equals("주") ? "주" : " " + unit).append(" @ ").append(plain(f.price(), f.currency()));
         if (f.realizedPnl() != null) sb.append(" · 손익 ").append(plain(f.realizedPnl(), f.currency()));
+        if (!TradeTexts.setupLabel(f).isEmpty()) sb.append(" · ").append(TradeTexts.setupLabel(f));
+        if (!TradeTexts.exitLabel(f).isEmpty()) sb.append(" · ").append(TradeTexts.exitLabel(f));
         if (!f.reason().isBlank()) sb.append(" · 이유: ").append(f.reason());
         else if (!f.strategy().isBlank()) sb.append(" · 전략: ").append(f.strategy());
         sb.append('\n');

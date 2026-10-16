@@ -163,7 +163,32 @@ public class TradeJournal {
      * @param live·paper 모드와 상관없이 그 모드로 남긴 체결이 하나라도 있는지 (토글 기본값을 정할 때 쓴다)
      */
     public record Overview(LocalDate from, LocalDate to, List<DayRow> days, Summary total, Map<String, BigDecimal> cumulativePnl,
-                           boolean live, boolean paper, Mode mode) {}
+                           boolean live, boolean paper, Mode mode, List<SetupStat> setups) {}
+
+    /**
+     * 기법 버전·셋업별 성적 (#285). R배수를 남긴 정리 체결만 센다.
+     * @param wins R배수가 0보다 큰 정리 수
+     * @param avgR R배수 평균 (소수 둘째 자리)
+     */
+    public record SetupStat(String strategyVersion, String setup, int samples, int wins, BigDecimal avgR) {}
+
+    /** 정리 체결을 기법 버전·셋업으로 묶어 표본 수, 이긴 수, 평균 R을 낸다. 표본이 많은 것부터 */
+    public static List<SetupStat> setupStats(List<Fill> fills) {
+        Map<List<String>, List<BigDecimal>> groups = new LinkedHashMap<>();
+        for (Fill f : fills) {
+            TradeTrace t = f.trace();
+            if (t == null || t.rMultiple() == null || !f.closes()) continue;
+            groups.computeIfAbsent(List.of(t.strategyVersion(), t.setup()), k -> new ArrayList<>()).add(t.rMultiple());
+        }
+        List<SetupStat> out = new ArrayList<>();
+        groups.forEach((k, rs) -> {
+            BigDecimal sum = rs.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+            int wins = (int) rs.stream().filter(r -> r.signum() > 0).count();
+            out.add(new SetupStat(k.get(0), k.get(1), rs.size(), wins, sum.divide(BigDecimal.valueOf(rs.size()), 2, java.math.RoundingMode.HALF_UP)));
+        });
+        out.sort(java.util.Comparator.comparingInt(SetupStat::samples).reversed());
+        return out;
+    }
 
     public record Day(LocalDate date, List<Fill> fills, Summary summary, Map<String, BigDecimal> cumulativePnl, String memo, Long postId,
                       Long shortsId) {}
@@ -368,7 +393,8 @@ public class TradeJournal {
             rows.add(new DayRow(d, s, running, !m.memo().isBlank(), m.postId(), m.shortsId()));
         }
         List<Fill> all = fills.values().stream().flatMap(List::stream).toList();
-        return new Overview(from, to, rows.reversed(), summarize(all), running, has(memberId, Mode.LIVE), has(memberId, Mode.PAPER), mode);
+        return new Overview(from, to, rows.reversed(), summarize(all), running, has(memberId, Mode.LIVE), has(memberId, Mode.PAPER), mode,
+                setupStats(all));
     }
 
     private boolean has(long memberId, Mode mode) {

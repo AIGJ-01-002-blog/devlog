@@ -50,6 +50,56 @@ export interface TradeFill {
   leverage: number | null
   /** 봇이 판단한 봉 (1m·5m·15m·1h·4h·1d). 비어 있으면 알리지 않은 기록 */
   interval: string
+  /** 봇 판단 흔적 (#283·#284). 옛 기록은 값이 비어 있다 */
+  trace?: TradeTrace
+}
+
+export type ExitReason = 'STOP' | 'TP1' | 'TP2' | 'TRAIL' | 'TIME' | 'NEWS' | 'MANUAL'
+
+export interface TradeTrace {
+  strategyVersion: string
+  decisionId: string
+  basket: 'CORE' | 'TRADING' | null
+  regime: string
+  setup: string
+  trigger: string
+  stopPrice: number | null
+  tp1Price: number | null
+  tp2Price: number | null
+  liquidationPrice: number | null
+  exitReason: ExitReason | null
+  rMultiple: number | null
+  funding: number | null
+}
+
+/** 기법 버전·셋업별 성적 (#285). R배수를 남긴 정리 체결만 센다 */
+export interface SetupStat {
+  strategyVersion: string
+  setup: string
+  samples: number
+  wins: number
+  avgR: number
+}
+
+/** R배수: +1.8R, -1R */
+export function rText(r: number): string {
+  const v = Math.round(r * 100) / 100
+  return `${v > 0 ? '+' : ''}${v}R`
+}
+
+const EXIT_WORDS: Record<ExitReason, string> = {
+  STOP: '손절', TP1: '1차 익절', TP2: '2차 익절', TRAIL: '추적 손절', TIME: '시간 정리', NEWS: '뉴스 정리', MANUAL: '직접 정리',
+}
+
+/** 정리 이유를 읽는 말(번역 키) */
+export const exitWord = (r: ExitReason) => EXIT_WORDS[r]
+
+/** "TP1 정리 +1.8R". 정리 흔적이 없으면 빈 글 */
+export function exitLabel(f: TradeFill): string {
+  const tr = f.trace
+  if (!tr || (tr.exitReason === null && tr.rMultiple === null)) return ''
+  const head = tr.exitReason ? `${tr.exitReason} ${t('정리')}` : t('정리')
+  return tr.rMultiple === null ? head : `${head} ${rText(tr.rMultiple)}`
 }
 
 export interface TradeDayRow {
@@ -71,6 +121,8 @@ export interface TradeOverview {
   live: boolean
   paper: boolean
   mode: 'LIVE' | 'PAPER' | null
+  /** 기간 안의 기법 버전·셋업별 성적 */
+  setups?: SetupStat[]
 }
 
 export interface TradeDay {
