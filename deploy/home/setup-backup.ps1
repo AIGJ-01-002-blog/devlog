@@ -1,15 +1,19 @@
 ﻿# 집 PC가 매일 학교 서버의 devlog 백업을 받아 오게 한 번만 설정한다 (#356). Windows 10/11의 기본 OpenSSH·tar를 쓴다.
 #
-#   powershell -ExecutionPolicy Bypass -File D:\devlog\deploy\home\setup-backup.ps1 -Target <아이디>@<학교 서버 주소> -Port <SSH 포트>
+#   powershell -ExecutionPolicy Bypass -File D:\devlog\deploy\home\setup-backup.ps1 -Target <아이디>@<학교 서버 주소> -Port <SSH 포트> `
+#       -KnownHosts <SCHOOL_SSH_KNOWN_HOSTS 값을 담은 파일>
 #
 # 하는 일
 #   1. 백업 전용 SSH 키를 %USERPROFILE%\.devlog-backup에 만든다(이 PC 밖으로 나가지 않는다)
-#   2. 학교 서버에 backup.sh·backup-stream.sh를 올리고, 이 키로는 backup-stream.sh만 돌게 authorized_keys에 묶는다
+#   2. 학교 서버 SSH 키를 -KnownHosts(GitHub 저장소 변수 SCHOOL_SSH_KNOWN_HOSTS와 같은 값)로 고정하고, 그 키가 맞을 때만
+#      학교 서버에 backup.sh·backup-stream.sh를 올리고, 이 키로는 backup-stream.sh만 돌게 authorized_keys에 묶는다
 #      (restrict: 셸·포트 전달·파일 복사 불가). 이때 한 번만 SSH 비밀번호를 묻는다
 #   3. 한 번 받아 보고, 작업 스케줄러에 "켤 때(5분 뒤)"와 "매일 -Time"을 건다. 놓친 시각은 켜지면 따라잡는다
 param(
     [Parameter(Mandatory = $true)][string]$Target,
     [int]$Port = 22,
+    # known_hosts 줄(SCHOOL_SSH_KNOWN_HOSTS 값)을 담은 파일 경로나 그 줄 자체. 한 번 고정했으면 다음 실행부터는 생략할 수 있다
+    [string]$KnownHosts = "",
     [string]$Dest = "D:\devlog-backups",
     [int]$Keep = 7,
     [string]$Time = "21:00",
@@ -19,7 +23,7 @@ $ErrorActionPreference = "Stop"
 $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $dir = Join-Path $env:USERPROFILE ".devlog-backup"
 $key = Join-Path $dir "id_ed25519"
-$knownHosts = Join-Path $dir "known_hosts"
+$knownHostsFile = Join-Path $dir "known_hosts"
 $TaskName = "devlog 백업 받기"
 
 function Fail($msg) { Write-Host "실패: $msg" -ForegroundColor Red; exit 1 }
@@ -41,7 +45,17 @@ if (-not (Test-Path $key)) {
 }
 $pub = (Get-Content -Raw "$key.pub").Trim()
 
-Write-Host "== 2/4 학교 서버에 백업 스크립트와 키 올리기 (SSH 비밀번호를 한 번 물어요)"
+Write-Host "== 2/4 학교 서버 SSH 키 고정하고 백업 스크립트와 키 올리기 (SSH 비밀번호를 한 번 물어요)"
+# 처음 붙을 때 받은 키를 그대로 믿으면 중간에서 가로챈 서버에 비밀번호를 보낼 수 있다. 미리 아는 키로만 붙는다
+if ($KnownHosts) {
+    $text = $KnownHosts
+    try { if (Test-Path -LiteralPath $KnownHosts -PathType Leaf) { $text = Get-Content -Raw -LiteralPath $KnownHosts } } catch { }
+    $lines = @($text -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ -and -not $_.StartsWith("#") })
+    if ($lines.Count -eq 0) { Fail "-KnownHosts에 학교 서버 SSH 키 줄이 없어요." }
+    Set-Content -Encoding Ascii -Path $knownHostsFile -Value $lines
+} elseif (-not (Test-Path $knownHostsFile)) {
+    Fail "학교 서버 SSH 키를 몰라서 비밀번호를 보내지 않아요. GitHub 저장소 Settings → Secrets and variables → Actions → Variables의 SCHOOL_SSH_KNOWN_HOSTS 값을 파일에 저장해 -KnownHosts <파일>로 넘겨 주세요."
+}
 function B64File($path) { [Convert]::ToBase64String([IO.File]::ReadAllBytes($path)) }
 $remote = @"
 set -eu
@@ -63,16 +77,14 @@ echo devlog-backup-installed
 "@
 # 줄 끝(CRLF)·한글이 PowerShell 판마다 다르게 넘어가지 않게 설치 스크립트 전체를 base64로 한 줄에 담는다
 $b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($remote -replace "`r", "")))
-# 처음 붙는 서버의 SSH 키는 여기서 받아 known_hosts에 고정한다. 다음부터는 바뀐 키로는 붙지 않는다
-$installArgs = @("-p", $Port, "-o", "UserKnownHostsFile=`"$knownHosts`"", "-o", "StrictHostKeyChecking=accept-new",
+# 고정한 키와 다른 서버에는 비밀번호를 묻기 전에 끊는다
+$installArgs = @("-p", $Port, "-o", "UserKnownHostsFile=`"$knownHostsFile`"", "-o", "StrictHostKeyChecking=yes",
     "-o", "PubkeyAuthentication=no", $Target, "echo $b64 | base64 -d | bash")
 $installLog = Join-Path $dir "install.log"
 $p = Start-Process -FilePath "ssh.exe" -ArgumentList $installArgs -NoNewWindow -Wait -PassThru -RedirectStandardOutput $installLog
 if ($p.ExitCode -ne 0 -or -not (Select-String -Quiet -Path $installLog -Pattern "devlog-backup-installed")) {
-    Fail "학교 서버에 설치하지 못했어요 (종료 코드 $($p.ExitCode)). 주소·포트·비밀번호를 확인해 주세요."
+    Fail "학교 서버에 설치하지 못했어요 (종료 코드 $($p.ExitCode)). 주소·포트·비밀번호와 -KnownHosts 값을 확인해 주세요. 'Host key verification failed'가 보였다면 서버 키가 고정한 값과 달라요."
 }
-Write-Host "   학교 서버 SSH 키 지문 (GitHub 변수 SCHOOL_SSH_KNOWN_HOSTS와 같은지 한 번 봐 두세요):"
-ssh-keygen.exe -l -f $knownHosts
 
 @{ Target = $Target; Port = $Port; Dest = $Dest; Keep = $Keep } | ConvertTo-Json | Set-Content -Encoding UTF8 (Join-Path $dir "config.json")
 
