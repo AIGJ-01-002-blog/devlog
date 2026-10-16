@@ -431,7 +431,8 @@ public class PaperTrading implements BotCredits {
     }
 
     private List<Long> limitIds(long memberId, String clientOrderId) {
-        return jdbc.queryForList("SELECT id FROM paper_limit_order WHERE member_id = ? AND client_order_id = ?", Long.class, memberId, clientOrderId);
+        return Objects.requireNonNullElse(
+                jdbc.queryForList("SELECT id FROM paper_limit_order WHERE member_id = ? AND client_order_id = ?", Long.class, memberId, clientOrderId), List.of());
     }
 
     private long lockBuy(long memberId, Valid v) {
@@ -630,7 +631,8 @@ public class PaperTrading implements BotCredits {
 
     @Override
     public BigDecimal held(long memberId, String coin) {
-        List<BigDecimal> rows = jdbc.queryForList("SELECT quantity FROM paper_position WHERE member_id = ? AND symbol = ?", BigDecimal.class, memberId, coin);
+        List<BigDecimal> rows = Objects.requireNonNullElse(
+                jdbc.queryForList("SELECT quantity FROM paper_position WHERE member_id = ? AND symbol = ?", BigDecimal.class, memberId, coin), List.of());
         BigDecimal have = rows.isEmpty() ? BigDecimal.ZERO : rows.getFirst();
         return have.subtract(reserved(memberId, coin, null)).max(BigDecimal.ZERO);
     }
