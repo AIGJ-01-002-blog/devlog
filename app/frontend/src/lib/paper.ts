@@ -69,6 +69,8 @@ export interface PaperState {
   orders: PaperLimit[]
   fills: PaperFill[]
   quotesError: string | null
+  /** 주문 시세를 받는 곳 */
+  quotesSource?: 'KORBIT' | 'UPBIT'
 }
 
 export interface PaperLimitOrder {

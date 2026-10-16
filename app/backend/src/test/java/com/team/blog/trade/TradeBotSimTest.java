@@ -137,6 +137,7 @@ class TradeBotSimTest extends IntegrationTest {
         JsonNode b = read(me.http().perform(get("/api/me/trade-bot/charts").param("exchange", "binance").param("interval", "15m"))
                 .andExpect(status().isOk()).andReturn());
         assertThat(b.path("currency").asString()).isEqualTo("USDT");
+        assertThat(b.path("source").asString()).isEqualTo("BINANCE");
         assertThat(b.path("coins").findValuesAsString("coin")).containsExactly("BTC", "ETH", "XRP", "SOL", "DOGE");
         JsonNode btc = b.path("coins").get(0);
         assertThat(btc.path("symbol").asString()).isEqualTo("BTCUSDT");
@@ -155,6 +156,7 @@ class TradeBotSimTest extends IntegrationTest {
         JsonNode u = read(me.http().perform(get("/api/me/trade-bot/charts").param("exchange", "upbit").param("interval", "15m"))
                 .andExpect(status().isOk()).andReturn());
         assertThat(u.path("currency").asString()).isEqualTo("KRW");
+        assertThat(u.path("source").asString()).isIn("KORBIT", "UPBIT");
         JsonNode eth = u.path("coins").get(1);
         assertThat(eth.path("symbol").asString()).isEqualTo("KRW-ETH");
         // 원화 탭은 코빗 캔들로 받고(#325) 오래된 순이다. 체결 표시는 업비트 심볼 그대로 맞는다

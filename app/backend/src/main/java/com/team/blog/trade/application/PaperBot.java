@@ -15,6 +15,7 @@ import java.util.function.Function;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -75,14 +76,12 @@ public class PaperBot {
     private static final String RATE = "usdt_krw";
     /** 신호를 낸 봉의 종가. 크레딧 체결가(원)와 봉(바이낸스는 USDT) 단위가 달라 손절은 이 값으로 본다 */
     private static final String REF_PRICE = "ref_price";
-    /** 크레딧 계좌의 한 번 금액. 모든 계좌가 같다 */
-    static final long CREDIT_BUDGET = 100_000;
-    private static final long MIN_BUDGET = 5_000; // 포인트 모의투자 최소 주문
-    private static final long MAX_BUDGET = 1_000_000;
+    /** 한 번 금액의 기본값. 운영 값은 application.yml(blog.trades.bot-budget)에서 읽는다 */
+    static final long CREDIT_BUDGET = PaperBotBudget.DEFAULT.budget();
 
     /**
-     * 회원이 고른 기준 (#340). 손절·익절은 비율(0.03 = 3%), 익절 0은 쓰지 않음. 한 번 금액은 기본 크레딧 계좌에만 쓴다
-     * (포인트가 꺼진 서버의 가상 돈 계좌는 거래소 기본값).
+     * 회원이 고른 기준 (#340). 손절·익절은 비율(0.03 = 3%), 익절 0은 쓰지 않음. 한 번 금액은 기본 크레딧(원) 단위이고,
+     * 포인트가 꺼진 서버의 가상 돈 계좌는 원화면 그대로, USDT면 거래소 기본값을 같은 비율로 늘리거나 줄여 쓴다.
      */
     public record Settings(List<String> coins, BigDecimal stopLoss, BigDecimal takeProfit, String interval, long budget) {
         Duration step() {
@@ -219,10 +218,18 @@ public class PaperBot {
     private final JobLock lock;
     private final BotCredits credits;
     private final Clock clock;
+    private final PaperBotBudget budgets;
     private final JsonMapper json = JsonMapper.builder().build();
 
     public PaperBot(JdbcTemplate jdbc, PlatformTransactionManager txm, TradeCharts charts, TradeProperties props, JobLock lock, Clock clock,
                     BotCredits credits) {
+        this(jdbc, txm, charts, props, lock, clock, credits, PaperBotBudget.DEFAULT);
+    }
+
+    @Autowired
+    public PaperBot(JdbcTemplate jdbc, PlatformTransactionManager txm, TradeCharts charts, TradeProperties props, JobLock lock, Clock clock,
+                    BotCredits credits, PaperBotBudget budgets) {
+        this.budgets = budgets;
         this.jdbc = jdbc;
         this.tx = new TransactionTemplate(txm);
         this.charts = charts;
@@ -232,10 +239,10 @@ public class PaperBot {
         this.credits = credits;
     }
 
-    /** 화면에 주는 켜짐과 기준. options는 고를 수 있는 코인·봉 간격 */
-    public record Switch(boolean enabled, Settings settings, List<String> coins, List<String> intervals) {
-        Switch(boolean enabled, Settings settings) {
-            this(enabled, settings, TradeCharts.COINS, List.copyOf(STEPS.keySet()));
+    /** 화면에 주는 켜짐과 기준. 고를 수 있는 코인·봉 간격과 이 서버의 한 번 금액 범위도 함께 준다 */
+    public record Switch(boolean enabled, Settings settings, List<String> coins, List<String> intervals, long budgetMin, long budgetMax) {
+        Switch(boolean enabled, Settings settings, PaperBotBudget budgets) {
+            this(enabled, settings, TradeCharts.COINS, List.copyOf(STEPS.keySet()), budgets.min(), budgets.max());
         }
     }
 
@@ -245,14 +252,14 @@ public class PaperBot {
     public Switch get(long memberId) {
         if (!props.enabled()) throw new NotFoundException();
         List<Switch> rows = jdbc.query("SELECT enabled, rules::text FROM trade_paper_bot WHERE member_id = ?",
-                (rs, i) -> new Switch(rs.getBoolean(1), settings(rs.getString(2))), memberId);
-        return rows.isEmpty() ? new Switch(false, DEFAULTS) : rows.getFirst();
+                (rs, i) -> new Switch(rs.getBoolean(1), settings(rs.getString(2)), budgets), memberId);
+        return rows.isEmpty() ? new Switch(false, defaults(), budgets) : rows.getFirst();
     }
 
     /** 켜면 바로 한 바퀴 돌려 화면이 곧장 채워진다. 끄면 다음 바퀴부터 돌지 않고 기록은 남는다. 기준은 다음 바퀴부터 쓴다 */
     public Switch set(long memberId, Change change) {
         if (!props.enabled()) throw new NotFoundException();
-        Settings next = change.settings() == null ? null : checked(change.settings());
+        Settings next = change.settings() == null ? null : checked(change.settings(), budgets);
         Timestamp now = Timestamp.from(Times.now(clock));
         jdbc.update("""
                 INSERT INTO trade_paper_bot (member_id, enabled, rules, created_at, updated_at) VALUES (?, ?, COALESCE(?::jsonb, '{}'), ?, ?)
@@ -271,8 +278,17 @@ public class PaperBot {
         return out;
     }
 
-    /** 고른 기준을 확인한다. 코인은 COINS 순서로 맞추고 겹친 것은 하나로 */
+    /** 회원이 아직 고르지 않았을 때의 기준. 한 번 금액은 설정값 */
+    Settings defaults() {
+        return new Settings(DEFAULTS.coins(), DEFAULTS.stopLoss(), DEFAULTS.takeProfit(), DEFAULTS.interval(), budgets.budget());
+    }
+
     static Settings checked(Settings in) {
+        return checked(in, PaperBotBudget.DEFAULT);
+    }
+
+    /** 고른 기준을 확인한다. 코인은 COINS 순서로 맞추고 겹친 것은 하나로 */
+    static Settings checked(Settings in, PaperBotBudget budgets) {
         if (in.coins() == null || in.coins().isEmpty()) throw ApiException.badRequest("INVALID_COINS", "코인을 하나 이상 골라 주세요.");
         for (String c : in.coins()) {
             if (!TradeCharts.COINS.contains(c)) throw ApiException.badRequest("INVALID_COINS", "코인은 " + String.join(", ", TradeCharts.COINS) + " 중에서 골라요.");
@@ -287,8 +303,8 @@ public class PaperBot {
             throw ApiException.badRequest("INVALID_TAKE_PROFIT", "익절은 0(쓰지 않음)이나 0.5%에서 100% 사이로 정해 주세요.");
         }
         if (!STEPS.containsKey(in.interval())) throw ApiException.badRequest("INVALID_INTERVAL", "봉은 " + String.join(", ", STEPS.keySet()) + " 중 하나예요.");
-        if (in.budget() < MIN_BUDGET || in.budget() > MAX_BUDGET) {
-            throw ApiException.badRequest("INVALID_BUDGET", "한 번 금액은 " + MIN_BUDGET + "에서 " + MAX_BUDGET + " 크레딧 사이로 정해 주세요.");
+        if (in.budget() < budgets.min() || in.budget() > budgets.max()) {
+            throw ApiException.badRequest("INVALID_BUDGET", "한 번 금액은 " + budgets.min() + "에서 " + budgets.max() + " 크레딧 사이로 정해 주세요.");
         }
         return new Settings(coins, sl.stripTrailingZeros(), tp.stripTrailingZeros(), in.interval(), in.budget());
     }
@@ -303,9 +319,9 @@ public class PaperBot {
         return json.writeValueAsString(n);
     }
 
-    /** 저장된 기준. 비었거나 잘못된 칸은 기본값으로 */
+    /** 저장된 기준. 비었거나 잘못된 칸은 기본값으로. 운영 범위가 바뀌어 벗어난 한 번 금액은 새 범위 끝으로 맞추고 나머지 기준은 그대로 둔다 */
     Settings settings(String raw) {
-        if (raw == null || raw.isBlank()) return DEFAULTS;
+        if (raw == null || raw.isBlank()) return defaults();
         JsonNode n = json.readTree(raw);
         List<String> coins = new ArrayList<>();
         for (JsonNode c : n.path("coins")) {
@@ -316,9 +332,9 @@ public class PaperBot {
             return checked(new Settings(coins.isEmpty() ? DEFAULTS.coins() : coins,
                     new BigDecimal(n.path("stop_loss").asString(STOP_LOSS.toPlainString())),
                     new BigDecimal(n.path("take_profit").asString("0")),
-                    STEPS.containsKey(interval) ? interval : INTERVAL, n.path("budget").asLong(CREDIT_BUDGET)));
+                    STEPS.containsKey(interval) ? interval : INTERVAL, Math.clamp(n.path("budget").asLong(budgets.budget()), budgets.min(), budgets.max())), budgets);
         } catch (RuntimeException e) {
-            return DEFAULTS;
+            return defaults();
         }
     }
 
@@ -484,9 +500,16 @@ public class PaperBot {
         long seenT = seen.path(coin.symbol()).asLong(0);
         Candle last = coin.candles().getLast();
         String signal = lastSignal(rule(s), positions, coin);
-        seen.put(coin.symbol(), Math.max(seenT, last.t()));
-        if (last.t() <= seenT || signal == null || (signal.equals("BUY") && !s.coins().contains(coin.coin()))) return List.of();
+        if (last.t() <= seenT) return List.of();
+        if (signal == null || (signal.equals("BUY") && !s.coins().contains(coin.coin()))) {
+            seen.put(coin.symbol(), last.t());
+            return List.of();
+        }
+        boolean held = positions.has(coin.symbol());
         Fill f = signal.equals("BUY") ? creditBuy(memberId, book, s, positions, coin, last) : creditSell(memberId, book, s, positions, coin, last, signal.substring(5));
+        // 주문이 실패했으면(시세를 못 받음 등) 이 봉을 끝냈다고 적지 않아 다음 바퀴에 같은 신호를 다시 낸다.
+        // 주문 번호가 봉마다 같아 두 번 체결되지는 않는다
+        if (f != null || held != positions.has(coin.symbol())) seen.put(coin.symbol(), last.t());
         return f == null ? List.of() : List.of(f);
     }
 
@@ -552,18 +575,25 @@ public class PaperBot {
                 signals = one == null ? List.of() : List.of(one.equals("BUY") ? "BUY:" + buyText(s) : one);
             }
         }
-        seen.put(coin.symbol(), Math.max(seenT, last.t()));
         if (last.t() <= seenT) return List.of();
+        boolean tried = false;
+        boolean failed = false;
         List<Fill> out = new ArrayList<>();
         for (String signal : signals) {
             String kind = signal.substring(0, signal.indexOf(':'));
             String reason = signal.substring(signal.indexOf(':') + 1);
             boolean exit = kind.equals("SELL") || kind.equals("CLOSE");
             if (!exit && !s.coins().contains(coin.coin())) continue;
+            tried = true;
+            JsonNode was = positions.deepCopy();
             Fill f = exit ? usdtExit(memberId, book, s, positions, coin, last, rate, kind, reason)
                     : usdtEntry(memberId, book, s, positions, coin, last, rate, kind, reason);
             if (f != null) out.add(f);
+            else if (was.equals(positions)) failed = true;
         }
+        // 낸 주문 가운데 하나라도 되지 않았으면(환전 실패 등) 이 봉을 끝냈다고 적지 않고 다음 바퀴에 다시 본다.
+        // 선물 반전에서 정리만 되고 반대 진입이 실패하면, 다음 바퀴는 포지션이 없으니 진입만 다시 낸다
+        if (!tried || !failed) seen.put(coin.symbol(), last.t());
         return out;
     }
 
@@ -625,10 +655,19 @@ public class PaperBot {
         return "bot-" + ex + coin.coin() + "-" + c.t() + "-" + side;
     }
 
+    /**
+     * 가상 돈 계좌의 한 번 금액: 원화 계좌는 회원이 고른 금액 그대로, USDT 계좌는 거래소 기본값(100 USDT)을
+     * 고른 금액 ÷ 기본 금액 비율로 늘리거나 줄인다. 기본값을 고르면 예전과 같다
+     */
+    BigDecimal virtualBudget(Book book, Settings s) {
+        if (Money.KRW.equals(book.currency())) return BigDecimal.valueOf(s.budget());
+        return book.budget().multiply(BigDecimal.valueOf(s.budget())).divide(BigDecimal.valueOf(budgets.budget()), 2, RoundingMode.DOWN);
+    }
+
     /** 한 번 금액만큼 산다. 현금이 모자라면 null */
     private Fill buy(Book book, Settings s, ObjectNode acc, ObjectNode positions, Coin coin, Candle c) {
         BigDecimal cash = new BigDecimal(acc.path("cash").asString("0"));
-        BigDecimal spend = book.budget().min(cash);
+        BigDecimal spend = virtualBudget(book, s).min(cash);
         BigDecimal q = spend.divide(c.c().multiply(BigDecimal.ONE.add(book.feeRate())), MC).setScale(8, RoundingMode.FLOOR);
         BigDecimal cost = q.multiply(c.c());
         BigDecimal fee = book.money(cost.multiply(book.feeRate()));
@@ -701,7 +740,7 @@ public class PaperBot {
         List<Map<String, String>> rules = new ArrayList<>(List.of(
                 rule("전략", WINDOW + "봉 이동평균 교차"), rule("봉", s.interval()),
                 rule("코인", String.join(", ", s.coins())),
-                rule("한 번 금액", usesCredits() ? s.budget() + " 기본 크레딧" : book.budget().toPlainString() + " " + book.currency()),
+                rule("한 번 금액", usesCredits() ? s.budget() + " 기본 크레딧" : virtualBudget(book, s).stripTrailingZeros().toPlainString() + " " + book.currency()),
                 rule("손절", percent(s.stopLoss()) + "%"),
                 rule("익절", s.takeProfit().signum() > 0 ? percent(s.takeProfit()) + "%" : "없음"),
                 rule("돌리는 곳", usesCredits() ? "devlog 서버 (모의 · 기본 크레딧)" : "devlog 서버 (모의)")));

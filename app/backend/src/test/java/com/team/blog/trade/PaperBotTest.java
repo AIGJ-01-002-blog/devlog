@@ -61,6 +61,8 @@ class PaperBotTest extends TradeBotSimTest {
         JsonNode v = read(me.http().perform(get("/api/me/trade-bot/paper")).andExpect(status().isOk()).andReturn());
         assertThat(v.path("settings").path("interval").asString()).isEqualTo("1h");
         assertThat(v.path("intervals")).hasToString("[\"15m\",\"1h\",\"4h\",\"1d\"]");
+        assertThat(v.path("budgetMin").asLong()).isEqualTo(5_000);
+        assertThat(v.path("budgetMax").asLong()).isEqualTo(1_000_000);
         assertThat(v.path("coins").size()).isEqualTo(5);
 
         Map<String, Object> settings = Map.of("coins", List.of("ETH", "BTC"), "stopLoss", 0.02, "takeProfit", 0.04, "interval", "4h", "budget", 30000);

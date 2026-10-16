@@ -237,6 +237,11 @@ blog:
     # 원화 캔들은 코빗에서 받는다(#325, 학교 서버에서 업비트가 막힘). 업비트로 돌리려면 TRADES_KRW_SOURCE=upbit
     korbit-url: ${TRADES_KORBIT_URL:https://api.korbit.co.kr}
     krw-source: ${TRADES_KRW_SOURCE:korbit}
+    # 서버 모의 봇 한 번 금액(기본 크레딧, 1크레딧 = 1원): 회원이 고르지 않았을 때 값과 고를 수 있는 범위 (#340)
+    bot-budget:
+      budget: ${TRADES_BOT_BUDGET:100000}
+      min: ${TRADES_BOT_BUDGET_MIN:5000}
+      max: ${TRADES_BOT_BUDGET_MAX:1000000}
   # 블로그 포인트 (#266, 목표 #253): 출석·글 발행·모의투자 수익으로 쌓고 상점에서 쓴다. devlog 2.0 묶음 릴리스 전까지 꺼 둔다.
   # 적립 규칙 값은 관리자 화면(/admin/points)에서 바꾼다
   points:
