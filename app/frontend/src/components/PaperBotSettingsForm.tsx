@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { t } from '../lib/i18n'
 import {
-  PAPER_BOT_MAX_BUDGET, PAPER_BOT_MIN_BUDGET, paperBotForm, paperBotFormError, paperBotSettings, savePaperBotSettings,
+  paperBotBudgetRange, paperBotForm, paperBotFormError, paperBotSettings, savePaperBotSettings,
   type PaperBotForm, type PaperBotView,
 } from '../lib/tradeBot'
 
@@ -10,6 +10,7 @@ import {
  * 접어 두면 버튼 하나라 /trade 위쪽이 길어지지 않는다.
  */
 export function PaperBotSettingsForm({ view, onSaved }: { view: PaperBotView; onSaved: (v: PaperBotView) => void }) {
+  const range = paperBotBudgetRange(view)
   const [form, setForm] = useState<PaperBotForm>(() => paperBotForm(view.settings))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -24,7 +25,7 @@ export function PaperBotSettingsForm({ view, onSaved }: { view: PaperBotView; on
 
   const save = (e: FormEvent) => {
     e.preventDefault()
-    const problem = paperBotFormError(form)
+    const problem = paperBotFormError(form, range)
     if (problem) { setError(problem); return }
     setSaving(true)
     savePaperBotSettings(paperBotSettings(form))
@@ -65,7 +66,7 @@ export function PaperBotSettingsForm({ view, onSaved }: { view: PaperBotView; on
         </label>
         <label>
           <span>{t('한 번 금액 (크레딧)')}</span>
-          <input type="number" inputMode="numeric" min={PAPER_BOT_MIN_BUDGET} max={PAPER_BOT_MAX_BUDGET} step={1} value={form.budget}
+          <input type="number" inputMode="numeric" min={range.min} max={range.max} step={1} value={form.budget}
             onChange={(e) => edit({ budget: e.target.value })} />
         </label>
         <div className="tradebot-settings-actions">

@@ -239,10 +239,10 @@ public class PaperBot {
         this.credits = credits;
     }
 
-    /** 화면에 주는 켜짐과 기준. options는 고를 수 있는 코인·봉 간격 */
-    public record Switch(boolean enabled, Settings settings, List<String> coins, List<String> intervals) {
-        Switch(boolean enabled, Settings settings) {
-            this(enabled, settings, TradeCharts.COINS, List.copyOf(STEPS.keySet()));
+    /** 화면에 주는 켜짐과 기준. 고를 수 있는 코인·봉 간격과 이 서버의 한 번 금액 범위도 함께 준다 */
+    public record Switch(boolean enabled, Settings settings, List<String> coins, List<String> intervals, long budgetMin, long budgetMax) {
+        Switch(boolean enabled, Settings settings, PaperBotBudget budgets) {
+            this(enabled, settings, TradeCharts.COINS, List.copyOf(STEPS.keySet()), budgets.min(), budgets.max());
         }
     }
 
@@ -252,8 +252,8 @@ public class PaperBot {
     public Switch get(long memberId) {
         if (!props.enabled()) throw new NotFoundException();
         List<Switch> rows = jdbc.query("SELECT enabled, rules::text FROM trade_paper_bot WHERE member_id = ?",
-                (rs, i) -> new Switch(rs.getBoolean(1), settings(rs.getString(2))), memberId);
-        return rows.isEmpty() ? new Switch(false, defaults()) : rows.getFirst();
+                (rs, i) -> new Switch(rs.getBoolean(1), settings(rs.getString(2)), budgets), memberId);
+        return rows.isEmpty() ? new Switch(false, defaults(), budgets) : rows.getFirst();
     }
 
     /** 켜면 바로 한 바퀴 돌려 화면이 곧장 채워진다. 끄면 다음 바퀴부터 돌지 않고 기록은 남는다. 기준은 다음 바퀴부터 쓴다 */
@@ -319,7 +319,7 @@ public class PaperBot {
         return json.writeValueAsString(n);
     }
 
-    /** 저장된 기준. 비었거나 잘못된 칸은 기본값으로 */
+    /** 저장된 기준. 비었거나 잘못된 칸은 기본값으로. 운영 범위가 바뀌어 벗어난 한 번 금액은 새 범위 끝으로 맞추고 나머지 기준은 그대로 둔다 */
     Settings settings(String raw) {
         if (raw == null || raw.isBlank()) return defaults();
         JsonNode n = json.readTree(raw);
@@ -332,7 +332,7 @@ public class PaperBot {
             return checked(new Settings(coins.isEmpty() ? DEFAULTS.coins() : coins,
                     new BigDecimal(n.path("stop_loss").asString(STOP_LOSS.toPlainString())),
                     new BigDecimal(n.path("take_profit").asString("0")),
-                    STEPS.containsKey(interval) ? interval : INTERVAL, n.path("budget").asLong(budgets.budget())), budgets);
+                    STEPS.containsKey(interval) ? interval : INTERVAL, Math.clamp(n.path("budget").asLong(budgets.budget()), budgets.min(), budgets.max())), budgets);
         } catch (RuntimeException e) {
             return defaults();
         }
@@ -576,8 +576,8 @@ public class PaperBot {
             }
         }
         if (last.t() <= seenT) return List.of();
-        JsonNode before = positions.deepCopy();
         boolean tried = false;
+        boolean failed = false;
         List<Fill> out = new ArrayList<>();
         for (String signal : signals) {
             String kind = signal.substring(0, signal.indexOf(':'));
@@ -585,12 +585,15 @@ public class PaperBot {
             boolean exit = kind.equals("SELL") || kind.equals("CLOSE");
             if (!exit && !s.coins().contains(coin.coin())) continue;
             tried = true;
+            JsonNode was = positions.deepCopy();
             Fill f = exit ? usdtExit(memberId, book, s, positions, coin, last, rate, kind, reason)
                     : usdtEntry(memberId, book, s, positions, coin, last, rate, kind, reason);
             if (f != null) out.add(f);
+            else if (was.equals(positions)) failed = true;
         }
-        // 낸 주문이 하나도 되지 않았으면(환전 실패 등) 이 봉을 끝냈다고 적지 않고 다음 바퀴에 다시 본다
-        if (!tried || !out.isEmpty() || !before.equals(positions)) seen.put(coin.symbol(), last.t());
+        // 낸 주문 가운데 하나라도 되지 않았으면(환전 실패 등) 이 봉을 끝냈다고 적지 않고 다음 바퀴에 다시 본다.
+        // 선물 반전에서 정리만 되고 반대 진입이 실패하면, 다음 바퀴는 포지션이 없으니 진입만 다시 낸다
+        if (!tried || !failed) seen.put(coin.symbol(), last.t());
         return out;
     }
 
