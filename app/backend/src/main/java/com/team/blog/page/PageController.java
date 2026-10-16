@@ -155,14 +155,15 @@ public class PageController {
 
     /**
      * 검색 결과 화면 (014, docs/33 §5). 검색 엔진 수집 거부(FR-022), 저장 안 함. 글 탭은 첫 결과를 함께 내려준다.
-     * 같은 IP가 너무 자주 열면 결과 없이 빈 화면만 내려준다. 화면이 API로 다시 찾고, 요청 제한 안내는 API가 보여 준다.
+     * 비회원이 같은 IP로 너무 자주 열면 결과 없이 빈 화면만 내려준다. 화면이 API로 다시 찾고, 요청 제한 안내는 API가 보여 준다.
      */
     @GetMapping("/search")
     public ResponseEntity<String> search(@RequestParam(required = false) String q, @RequestParam(required = false) String tab,
-                                         @RequestParam(required = false) String sort, HttpServletRequest request) {
+                                         @RequestParam(required = false) String sort,
+                                         @CurrentMember(required = false) MemberPrincipal me, HttpServletRequest request) {
         String title = q == null || q.isBlank() ? "검색" : "'" + truncate(q.strip(), 50) + "' 검색";
         HeadMeta meta = HeadMeta.privatePage(site.name(), title);
-        if (q == null || q.isBlank() || "people".equals(tab) || !searchLimit.tryAcquire(request)) {
+        if (q == null || q.isBlank() || "people".equals(tab) || (me == null && !searchLimit.tryAcquire(request))) {
             return html(HttpStatus.OK, shell.render(meta, "<main><h1>검색</h1></main>", Map.of("page", "search")), CacheControl.noStore());
         }
         SearchQuery.PostPage result = search.posts(q, SearchController.parseSort(sort), null, null);

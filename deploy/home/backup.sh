@@ -20,6 +20,8 @@ die() { printf '실패: %s\n' "$*" >&2; exit 1; }
 command -v kubectl >/dev/null || die "kubectl이 없어요. 학교 서버에서 실행하거나 KUBECONFIG를 맞춰 주세요."
 kubectl -n "$NS" get statefulset postgres >/dev/null 2>&1 || die "네임스페이스 $NS에서 postgres를 찾지 못했어요. KUBECONFIG를 확인해 주세요."
 mkdir -p "$OUT/media"
+# 예전에 만든 폴더를 다시 쓰면 umask가 닿지 않으니 들어 있던 것까지 나만 읽게 한다
+chmod -R go-rwx "$OUT"
 OUT="$(cd "$OUT" && pwd)"
 
 WORK="$(mktemp -d)"

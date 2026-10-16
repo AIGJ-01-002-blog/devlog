@@ -264,6 +264,11 @@ class SearchTest extends IntegrationTest {
         // 화면 주소도 같은 상한을 쓴다. 넘으면 결과 없이 빈 화면만 그리고, 결과는 화면이 API로 다시 찾는다
         String html = browser().from(ip).perform(uri("/search?q=abc")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         assertThat(html).contains("<main><h1>검색</h1></main>");
+        // 회원은 IP 상한을 받지 않는다(회원 칸으로 따로 센다)
+        Session member = signup(uniqueLogin("srip"));
+        String memberHtml = member.http().from(ip).perform(uri("/search?q=abc")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(memberHtml).doesNotContain("<main><h1>검색</h1></main>");
+        member.http().from(ip).perform(uri("/api/search/posts?q=abc")).andExpect(status().isOk());
         // 다른 IP는 영향 없다
         browser().from("203.0.113.91").perform(uri("/api/search/posts?q=abc")).andExpect(status().isOk());
     }
