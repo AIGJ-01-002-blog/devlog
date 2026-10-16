@@ -59,6 +59,7 @@ $sshArgs = @(
     "-o", "BatchMode=yes",
     "-o", "IdentitiesOnly=yes",
     "-o", ("UserKnownHostsFile=" + (Q (Join-Path $dir "known_hosts"))),
+    "-o", "GlobalKnownHostsFile=none",
     "-o", "StrictHostKeyChecking=yes",
     "-o", "ConnectTimeout=20",
     "-o", "ServerAliveInterval=30",
