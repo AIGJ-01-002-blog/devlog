@@ -25,10 +25,10 @@
 ```powershell
 cd D:\devlog
 git pull
-powershell -ExecutionPolicy Bypass -File deploy\home\setup-backup.ps1 -Target <아이디>@<학교 서버 주소> -Port <SSH 포트>
+powershell -ExecutionPolicy Bypass -File deploy\home\setup-backup.ps1 -Target <아이디>@<학교 서버 주소> -Port <SSH 포트> -KnownHosts D:\school_known_hosts.txt
 ```
 
-- 처음 붙는 서버라 SSH 키 지문을 저장할지 묻지 않고 저장해요. 화면에 찍힌 지문을 한 번 봐 두세요.
+- `-KnownHosts`에는 GitHub 저장소 Settings → Secrets and variables → Actions → Variables의 `SCHOOL_SSH_KNOWN_HOSTS` 값을 그대로 저장한 파일을 줘요. 학교 서버 SSH 키가 이 값과 다르면 비밀번호를 보내지 않고 멈춰요. 한 번 설정한 뒤 다시 실행할 때는 생략해도 고정한 키를 그대로 써요.
 - 비밀번호를 한 번 묻고, 시험으로 한 번 받아요. 끝나면 `D:\devlog-backups\devlog-backup-날짜-시각\`이 생겨요.
 - 작업 스케줄러에 "devlog 백업 받기"가 생겨요(로그인하고 5분 뒤, 매일 21:00). 같은 날 이미 받았으면 그냥 넘어가요.
 - 받은 백업은 `db.dump`의 SHA-256과 사진 수를 서버 목록과 맞춰 본 뒤에만 남기고, 최근 7개만 둬요. 기록은 `D:\devlog-backups\backup.log`예요.
