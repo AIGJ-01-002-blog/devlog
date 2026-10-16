@@ -121,6 +121,18 @@ class TradeTools {
         return trades.enabled();
     }
 
+    /** leverage는 비었거나 1~상한 정수. 범위는 TradeJournal이 본다 */
+    private static Integer leverage(JsonNode a) {
+        String message = "leverage는 1~" + TradeJournal.LEVERAGE_MAX + " 사이 정수예요.";
+        BigDecimal raw = number(a, "leverage");
+        if (a.hasNonNull("leverage") && raw == null) throw new IllegalArgumentException(message);
+        try {
+            return raw == null ? null : raw.intValueExact();
+        } catch (ArithmeticException e) {
+            throw new IllegalArgumentException(message, e);
+        }
+    }
+
     McpTools.Result recordTrade(AccessTokens.Caller caller, JsonNode a) {
         TradeJournal.Side side = enumOf(TradeJournal.Side.class, a.path("side").asString(""));
         String modeRaw = a.path("mode").asString("");
@@ -132,21 +144,13 @@ class TradeTools {
         String positionRaw = a.path("position_side").asString("");
         TradeJournal.PositionSide position = enumOf(TradeJournal.PositionSide.class, positionRaw);
         if (!positionRaw.isBlank() && position == null) return McpTools.Result.fail("position_side는 LONG이나 SHORT예요.");
-        BigDecimal leverageRaw = number(a, "leverage");
-        if (a.hasNonNull("leverage") && leverageRaw == null) {
-            return McpTools.Result.fail("leverage는 1~" + TradeJournal.LEVERAGE_MAX + " 사이 정수예요.");
-        }
-        Integer leverage;
-        try {
-            leverage = leverageRaw == null ? null : leverageRaw.intValueExact();
-        } catch (ArithmeticException e) {
-            return McpTools.Result.fail("leverage는 1~" + TradeJournal.LEVERAGE_MAX + " 사이 정수예요.");
-        }
         String reason = a.path("reason").asString("");
         List<String> secrets = SecretScanner.find(reason);
         if (!secrets.isEmpty()) return McpTools.Result.fail(SecretScanner.warning(secrets) + " 이유(reason)에서 빼고 다시 보내 주세요. 남기지 않았어요.");
+        Integer leverage;
         TradeTrace trace;
         try {
+            leverage = leverage(a);
             trace = trace(a);
         } catch (IllegalArgumentException e) {
             return McpTools.Result.fail(e.getMessage());
