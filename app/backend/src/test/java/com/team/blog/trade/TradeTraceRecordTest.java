@@ -102,6 +102,15 @@ class TradeTraceRecordTest extends IntegrationTest {
         JsonNode c = fills.get(2).path("trace");
         assertThat(c.path("strategyVersion").asString()).isEmpty();
         assertThat(c.path("basket").isNull()).isTrue();
+
+        // 진입이 기간 앞(어제)에 있어도 오늘 정리 체결은 그 진입의 기법으로 센다
+        Map<String, Object> late = new HashMap<>(out);
+        late.putAll(Map.of("external_id", "tr-4", "executed_at", at(d.plusDays(1), "00:00:01"), "r_multiple", -1, "exit_reason", "STOP"));
+        assertThat(call(t, "record_trade", late).path("isError").asBoolean()).isFalse();
+        JsonNode today = read(me.http().perform(get("/api/me/trades?days=1")).andExpect(status().isOk()).andReturn()).path("setups");
+        assertThat(today).hasSize(1);
+        assertThat(today.get(0).path("strategyVersion").asString()).isEqualTo("ladder-v0.1");
+        assertThat(today.get(0).path("samples").asInt()).isEqualTo(1);
     }
 
     @Test

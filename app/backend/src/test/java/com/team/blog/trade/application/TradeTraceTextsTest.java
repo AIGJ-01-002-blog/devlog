@@ -80,6 +80,15 @@ class TradeTraceTextsTest {
     }
 
     @Test
+    void 기간_앞_진입_체결은_기법만_잇고_세지_않는다() {
+        List<TradeJournal.Fill> earlier = List.of(fill(1, "BUY", null, entry("v1", "PULLBACK"), 0));
+        List<TradeJournal.Fill> fills = List.of(fill(2, "SELL", BigDecimal.ONE, exit("", "", TradeTrace.ExitReason.TP1, "1.8"), 10));
+        assertThat(TradeJournal.setupStats(fills, earlier)).containsExactly(
+                new TradeJournal.SetupStat("PAPER", "v1", "PULLBACK", 1, 1, new BigDecimal("1.80")));
+        assertThat(TradeJournal.setupStats(fills)).containsExactly(new TradeJournal.SetupStat("PAPER", "", "", 1, 1, new BigDecimal("1.80")));
+    }
+
+    @Test
     void 쇼츠_대본에_정리_이유와_R을_말한다() {
         List<TradeJournal.Fill> fills = List.of(fill(2, "SELL", new BigDecimal("18"), exit("v1", "PULLBACK", TradeTrace.ExitReason.TP1, "1.8"), 10));
         List<ShortsScript.Scene> scenes = TradeTexts.shortsScenes(day(fills));

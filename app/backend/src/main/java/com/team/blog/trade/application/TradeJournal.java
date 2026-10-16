@@ -179,8 +179,13 @@ public class TradeJournal {
      * 정리 체결에 기법 버전·셋업이 비어 있으면 같은 decision_id로 이어진 진입 체결의 값을 쓴다.
      */
     public static List<SetupStat> setupStats(List<Fill> fills) {
+        return setupStats(fills, List.of());
+    }
+
+    /** @param earlier 기간 앞에 있는 진입 체결. 기법을 잇는 데만 쓰고 세지 않는다 */
+    static List<SetupStat> setupStats(List<Fill> fills, List<Fill> earlier) {
         Map<String, TradeTrace> entries = new HashMap<>();
-        for (Fill f : fills) {
+        for (Fill f : java.util.stream.Stream.concat(fills.stream(), earlier.stream()).toList()) {
             TradeTrace t = f.trace();
             if (t != null && !f.closes() && !t.decisionId().isBlank()) entries.putIfAbsent(f.mode() + ":" + t.decisionId(), t);
         }
@@ -408,7 +413,21 @@ public class TradeJournal {
         }
         List<Fill> all = fills.values().stream().flatMap(List::stream).toList();
         return new Overview(from, to, rows.reversed(), summarize(all), running, has(memberId, Mode.LIVE), has(memberId, Mode.PAPER), mode,
-                setupStats(all));
+                setupStats(all, earlierEntries(memberId, from, all)));
+    }
+
+    /** 기간 안 정리 체결 가운데 기법이 비어 있는 것의 decision_id로, 기간 앞에 남긴 체결을 찾는다 */
+    private List<Fill> earlierEntries(long memberId, LocalDate from, List<Fill> all) {
+        List<String> ids = all.stream()
+                .filter(f -> f.closes() && f.trace() != null && f.trace().rMultiple() != null && !f.trace().decisionId().isBlank()
+                        && (f.trace().strategyVersion().isBlank() || f.trace().setup().isBlank()))
+                .map(f -> f.trace().decisionId()).distinct().limit(500).toList();
+        if (ids.isEmpty()) return List.of();
+        List<Object> args = new ArrayList<>(List.of(memberId, Timestamp.from(start(from))));
+        args.addAll(ids);
+        String in = String.join(", ", java.util.Collections.nCopies(ids.size(), "?"));
+        return jdbc.query("SELECT " + FILL_SELECT + " FROM trade WHERE member_id = ? AND executed_at < ? AND decision_id IN (" + in + ")"
+                + " ORDER BY executed_at, id", TradeJournal::fill, args.toArray());
     }
 
     private boolean has(long memberId, Mode mode) {
@@ -504,13 +523,16 @@ public class TradeJournal {
         return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM shorts WHERE id = ?)", Boolean.class, shortsId));
     }
 
+    /** 체결 한 줄을 읽는 칸 */
+    private static final String FILL_SELECT = """
+            id, external_id, mode, exchange, symbol, symbol_name, side, quantity, price, currency, fee, realized_pnl, strategy,
+            reason, executed_at, market, position_side, leverage, timeframe, strategy_version, decision_id, basket, regime, setup,
+            trigger_name, news_score, news_flags, risk_pct, kelly_raw, kelly_used, ai_conf, equity_at_entry, stop_price, tp1_price,
+            tp2_price, liquidation_price, ai_model, ai_cost, exit_reason, r_multiple, funding""";
+
     private List<Fill> fills(long memberId, LocalDate from, LocalDate to, Mode mode) {
-        return jdbc.query("""
-                SELECT id, external_id, mode, exchange, symbol, symbol_name, side, quantity, price, currency, fee, realized_pnl, strategy,
-                       reason, executed_at, market, position_side, leverage, timeframe, strategy_version, decision_id, basket, regime, setup,
-                       trigger_name, news_score, news_flags, risk_pct, kelly_raw, kelly_used, ai_conf, equity_at_entry, stop_price, tp1_price,
-                       tp2_price, liquidation_price, ai_model, ai_cost, exit_reason, r_multiple, funding
-                FROM trade WHERE member_id = ? AND executed_at >= ? AND executed_at < ? AND (CAST(? AS text) IS NULL OR mode = ?)
+        return jdbc.query("SELECT " + FILL_SELECT + """
+                 FROM trade WHERE member_id = ? AND executed_at >= ? AND executed_at < ? AND (CAST(? AS text) IS NULL OR mode = ?)
                 ORDER BY executed_at, id
                 """, TradeJournal::fill, memberId, Timestamp.from(start(from)), Timestamp.from(start(to.plusDays(1))), name(mode), name(mode));
     }
