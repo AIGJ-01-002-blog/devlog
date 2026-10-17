@@ -21,6 +21,13 @@ public class RateLimiter {
             return c
             """, Long.class);
 
+    /** 센 수를 하나 되돌린다. 키가 없거나 0이면 그대로 둔다 (창 길이는 그대로) */
+    private static final RedisScript<Long> DECR_IF_POSITIVE = RedisScript.of("""
+            local c = tonumber(redis.call('GET', KEYS[1]) or '0')
+            if c > 0 then return redis.call('DECR', KEYS[1]) end
+            return 0
+            """, Long.class);
+
     private final StringRedisTemplate redis;
 
     public RateLimiter(StringRedisTemplate redis) {
@@ -45,6 +52,15 @@ public class RateLimiter {
             return v == null ? 0 : Long.parseLong(v);
         } catch (RuntimeException e) {
             return 0;
+        }
+    }
+
+    /** tryAcquire로 미리 잡은 한 번을 돌려준다 (그 일이 실패해 세지 않을 때). Redis 장애면 창이 끝날 때 저절로 맞춰진다 */
+    public void release(String key) {
+        try {
+            redis.execute(DECR_IF_POSITIVE, List.of("rl:" + key));
+        } catch (RuntimeException e) {
+            log.warn("요청 제한 카운터를 되돌리지 못했습니다: {}", e.getMessage());
         }
     }
 

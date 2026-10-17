@@ -44,6 +44,12 @@ public class Browser {
         return actions;
     }
 
+    /** 지금 들고 있는 쿠키 값. 없으면 null */
+    public String cookie(String name) {
+        Cookie c = cookies.get(name);
+        return c == null ? null : c.getValue();
+    }
+
     public boolean hasSessionCookie() {
         return cookies.containsKey("BLOGSESSION");
     }
