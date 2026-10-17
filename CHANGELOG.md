@@ -10,6 +10,9 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
+### 바뀜
+- GitHub Actions에서 학교 서버 포트를 열어 보거나 운영 구성을 재던 디버그용 워크플로 3개(학교 안 포트 시험·포트 직접 열기 점검·운영 구성 측정)를 지운다. 나머지 워크플로의 외부 액션(checkout·setup-java·setup-node·setup-python·upload-artifact·docker 4종)은 태그 대신 그 태그가 가리키던 커밋 SHA로 고정해, 태그를 누가 옮겨도 다른 코드가 돌지 않게 한다(#377)
+
 ### 고침
 - JSON 요청 본문에 경로별 상한을 둔다. 기본 256KB, 글 저장·미리보기 1MB, MCP 4MB(`blog.web.max-body`·`max-post-body`·`max-mcp-body`)이고, 넘으면 컨트롤러에 닿기 전에 413으로 끊는다. Content-Length 없이 청크로 보내도 상한까지만 읽는다. 사진·파일·영상·프로필 사진 올리기는 전처럼 각자 상한을 쓴다. 전에는 ingress가 넘겨 주는 21MB까지 받아 큰 요청 몇 개로 파드가 메모리 부족에 빠질 수 있었다(#373)
 - 로그인 세션은 계속 써도 로그인한 때부터 30일(`blog.auth.session-absolute-ttl`)이 지나면 끝나고 다시 로그인한다. 전에는 14일 안에 한 번이라도 쓰면 계속 늘어나 새어 나간 세션 쿠키가 끝없이 살 수 있었다. 이 기능 전에 로그인한 세션은 배포 뒤 처음 쓴 때부터 센다. 이메일 가입은 같은 IP에서 1시간에 10계정(`signup-per-ip-per-hour`)까지 받고 넘으면 429 `TOO_MANY_SIGNUPS`로 알려 준다. 입력을 틀려 다시 보낸 요청은 세지 않는다(#379)
