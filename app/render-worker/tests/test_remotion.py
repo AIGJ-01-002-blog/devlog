@@ -8,7 +8,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from devlog_render import captions, remotion
+from devlog_render import captions, look, remotion
 from devlog_render.captions import Word
 from devlog_render.render import FPS, OUTRO_SECONDS, Renderer, Script, find_font, probe_ms
 
@@ -73,20 +73,27 @@ class RemotionPathTest(unittest.TestCase):
             self.assertEqual(sorted(streams), ["audio", "video"])
 
         props = _fake_remotion.props
-        self.assertEqual(set(props), {"title", "footer", "transitionFrames", "totalFrames", "scenes", "style", "character"})
+        self.assertEqual(set(props), {"title", "footer", "transitionFrames", "totalFrames", "scenes", "style", "character", "look"})
+        self.assertIn(props["look"], look.LOOKS)
         # 대본 장면 셋 + 맨 끝 블로그 광고(말 없이 OUTRO_SECONDS초)
         self.assertEqual(len(props["scenes"]), 4)
         self.assertEqual(props["scenes"][-1]["custom"], {"kind": "outro", "data": None})
         self.assertEqual(props["scenes"][-1]["durationInFrames"], round(OUTRO_SECONDS * FPS))
         self.assertEqual(props["scenes"][-1]["pages"], [])
 
-        keys = {"caption", "code", "action", "params", "durationInFrames", "leadFrames", "speechFrames", "pages", "mouth", "image", "custom", "cut", "diagram"}
+        keys = {"caption", "code", "action", "params", "durationInFrames", "leadFrames", "speechFrames", "pages", "mouth", "image", "custom", "cut", "diagram",
+                "layout", "camera", "transition"}
         for s in props["scenes"][:-1]:
             self.assertEqual(set(s), keys)
+            self.assertIn(s["camera"], look.CAMERAS)
             self.assertTrue(all(0 <= m <= 1 for m in s["mouth"]))
             self.assertTrue(s["pages"] and s["pages"][0]["words"])
         self.assertEqual(props["scenes"][1]["code"], ["docker compose down -v"])
         self.assertEqual(props["scenes"][2]["custom"]["kind"], "replay")
+        # 등록된 장면(매매 재현 등)은 위 그림·아래 캐릭터 배치로 바꾸지 않는다. 첫 장면은 전환 없이 시작한다
+        self.assertEqual(props["scenes"][2]["layout"], "stage")
+        self.assertIsNone(props["scenes"][0]["transition"])
+        self.assertTrue(all(s["transition"] in look.TRANSITIONS for s in props["scenes"][1:]))
         # 장면 길이 합 - 전환 겹침 = 전체 길이
         total = sum(s["durationInFrames"] for s in props["scenes"]) - props["transitionFrames"] * 3
         self.assertLessEqual(abs(total - props["totalFrames"]), 3)

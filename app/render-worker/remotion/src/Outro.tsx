@@ -1,8 +1,9 @@
-// 모든 쇼츠 맨 끝 3초: devlog 블로그 광고. 문구는 대본과 상관없이 여기 고정한다(바꿀 때는 OUTRO만 고친다).
+// 모든 쇼츠 맨 끝 3초: devlog 블로그 광고. 문구와 바탕은 대본·룩과 상관없이 여기 고정한다(바꿀 때는 OUTRO만 고친다).
 // 장면 틀(제목 칩·자막·주소) 없이 화면 전체를 쓰고, 아래 1600 밑은 쇼츠 앱 버튼에 가리므로 비운다.
 import React from 'react';
 import {AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
 import {LOGO_PATH} from './logo';
+import {LOOKS} from './looks';
 import {theme} from './theme';
 
 export const OUTRO = {
@@ -27,7 +28,7 @@ export const Outro: React.FC = () => {
   const breathe = 1 + Math.max(0, Math.sin((frame / fps - 1.1) * Math.PI * 1.4)) * 0.04 * Math.min(1, Math.max(0, frame / fps - 1.1) * 4);
   const rise = (s: number, px = 40): React.CSSProperties => ({opacity: Math.min(1, s * 1.6), translate: `0 ${(1 - s) * px}px`});
   return (
-    <AbsoluteFill style={{background: color.bg, overflow: 'hidden'}}>
+    <AbsoluteFill style={{background: LOOKS.paper.color.bg, overflow: 'hidden'}}>
       <div style={{position: 'absolute', width: 1500, height: 1500, borderRadius: '50%', left: -210, top: -150,
         background: `radial-gradient(circle, ${OUTRO.color}26 0%, ${OUTRO.color}00 60%)`,
         scale: String(interpolate(frame, [0, 3 * fps], [0.9, 1.05], {extrapolateRight: 'clamp'}))}} />

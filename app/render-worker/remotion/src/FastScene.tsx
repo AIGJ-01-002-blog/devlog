@@ -7,6 +7,7 @@ import {Act, Presenter} from './actions';
 import {Background} from './Background';
 import {allItems, DIAGRAM_H, DiagramStage} from './Diagram';
 import {CodeLine} from './props';
+import {look} from './looks';
 import {accent, card, theme} from './theme';
 import type {Page, SceneData} from './types';
 
@@ -49,7 +50,7 @@ export const FastScene: React.FC<{scene: SceneData; index: number; title: string
   return (
     <AbsoluteFill>
       <Background index={index} image={scene.image} />
-      <div style={{position: 'absolute', top: 84, left: 0, right: 0, textAlign: 'center', font: theme.type.title, color: theme.color.sub,
+      <div style={{position: 'absolute', top: 84, left: 0, right: 0, textAlign: 'center', font: theme.type.title, color: look().color.onBgSub,
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '0 80px'}}>{title}</div>
       {/* 위: 그림. 컷마다 구도가 끊어 바뀐다(이어지는 움직임 없이) */}
       <div style={{position: 'absolute', top: TOP, left: 36, right: 36, height: TOP_H, overflow: 'hidden', ...card({background: '#ffffffee'})}}>
@@ -70,7 +71,7 @@ export const FastScene: React.FC<{scene: SceneData; index: number; title: string
         {d ? <Presenter scene={scene} beats={beats} done={done} x={540} /> : <Act scene={scene} first={index === 0} last={last} />}
       </div>
       <FastCaptions pages={scene.pages} leadFrames={scene.leadFrames} />
-      <div style={{position: 'absolute', top: theme.layout.footerTop, left: 0, right: 0, textAlign: 'center', font: theme.type.footer, color: theme.color.muted}}>
+      <div style={{position: 'absolute', top: theme.layout.footerTop, left: 0, right: 0, textAlign: 'center', font: theme.type.footer, color: look().color.onBgSub}}>
         {footer}
       </div>
     </AbsoluteFill>
