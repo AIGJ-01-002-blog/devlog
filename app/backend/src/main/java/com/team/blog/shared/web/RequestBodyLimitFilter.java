@@ -76,8 +76,9 @@ public class RequestBodyLimitFilter extends OncePerRequestFilter {
             reject(response);
             return;
         }
+        // 길이를 밝히지 않은 본문(HTTP/1.1 청크, Content-Length 없는 HTTP/2)은 상한까지만 미리 읽는다.
         // 폼 본문은 Tomcat이 자기 스트림에서 읽고 max-http-form-post-size(1MB)로 막으므로 미리 읽지 않는다
-        if (declared < 0 && isChunked(request) && !isForm(request)) {
+        if (declared < 0 && mayHaveBody(request) && !isForm(request)) {
             byte[] body;
             try (InputStream in = request.getInputStream()) {
                 body = in.readNBytes(limit + 1);
@@ -92,9 +93,10 @@ public class RequestBodyLimitFilter extends OncePerRequestFilter {
         chain.doFilter(request, response);
     }
 
-    private static boolean isChunked(HttpServletRequest request) {
-        String te = request.getHeader("Transfer-Encoding");
-        return te != null && te.toLowerCase(Locale.ROOT).contains("chunked");
+    /** 본문이 없는 메서드는 빈 스트림을 미리 읽지 않는다 */
+    private static boolean mayHaveBody(HttpServletRequest request) {
+        String m = request.getMethod();
+        return !("GET".equals(m) || "HEAD".equals(m) || "OPTIONS".equals(m) || "TRACE".equals(m));
     }
 
     private static boolean isForm(HttpServletRequest request) {
