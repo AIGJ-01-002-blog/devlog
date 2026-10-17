@@ -241,7 +241,7 @@ cloudflared는 2개가 각각 Cloudflare에 연결하므로 하나가 재시작�
 
 ## 운영 대시보드 (k8s.devlog.life)
 
-배포·파드·로그·자원 사용량을 브라우저에서 본다. 공식 Kubernetes Dashboard(v2.7.0)를 `kubernetes-dashboard` 네임스페이스에 두고, 학교 서버 배포 때 deploy.yml이 함께 적용한다. 바깥 주소는 Cloudflare Tunnel로 열되 **Cloudflare Access 이메일 인증**과 **읽기 전용 토큰** 두 겹으로 막는다. 토큰 계정 `devlog-viewer`는 쿠버네티스 기본 역할 `view`라 상태와 로그만 보고, Secret은 못 보며 아무것도 바꿀 수 없다.
+배포·파드·로그·자원 사용량을 브라우저에서 본다. 공식 Kubernetes Dashboard(v2.7.0)를 `kubernetes-dashboard` 네임스페이스에 두고, 학교 서버 배포 때 deploy.yml이 함께 적용한다. 바깥 주소는 Cloudflare Tunnel로 열되 **Cloudflare Access 이메일 인증**과 **읽기 전용 토큰** 두 겹으로 막는다. 토큰 계정 `devlog-viewer`는 쿠버네티스 기본 역할 `view`를 `blog` 네임스페이스에만 받아(RoleBinding) 블로그의 상태와 로그만 보고, Secret과 다른 네임스페이스는 못 보며 아무것도 바꿀 수 없다.
 
 Access를 먼저 만들고 주소를 연결한다(순서를 바꾸면 잠깐이라도 막지 않은 채로 열린다).
 
@@ -249,7 +249,7 @@ Access를 먼저 만들고 주소를 연결한다(순서를 바꾸면 잠깐이�
 2. Zero Trust → Networks → Tunnels → `devlog` → Public Hostname(Published application routes) 추가: `k8s.devlog.life` → Service `HTTPS`, `kubernetes-dashboard.kubernetes-dashboard.svc.cluster.local:443`. Additional application settings → TLS → **No TLS Verify** 켬(대시보드가 스스로 만든 인증서를 쓴다).
 3. 로그인 토큰 만들기(필요할 때마다, 저장소·채팅에 남기지 않는다). 학교 서버에 SSH로 들어가:
    `docker exec k3d-devlog-server-0 kubectl -n kubernetes-dashboard create token devlog-viewer --duration=24h`
-4. https://k8s.devlog.life → Cloudflare 이메일 인증 → 대시보드에서 Token을 고르고 3의 토큰을 붙여 넣는다. 네임스페이스를 `blog`로 바꾸면 블로그 파드가 보인다.
+4. https://k8s.devlog.life → Cloudflare 이메일 인증 → 대시보드에서 Token을 고르고 3의 토큰을 붙여 넣는다. 네임스페이스 목록은 볼 수 없으니 주소를 `https://k8s.devlog.life/#/workloads?namespace=blog`로 열거나 네임스페이스 칸에 `blog`를 직접 적는다. 노드·다른 네임스페이스 화면은 권한 없음으로 나오는 게 정상이다.
 
 ## 시험 환경 (dev.devlog.life, spec 092)
 

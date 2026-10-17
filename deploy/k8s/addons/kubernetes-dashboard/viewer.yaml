@@ -1,4 +1,6 @@
 # 대시보드 로그인용 읽기 전용 계정. 쿠버네티스 기본 역할 view라 파드·로그·배포 상태는 보지만 Secret은 못 보고 아무것도 바꿀 수 없다.
+# 여러 학생이 같이 쓰는 클러스터라 블로그 네임스페이스(blog) 안에서만 읽게 한다(보안 점검 2026-10-16, #375).
+# 예전 ClusterRoleBinding(클러스터 전체 읽기)은 deploy.yml이 지운다.
 # 토큰은 저장소·Actions 로그에 두지 않는다. 학교 서버에서 그때그때 만든다(deploy/README.md "운영 대시보드").
 apiVersion: v1
 kind: ServiceAccount
@@ -7,9 +9,10 @@ metadata:
   namespace: kubernetes-dashboard
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: RoleBinding
 metadata:
   name: devlog-viewer
+  namespace: blog
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
