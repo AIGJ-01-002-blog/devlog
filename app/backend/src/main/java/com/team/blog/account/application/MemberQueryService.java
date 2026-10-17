@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.team.blog.account.domain.Member;
 import com.team.blog.account.domain.MemberStatus;
+import com.team.blog.account.domain.Role;
 import com.team.blog.account.domain.Visibility;
 import com.team.blog.account.infra.MemberRepository;
 
@@ -45,5 +46,10 @@ public class MemberQueryService {
         return members.findByHandle(handle.toLowerCase(Locale.ROOT))
                 .filter(m -> m.getWithdrawnAt() == null && m.getDeletedAt() == null)
                 .map(MemberSummary::of);
+    }
+
+    /** 정리되지 않은 관리자 회원인지 (MCP 관리자 도구 켜기 판단용). */
+    public boolean isAdmin(long id) {
+        return members.findById(id).filter(m -> m.getDeletedAt() == null && m.getRole() == Role.ADMIN).isPresent();
     }
 }

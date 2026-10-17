@@ -18,6 +18,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import com.team.blog.account.application.MemberQueryService;
 import com.team.blog.shared.error.ApiException;
 import com.team.blog.shared.error.FieldErrorItem;
 import com.team.blog.shared.error.NotFoundException;
@@ -69,10 +70,12 @@ public class AccessTokens {
 
     private final JdbcTemplate jdbc;
     private final Clock clock;
+    private final MemberQueryService memberQuery;
 
-    public AccessTokens(JdbcTemplate jdbc, Clock clock) {
+    public AccessTokens(JdbcTemplate jdbc, Clock clock, MemberQueryService memberQuery) {
         this.jdbc = jdbc;
         this.clock = clock;
+        this.memberQuery = memberQuery;
     }
 
     /** adminTools는 관리자 회원만 켤 수 있다. 다른 회원이 켜면 403 */
@@ -184,9 +187,7 @@ public class AccessTokens {
 
     /** 관리자 회원인지. 관리자 도구를 켤 때 쓴다 */
     public boolean isAdmin(long memberId) {
-        Boolean admin = jdbc.query("SELECT role = 'ADMIN' FROM member WHERE id = ? AND deleted_at IS NULL",
-                (rs, i) -> rs.getBoolean(1), memberId).stream().findFirst().orElse(false);
-        return Boolean.TRUE.equals(admin);
+        return memberQuery.isAdmin(memberId);
     }
 
     /** 탈퇴 정리 (020): 토큰을 모두 지운다. */
