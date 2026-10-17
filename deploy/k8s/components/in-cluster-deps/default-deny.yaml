@@ -1,0 +1,135 @@
+# 네임스페이스 기본 차단 (보안 점검 2026-10-16, #376). 여러 학생이 같이 쓰는 클러스터라, 파드 하나가 뚫려도
+# 다른 네임스페이스·노드·쿠버네티스 API로 못 넘어가게 들어오고 나가는 연결을 모두 막고 필요한 것만 연다.
+# 들어오는 쪽 허용은 base/networkpolicy.yaml(인그레스 → 앱)과 networkpolicy.yaml(앱 → DB·Redis·MinIO·임베딩)에 있다.
+# 나가는 쪽은 아래와 같다. 학교 공용 서버를 쓰는 overlays/nhn은 이 부품을 쓰지 않아 바뀌지 않는다.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+spec:
+  podSelector: {}
+  policyTypes: ["Ingress", "Egress"]
+---
+# 모든 파드가 서비스 이름(postgres, minio 등)을 찾을 수 있게 클러스터 DNS만 연다
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+spec:
+  podSelector: {}
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+---
+# 앱: 같은 네임스페이스의 DB·Redis·MinIO·임베딩, 그리고 인터넷의 웹(80·443)과 메일(465·587)만.
+# 사설 대역을 빼서 노드·다른 네임스페이스·쿠버네티스 API로는 못 나간다(OAuth·Gemini·텔레그램·거래소·집 PC Ollama는 모두 공개 https)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: blog-app-egress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: blog-app
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgres
+      ports: [{port: 5432}]
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: redis
+      ports: [{port: 6379}]
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: minio
+      ports: [{port: 9000}]
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ollama-embed
+      ports: [{port: 11434}]
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 169.254.0.0/16, 127.0.0.0/8]
+      ports: [{port: 80}, {port: 443}, {port: 465}, {port: 587}]
+---
+# 매일 DB 백업은 PostgreSQL에만
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: pg-backup-egress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: pg-backup
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgres
+      ports: [{port: 5432}]
+---
+# 임베딩 모델은 처음 뜰 때 모델 파일을 https로 받는다
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ollama-embed-egress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ollama-embed
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 169.254.0.0/16, 127.0.0.0/8]
+      ports: [{port: 443}]
+---
+# Cloudflare Tunnel(addons/cloudflare-tunnel): Cloudflare로 연결을 열고(7844 TCP·UDP, 443),
+# 받은 요청을 인그레스 컨트롤러(devlog.life·dev.devlog.life)와 운영 대시보드(k8s.devlog.life)로만 넘긴다.
+# 터널 부품을 나중에 올려도 끊기지 않게 앱과 같이 미리 둔다
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cloudflared-egress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: cloudflared
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 169.254.0.0/16, 127.0.0.0/8]
+      ports:
+        - {protocol: TCP, port: 7844}
+        - {protocol: UDP, port: 7844}
+        - {protocol: TCP, port: 443}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports: [{port: 80}]
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kubernetes-dashboard
+      ports: [{port: 8443}]

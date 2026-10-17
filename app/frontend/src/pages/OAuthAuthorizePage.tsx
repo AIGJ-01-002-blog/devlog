@@ -15,6 +15,9 @@ export function OAuthAuthorizePage() {
   const [view, setView] = useState<OAuthView | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // 관리자만 보는 선택. 켜야 이 연결에 문의 관리 도구가 보인다 (#378)
+  const [adminTools, setAdminTools] = useState(false)
+  const isAdmin = me?.member?.role === 'ADMIN'
 
   useEffect(() => { document.title = t('AI 앱 연결 - devlog') }, [])
   useEffect(() => {
@@ -26,7 +29,7 @@ export function OAuthAuthorizePage() {
     setBusy(true)
     setError(null)
     try {
-      const { redirect } = await api<{ redirect: string }>('/api/oauth/authorize', { method: 'POST', body: { ...params, approve } })
+      const { redirect } = await api<{ redirect: string }>('/api/oauth/authorize', { method: 'POST', body: { ...params, approve, adminTools: isAdmin && adminTools } })
       window.location.assign(redirect)
     } catch (e) {
       setError(e instanceof ApiError ? e.message : t('처리하지 못했어요. 다시 시도해 주세요.'))
@@ -50,6 +53,12 @@ export function OAuthAuthorizePage() {
             {view.scope === 'WRITE' && <li>{t('임시글 만들기·고치기, "발행 대기" 표시')}</li>}
             <li className="muted">{t('발행·삭제는 내가 설정 › AI 연결에서 허용했을 때만 할 수 있어요(기본은 꺼짐). 공개 범위만 바꾸는 일은 할 수 없어요.')}</li>
           </ul>
+          {isAdmin && (
+            <label className="check oauth-admin">
+              <input type="checkbox" checked={adminTools} onChange={(e) => setAdminTools(e.target.checked)} />
+              <span>{t('관리자 도구도 허용 (문의·신고 읽기·처리)')}</span>
+            </label>
+          )}
           <div className="oauth-host">
             <span className="muted small">{t('허용하면 이 주소로 돌아가요')}</span>
             <strong>{view.redirectHost}</strong>

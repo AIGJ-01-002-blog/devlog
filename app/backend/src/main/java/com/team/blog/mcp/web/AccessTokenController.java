@@ -37,7 +37,8 @@ public class AccessTokenController {
         this.editor = editor;
     }
 
-    public record CreateRequest(String name, String scope, Integer expiresInDays) {}
+    /** @param adminTools 관리자만: 이 토큰에 문의 관리 도구를 켠다 (#378) */
+    public record CreateRequest(String name, String scope, Integer expiresInDays, Boolean adminTools) {}
 
     public record HintView(List<String> tags, Instant publishRequestedAt) {}
 
@@ -54,7 +55,7 @@ public class AccessTokenController {
     public ResponseEntity<AccessTokens.Issued> create(@CurrentMember MemberPrincipal me, @RequestBody CreateRequest body) {
         if (body == null) throw ApiException.badRequest("INVALID_REQUEST", "토큰 정보를 확인해 주세요.");
         return ResponseEntity.status(HttpStatus.CREATED).cacheControl(CacheControl.noStore())
-                .body(tokens.create(me.id(), body.name(), body.scope(), body.expiresInDays()));
+                .body(tokens.create(me.id(), body.name(), body.scope(), body.expiresInDays(), Boolean.TRUE.equals(body.adminTools())));
     }
 
     @DeleteMapping("/api/me/tokens/{id}")

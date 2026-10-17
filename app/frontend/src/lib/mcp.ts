@@ -58,6 +58,8 @@ export interface AccessToken {
   expired: boolean
   /** ChatGPT처럼 OAuth(로그인)로 연결한 앱. expiresAt은 연결 만료 */
   oauth: boolean
+  /** 관리자가 이 토큰에만 따로 켠 문의 관리 도구 (#378) */
+  adminTools: boolean
 }
 
 export interface IssuedToken { token: AccessToken; secret: string }
@@ -67,8 +69,8 @@ export const TOKEN_NAME_MAX = 40
 
 export const tokensApi = {
   list: () => api<AccessToken[]>('/api/me/tokens'),
-  create: (name: string, scope: TokenScope, expiresInDays: number) =>
-    api<IssuedToken>('/api/me/tokens', { method: 'POST', body: { name, scope, expiresInDays } }),
+  create: (name: string, scope: TokenScope, expiresInDays: number, adminTools = false) =>
+    api<IssuedToken>('/api/me/tokens', { method: 'POST', body: { name, scope, expiresInDays, adminTools } }),
   revoke: (id: number) => api<void>(`/api/me/tokens/${id}`, { method: 'DELETE' }),
 }
 

@@ -63,7 +63,8 @@ public class OAuthServer {
         }
     }
 
-    private record CodeData(long memberId, String clientId, String redirectUri, String codeChallenge, String scope) {}
+    /** @param adminTools 관리자가 동의 화면에서 관리자 도구도 허용했는지 (#378) */
+    private record CodeData(long memberId, String clientId, String redirectUri, String codeChallenge, String scope, boolean adminTools) {}
 
     private final JdbcTemplate jdbc;
     private final StringRedisTemplate redis;
@@ -133,10 +134,10 @@ public class OAuthServer {
         return new Request(client, redirectUri, codeChallenge, parseScope(a.scope()), a.state());
     }
 
-    /** 회원이 [허용]을 누르면 코드를 만들어 돌아갈 주소를 돌려준다. */
-    public String approve(long memberId, Request req) {
+    /** 회원이 [허용]을 누르면 코드를 만들어 돌아갈 주소를 돌려준다. adminTools는 관리자만 의미가 있고, 아니면 발급 때 끈다. */
+    public String approve(long memberId, Request req, boolean adminTools) {
         String code = "dvo_" + random(32);
-        CodeData data = new CodeData(memberId, req.client().clientId(), req.redirectUri(), req.codeChallenge(), req.scope().name());
+        CodeData data = new CodeData(memberId, req.client().clientId(), req.redirectUri(), req.codeChallenge(), req.scope().name(), adminTools);
         redis.opsForValue().set(CODE_KEY + AccessTokens.hash(code), json.writeValueAsString(data), CODE_TTL);
         return redirect(req.redirectUri(), "code", code, req.state());
     }
@@ -164,7 +165,7 @@ public class OAuthServer {
             throw new OAuthError(INVALID_GRANT, "code_verifier가 맞지 않아요.", false);
         }
         Client client = client(clientId).orElseThrow(() -> new OAuthError("invalid_client", "등록되지 않은 앱이에요.", false));
-        return tokens.issueOAuth(data.memberId(), clientId, client.clientName(), AccessTokens.Scope.valueOf(data.scope()));
+        return tokens.issueOAuth(data.memberId(), clientId, client.clientName(), AccessTokens.Scope.valueOf(data.scope()), data.adminTools());
     }
 
     public AccessTokens.OAuthGrant refresh(String refreshToken, String clientId) {

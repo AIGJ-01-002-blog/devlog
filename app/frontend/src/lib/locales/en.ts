@@ -2187,4 +2187,8 @@ export const en: Record<string, string> = {
   "시간 정리": "time exit",
   "뉴스 정리": "news exit",
   "직접 정리": "manual exit",
+  "관리자 도구도 켜기 (문의·신고 읽기·처리)": "Also enable admin tools (read and handle inquiries and reports)",
+  "꼭 필요한 토큰에만 켜세요. 이 토큰이 새면 문의 내용을 읽을 수 있어요.": "Turn this on only for tokens that need it. If this token leaks, someone could read inquiries.",
+  "관리자 도구": "Admin tools",
+  "관리자 도구도 허용 (문의·신고 읽기·처리)": "Also allow admin tools (read and handle inquiries and reports)",
 }
