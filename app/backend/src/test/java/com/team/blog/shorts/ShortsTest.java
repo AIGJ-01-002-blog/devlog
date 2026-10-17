@@ -148,6 +148,31 @@ class ShortsTest extends IntegrationTest {
     }
 
     @Test
+    void 워커가_고른_연출을_적어_두고_다음_작업에_최근_연출로_준다() throws Exception {
+        Session me = signup(uniqueLogin("shlook"));
+        long postId = writePost(me, POST_BODY);
+        String[] looks = {"grape:2", "bad look!", "ocean:0"};
+        for (String look : looks) {
+            long id = queue(me, postId);
+            JsonNode job = claim();
+            assertThat(job.path("id").asLong()).isEqualTo(id);
+            mvc.perform(put("/api/render/jobs/" + id + "/video").param("claim", job.path("claim").asString()).header("X-Render-Token", TOKEN)
+                    .header("X-Duration-Ms", "31500").header("X-Look", look).contentType("video/mp4").content(MP4)).andExpect(status().isOk());
+        }
+        // 모양이 틀린 값은 적지 않고, 최근 것부터 준다
+        long next = queue(me, postId);
+        JsonNode job = claim();
+        assertThat(job.path("id").asLong()).isEqualTo(next);
+        assertThat(job.path("recentLooks").valueStream().map(JsonNode::asString).toList()).containsExactly("ocean:0", "grape:2");
+        // 처음 쓰는 회원은 빈 목록
+        Session other = signup(uniqueLogin("shlook"));
+        long first = queue(other, writePost(other, POST_BODY));
+        JsonNode firstJob = claim();
+        assertThat(firstJob.path("id").asLong()).isEqualTo(first);
+        assertThat(firstJob.path("recentLooks")).isEmpty();
+    }
+
+    @Test
     void 완성된_대본을_고치면_영상이_지워지고_대본_상태로_돌아간다() throws Exception {
         Session me = signup(uniqueLogin("shorts"));
         long id = queue(me, writePost(me, POST_BODY));

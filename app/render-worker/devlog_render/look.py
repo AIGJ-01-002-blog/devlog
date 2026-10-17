@@ -5,6 +5,7 @@
 장면마다 전환·카메라 움직임·화면 배치를 앞 장면과 겹치지 않게 고른다.
 
 고르는 일은 작업 번호와 제목으로 만든 씨앗(seed)으로 정해서, 같은 작업을 다시 그려도 같은 영상이 나온다(대본을 고치면 달라진다).
+서버가 같은 회원의 최근 영상 연출(룩:배경음)을 함께 주면 그 조합을 피해서 고른다(채널에서 이어 보는 영상끼리 겹치지 않게).
 룩 이름과 값은 remotion/src/looks.ts와 맞춘다.
 """
 
@@ -43,6 +44,8 @@ SPLIT_SHARE = {"paper": 0.3, "night": 0.5, "mint": 0.35, "sunset": 0.4, "mono": 
 
 #: 배경음 갈래 수(bgm.VARIANTS와 같다)
 MUSIC_VARIANTS = 4
+#: 최근 몇 편의 룩을 피할지(룩이 7개라 3편을 빼도 넷이 남는다). 룩:배경음 조합은 서버가 준 만큼(최근 5편) 모두 피한다
+AVOID_LOOKS = 3
 
 #: 영상 중간의 '사건'(참고 영상 분석 2026-10-17: 잘 되는 릴스는 한 편에 한두 번 흔들림·섬광·도장 같은 순간이 있다).
 #: remotion/src/looks.ts의 Event와 같다. 사건이 나는 장면은 목소리가 시작할 때 소리도 함께 낸다
@@ -79,6 +82,11 @@ class Look:
     #: 장면마다 사건(EVENTS) 또는 None. 영상 한 편에 한두 번
     events: list[str | None] = field(default_factory=list)
 
+    @property
+    def tag(self) -> str:
+        """서버에 알려 줄 연출 이름(룩:배경음). 다음 영상이 이 조합을 피한다"""
+        return f"{self.name}:{self.music}"
+
     def sound(self, i: int) -> str | None:
         """i번 장면으로 넘어갈 때 낼 전환 소리(None이면 소리 없음)"""
         name = self.transitions[i] if i < len(self.transitions) else "slide-right"
@@ -95,14 +103,44 @@ def _no_repeat(rng: random.Random, pool: list[str], prev: str | None) -> str:
     return rng.choice(choices)
 
 
+def _recent(avoid: list[str] | None) -> list[tuple[str, int]]:
+    """서버가 준 최근 연출("룩:배경음", 최근 것부터)에서 읽을 수 있는 것만"""
+    out = []
+    for tag in avoid or []:
+        name, _, music = str(tag).partition(":")
+        if name in LOOKS and music.isdigit():
+            out.append((name, int(music)))
+    return out
+
+
+def _pick_look(rng: random.Random, recent: list[tuple[str, int]]) -> str:
+    used = {n for n, _ in recent[:AVOID_LOOKS]}
+    pool = [n for n in LOOKS if n not in used] or LOOKS
+    return pool[rng.randrange(len(pool))]
+
+
+def _pick_music(rng: random.Random, look: str, recent: list[tuple[str, int]]) -> int:
+    """최근 영상과 같은 룩:배경음 조합과 바로 앞 영상의 배경음을 피한다. 다 막히면 조합만 피하고, 그래도 막히면 아무거나"""
+    combos = {m for n, m in recent if n == look}
+    last = recent[0][1] if recent else None
+    for banned in (combos | {last}, combos, set()):
+        pool = [m for m in range(MUSIC_VARIANTS) if m not in banned]
+        if pool:
+            return pool[rng.randrange(len(pool))]
+    return 0
+
+
 def choose(seed: int, scenes: int, splittable: list[bool], name: str | None = None,
-           kinds: list[str] | None = None, actions: list[str] | None = None) -> Look:
+           kinds: list[str] | None = None, actions: list[str] | None = None, avoid: list[str] | None = None) -> Look:
     """영상 한 편의 연출을 고른다. splittable[i]: i번 장면을 split 배치로 그려도 되는지(캐릭터 장면만).
-    kinds[i]: 장면 성격("code"·"diagram"·"character"·"custom"), actions[i]: 캐릭터 연기 이름. 없으면 모두 캐릭터 장면으로 본다."""
+    kinds[i]: 장면 성격("code"·"diagram"·"character"·"custom"), actions[i]: 캐릭터 연기 이름. 없으면 모두 캐릭터 장면으로 본다.
+    avoid: 같은 회원의 최근 영상 연출("룩:배경음", 최근 것부터). 룩을 정해 두지 않았으면 최근 AVOID_LOOKS편의 룩을 빼고 고르고,
+    배경음은 최근 조합과 바로 앞 영상의 것을 피한다."""
     kinds = kinds or ["character"] * scenes
     actions = actions or [""] * scenes
     rng = random.Random(seed)
-    look = name if name in LOOKS else LOOKS[rng.randrange(len(LOOKS))]
+    recent = _recent(avoid)
+    look = name if name in LOOKS else _pick_look(rng, recent)
     pool = TRANSITION_POOLS[look]
     transitions: list[str] = [""]
     for _ in range(1, scenes):
@@ -120,7 +158,7 @@ def choose(seed: int, scenes: int, splittable: list[bool], name: str | None = No
         if ok and len(layouts) >= 2 and layouts[-1] == layouts[-2] == pick:
             pick = "stage" if pick == "split" else "split"
         layouts.append(pick if ok else "stage")
-    music = rng.randrange(MUSIC_VARIANTS)
+    music = _pick_music(rng, look, recent)
     return Look(look, music, transitions, cameras, layouts, _events(rng, scenes, kinds, actions))
 
 
