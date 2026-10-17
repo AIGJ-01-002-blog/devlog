@@ -40,6 +40,10 @@ import com.team.blog.shorts.application.ShortsScript.Scene;
 public class RenderQueue {
     private static final Logger log = LoggerFactory.getLogger(RenderQueue.class);
     static final int ERROR_MAX = 500;
+    /** 워커에게 알려 줄 최근 연출 수(같은 회원). 워커가 이 조합들을 피해 고른다 */
+    static final int RECENT_LOOKS = 5;
+    /** 워커가 알려 주는 연출 이름(룩:배경음). 모양이 다르면 적지 않는다 */
+    private static final java.util.regex.Pattern LOOK = java.util.regex.Pattern.compile("[a-z]{1,16}:[0-9]{1,2}");
     private static final TypeReference<List<Scene>> SCENES = new TypeReference<>() {};
     private static final DateTimeFormatter MONTH = DateTimeFormatter.ofPattern("yyyy/MM").withZone(ZoneOffset.UTC);
     /** 가장 먼저 대기한 일 하나를 잠가 RENDERING으로 바꾸고 워커에게 줄 칸을 돌려준다 */
@@ -52,17 +56,22 @@ public class RenderQueue {
             RETURNING s.id, s.attempts, s.title, s.scenes::text, s.post_id, s.replay::text AS replay, s.mascot, s.outro,
                       (SELECT handle FROM member WHERE id = s.member_id) AS handle,
                       (SELECT m.handle FROM post p JOIN member m ON m.id = p.author_id WHERE p.id = s.post_id AND p.deleted_at IS NULL) AS post_handle,
-                      (SELECT %s FROM post p WHERE p.id = s.post_id AND p.deleted_at IS NULL) AS cover_key
-            """.formatted(PostSql.THUMBNAIL_KEY.replace(" AS thumbnail_key", ""));
+                      (SELECT %s FROM post p WHERE p.id = s.post_id AND p.deleted_at IS NULL) AS cover_key,
+                      (SELECT string_agg(r.look, ',' ORDER BY r.rendered_at DESC, r.id DESC) FROM (
+                          SELECT look, rendered_at, id FROM shorts
+                          WHERE member_id = s.member_id AND id <> s.id AND look IS NOT NULL AND rendered_at IS NOT NULL
+                          ORDER BY rendered_at DESC, id DESC LIMIT %d) r) AS recent_looks
+            """.formatted(PostSql.THUMBNAIL_KEY.replace(" AS thumbnail_key", ""), RECENT_LOOKS);
 
     /**
      * 워커에게 주는 일. postUrl은 영상 끝 화면에 적을 원본 글 주소(사이트 안 경로).
      * coverImage는 원본 글 대표 사진(#277): 워커가 그림 없는 첫 장면의 가운데 카드로 쓴다. 장면마다 그림은 scenes[].image
      * replay가 있으면 매매 재현 영상(#265)이다: 워커가 그 구간의 공개 캔들을 받아 캔들과 체결 표시를 그린다.
-     * character는 연기할 캐릭터(#304). 비면 워커 기본(로그냥). outro가 false면 영상 끝 3초 블로그 광고를 붙이지 않는다
+     * character는 연기할 캐릭터(#304). 비면 워커 기본(로그냥). outro가 false면 영상 끝 3초 블로그 광고를 붙이지 않는다.
+     * recentLooks는 같은 회원의 최근 영상 연출(룩:배경음, 최근 것부터). 워커가 같은 조합을 되풀이하지 않게 피해 고른다
      */
     public record Job(long id, String claim, int attempt, String title, List<JobScene> scenes, String handle, String postUrl, String coverImage,
-                      List<JobEffect> effects, TradeReplay replay, String character, boolean outro) {}
+                      List<JobEffect> effects, TradeReplay replay, String character, boolean outro, List<String> recentLooks) {}
 
     /** 워커가 읽는 장면. visual은 장면 연출 이름(#277), 비면 워커가 자막·내레이션·코드에서 고른다. diagram은 설명 도식(대본 그대로) */
     public record JobScene(String caption, String narration, String code, String image, String visual, java.util.Map<String, Object> diagram) {}
@@ -117,12 +126,21 @@ public class RenderQueue {
                     jobScenes(scenes), rs.getString("handle"), postUrl,
                     postUrl == null ? null : imageUrls.urlOf(rs.getString("cover_key")), jobEffects(scenes),
                     replay == null ? null : json.readValue(replay, TradeReplay.class), rs.getString("mascot"),
-                    rs.getBoolean("outro"));
+                    rs.getBoolean("outro"), recentLooks(rs.getString("recent_looks")));
         }, claim, Timestamp.from(now), Timestamp.from(now))));
     }
 
-    /** 영상 받기. MP4(ftyp)인지와 크기는 컨트롤러가 먼저 본다 */
+    static List<String> recentLooks(String joined) {
+        return joined == null || joined.isEmpty() ? List.of() : List.of(joined.split(","));
+    }
+
     public void complete(long id, String claim, byte[] video, Integer durationMs) {
+        complete(id, claim, video, durationMs, null);
+    }
+
+    /** 영상 받기. MP4(ftyp)인지와 크기는 컨트롤러가 먼저 본다. look은 워커가 고른 연출(모양이 틀리면 버린다) */
+    public void complete(long id, String claim, byte[] video, Integer durationMs, String look) {
+        String lookName = look != null && LOOK.matcher(look).matches() ? look : null;
         String key = "shorts/" + MONTH.format(Times.now(clock)) + "/" + UUID.randomUUID() + ".mp4";
         requireClaim(id, claim);
         storage.put(key, video, "video/mp4");
@@ -133,9 +151,9 @@ public class RenderQueue {
                 Instant now = Times.now(clock);
                 jdbc.update("""
                         UPDATE shorts SET status = 'READY', claim_token = NULL, video_key = ?, video_bytes = ?, duration_ms = ?, rendered_at = ?,
-                               error = NULL, updated_at = ?, version = version + 1
+                               error = NULL, updated_at = ?, version = version + 1, look = ?
                         WHERE id = ?
-                        """, key, (long) video.length, durationMs, Timestamp.from(now), Timestamp.from(now), id);
+                        """, key, (long) video.length, durationMs, Timestamp.from(now), Timestamp.from(now), lookName, id);
                 return true;
             });
         } catch (RuntimeException e) {

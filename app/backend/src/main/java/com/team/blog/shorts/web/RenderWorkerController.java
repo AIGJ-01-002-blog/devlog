@@ -58,6 +58,7 @@ public class RenderWorkerController {
     public ResponseEntity<Map<String, String>> video(@RequestHeader(name = TOKEN_HEADER, required = false) String token,
                                                      @PathVariable long id, @RequestParam String claim,
                                                      @RequestHeader(name = "X-Duration-Ms", required = false) Integer durationMs,
+                                                     @RequestHeader(name = "X-Look", required = false) String look,
                                                      HttpServletRequest request) throws IOException {
         authorize(token);
         long max = props.maxVideo().toBytes();
@@ -68,7 +69,7 @@ public class RenderWorkerController {
         }
         if (body.length > max) throw tooLarge(max);
         if (!isMp4(body)) throw ApiException.badRequest("NOT_MP4", "MP4 영상만 올릴 수 있어요.");
-        queue.complete(id, claim, body, durationMs == null || durationMs <= 0 ? null : durationMs);
+        queue.complete(id, claim, body, durationMs == null || durationMs <= 0 ? null : durationMs, look);
         return ResponseEntity.ok(Map.of("status", "READY"));
     }
 

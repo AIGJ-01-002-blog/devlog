@@ -53,6 +53,20 @@ class LookTest(unittest.TestCase):
         self.assertIsNone(lk.sound(2))
         self.assertEqual(lk.sound(3), "whip")
 
+    def test_recent_looks_and_combos_are_avoided(self):
+        recent = ["night:1", "mint:2", "grape:0", "ocean:3", "paper:1"]
+        for k in range(40):
+            lk = look.choose(look.seed_of("r", k), 5, [True] * 5, avoid=recent)
+            self.assertNotIn(lk.name, {"night", "mint", "grape"})
+            self.assertNotIn(lk.tag, recent)
+            self.assertNotEqual(lk.music, 1)  # 바로 앞 영상(night:1)의 배경음
+        # 정해 둔 룩은 그대로 쓰고 배경음만 피한다. 알아볼 수 없는 값은 무시한다
+        named = look.choose(3, 4, [True] * 4, "paper", avoid=["paper:0", "paper:1", "bad", "x:y"])
+        self.assertEqual(named.name, "paper")
+        self.assertIn(named.music, (2, 3))
+        # 피할 게 없으면 예전과 같은 연출
+        self.assertEqual(look.choose(9, 4, [True] * 4, avoid=[]), look.choose(9, 4, [True] * 4))
+
     def test_named_look_and_replay_use_fixed_look(self):
         self.assertEqual(look.choose(5, 3, [True] * 3, "night").name, "night")
         self.assertEqual(Script.from_job(job("t", look="mono")).look, "mono")
