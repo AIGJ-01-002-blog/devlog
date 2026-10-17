@@ -372,17 +372,17 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 | Docker · GHCR | イメージ | 画面をビルドしてバックエンドに入れ、1 つのイメージにします。root 以外のユーザーで実行します |
 | Kubernetes · kustomize | デプロイ | Deployment・HPA・PDB・NetworkPolicy、オーバーレイ 3 種（selfhosted・nhn・local） |
 | nginx Ingress | 前段 | TLS とパスごとの振り分け（`/blog-images` は MinIO へ） |
-| GitHub Actions | CI/CD | テスト、マニフェスト検証（kubeconform）、シークレット検査、イメージのビルド、デプロイ、リリース、通知 |
+| GitHub Actions | CI/CD | テスト、マニフェスト検証（kubeconform）、シークレット検査、イメージのビルド、デプロイ（デプロイ後に公開アドレスを開いて確かめ、開かなければ直前のバージョンに戻す）、リリース、通知。外部アクションはコミット SHA で固定 |
 | SonarQube · SonarCloud · CodeRabbit | 品質 | 静的解析（学校の SonarQube または SonarCloud、任意）、PR ごとの AI レビュー（韓国語） |
 
 ### テスト
 
 | 技術 | 使う場所 | 役割 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | バックエンド | 単体・結合テスト 832 件（v2.3.0 時点） |
+| JUnit 5 · Spring Boot Test · Spring Security Test | バックエンド | 単体・結合テスト 851 件（v2.4.0 時点） |
 | Testcontainers (PostgreSQL) | バックエンド | 本物の PostgreSQL でマイグレーション・クエリ・並行処理を検証します |
 | JaCoCo | バックエンド | 行カバレッジ 40% の基準を CI で確認します |
-| Vitest · Testing Library · jsdom | フロントエンド | 画面とロジックのテスト 420 件（v2.3.0 時点） |
+| Vitest · Testing Library · jsdom | フロントエンド | 画面とロジックのテスト 421 件（v2.4.0 時点） |
 | fake-indexeddb | フロントエンド | オフライン自動保存のテスト |
 
 ## リリース

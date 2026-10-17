@@ -372,17 +372,17 @@ To try it on Kubernetes, run `kubectl apply -k deploy/k8s/overlays/local` on kin
 | Docker · GHCR | Image | Builds the UI and bundles it into the backend as one image, running as a non-root user |
 | Kubernetes · kustomize | Deployment | Deployment, HPA, PDB, NetworkPolicy, three overlays (selfhosted, nhn, local) |
 | nginx ingress | Front | TLS and per-path routing (`/blog-images` goes to MinIO) |
-| GitHub Actions | CI/CD | Tests, manifest validation (kubeconform), secret checks, image build, deploy, releases, notifications |
+| GitHub Actions | CI/CD | Tests, manifest validation (kubeconform), secret checks, image build, deploy (after a deploy it opens the public address and rolls back to the previous version if it does not load), releases, notifications. Third-party actions are pinned to commit SHAs |
 | SonarQube · SonarCloud · CodeRabbit | Quality | Static analysis (school SonarQube or SonarCloud, optional), AI review on every PR (in Korean) |
 
 ### Testing
 
 | Technology | Where | Role |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | Backend | 832 unit and integration tests (as of v2.3.0) |
+| JUnit 5 · Spring Boot Test · Spring Security Test | Backend | 851 unit and integration tests (as of v2.4.0) |
 | Testcontainers (PostgreSQL) | Backend | Verifies migrations, queries and concurrency against a real PostgreSQL |
 | JaCoCo | Backend | Enforces a 40% line-coverage threshold in CI |
-| Vitest · Testing Library · jsdom | Frontend | 420 UI and logic tests (as of v2.3.0) |
+| Vitest · Testing Library · jsdom | Frontend | 421 UI and logic tests (as of v2.4.0) |
 | fake-indexeddb | Frontend | Tests for offline autosave |
 
 ## Releases
