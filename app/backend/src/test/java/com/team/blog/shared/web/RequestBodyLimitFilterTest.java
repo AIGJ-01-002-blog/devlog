@@ -8,29 +8,34 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.util.unit.DataSize;
 
 class RequestBodyLimitFilterTest {
-    private final RequestBodyLimitFilter filter = new RequestBodyLimitFilter();
+    private static final int DEFAULT_LIMIT = 256 * 1024;
+    private static final int POST_LIMIT = 1024 * 1024;
+    private static final int MCP_LIMIT = 4 * 1024 * 1024;
+    private final RequestBodyLimitFilter filter = new RequestBodyLimitFilter(
+            DataSize.ofKilobytes(256), DataSize.ofMegabytes(1), DataSize.ofMegabytes(4));
 
     @Test
     void 경로마다_상한이_다르고_본문을_그대로_받는_곳은_보지_않는다() {
-        assertThat(RequestBodyLimitFilter.limitFor("POST", "/api/comments")).isEqualTo(RequestBodyLimitFilter.DEFAULT_LIMIT);
-        assertThat(RequestBodyLimitFilter.limitFor("PUT", "/api/posts/12")).isEqualTo(RequestBodyLimitFilter.POST_LIMIT);
-        assertThat(RequestBodyLimitFilter.limitFor("POST", "/api/markdown/preview")).isEqualTo(RequestBodyLimitFilter.POST_LIMIT);
-        assertThat(RequestBodyLimitFilter.limitFor("POST", "/api/mcp")).isEqualTo(RequestBodyLimitFilter.MCP_LIMIT);
-        assertThat(RequestBodyLimitFilter.limitFor("POST", "/api/images")).isNegative();
-        assertThat(RequestBodyLimitFilter.limitFor("POST", "/api/files")).isNegative();
-        assertThat(RequestBodyLimitFilter.limitFor("POST", "/api/me/profile-image")).isNegative();
-        assertThat(RequestBodyLimitFilter.limitFor("PUT", "/api/render/jobs/7/video")).isNegative();
-        assertThat(RequestBodyLimitFilter.limitFor("PUT", "/api/mcp/uploads/abc")).isNegative();
+        assertThat(filter.limitFor("POST", "/api/comments")).isEqualTo(DEFAULT_LIMIT);
+        assertThat(filter.limitFor("PUT", "/api/posts/12")).isEqualTo(POST_LIMIT);
+        assertThat(filter.limitFor("POST", "/api/markdown/preview")).isEqualTo(POST_LIMIT);
+        assertThat(filter.limitFor("POST", "/api/mcp")).isEqualTo(MCP_LIMIT);
+        assertThat(filter.limitFor("POST", "/api/images")).isNegative();
+        assertThat(filter.limitFor("POST", "/api/files")).isNegative();
+        assertThat(filter.limitFor("POST", "/api/me/profile-image")).isNegative();
+        assertThat(filter.limitFor("PUT", "/api/render/jobs/7/video")).isNegative();
+        assertThat(filter.limitFor("PUT", "/api/mcp/uploads/abc")).isNegative();
         // 같은 경로라도 본문을 그대로 받는 메서드가 아니면 기본 상한
-        assertThat(RequestBodyLimitFilter.limitFor("PUT", "/api/posts/12/files")).isEqualTo(RequestBodyLimitFilter.POST_LIMIT);
-        assertThat(RequestBodyLimitFilter.limitFor("PUT", "/api/files")).isEqualTo(RequestBodyLimitFilter.DEFAULT_LIMIT);
+        assertThat(filter.limitFor("PUT", "/api/posts/12/files")).isEqualTo(POST_LIMIT);
+        assertThat(filter.limitFor("PUT", "/api/files")).isEqualTo(DEFAULT_LIMIT);
     }
 
     @Test
     void 길이를_밝힌_본문이_상한을_넘으면_컨트롤러에_닿기_전에_413() throws Exception {
-        MockHttpServletRequest req = json("/api/comments", new byte[RequestBodyLimitFilter.DEFAULT_LIMIT + 1]);
+        MockHttpServletRequest req = json("/api/comments", new byte[DEFAULT_LIMIT + 1]);
         MockHttpServletResponse res = new MockHttpServletResponse();
         MockFilterChain chain = new MockFilterChain();
 
@@ -43,7 +48,7 @@ class RequestBodyLimitFilterTest {
 
     @Test
     void 상한_안이면_그대로_넘긴다() throws Exception {
-        MockHttpServletRequest req = json("/api/comments", new byte[RequestBodyLimitFilter.DEFAULT_LIMIT]);
+        MockHttpServletRequest req = json("/api/comments", new byte[DEFAULT_LIMIT]);
         MockFilterChain chain = new MockFilterChain();
 
         filter.doFilter(req, new MockHttpServletResponse(), chain);
@@ -53,7 +58,7 @@ class RequestBodyLimitFilterTest {
 
     @Test
     void 길이를_밝히지_않은_청크_본문도_상한까지만_읽고_끊는다() throws Exception {
-        MockHttpServletRequest big = chunked("/api/comments", new byte[RequestBodyLimitFilter.DEFAULT_LIMIT + 1]);
+        MockHttpServletRequest big = chunked("/api/comments", new byte[DEFAULT_LIMIT + 1]);
         MockHttpServletResponse res = new MockHttpServletResponse();
         MockFilterChain chain = new MockFilterChain();
 
@@ -78,7 +83,7 @@ class RequestBodyLimitFilterTest {
     @Test
     void 사진_올리기는_상한을_보지_않는다() throws Exception {
         MockHttpServletRequest req = new MockHttpServletRequest("POST", "/api/images");
-        req.setContent(new byte[RequestBodyLimitFilter.MCP_LIMIT + 1]);
+        req.setContent(new byte[MCP_LIMIT + 1]);
         req.setContentType("image/png");
         MockFilterChain chain = new MockFilterChain();
 

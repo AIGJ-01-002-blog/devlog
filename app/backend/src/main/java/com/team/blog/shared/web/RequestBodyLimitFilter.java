@@ -19,34 +19,48 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.springframework.util.unit.DataSize;
 import org.springframework.web.filter.OncePerRequestFilter;
+
+import com.team.blog.shared.config.BlogProperties;
 
 /**
  * 요청 본문 상한 (보안 점검 2026-10-16). ingress는 사진·영상 때문에 21MB까지 넘겨 주는데, JSON 본문은 앱이 크기를 따로 막지 않아
  * 큰 요청 몇 개를 동시에 보내면 파드가 메모리 부족으로 죽을 수 있었다. 경로별 상한을 넘으면 컨트롤러에 닿기 전에 413으로 끊는다.
  * <ul>
- *   <li>기본 256KB. 글 저장·미리보기는 1MB(본문 100,000자), MCP는 4MB(사진 2MB를 base64로 싣는 upload_image)</li>
+ *   <li>상한은 {@code blog.web.max-body}(기본 256KB), 글 저장·미리보기 {@code max-post-body}(1MB), MCP {@code max-mcp-body}(4MB)</li>
  *   <li>사진·파일·영상·프로필 사진처럼 본문을 그대로 받는 곳은 컨트롤러가 스트림을 직접 세어 막으므로 여기서 보지 않는다</li>
  *   <li>Content-Length가 없는 청크 본문은 상한+1바이트까지만 미리 읽어 넘으면 끊고, 읽은 것을 그대로 넘겨 준다
  *       (Content-Length가 있으면 Tomcat이 그 길이 넘게 읽히지 않게 막는다)</li>
  * </ul>
  */
 public class RequestBodyLimitFilter extends OncePerRequestFilter {
-    static final int DEFAULT_LIMIT = 256 * 1024;
-    static final int POST_LIMIT = 1024 * 1024;
-    static final int MCP_LIMIT = 4 * 1024 * 1024;
+    private final int defaultLimit;
+    private final int postLimit;
+    private final int mcpLimit;
 
     private static final Set<String> RAW_POST = Set.of("/api/images", "/api/files", "/api/me/profile-image");
     private static final Pattern RAW_VIDEO = Pattern.compile("/api/render/jobs/[^/]+/video");
     private static final Pattern MCP_UPLOAD = Pattern.compile("/api/mcp/uploads/[^/]+");
 
-    static int limitFor(String method, String path) {
+    public RequestBodyLimitFilter(BlogProperties props) {
+        this(props.web().maxBody(), props.web().maxPostBody(), props.web().maxMcpBody());
+    }
+
+    RequestBodyLimitFilter(DataSize defaultLimit, DataSize postLimit, DataSize mcpLimit) {
+        this.defaultLimit = Math.toIntExact(defaultLimit.toBytes());
+        this.postLimit = Math.toIntExact(postLimit.toBytes());
+        this.mcpLimit = Math.toIntExact(mcpLimit.toBytes());
+    }
+
+    /** 이 요청의 본문 상한(바이트). 본문을 그대로 받아 스스로 세는 업로드는 -1. */
+    int limitFor(String method, String path) {
         if ("POST".equals(method) && RAW_POST.contains(path)) return -1;
         if ("PUT".equals(method) && RAW_VIDEO.matcher(path).matches()) return -1;
         if (("PUT".equals(method) || "POST".equals(method)) && MCP_UPLOAD.matcher(path).matches()) return -1;
-        if (path.equals("/api/mcp")) return MCP_LIMIT;
-        if (path.equals("/api/posts") || path.startsWith("/api/posts/") || path.equals("/api/markdown/preview")) return POST_LIMIT;
-        return DEFAULT_LIMIT;
+        if (path.equals("/api/mcp")) return mcpLimit;
+        if (path.equals("/api/posts") || path.startsWith("/api/posts/") || path.equals("/api/markdown/preview")) return postLimit;
+        return defaultLimit;
     }
 
     @Override

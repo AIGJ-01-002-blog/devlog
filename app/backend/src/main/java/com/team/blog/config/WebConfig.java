@@ -16,6 +16,7 @@ import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import com.team.blog.account.web.ActivityInterceptor;
+import com.team.blog.shared.config.BlogProperties;
 import com.team.blog.shared.security.CurrentMemberArgumentResolver;
 import com.team.blog.shared.security.ResilientSessionFilter;
 import com.team.blog.shared.web.RequestBodyLimitFilter;
@@ -68,8 +69,8 @@ public class WebConfig implements WebMvcConfigurer {
 
     /** 맨 앞: 본문이 너무 큰 요청은 세션·보안 필터가 일하기 전에 끊는다 (보안 점검 2026-10-16). */
     @Bean
-    FilterRegistrationBean<RequestBodyLimitFilter> requestBodyLimitFilter() {
-        FilterRegistrationBean<RequestBodyLimitFilter> reg = new FilterRegistrationBean<>(new RequestBodyLimitFilter());
+    FilterRegistrationBean<RequestBodyLimitFilter> requestBodyLimitFilter(BlogProperties props) {
+        FilterRegistrationBean<RequestBodyLimitFilter> reg = new FilterRegistrationBean<>(new RequestBodyLimitFilter(props));
         reg.setOrder(Ordered.HIGHEST_PRECEDENCE);
         return reg;
     }
