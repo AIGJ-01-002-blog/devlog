@@ -6,6 +6,7 @@ import java.util.Set;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
+import org.springframework.util.unit.DataSize;
 
 /**
  * 팀원마다 다를 수 있는 정책 수치 (헌법 VI). 코드에 상수로 박지 않고 application.yml에서 읽는다.
@@ -31,8 +32,13 @@ public record BlogProperties(
     /**
      * @param trustedProxies 이 대역에서 온 요청만 X-Forwarded-For를 믿는다 (docs/02 §5 H4)
      * @param clientIpHeader X-Forwarded-For가 모두 신뢰 대역뿐일 때 쓸 사용자 IP 머리글 (예: CF-Connecting-IP). 비우면 쓰지 않는다
+     * @param maxBody        요청 본문 기본 상한 (보안 점검 2026-10-16). 사진·파일·영상처럼 본문을 그대로 받는 곳은 각자 상한을 쓴다
+     * @param maxPostBody    글 저장·미리보기 본문 상한 (본문 100,000자)
+     * @param maxMcpBody     MCP 요청 본문 상한 (upload_image가 사진 2MB를 base64로 싣는다)
      */
-    public record Web(@DefaultValue List<String> trustedProxies, @DefaultValue("") String clientIpHeader) {}
+    public record Web(@DefaultValue List<String> trustedProxies, @DefaultValue("") String clientIpHeader,
+                      @DefaultValue("256KB") DataSize maxBody, @DefaultValue("1MB") DataSize maxPostBody,
+                      @DefaultValue("4MB") DataSize maxMcpBody) {}
 
     public record Agreements(String termsVersion, String termsEffectiveDate, String privacyVersion, String privacyEffectiveDate) {}
 
@@ -76,7 +82,7 @@ public record BlogProperties(
      * @param quota      1인 사진 저장 공간 (원본 + 썸네일, 프로필 사진 포함)
      * @param dailyLimit 하루(한국 0시 기준) 업로드 장수. 실패한 업로드도 센다
      */
-    public record Image(@DefaultValue("1GB") org.springframework.util.unit.DataSize quota,
+    public record Image(@DefaultValue("1GB") DataSize quota,
                         @DefaultValue("200") int dailyLimit,
                         @DefaultValue("20") int perMinute) {}
 

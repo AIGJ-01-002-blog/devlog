@@ -13,6 +13,9 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 ### 바뀜
 - GitHub Actions에서 학교 서버 포트를 열어 보거나 운영 구성을 재던 디버그용 워크플로 3개(학교 안 포트 시험·포트 직접 열기 점검·운영 구성 측정)를 지운다. 나머지 워크플로의 외부 액션(checkout·setup-java·setup-node·setup-python·upload-artifact·docker 4종)은 태그 대신 그 태그가 가리키던 커밋 SHA로 고정해, 태그를 누가 옮겨도 다른 코드가 돌지 않게 한다(#377)
 
+### 고침
+- JSON 요청 본문에 경로별 상한을 둔다. 기본 256KB, 글 저장·미리보기 1MB, MCP 4MB(`blog.web.max-body`·`max-post-body`·`max-mcp-body`)이고, 넘으면 컨트롤러에 닿기 전에 413으로 끊는다. Content-Length 없이 청크로 보내도 상한까지만 읽는다. 사진·파일·영상·프로필 사진 올리기는 전처럼 각자 상한을 쓴다. 전에는 ingress가 넘겨 주는 21MB까지 받아 큰 요청 몇 개로 파드가 메모리 부족에 빠질 수 있었다(#373)
+
 ## [2.3.0] - 2026-10-16
 
 **목표: 봇 판단 흔적과 복기** ([목표 이슈 #344](https://github.com/AIGJ-01-002-blog/devlog/issues/344))
