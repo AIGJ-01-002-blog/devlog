@@ -68,7 +68,7 @@ kubectl -n blog rollout status deploy/blog-app
 
 - 앱 파드가 뜨기 전에 `ensure-bucket` init 컨테이너가 MinIO에 `blog-images` 버킷을 만들고 파일 받기(GetObject)만 공개한다. 목록 조회는 막아 비공개 글의 사진 주소가 드러나지 않는다. 사진은 같은 도메인의 `/blog-images/...`로 인그레스가 MinIO에 넘긴다(혼합 콘텐츠 없음).
 - PostgreSQL·Redis는 앱 파드에서만, MinIO는 앱과 ingress-nginx 네임스페이스에서만 접속된다(NetworkPolicy).
-- 클러스터 안 DB를 쓰는 구성(selfhosted·staging·local)은 네임스페이스 기본 차단이다(`components/in-cluster-deps/default-deny.yaml`). 모든 파드는 클러스터 DNS만, 앱은 같은 네임스페이스 DB·Redis·MinIO·임베딩과 인터넷 80·443·465·587만, cloudflared는 Cloudflare(7844·443)와 ingress-nginx·운영 대시보드만, 임베딩은 모델 받기(443)만 나갈 수 있다. 사설 대역(노드·다른 네임스페이스·쿠버네티스 API)으로는 못 나간다. 새 외부 포트나 새 파드가 필요하면 이 파일에 허용 규칙을 더한다. 급히 풀어야 하면 `kubectl -n blog delete networkpolicy default-deny allow-dns blog-app-egress pg-backup-egress ollama-embed-egress cloudflared-egress`로 이 파일의 정책을 모두 지운다(나가는 쪽 제한은 정책 하나라도 남으면 계속 걸리므로 함께 지움, 다음 배포 때 다시 걸림).
+- 클러스터 안 DB를 쓰는 구성(selfhosted·staging·local)은 네임스페이스 기본 차단이다(`components/in-cluster-deps/default-deny.yaml`). 모든 파드는 클러스터 DNS를 쓸 수 있고, 그 밖에는 앱이 같은 네임스페이스 DB·Redis·MinIO·임베딩과 인터넷 80·443·465·587만, cloudflared는 Cloudflare(7844·443)와 ingress-nginx·운영 대시보드만, 임베딩은 모델 받기(443)만, DB 백업(pg-backup)은 같은 네임스페이스 PostgreSQL(5432)만 나갈 수 있다. 사설 대역(노드·다른 네임스페이스·쿠버네티스 API)으로는 못 나간다. 새 외부 포트나 새 파드가 필요하면 이 파일에 허용 규칙을 더한다. 급히 풀어야 하면 `kubectl -n blog delete networkpolicy default-deny allow-dns blog-app-egress pg-backup-egress ollama-embed-egress cloudflared-egress`로 이 파일의 정책을 모두 지운다(나가는 쪽 제한은 정책 하나라도 남으면 계속 걸리므로 함께 지움, 다음 배포 때 다시 걸림).
 - 데이터는 PVC(PostgreSQL 5Gi, MinIO 10Gi, Redis 1Gi)에 남는다. 네임스페이스를 지우면 PVC도 지워지니 백업 후에 지운다.
 - 비밀번호를 바꾸려면 DB·MinIO 안의 계정도 같이 바꿔야 한다. 처음 만든 값을 그대로 쓰는 것이 안전하다.
 
@@ -242,7 +242,7 @@ cloudflared는 2개가 각각 Cloudflare에 연결하므로 하나가 재시작�
 
 ## 운영 대시보드 (k8s.devlog.life)
 
-배포·파드·로그·자원 사용량을 브라우저에서 본다. 공식 Kubernetes Dashboard(v2.7.0)를 `kubernetes-dashboard` 네임스페이스에 두고, 학교 서버 배포 때 deploy.yml이 함께 적용한다. 바깥 주소는 Cloudflare Tunnel로 열되 **Cloudflare Access 이메일 인증**과 **읽기 전용 토큰** 두 겹으로 막는다. 토큰 계정 `devlog-viewer`는 쿠버네티스 기본 역할 `view`라 상태와 로그만 보고, Secret은 못 보며 아무것도 바꿀 수 없다.
+배포·파드·로그·자원 사용량을 브라우저에서 본다. 공식 Kubernetes Dashboard(v2.7.0)를 `kubernetes-dashboard` 네임스페이스에 두고, 학교 서버 배포 때 deploy.yml이 함께 적용한다. 바깥 주소는 Cloudflare Tunnel로 열되 **Cloudflare Access 이메일 인증**과 **읽기 전용 토큰** 두 겹으로 막는다. 토큰 계정 `devlog-viewer`는 쿠버네티스 기본 역할 `view`를 `blog` 네임스페이스에만 받아(RoleBinding) 블로그의 상태와 로그만 보고, Secret과 다른 네임스페이스는 못 보며 아무것도 바꿀 수 없다.
 
 Access를 먼저 만들고 주소를 연결한다(순서를 바꾸면 잠깐이라도 막지 않은 채로 열린다).
 
@@ -250,7 +250,7 @@ Access를 먼저 만들고 주소를 연결한다(순서를 바꾸면 잠깐이�
 2. Zero Trust → Networks → Tunnels → `devlog` → Public Hostname(Published application routes) 추가: `k8s.devlog.life` → Service `HTTPS`, `kubernetes-dashboard.kubernetes-dashboard.svc.cluster.local:443`. Additional application settings → TLS → **No TLS Verify** 켬(대시보드가 스스로 만든 인증서를 쓴다).
 3. 로그인 토큰 만들기(필요할 때마다, 저장소·채팅에 남기지 않는다). 학교 서버에 SSH로 들어가:
    `docker exec k3d-devlog-server-0 kubectl -n kubernetes-dashboard create token devlog-viewer --duration=24h`
-4. https://k8s.devlog.life → Cloudflare 이메일 인증 → 대시보드에서 Token을 고르고 3의 토큰을 붙여 넣는다. 네임스페이스를 `blog`로 바꾸면 블로그 파드가 보인다.
+4. https://k8s.devlog.life → Cloudflare 이메일 인증 → 대시보드에서 Token을 고르고 3의 토큰을 붙여 넣는다. 네임스페이스 목록은 볼 수 없으니 주소를 `https://k8s.devlog.life/#/workloads?namespace=blog`로 열거나 네임스페이스 칸에 `blog`를 직접 적는다. 노드·다른 네임스페이스 화면은 권한 없음으로 나오는 게 정상이다.
 
 ## 시험 환경 (dev.devlog.life, spec 092)
 
