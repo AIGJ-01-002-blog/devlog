@@ -21,7 +21,9 @@ export const Scene: React.FC<{scene: SceneData; index: number; title: string; fo
   const lk = look();
   const tint = accent(index);
   const Custom = scene.custom ? CUSTOM_SCENES[scene.custom.kind] : undefined;
-  const cam = camera(scene.camera, frame, fps, scene.durationInFrames);
+  // 첫 구절은 장면 시작과 같은 화면이므로 두 번째 구절부터 끊는다
+  const cuts = scene.pages.slice(1).map((pg) => scene.leadFrames + Math.round((pg.startMs / 1000) * fps));
+  const cam = camera(scene.camera, frame, fps, scene.durationInFrames, cuts);
   const shake = useShake(scene);
   return (
     <AbsoluteFill style={{translate: shake}}>

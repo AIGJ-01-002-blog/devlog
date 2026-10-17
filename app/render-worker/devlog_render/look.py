@@ -55,6 +55,19 @@ EVENT_ACTIONS = {"shock", "panic", "celebrate", "fast"}
 #: 도식은 칸이 차례로 나타나므로 크게 움직이지 않는다. 나머지는 CAMERAS에서 고른다
 CAMERA_BY_KIND = {"code": ["zoom-in", "punch"], "diagram": ["still", "tilt-up", "punch"]}
 
+#: 점프 컷 확대(참고 영상 분석 2026-10-17, 온크트리 편집 규칙: 같은 화면이 6초 넘게 이어지지 않게 하고, 컷마다 확대 배율을
+#: 번갈아 쓴다). 가운데 무대 장면이 MAX_HOLD초보다 길면 카메라를 JUMP로 바꿔 구절 자막이 바뀔 때마다 확대를 번갈아 끊는다.
+#: 도식 장면은 칸이 차례로 나타나 화면이 스스로 바뀌므로 그대로 둔다
+JUMP = "jump"
+MAX_HOLD = 6.0
+
+
+def hold_camera(camera: str, layout: str, kind: str, seconds: float) -> str:
+    """장면이 한 화면으로 너무 오래 머물면 점프 컷 카메라로 바꾼다"""
+    if layout == "stage" and kind in ("character", "code") and seconds > MAX_HOLD:
+        return JUMP
+    return camera
+
 
 @dataclass
 class Look:

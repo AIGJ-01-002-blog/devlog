@@ -381,11 +381,16 @@ class Renderer:
             script.effects.append(sfx.Effect(scene, at, str(trade_sfx.sound_file(kind, trade_sfx.cache_dir())), volume))
 
     @staticmethod
+    def _kind(scene: Scene) -> str:
+        """장면 성격: custom(등록된 장면)·diagram(도식)·code(코드 창)·character(캐릭터 연기)"""
+        return "custom" if scene.custom else "diagram" if scene.diagram else "code" if scene.code else "character"
+
+    @staticmethod
     def _look(script: Script, replay_video: bool, visuals: list | None = None) -> look.Look:
         """영상 한 편의 연출. 매매 재현은 차트가 주인공이라 기본 룩·전환을 쓴다(차트 장면은 점프 컷)."""
         # 위 그림·아래 캐릭터 배치는 아래 칸이 작아서 코드 창(타자 연기)이 읽히지 않으므로 코드가 없는 캐릭터 장면만 바꾼다
         splittable = [s.custom is None and not s.code for s in script.scenes]
-        kinds = ["custom" if s.custom else "diagram" if s.diagram else "code" if s.code else "character" for s in script.scenes]
+        kinds = [Renderer._kind(s) for s in script.scenes]
         actions = [getattr(v, "action", "") for v in visuals] if visuals else None
         lk = look.choose(script.seed, len(script.scenes), splittable, "paper" if replay_video else script.look, kinds, actions)
         if script.fast:  # 대본이 빠른 견본 스타일을 고르면 캐릭터 장면은 모두 위 그림·아래 캐릭터(코드 창은 가운데 무대)
@@ -428,7 +433,7 @@ class Renderer:
                 "cut": bool((scene.custom or {}).get("cut")),
                 "diagram": diagram.timed(scene.diagram, pages, t.speech) if scene.diagram and scene.custom is None else None,
                 "layout": lk.layouts[i],
-                "camera": lk.cameras[i],
+                "camera": look.hold_camera(lk.cameras[i], lk.layouts[i], self._kind(scene), t.length),
                 "transition": lk.transitions[i] or None,
                 "event": lk.events[i] if i < len(lk.events) else None,
             })

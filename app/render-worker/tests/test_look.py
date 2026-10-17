@@ -36,6 +36,14 @@ class LookTest(unittest.TestCase):
             for i in range(2, 8):
                 self.assertFalse(lk.layouts[i] == lk.layouts[i - 1] == lk.layouts[i - 2] == "split")
 
+    def test_long_stage_scenes_jump_cut(self):
+        # 같은 화면이 6초 넘게 이어지지 않게, 긴 가운데 무대 장면은 구절마다 확대를 번갈아 끊는다
+        self.assertEqual(look.hold_camera("pan-left", "stage", "character", 7.0), look.JUMP)
+        self.assertEqual(look.hold_camera("zoom-in", "stage", "code", 6.5), look.JUMP)
+        self.assertEqual(look.hold_camera("pan-left", "stage", "character", 5.0), "pan-left")
+        self.assertEqual(look.hold_camera("still", "stage", "diagram", 9.0), "still")  # 도식은 칸이 스스로 나타난다
+        self.assertEqual(look.hold_camera("punch", "split", "character", 9.0), "punch")  # 위 그림·아래 캐릭터는 2초마다 구도가 바뀐다
+
     def test_custom_scenes_stay_on_stage_and_cut_is_silent(self):
         lk = look.choose(1, 4, [True, False, True, False])
         self.assertEqual(lk.layouts[1], "stage")

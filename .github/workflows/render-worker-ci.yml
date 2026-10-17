@@ -92,7 +92,8 @@ jobs:
   samples:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 견본 9편을 차례로 렌더한다. 룩마다 무늬·전환이 달라진 뒤로 15~20분 걸린다(2026-10-17)
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: app/render-worker
