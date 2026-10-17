@@ -32,12 +32,12 @@ jobs:
             echo "::notice::ORG_PROFILE_TOKEN이 없어 조직 프로필을 갱신하지 않습니다. scripts/build-org-profile.py 결과를 직접 붙여 넣어 주세요."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         if: steps.token.outputs.skip != 'true'
       - name: 프로필 만들기
         if: steps.token.outputs.skip != 'true'
         run: python3 scripts/build-org-profile.py --stdout > "$RUNNER_TEMP/profile-README.md"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         if: steps.token.outputs.skip != 'true'
         with:
           repository: AIGJ-01-002-blog/.github
