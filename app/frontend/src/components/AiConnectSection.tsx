@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError } from '../lib/api'
+import { useAuth } from '../lib/auth'
 import { fullDate, relativeDate } from '../lib/format'
 import { Link } from '../lib/router'
 import {
@@ -15,6 +16,10 @@ import { t, tNodes } from '../lib/i18n'
  * 아래의 "AI가 발행·삭제하도록 허용"(053)은 기본 꺼짐이고, 켤 때 한 번 더 묻는다.
  */
 export function AiConnectSection() {
+  const { me } = useAuth()
+  const isAdmin = me?.member?.role === 'ADMIN'
+  // 관리자 도구(문의 관리)는 관리자만, 토큰마다 따로 켠다. 기본은 꺼짐 (#378)
+  const [adminTools, setAdminTools] = useState(false)
   const [tokens, setTokens] = useState<AccessToken[] | null>(null)
   const [name, setName] = useState('Claude Code')
   const [scope, setScope] = useState<TokenScope>('WRITE')
@@ -32,7 +37,7 @@ export function AiConnectSection() {
     setBusy(true)
     setMessage(null)
     try {
-      const created = await tokensApi.create(name.trim(), scope, days)
+      const created = await tokensApi.create(name.trim(), scope, days, isAdmin && adminTools)
       setIssued(created)
       setTokens((list) => [created.token, ...(list ?? [])])
     } catch (err) {
@@ -99,6 +104,13 @@ export function AiConnectSection() {
             {TOKEN_EXPIRY_DAYS.map((d) => <option key={d} value={d}>{d === 365 ? t('1년') : t('{0}일', { 0: d })}</option>)}
           </select>
         </label>
+        {isAdmin && (
+          <label className="check">
+            <input type="checkbox" checked={adminTools} onChange={(e) => setAdminTools(e.target.checked)} />
+            <span>{t('관리자 도구도 켜기 (문의·신고 읽기·처리)')}</span>
+            <span className="muted small">{t('꼭 필요한 토큰에만 켜세요. 이 토큰이 새면 문의 내용을 읽을 수 있어요.')}</span>
+          </label>
+        )}
         <button type="submit" className="btn btn-primary" disabled={busy || !name.trim()}>{t('토큰 만들기')}</button>
       </form>
 
@@ -110,6 +122,7 @@ export function AiConnectSection() {
                 <b>{tok.name}</b> {tok.oauth ? <span className="token-kind">{t('로그인 연결')}</span> : <code>{tok.prefix}…</code>}
                 <span className="muted small">
                   {tok.scope === 'WRITE' ? t('쓰기') : t('읽기')}
+                  {tok.adminTools && <>{' · '}<span className="token-kind">{t('관리자 도구')}</span></>}
                   {' · '}{tok.expired ? <span className="error">{t('만료됨')}</span> : tok.expiresAt ? t('{0}까지', { 0: fullDate(tok.expiresAt) }) : t('만료 없음')}
                   {' · '}{tok.lastUsedAt ? t('{0} 사용', { 0: relativeDate(tok.lastUsedAt) }) : t('아직 안 씀')}
                 </span>

@@ -49,7 +49,8 @@ public class OAuthController {
     public record RegisterRequest(String client_name, List<String> redirect_uris) {}
 
     public record AuthorizeRequest(String clientId, String redirectUri, String responseType, String codeChallenge,
-                                   String codeChallengeMethod, String scope, String state, String resource, boolean approve) {}
+                                   String codeChallengeMethod, String scope, String state, String resource, boolean approve,
+                                   Boolean adminTools) {}
 
     /** 동의 화면에 보일 정보 */
     public record AuthorizeView(String clientName, String redirectHost, AccessTokens.Scope scope) {}
@@ -120,7 +121,7 @@ public class OAuthController {
             if (!e.redirectable) throw e;
             return Map.of("redirect", oauth.errorRedirect(body.redirectUri(), e.error, body.state()));
         }
-        return Map.of("redirect", body.approve() ? oauth.approve(me.id(), req) : oauth.deny(req));
+        return Map.of("redirect", body.approve() ? oauth.approve(me.id(), req, Boolean.TRUE.equals(body.adminTools())) : oauth.deny(req));
     }
 
     @PostMapping(value = "/api/oauth/token", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)

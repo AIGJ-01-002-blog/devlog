@@ -4,14 +4,21 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AiConnectSection } from './AiConnectSection'
 
+// 관리자 도구 선택(#378)은 관리자에게만 보인다. 로그인 상태만 바꿔 끼운다
+const auth = vi.hoisted(() => ({ role: 'USER' }))
+vi.mock('../lib/auth', () => ({
+  useAuth: () => ({ me: { member: { role: auth.role } }, loading: false, refresh: async () => null, logout: async () => undefined }),
+}))
+
 // spec 052: 토큰 원문은 만든 직후 한 번만 보이고, 목록에는 앞부분만 남는다.
 const listed = { id: 1, name: '노트북', prefix: 'dvl_abcd', scope: 'READ', createdAt: '2026-10-08T00:00:00Z',
-  expiresAt: '2027-01-06T00:00:00Z', lastUsedAt: null, expired: false, oauth: false }
+  expiresAt: '2027-01-06T00:00:00Z', lastUsedAt: null, expired: false, oauth: false, adminTools: false }
 const chatgpt = { ...listed, id: 3, name: 'ChatGPT', prefix: 'dvl_zzzz', scope: 'WRITE', oauth: true }
 const secret = 'dvl_' + 'x'.repeat(43)
 
 describe('AiConnectSection', () => {
   let allowed: boolean
+  let posted: Array<Record<string, unknown>>
   let diary: boolean
   let diaryHour: number
   let root: Root
@@ -22,7 +29,9 @@ describe('AiConnectSection', () => {
     host = document.createElement('div')
     document.body.appendChild(host)
     root = createRoot(host)
+    auth.role = 'USER'
     allowed = false
+    posted = []
     diary = false
     diaryHour = 0
     vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
@@ -39,6 +48,7 @@ describe('AiConnectSection', () => {
         return new Response(JSON.stringify({ enabled: diary, hour: diaryHour }), { status: 200, headers: { 'Content-Type': 'application/json' } })
       }
       if (init?.method === 'POST') {
+        posted.push(JSON.parse(String(init.body)))
         return new Response(JSON.stringify({ token: { ...listed, id: 2, name: 'Claude Code', prefix: secret.slice(0, 8), scope: 'WRITE' }, secret }),
           { status: 201, headers: { 'Content-Type': 'application/json' } })
       }
@@ -69,6 +79,23 @@ describe('AiConnectSection', () => {
     await act(async () => { [...host.querySelectorAll('button')].find((b) => b.textContent === '다 복사했어요')!.click() })
     expect(host.textContent).not.toContain(secret)
     expect(host.querySelectorAll('.token-row')).toHaveLength(3)
+  })
+
+  it('관리자만 토큰에 관리자 도구를 켤 수 있고, 켠 토큰에는 표시가 붙는다', async () => {
+    await act(async () => { root.render(<AiConnectSection />) })
+    expect(host.textContent).not.toContain('관리자 도구도 켜기')
+    act(() => root.unmount())
+
+    auth.role = 'ADMIN'
+    root = createRoot(host)
+    await act(async () => { root.render(<AiConnectSection />) })
+    expect(host.textContent).toContain('관리자 도구도 켜기')
+    await act(async () => { host.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })) })
+    expect(posted.at(-1)?.adminTools).toBe(false)
+
+    await act(async () => { host.querySelector<HTMLInputElement>('form input[type=checkbox]')!.click() })
+    await act(async () => { host.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })) })
+    expect(posted.at(-1)?.adminTools).toBe(true)
   })
 
   // spec 087: 처음 연결하는 회원에게 로그인 연결과 토큰 연결의 차이, 앱별 순서를 접는 칸으로 보여 준다
