@@ -67,6 +67,7 @@ kubectl -n blog rollout status deploy/blog-app
 
 - 앱 파드가 뜨기 전에 `ensure-bucket` init 컨테이너가 MinIO에 `blog-images` 버킷을 만들고 파일 받기(GetObject)만 공개한다. 목록 조회는 막아 비공개 글의 사진 주소가 드러나지 않는다. 사진은 같은 도메인의 `/blog-images/...`로 인그레스가 MinIO에 넘긴다(혼합 콘텐츠 없음).
 - PostgreSQL·Redis는 앱 파드에서만, MinIO는 앱과 ingress-nginx 네임스페이스에서만 접속된다(NetworkPolicy).
+- 클러스터 안 DB를 쓰는 구성(selfhosted·staging·local)은 네임스페이스 기본 차단이다(`components/in-cluster-deps/default-deny.yaml`). 모든 파드는 클러스터 DNS만, 앱은 같은 네임스페이스 DB·Redis·MinIO·임베딩과 인터넷 80·443·465·587만, cloudflared는 Cloudflare(7844·443)와 ingress-nginx·운영 대시보드만, 임베딩은 모델 받기(443)만 나갈 수 있다. 사설 대역(노드·다른 네임스페이스·쿠버네티스 API)으로는 못 나간다. 새 외부 포트나 새 파드가 필요하면 이 파일에 허용 규칙을 더한다. 급히 풀어야 하면 `kubectl -n blog delete networkpolicy default-deny`(다음 배포 때 다시 걸림).
 - 데이터는 PVC(PostgreSQL 5Gi, MinIO 10Gi, Redis 1Gi)에 남는다. 네임스페이스를 지우면 PVC도 지워지니 백업 후에 지운다.
 - 비밀번호를 바꾸려면 DB·MinIO 안의 계정도 같이 바꿔야 한다. 처음 만든 값을 그대로 쓰는 것이 안전하다.
 
