@@ -17,6 +17,8 @@ fi
 cd "$(dirname "$0")/../k8s/overlays/${OVERLAY:-selfhosted}"
 
 before=$(kubectl -n "$ns" get deploy/blog-app -o jsonpath='{.metadata.annotations.deployment\.kubernetes\.io/revision}' 2>/dev/null || true)
+# 뒤의 공개 주소 연기 시험(smoke.sh)이 실패하면 이 버전으로 되돌린다
+[ -n "${GITHUB_ENV:-}" ] && echo "PREV_REVISION=${before}" >> "$GITHUB_ENV"
 
 # base가 이미지 이름을 ghcr.io/aigj-01-002-blog/blog-app 으로 바꾼 뒤라 그 이름으로 맞춘다
 kustomize edit set image "ghcr.io/aigj-01-002-blog/blog-app=${IMAGE:?IMAGE가 필요합니다}:${tag}"
