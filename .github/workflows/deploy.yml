@@ -250,14 +250,17 @@ jobs:
             kubectl -n blog logs -l app.kubernetes.io/name=cloudflared --tail=40 --prefix --all-containers || true
             exit 1
           fi
+      - name: 대시보드 옛 클러스터 전체 읽기 권한 지우기
+        if: env.TARGET == 'school'
+        # 읽기 계정은 이제 blog 네임스페이스 RoleBinding만 쓴다. apply는 옛 것을 지우지 않으므로 직접 지운다(#375).
+        # 권한이 남으면 안 되므로 대시보드 단계와 달리 실패하면 배포를 실패로 둔다
+        run: kubectl delete clusterrolebinding devlog-viewer --ignore-not-found
       - name: 운영 대시보드 (학교 서버, 읽기 전용 로그인)
         if: env.TARGET == 'school'
         continue-on-error: true
         run: |
           # 바깥 주소는 Cloudflare에서 Access(이메일 인증)로 막아 연결한다(deploy/README.md "운영 대시보드"). 실패해도 블로그 배포는 성공으로 둔다
           kustomize build deploy/k8s/addons/kubernetes-dashboard | kubectl apply --server-side --force-conflicts -f -
-          # 읽기 계정은 이제 blog 네임스페이스 RoleBinding만 쓴다. apply는 옛 것을 지우지 않으므로 클러스터 전체 읽기 바인딩을 직접 지운다(#375)
-          kubectl delete clusterrolebinding devlog-viewer --ignore-not-found
           kubectl -n kubernetes-dashboard rollout status deploy/kubernetes-dashboard --timeout=180s \
             || echo "::warning::운영 대시보드가 아직 준비되지 않았습니다(블로그 배포에는 영향 없음)"
       - name: 정리
