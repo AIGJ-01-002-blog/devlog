@@ -69,6 +69,20 @@ class RequestBodyLimitFilterTest {
     }
 
     @Test
+    void 청크_표시_없이_길이를_모르는_본문도_상한까지만_읽는다() throws Exception {
+        // HTTP/2는 Transfer-Encoding 없이 Content-Length도 빼고 보낼 수 있다
+        MockHttpServletRequest big = chunked("/api/comments", new byte[DEFAULT_LIMIT + 1]);
+        big.removeHeader("Transfer-Encoding");
+        MockHttpServletResponse res = new MockHttpServletResponse();
+        MockFilterChain chain = new MockFilterChain();
+
+        filter.doFilter(big, res, chain);
+
+        assertThat(res.getStatus()).isEqualTo(413);
+        assertThat(chain.getRequest()).isNull();
+    }
+
+    @Test
     void 상한_안의_청크_본문은_읽은_그대로_다시_읽을_수_있다() throws Exception {
         byte[] body = "{\"content\":\"안녕\"}".getBytes(StandardCharsets.UTF_8);
         MockFilterChain chain = new MockFilterChain();
