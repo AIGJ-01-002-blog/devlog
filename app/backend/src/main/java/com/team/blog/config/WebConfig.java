@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 import org.springframework.http.CacheControl;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.session.web.http.SessionRepositoryFilter;
@@ -15,8 +16,10 @@ import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import com.team.blog.account.web.ActivityInterceptor;
+import com.team.blog.shared.config.BlogProperties;
 import com.team.blog.shared.security.CurrentMemberArgumentResolver;
 import com.team.blog.shared.security.ResilientSessionFilter;
+import com.team.blog.shared.web.RequestBodyLimitFilter;
 
 @Configuration
 @EnableScheduling
@@ -62,6 +65,14 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
         resolvers.add(currentMemberResolver);
+    }
+
+    /** 맨 앞: 본문이 너무 큰 요청은 세션·보안 필터가 일하기 전에 끊는다 (보안 점검 2026-10-16). */
+    @Bean
+    FilterRegistrationBean<RequestBodyLimitFilter> requestBodyLimitFilter(BlogProperties props) {
+        FilterRegistrationBean<RequestBodyLimitFilter> reg = new FilterRegistrationBean<>(new RequestBodyLimitFilter(props));
+        reg.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        return reg;
     }
 
     /** Spring Session 필터 바로 뒤: 세션 저장소 장애 시 비로그인 처리. */

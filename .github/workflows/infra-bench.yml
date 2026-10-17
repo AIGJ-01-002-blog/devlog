@@ -18,7 +18,7 @@ jobs:
     env:
       OUT: ${{ github.workspace }}/result.md
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: 러너 정보와 도구
         run: |
           sudo apt-get install -y -qq apache2-utils >/dev/null
@@ -39,7 +39,7 @@ jobs:
       - name: 결과
         if: always()
         run: cat "$OUT" >> "$GITHUB_STEP_SUMMARY"; cat "$OUT"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: infra-bench-result

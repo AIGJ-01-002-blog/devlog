@@ -25,6 +25,7 @@ deploy/
 ├── scripts/gen-secret-env.sh    secret.env를 임의 비밀번호로 만들어 줌
 ├── scripts/server-setup.sh      새 Ubuntu 서버(Oracle 무료 VM)에 k3s·ingress-nginx 설치 + 배포용 접속 파일
 ├── scripts/rollout.sh           배포 + 헬스 체크 실패 시 자동 롤백
+├── scripts/smoke.sh             배포 뒤 공개 주소 연기 시험 (첫 화면·health·글 하나)
 └── scripts/check-no-secrets.sh  비밀값이 커밋됐는지 검사 (CI에서도 실행)
 ```
 
@@ -67,6 +68,7 @@ kubectl -n blog rollout status deploy/blog-app
 
 - 앱 파드가 뜨기 전에 `ensure-bucket` init 컨테이너가 MinIO에 `blog-images` 버킷을 만들고 파일 받기(GetObject)만 공개한다. 목록 조회는 막아 비공개 글의 사진 주소가 드러나지 않는다. 사진은 같은 도메인의 `/blog-images/...`로 인그레스가 MinIO에 넘긴다(혼합 콘텐츠 없음).
 - PostgreSQL·Redis는 앱 파드에서만, MinIO는 앱과 ingress-nginx 네임스페이스에서만 접속된다(NetworkPolicy).
+- 클러스터 안 DB를 쓰는 구성(selfhosted·staging·local)은 네임스페이스 기본 차단이다(`components/in-cluster-deps/default-deny.yaml`). 모든 파드는 클러스터 DNS를 쓸 수 있고, 그 밖에는 앱이 같은 네임스페이스 DB·Redis·MinIO·임베딩과 인터넷 80·443·465·587만, cloudflared는 Cloudflare(7844·443)와 ingress-nginx·운영 대시보드만, 임베딩은 모델 받기(443)만, DB 백업(pg-backup)은 같은 네임스페이스 PostgreSQL(5432)만 나갈 수 있다. 사설 대역(노드·다른 네임스페이스·쿠버네티스 API)으로는 못 나간다. 새 외부 포트나 새 파드가 필요하면 이 파일에 허용 규칙을 더한다. 급히 풀어야 하면 운영(selfhosted·local)은 `kubectl -n blog delete networkpolicy --ignore-not-found default-deny allow-dns blog-app-egress pg-backup-egress ollama-embed-egress cloudflared-egress`, 시험 환경(staging)은 같은 명령을 `-n blog-dev`로 돌려 이 파일의 정책을 모두 지운다(나가는 쪽 제한은 정책 하나라도 남으면 계속 걸리므로 함께 지움, 다음 배포 때 다시 걸림).
 - 데이터는 PVC(PostgreSQL 5Gi, MinIO 10Gi, Redis 1Gi)에 남는다. 네임스페이스를 지우면 PVC도 지워지니 백업 후에 지운다.
 - 비밀번호를 바꾸려면 DB·MinIO 안의 계정도 같이 바꿔야 한다. 처음 만든 값을 그대로 쓰는 것이 안전하다.
 
@@ -98,6 +100,8 @@ kubectl -n blog rollout status deploy/blog-app
 회원이 설정에서 넣는 디스코드 웹훅 알림(spec 078)은 이 배포 알림과 별개라 Secret이 필요 없다. 끄려면 앱 환경 변수 `DISCORD_NOTIFY_ENABLED=false`.
 
 배포는 `deploy/scripts/rollout.sh`가 한다. 새 이미지로 바꾼 뒤 모든 파드가 준비(`/actuator/health/readiness` UP)되기를 기다리고, 시간(`ROLLOUT_TIMEOUT_SECONDS`, 기본 300초) 안에 안 되면 `kubectl rollout undo`로 직전 버전으로 되돌린다. 새 파드가 준비되기 전에는 옛 파드를 내리지 않으므로(`maxUnavailable: 0`) 되돌리는 동안에도 서비스는 끊기지 않는다. Actions → 블로그 배포 → Run workflow에서 `rollback_test`를 켜면 없는 이미지로 배포해 롤백을 시험한다.
+
+운영 배포는 도메인 연결 뒤에 `deploy/scripts/smoke.sh`로 공개 주소(overlay `app.env`의 `SITE_BASE_URL`)를 바깥에서 한 번 더 연다. 첫 화면이 HTML로 열리고, `/actuator/health`가 UP이고, 첫 화면 목록 맨 위 글을 API로 읽을 수 있어야 한다. 10초 간격으로 6번까지 다시 해 보고 끝내 안 되면 이번 배포 직전 버전으로 되돌리고 배포를 실패로 둔다. 이번 배포로 바뀐 버전이 없으면(같은 이미지 재배포) 되돌리지 않고 실패만 알린다. 터널 토큰이 없으면 건너뛰고, 저장소 변수 `SMOKE_ENABLED=false`로 끌 수 있다.
 
 ### 저장소 설정 (Settings → Secrets and variables → Actions)
 
@@ -238,7 +242,7 @@ cloudflared는 2개가 각각 Cloudflare에 연결하므로 하나가 재시작�
 
 ## 운영 대시보드 (k8s.devlog.life)
 
-배포·파드·로그·자원 사용량을 브라우저에서 본다. 공식 Kubernetes Dashboard(v2.7.0)를 `kubernetes-dashboard` 네임스페이스에 두고, 학교 서버 배포 때 deploy.yml이 함께 적용한다. 바깥 주소는 Cloudflare Tunnel로 열되 **Cloudflare Access 이메일 인증**과 **읽기 전용 토큰** 두 겹으로 막는다. 토큰 계정 `devlog-viewer`는 쿠버네티스 기본 역할 `view`라 상태와 로그만 보고, Secret은 못 보며 아무것도 바꿀 수 없다.
+배포·파드·로그·자원 사용량을 브라우저에서 본다. 공식 Kubernetes Dashboard(v2.7.0)를 `kubernetes-dashboard` 네임스페이스에 두고, 학교 서버 배포 때 deploy.yml이 함께 적용한다. 바깥 주소는 Cloudflare Tunnel로 열되 **Cloudflare Access 이메일 인증**과 **읽기 전용 토큰** 두 겹으로 막는다. 토큰 계정 `devlog-viewer`는 쿠버네티스 기본 역할 `view`를 `blog` 네임스페이스에만 받아(RoleBinding) 블로그의 상태와 로그만 보고, Secret과 다른 네임스페이스는 못 보며 아무것도 바꿀 수 없다.
 
 Access를 먼저 만들고 주소를 연결한다(순서를 바꾸면 잠깐이라도 막지 않은 채로 열린다).
 
@@ -246,7 +250,7 @@ Access를 먼저 만들고 주소를 연결한다(순서를 바꾸면 잠깐이�
 2. Zero Trust → Networks → Tunnels → `devlog` → Public Hostname(Published application routes) 추가: `k8s.devlog.life` → Service `HTTPS`, `kubernetes-dashboard.kubernetes-dashboard.svc.cluster.local:443`. Additional application settings → TLS → **No TLS Verify** 켬(대시보드가 스스로 만든 인증서를 쓴다).
 3. 로그인 토큰 만들기(필요할 때마다, 저장소·채팅에 남기지 않는다). 학교 서버에 SSH로 들어가:
    `docker exec k3d-devlog-server-0 kubectl -n kubernetes-dashboard create token devlog-viewer --duration=24h`
-4. https://k8s.devlog.life → Cloudflare 이메일 인증 → 대시보드에서 Token을 고르고 3의 토큰을 붙여 넣는다. 네임스페이스를 `blog`로 바꾸면 블로그 파드가 보인다.
+4. https://k8s.devlog.life → Cloudflare 이메일 인증 → 대시보드에서 Token을 고르고 3의 토큰을 붙여 넣는다. 네임스페이스 목록은 볼 수 없으니 주소를 `https://k8s.devlog.life/#/workloads?namespace=blog`로 열거나 네임스페이스 칸에 `blog`를 직접 적는다. 노드·다른 네임스페이스 화면은 권한 없음으로 나오는 게 정상이다.
 
 ## 시험 환경 (dev.devlog.life, spec 092)
 

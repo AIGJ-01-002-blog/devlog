@@ -147,10 +147,10 @@ AI 사용에 동의했다면 AI가 제목을 붙이고 문장을 다듬고, 아�
 - **쇼츠 스튜디오** — 내 AI가 MCP로 쓴 쇼츠 대본을 장면(자막·읽을 문장·코드·설명 도식)별로 다듬고, [영상 만들기]를 누르면 내 컴퓨터의 렌더 워커가 캐릭터가 연기하는 9:16 MP4로 만들어 올립니다. 만들기 전에 양산형 검사로 다른 대본과 겹치거나 글을 그대로 옮긴 대본을 막습니다. 글 하나를 작은 주제 여러 편으로 나눌 수도 있습니다.
 - **올리기 안내** — YouTube Shorts·Instagram Reels·TikTok마다 제목·설명·고정 댓글을 복사 버튼과 함께 보여 주고 올리는 순서를 안내합니다. 자동 업로드는 없고, 올린 뒤 영상 주소를 남깁니다.
 - **내 대시보드** — 내 글의 조회수·좋아요·받은 댓글을 7·30·90일로 보고 이전 기간과 견줍니다. 많이 읽힌 글과 쇼츠 현황도 한 화면에 모읍니다.
-- **매매 일지** — 매매 봇이 MCP로 남긴 주식·코인 현물·선물 체결을 통화별 날짜 손익으로 보고, 실거래와 모의를 나눠 봅니다. 그날 메모로 요약 임시글과 쇼츠 대본을, 고른 체결로 매매 재현 쇼츠를 만듭니다. devlog는 실제 주문을 내지 않습니다.
+- **매매 일지** — 매매 봇이 MCP로 남긴 주식·코인 현물·선물 체결을 통화별 날짜 손익으로 보고, 실거래와 모의를 나눠 봅니다. 체결마다 봇이 남긴 판단 흔적(셋업·손절·익절·정리 이유·R배수)과 기법 버전·셋업별 승률·평균 R로 복기합니다. 그날 메모로 요약 임시글과 쇼츠 대본을, 고른 체결로 매매 재현 쇼츠를 만듭니다. devlog는 실제 주문을 내지 않습니다.
 - **블로그 포인트와 상점** — 출석(연속 출석일수만큼 커지는 보상)·연속 출석 휘장·글 발행으로 크레딧을 모아, 아이언~챌린저 9티어의 테마 색·프로필 테두리·블로그 표지를 사서 내 블로그를 꾸밉니다.
-- **포인트 모의투자** — 가입 때 받은 모의투자 포인트로 비트코인 등 코인 5종을 실시간 차트를 보며 시장가·지정가로 사고팝니다. 판 수익은 상점에서 쓰는 크레딧이 됩니다.
-- **자동매매 모의 화면** — `/trade`에서 [모의 봇 켜기]를 누르면 서버가 이동평균 규칙으로 모의 매매를 돌리고, 계좌·보유분·최근 체결과 이유를 보여 줍니다. 코인·봉 간격·손절·익절·한 번 금액은 같은 화면의 [모의 봇 기준]에서 회원마다 고릅니다.
+- **크레딧 모의투자** — 가입 때 받은 기본 크레딧으로 비트코인 등 코인 5종을 거래소식 차트(이동평균선·거래량·1초~1주 봉·평단선)를 보며 시장가·지정가로 사고팔고, 걸어 둔 지정가는 거래내역에서 취소합니다. 판 수익은 상점에서 쓰는 크레딧이 됩니다.
+- **자동매매 모의 화면** — `/trade`에서 [모의 봇 켜기]를 누르면 서버가 이동평균 규칙으로 원화·바이낸스 현물·바이낸스 3배 선물 계좌의 모의 매매를 돌리고, 계좌·보유분·최근 체결과 이유를 보여 줍니다. 코인·봉 간격·손절·익절·한 번 금액은 같은 화면의 [모의 봇 기준]에서 회원마다 고릅니다.
 - **AI 기록의 근거 링크** — AI가 개발 일지와 일기 메모에 커밋·PR·이슈 주소를 함께 남기면 글 끝 `## 근거`와 일기 문단 아래에 링크로 붙습니다.
 - **집 컴퓨터로 옮기기** — DB와 파일 저장소를 폴더 하나로 받아 Windows·맥에서 Docker로 같은 블로그를 되살리는 백업·복원 스크립트(`deploy/home/`).
 
@@ -164,7 +164,7 @@ flowchart LR
     T[텔레그램] -->|봇 API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>파드 여러 개]
     I -->|/blog-images| M[(MinIO / S3<br/>사진·첨부)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V53)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V54)]
     A --> R[(Redis<br/>세션·요청 제한·조회수·캐시)]
     A --> M
     A -.선택.-> G[Google Gemini]
@@ -192,7 +192,7 @@ flowchart LR
 | **shorts** | 쇼츠 대본·양산형 검사·렌더 대기열·올린 기록 | PostgreSQL, MinIO/S3(영상) |
 | **trade · dashboard** | 매매 일지, 내 글·쇼츠 성과 대시보드 | PostgreSQL |
 | **mcp** | AI 연결(MCP) 도구: 임시글·메모·근거 링크·쇼츠 대본 | PostgreSQL |
-| **point · shop · paper** | 포인트 원장·출석·휘장, 크레딧 상점, 포인트 모의투자, 서버 모의 봇 | PostgreSQL |
+| **point · shop · paper** | 포인트 원장·출석·휘장, 크레딧 상점, 크레딧 모의투자, 서버 모의 봇 | PostgreSQL |
 | **shared** | Markdown 렌더링과 HTML 정화, 요청 제한, 예약 작업 잠금, 오류 형식, 메일 | Redis |
 
 ### 요청 흐름
@@ -260,12 +260,12 @@ GitHub Actions로 테스트하고 이미지를 만들어 GHCR에 올린 뒤, kus
 
 | 경로 | 설명 |
 | --- | --- |
-| [app/backend](app/backend) | 백엔드 — Spring Boot 4.1, Java 21. 기능 모듈, Flyway 마이그레이션(V1~V53), 테스트 |
+| [app/backend](app/backend) | 백엔드 — Spring Boot 4.1, Java 21. 기능 모듈, Flyway 마이그레이션(V1~V54), 테스트 |
 | [app/frontend](app/frontend) | 프론트엔드 — React 19 SPA, TypeScript, Vite. 화면, 자동 저장(IndexedDB), 다크 모드 |
 | [deploy](deploy) | 배포 — Dockerfile, 쿠버네티스 매니페스트(base·selfhosted·nhn·local), 배포·롤백·비밀값 검사 스크립트 |
 | [app/render-worker](app/render-worker) | 쇼츠 렌더 워커 — Python 3.10, ffmpeg, Remotion(Node). 내 컴퓨터에서 대기열의 대본을 9:16 MP4로 만들어 올립니다 |
 | [.github](.github) | CI/CD — 백엔드·화면 테스트, 이미지 빌드·배포, 릴리스, Discord·텔레그램 알림 |
-| [specs](specs) | 기능 명세 — [GitHub Spec Kit](https://github.com/github/spec-kit) 흐름의 기능별 spec·plan·tasks(001~100) |
+| [specs](specs) | 기능 명세 — [GitHub Spec Kit](https://github.com/github/spec-kit) 흐름의 기능별 spec·plan·tasks(001~102) |
 | [docs](https://github.com/AIGJ-01-002-blog/docs) | 설계 문서 — 공통 요구사항, 아키텍처, 통합 ERD, 기능별 설계, 권한 표 |
 | [erd](erd) · [scripts](scripts) | 기준 스키마와 동작 테스트, 설계 검증 스크립트와 보고서 |
 
@@ -341,7 +341,7 @@ npm run dev        # http://localhost:5173
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub·Google·카카오·네이버·Facebook 로그인, 세션, CSRF, 경로별 권한 |
 | Spring Data JPA (Hibernate) | Boot 4.1 | 도메인 전체 | 회원·글·댓글 등 도메인 저장 |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | 세션, 요청 제한, 조회수, 캐시 | 파드 여러 개가 같은 세션을 보고, 동시 요청도 Redis 스크립트 하나로 판정합니다 |
-| Flyway | Boot 4.1 | DB | 스키마를 V1~V53 마이그레이션으로 관리하고 앱 시작 때 적용합니다 |
+| Flyway | Boot 4.1 | DB | 스키마를 V1~V54 마이그레이션으로 관리하고 앱 시작 때 적용합니다 |
 | commonmark-java (+ GFM 확장) | 0.30.0 | 본문 렌더링 | Markdown → HTML. 표·취소선·체크 목록·자동 링크·제목 앵커 |
 | OWASP Java HTML Sanitizer | 20260924.2 | 본문 정화 | 렌더링한 HTML을 허용 목록으로 정화해 XSS를 막습니다 |
 | AWS SDK for Java (S3) | 2.55.12 | media | MinIO·S3에 사진과 첨부를 올립니다 |
@@ -356,6 +356,7 @@ npm run dev        # http://localhost:5173
 | Vite | 8.3 | 개발 서버(백엔드로 프록시)와 빌드 |
 | highlight.js | 11.12 | 코드 블록 강조. 테마에 따라 GitHub / GitHub Dark 색을 씁니다 |
 | jsdiff | 9 | 두 기기에서 고친 본문의 차이를 보여 주는 충돌 비교 |
+| TradingView Lightweight Charts | 5.2 | 모의투자·자동매매의 거래소식 캔들 차트(이동평균선·거래량·평단선·체결 화살표). 가볍고 Apache 2.0이라 골랐습니다 |
 | IndexedDB | 브라우저 | 오프라인 자동 저장 백업 |
 
 ### 데이터와 인프라
@@ -376,10 +377,10 @@ npm run dev        # http://localhost:5173
 
 | 기술 | 쓰는 곳 | 역할 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | 백엔드 | 단위·통합 테스트 788건(v2.1.3 기준) |
+| JUnit 5 · Spring Boot Test · Spring Security Test | 백엔드 | 단위·통합 테스트 832건(v2.3.0 기준) |
 | Testcontainers (PostgreSQL) | 백엔드 | 실제 PostgreSQL로 마이그레이션·쿼리·동시성을 검증합니다 |
 | JaCoCo | 백엔드 | 줄 커버리지 40% 기준을 CI에서 확인합니다 |
-| Vitest · Testing Library · jsdom | 프론트엔드 | 화면과 로직 테스트 405건(v2.1.3 기준) |
+| Vitest · Testing Library · jsdom | 프론트엔드 | 화면과 로직 테스트 420건(v2.3.0 기준) |
 | fake-indexeddb | 프론트엔드 | 오프라인 자동 저장 테스트 |
 
 ## 릴리스
@@ -388,6 +389,7 @@ npm run dev        # http://localhost:5173
 
 | 버전 | 날짜 | 주요 내용 | 릴리스 노트 |
 | --- | --- | --- | --- |
+| v2.4.0 | 2026-10-17 | 보안 후속: JSON 요청 본문 경로별 상한, 운영 배포 뒤 공개 주소 확인과 실패 시 되돌리기, 대시보드 읽기 권한과 네임스페이스 나가는 연결 좁히기, 디버그 워크플로 정리·외부 액션 SHA 고정, MCP 관리자 도구는 따로 켠 토큰에서만, 세션 30일 절대 만료·이메일 가입 IP별 제한 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.4.0) |
 | v2.3.0 | 2026-10-16 | 봇 판단 흔적과 복기: 체결마다 기법 버전·바구니·셋업·손절익절·정리 이유·R배수를 남기고 매매 일지·요약 글·쇼츠에 기법별 성적, 서버 모의 봇 바이낸스 계좌의 USDT 환전과 3배 선물, 거래소식 차트(이동평균선·거래량·1초~1주 봉·평단선), 렌더 워커가 서버 재시작에 꺼지던 문제 고침 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.3.0) |
 | v2.2.1 | 2026-10-16 | 지정가 주문에 아주 큰 수량을 넣어 크레딧을 거의 묶지 않고 살 수 있던 보안 문제 수정(주문 금액·수량 상한) | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.2.1) |
 | v2.2.0 | 2026-10-16 | 크레딧 모의투자: 업비트식 주문창과 지정가 주문·취소, 차트 위 내 체결·봇 체결, 서버 모의 봇이 기본 크레딧으로 원화·바이낸스 계좌 매매와 회원별 기준(코인·봉 간격·손절·익절·금액), 원화 캔들 코빗으로, 관리자 상점 종류별 탭, 쇼츠 끝 3초 블로그 광고, SonarQube 이슈 0건 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.2.0) |

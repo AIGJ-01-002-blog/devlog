@@ -137,6 +137,10 @@ blog:
     # 클러스터 안 Cloudflare 터널 → ingress-nginx를 거치면 X-Forwarded-For에 터널 파드 주소만 남는다.
     # 그때는 신뢰 프록시가 넘겨준 이 머리글(예: CF-Connecting-IP)을 사용자 IP로 쓴다. 비우면 쓰지 않는다 (보안 점검 2026-10-15)
     client-ip-header: ${CLIENT_IP_HEADER:}
+    # 요청 본문 상한 (보안 점검 2026-10-16). 넘으면 컨트롤러에 닿기 전에 413. 사진·파일·영상 올리기는 각자 상한을 쓴다
+    max-body: 256KB
+    max-post-body: 1MB
+    max-mcp-body: 4MB
   agreements:
     terms-version: "2026-10-07"
     terms-effective-date: "2026-10-07"
@@ -154,6 +158,10 @@ blog:
     mail-from: ${MAIL_FROM:devlog <no-reply@devlog.local>}
     # 가입 화면 이메일 인증번호 (065): auto면 SMTP가 설정됐을 때(또는 개발 환경) 인증을 마쳐야 가입된다
     signup-email-code: ${SIGNUP_EMAIL_CODE:auto}
+    # 로그인 세션 절대 만료: 계속 써서 14일 무활동 만료가 늘어나도 로그인한 때부터 30일이 지나면 다시 로그인한다 (보안 점검 2026-10-16)
+    session-absolute-ttl: 30d
+    # 같은 IP에서 1시간에 만들 수 있는 이메일 가입 계정 수
+    signup-per-ip-per-hour: 10
   handle:
     auto-body-max-length: 16
     reserved: [admin, administrator, root, system, official, support, help, about, terms, privacy,

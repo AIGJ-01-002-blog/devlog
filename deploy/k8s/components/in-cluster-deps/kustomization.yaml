@@ -9,6 +9,7 @@ resources:
   - redis.yaml
   - minio.yaml
   - networkpolicy.yaml
+  - default-deny.yaml
   - pg-backup.yaml
   - ollama-embed.yaml
 patches:

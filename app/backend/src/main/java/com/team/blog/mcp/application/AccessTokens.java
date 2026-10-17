@@ -18,6 +18,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import com.team.blog.account.application.MemberQueryService;
 import com.team.blog.shared.error.ApiException;
 import com.team.blog.shared.error.FieldErrorItem;
 import com.team.blog.shared.error.NotFoundException;
@@ -41,9 +42,12 @@ public class AccessTokens {
 
     public enum Scope { READ, WRITE }
 
-    /** @param oauth OAuth로 연결한 앱(ChatGPT 등)이면 true. 이때 expiresAt은 연결(갱신 토큰) 만료 */
+    /**
+     * @param oauth OAuth로 연결한 앱(ChatGPT 등)이면 true. 이때 expiresAt은 연결(갱신 토큰) 만료
+     * @param adminTools 관리자가 이 토큰에만 따로 켠 문의 관리 도구 (#378)
+     */
     public record TokenView(long id, String name, String prefix, Scope scope, Instant createdAt, Instant expiresAt,
-                            Instant lastUsedAt, boolean expired, boolean oauth) {}
+                            Instant lastUsedAt, boolean expired, boolean oauth, boolean adminTools) {}
 
     /** OAuth 토큰 응답 재료. accessToken은 MCP 요청에, refreshToken은 갱신에 쓴다 */
     public record OAuthGrant(String accessToken, String refreshToken, long expiresInSeconds, Scope scope) {}
@@ -54,7 +58,7 @@ public class AccessTokens {
     /**
      * 토큰으로 들어온 요청의 주인. status는 member.status(ACTIVE·SUSPENDED·WITHDRAWN).
      * aiPublishAllowed는 회원이 웹 설정에서 켠 "AI가 발행·삭제하도록 허용"(053). 요청마다 DB에서 새로 읽는다.
-     * admin은 관리자 회원(054 문의 관리 도구). 역할도 요청마다 새로 읽는다. tokenName은 토큰 이름이나 OAuth 앱 이름(버그 신고에 남긴다).
+     * admin은 관리자 회원이 이 토큰에 관리자 도구를 켰을 때만 true(054 문의 관리 도구, #378). 역할도 요청마다 새로 읽는다. tokenName은 토큰 이름이나 OAuth 앱 이름(버그 신고에 남긴다).
      * aiDiaryEnabled는 회원이 켠 "AI 일기 쓰기"(061). 켜져 있을 때만 add_note가 보인다.
      */
     public record Caller(long memberId, String handle, Scope scope, String status, boolean emailVerified, boolean aiPublishAllowed,
@@ -66,13 +70,16 @@ public class AccessTokens {
 
     private final JdbcTemplate jdbc;
     private final Clock clock;
+    private final MemberQueryService memberQuery;
 
-    public AccessTokens(JdbcTemplate jdbc, Clock clock) {
+    public AccessTokens(JdbcTemplate jdbc, Clock clock, MemberQueryService memberQuery) {
         this.jdbc = jdbc;
         this.clock = clock;
+        this.memberQuery = memberQuery;
     }
 
-    public Issued create(long memberId, String rawName, String rawScope, Integer expiresInDays) {
+    /** adminTools는 관리자 회원만 켤 수 있다. 다른 회원이 켜면 403 */
+    public Issued create(long memberId, String rawName, String rawScope, Integer expiresInDays, boolean adminTools) {
         String name = rawName == null ? "" : rawName.strip();
         Scope scope = parseScope(rawScope);
         int days = expiresInDays == null ? 90 : expiresInDays;
@@ -90,33 +97,41 @@ public class AccessTokens {
         if (active != null && active >= MAX_ACTIVE) {
             throw ApiException.conflict("TOKEN_LIMIT", "토큰은 " + MAX_ACTIVE + "개까지 만들 수 있어요. 안 쓰는 토큰을 폐기해 주세요.");
         }
+        if (adminTools && !isAdmin(memberId)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "ADMIN_ONLY", "관리자 도구는 관리자만 켤 수 있어요.");
+        }
         String secret = newSecret();
         String prefix = secret.substring(0, PREFIX.length() + 4);
         Instant expires = now.plus(Duration.ofDays(days));
         Long id = jdbc.queryForObject("""
-                INSERT INTO personal_access_token (member_id, name, token_hash, token_prefix, scope, created_at, expires_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id
-                """, Long.class, memberId, name, hash(secret), prefix, scope.name(), Timestamp.from(now), Timestamp.from(expires));
-        return new Issued(new TokenView(id, name, prefix, scope, now, expires, null, false, false), secret);
+                INSERT INTO personal_access_token (member_id, name, token_hash, token_prefix, scope, created_at, expires_at, admin_tools)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
+                """, Long.class, memberId, name, hash(secret), prefix, scope.name(), Timestamp.from(now), Timestamp.from(expires), adminTools);
+        return new Issued(new TokenView(id, name, prefix, scope, now, expires, null, false, false, adminTools), secret);
     }
 
     /** 폐기하지 않은 토큰과 OAuth 연결. 만료된 것도 보여 주어 다시 만들 수 있게 한다. */
     public List<TokenView> list(long memberId) {
         Instant now = Times.now(clock);
         return jdbc.query("""
-                SELECT id, name, token_prefix, scope, created_at, expires_at, last_used_at, oauth_client_id, refresh_expires_at
+                SELECT id, name, token_prefix, scope, created_at, expires_at, last_used_at, oauth_client_id, refresh_expires_at, admin_tools
                 FROM personal_access_token WHERE member_id = ? AND revoked_at IS NULL ORDER BY created_at DESC, id DESC
                 """, (rs, i) -> {
                     boolean oauth = rs.getString("oauth_client_id") != null;
                     Instant expires = instant(rs.getTimestamp(oauth ? "refresh_expires_at" : "expires_at"));
                     return new TokenView(rs.getLong("id"), rs.getString("name"), rs.getString("token_prefix"),
                             Scope.valueOf(rs.getString("scope")), instant(rs.getTimestamp("created_at")), expires,
-                            instant(rs.getTimestamp("last_used_at")), expires != null && !expires.isAfter(now), oauth);
+                            instant(rs.getTimestamp("last_used_at")), expires != null && !expires.isAfter(now), oauth,
+                            rs.getBoolean("admin_tools"));
                 }, memberId);
     }
 
-    /** OAuth 동의 뒤 토큰 발급 (코드 교환). 연결 하나가 한 행이고 설정 화면에서 폐기할 수 있다. */
-    public OAuthGrant issueOAuth(long memberId, String clientId, String clientName, Scope scope) {
+    /**
+     * OAuth 동의 뒤 토큰 발급 (코드 교환). 연결 하나가 한 행이고 설정 화면에서 폐기할 수 있다.
+     * adminTools는 동의 화면에서 관리자가 따로 켰을 때만. 그새 관리자가 아니게 됐으면 끈 채로 발급한다
+     */
+    public OAuthGrant issueOAuth(long memberId, String clientId, String clientName, Scope scope, boolean adminTools) {
+        boolean admin = adminTools && isAdmin(memberId);
         Instant now = Times.now(clock);
         String access = newSecret();
         String refresh = REFRESH_PREFIX + newSecret().substring(PREFIX.length());
@@ -124,10 +139,10 @@ public class AccessTokens {
                 ? clientName.substring(0, clientName.offsetByCodePoints(0, NAME_MAX)) : clientName;
         jdbc.update("""
                 INSERT INTO personal_access_token (member_id, name, token_hash, token_prefix, scope, created_at, expires_at,
-                                                   oauth_client_id, refresh_hash, refresh_expires_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                                   oauth_client_id, refresh_hash, refresh_expires_at, admin_tools)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, memberId, name, hash(access), access.substring(0, PREFIX.length() + 4), scope.name(), Timestamp.from(now),
-                Timestamp.from(now.plus(OAUTH_ACCESS_TTL)), clientId, hash(refresh), Timestamp.from(now.plus(OAUTH_REFRESH_TTL)));
+                Timestamp.from(now.plus(OAUTH_ACCESS_TTL)), clientId, hash(refresh), Timestamp.from(now.plus(OAUTH_REFRESH_TTL)), admin);
         return new OAuthGrant(access, refresh, OAUTH_ACCESS_TTL.toSeconds(), scope);
     }
 
@@ -170,6 +185,11 @@ public class AccessTokens {
         return allowed;
     }
 
+    /** 관리자 회원인지. 관리자 도구를 켤 때 쓴다 */
+    public boolean isAdmin(long memberId) {
+        return memberQuery.isAdmin(memberId);
+    }
+
     /** 탈퇴 정리 (020): 토큰을 모두 지운다. */
     public void deleteAll(long memberId) {
         jdbc.update("DELETE FROM personal_access_token WHERE member_id = ?", memberId);
@@ -182,7 +202,7 @@ public class AccessTokens {
         Instant now = Times.now(clock);
         List<Row> rows = jdbc.query("""
                 SELECT t.id, t.member_id, t.scope, t.last_used_at, t.name AS token_name, m.handle, m.status, m.ai_publish_allowed, m.ai_diary_enabled,
-                       m.role = 'ADMIN' AS admin,
+                       m.role = 'ADMIN' AND t.admin_tools AS admin,
                        EXISTS (SELECT 1 FROM auth_identity a WHERE a.member_id = m.id AND a.email_verified_at IS NOT NULL) AS verified
                 FROM personal_access_token t JOIN member m ON m.id = t.member_id
                 WHERE t.token_hash = ? AND t.revoked_at IS NULL AND (t.expires_at IS NULL OR t.expires_at > ?) AND m.deleted_at IS NULL

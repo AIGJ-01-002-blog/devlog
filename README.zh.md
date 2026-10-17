@@ -149,10 +149,10 @@ cd app/frontend && npm install && npm run dev            # http://localhost:5173
 - **短视频工作室**：按场景（字幕、朗读文本、代码、说明图）修改你的 AI 通过 MCP 写的短视频脚本。点击［制作视频］后，你自己电脑上的渲染程序会把它做成由角色表演的 9:16 MP4 并上传。制作前用量产检查拦下与其他脚本重复或照搬文章的脚本。也可以把一篇文章拆成多个小主题。
 - **发布指南**：为 YouTube Shorts、Instagram Reels、TikTok 分别给出带复制按钮的标题、说明和置顶评论，并说明发布步骤。没有自动发布，发布后记录视频网址。
 - **我的仪表盘**：按 7、30、90 天查看自己文章的浏览量、点赞和收到的评论，并与上一个周期比较。阅读最多的文章和短视频情况也集中在一个页面。
-- **交易日志**：交易机器人通过 MCP 记录的股票、加密货币现货和期货成交，按币种显示每日盈亏，实盘与模拟分开显示。用当天的笔记生成摘要草稿和短视频脚本，用选中的成交生成交易回放短视频。devlog 不会下真实订单。
+- **交易日志**：交易机器人通过 MCP 记录的股票、加密货币现货和期货成交，按币种显示每日盈亏，实盘与模拟分开显示。每笔成交附带机器人留下的决策痕迹（形态、止损、止盈、平仓原因、R 倍数），并按策略版本和形态统计胜率与平均 R 来复盘。用当天的笔记生成摘要草稿和短视频脚本，用选中的成交生成交易回放短视频。devlog 不会下真实订单。
 - **博客积分与商店**：通过签到（奖励随连续天数增加）、连续签到徽章和发布文章积累积分，在黑铁到王者 9 个段位中购买主题色、头像边框和博客封面来装饰博客。
-- **积分模拟投资**：用注册时获得的模拟投资积分，看着实时图表以市价或限价买卖比特币等 5 种币。卖出收益会变成可在商店使用的积分。
-- **自动交易模拟页面**：在 `/trade` 点击［开启模拟机器人］，服务器会按移动平均规则进行模拟交易，并显示账户、持仓、最近成交及原因。币种、K 线周期、止损、止盈和单次金额由每位会员在同一页面的［模拟机器人设置］中选择。
+- **积分模拟投资**：用注册时获得的基本积分，看着交易所风格的图表（均线、成交量、1 秒到 1 周 K 线、持仓均价线）以市价或限价买卖比特币等 5 种币，挂出的限价单可在交易记录中撤销。卖出收益会变成可在商店使用的积分。
+- **自动交易模拟页面**：在 `/trade` 点击［开启模拟机器人］，服务器会按移动平均规则在韩元、Binance 现货和 Binance 3 倍期货账户上进行模拟交易，并显示账户、持仓、最近成交及原因。币种、K 线周期、止损、止盈和单次金额由每位会员在同一页面的［模拟机器人设置］中选择。
 - **AI 记录的依据链接**：AI 在开发日志和日记笔记中附上提交、PR、Issue 网址时，会作为链接出现在文章末尾的 `## 근거`（依据）和日记段落下方。
 - **迁移到家里电脑**：把数据库和文件存储下载到一个文件夹，再在 Windows、Mac 上用 Docker 恢复同一个博客的备份与恢复脚本（`deploy/home/`）。
 
@@ -166,7 +166,7 @@ flowchart LR
     T[Telegram] -->|Bot API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>多个 Pod]
     I -->|/blog-images| M[(MinIO / S3<br/>图片 · 附件)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V53)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V54)]
     A --> R[(Redis<br/>会话 · 限流 · 浏览数 · 缓存)]
     A --> M
     A -.可选.-> G[Google Gemini]
@@ -262,12 +262,12 @@ sequenceDiagram
 
 | 路径 | 说明 |
 | --- | --- |
-| [app/backend](app/backend) | 后端：Spring Boot 4.1、Java 21。功能模块、Flyway 迁移（V1~V53）、测试 |
+| [app/backend](app/backend) | 后端：Spring Boot 4.1、Java 21。功能模块、Flyway 迁移（V1~V54）、测试 |
 | [app/frontend](app/frontend) | 前端：React 19 SPA、TypeScript、Vite。界面、自动保存（IndexedDB）、深色模式 |
 | [deploy](deploy) | 部署：Dockerfile、Kubernetes 清单（base、selfhosted、nhn、local），部署、回滚、密钥检查脚本 |
 | [app/render-worker](app/render-worker) | 短视频渲染程序：Python 3.10、ffmpeg、Remotion（Node）。在你自己的电脑上把队列中的脚本做成 9:16 的 MP4 并上传 |
 | [.github](.github) | CI/CD：后端与界面测试、镜像构建与部署、版本发布、Discord 与 Telegram 通知 |
-| [specs](specs) | 功能规格：按 [GitHub Spec Kit](https://github.com/github/spec-kit) 流程编写的各功能 spec、plan、tasks（001~100） |
+| [specs](specs) | 功能规格：按 [GitHub Spec Kit](https://github.com/github/spec-kit) 流程编写的各功能 spec、plan、tasks（001~102） |
 | [docs](https://github.com/AIGJ-01-002-blog/docs) | 设计文档：通用需求、架构、整合 ERD、各功能设计、权限表 |
 | [erd](erd) · [scripts](scripts) | 基准模式及其运行测试、设计验证脚本与报告 |
 
@@ -343,7 +343,7 @@ npm run dev        # http://localhost:5173
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub、Google、Kakao、Naver、Facebook 登录，会话，CSRF，按路径的权限 |
 | Spring Data JPA (Hibernate) | Boot 4.1 | 所有领域 | 保存会员、文章、评论等领域数据 |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | 会话、限流、浏览数、缓存 | 多个 Pod 共享同一会话，并发请求也由一个 Redis 脚本判定 |
-| Flyway | Boot 4.1 | 数据库 | 用 V1~V53 迁移管理模式，启动时自动应用 |
+| Flyway | Boot 4.1 | 数据库 | 用 V1~V54 迁移管理模式，启动时自动应用 |
 | commonmark-java (+ GFM 扩展) | 0.30.0 | 正文渲染 | Markdown → HTML。表格、删除线、任务清单、自动链接、标题锚点 |
 | OWASP Java HTML Sanitizer | 20260924.2 | 正文净化 | 按白名单净化渲染后的 HTML，防止 XSS |
 | AWS SDK for Java (S3) | 2.55.12 | media | 把图片和附件上传到 MinIO、S3 |
@@ -358,6 +358,7 @@ npm run dev        # http://localhost:5173
 | Vite | 8.3 | 开发服务器（代理到后端）和构建 |
 | highlight.js | 11.12 | 代码块高亮。根据主题使用 GitHub / GitHub Dark 配色 |
 | jsdiff | 9 | 冲突对比，展示两台设备上编辑的正文差异 |
+| TradingView Lightweight Charts | 5.2 | 模拟投资与自动交易的交易所风格 K 线图（均线、成交量、持仓均价线、成交箭头）。因轻量且采用 Apache 2.0 而选用 |
 | IndexedDB | 浏览器 | 离线自动保存的备份 |
 
 ### 数据与基础设施
@@ -378,10 +379,10 @@ npm run dev        # http://localhost:5173
 
 | 技术 | 使用位置 | 作用 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | 后端 | 单元与集成测试 788 个（截至 v2.1.3） |
+| JUnit 5 · Spring Boot Test · Spring Security Test | 后端 | 单元与集成测试 832 个（截至 v2.3.0） |
 | Testcontainers (PostgreSQL) | 后端 | 在真实的 PostgreSQL 上验证迁移、查询和并发 |
 | JaCoCo | 后端 | 在 CI 中检查 40% 行覆盖率的门槛 |
-| Vitest · Testing Library · jsdom | 前端 | 界面与逻辑测试 405 个（截至 v2.1.3） |
+| Vitest · Testing Library · jsdom | 前端 | 界面与逻辑测试 420 个（截至 v2.3.0） |
 | fake-indexeddb | 前端 | 离线自动保存的测试 |
 
 ## 版本发布
@@ -390,6 +391,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v2.4.0 | 2026-10-17 | 安全后续: JSON 请求体按路径限制大小、生产部署后检查公开地址并在失败时回滚、收窄仪表盘读取权限与命名空间出站连接、清理调试工作流并将外部 Action 固定到提交 SHA、MCP 管理员工具仅在单独开启的令牌中可用、会话 30 天绝对过期与邮箱注册按 IP 限制 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.4.0) |
 | v2.3.0 | 2026-10-16 | 机器人决策痕迹与复盘: 每笔成交记录策略版本、篮子、形态、止损止盈、平仓原因与R倍数,并在交易日志、摘要草稿和短视频中显示按形态的战绩;服务器模拟机器人的币安账户将积分兑换为USDT并交易3倍合约;交易所风格图表(均线、成交量、1秒至1周K线、保本线);修复渲染工作器在服务器重启时自行停止的问题 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.3.0) |
 | v2.2.1 | 2026-10-16 | 安全修复: 限价单填入极大数量时几乎不冻结积分即可买入(订单金额与数量上限) | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.2.1) |
 | v2.2.0 | 2026-10-16 | 积分模拟投资:Upbit 式下单面板与限价单·撤单,图表上同时显示我的成交与机器人成交,服务器模拟机器人用基本积分交易韩元·Binance 账户并可按会员设置(币种·K线周期·止损·止盈·金额),韩元K线改从 Korbit 获取,管理员商店按类型分标签,短视频结尾 3 秒博客广告,SonarQube 问题清零 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.2.0) |
