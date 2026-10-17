@@ -25,6 +25,7 @@ deploy/
 ├── scripts/gen-secret-env.sh    secret.env를 임의 비밀번호로 만들어 줌
 ├── scripts/server-setup.sh      새 Ubuntu 서버(Oracle 무료 VM)에 k3s·ingress-nginx 설치 + 배포용 접속 파일
 ├── scripts/rollout.sh           배포 + 헬스 체크 실패 시 자동 롤백
+├── scripts/smoke.sh             배포 뒤 공개 주소 연기 시험 (첫 화면·health·글 하나)
 └── scripts/check-no-secrets.sh  비밀값이 커밋됐는지 검사 (CI에서도 실행)
 ```
 
@@ -98,6 +99,8 @@ kubectl -n blog rollout status deploy/blog-app
 회원이 설정에서 넣는 디스코드 웹훅 알림(spec 078)은 이 배포 알림과 별개라 Secret이 필요 없다. 끄려면 앱 환경 변수 `DISCORD_NOTIFY_ENABLED=false`.
 
 배포는 `deploy/scripts/rollout.sh`가 한다. 새 이미지로 바꾼 뒤 모든 파드가 준비(`/actuator/health/readiness` UP)되기를 기다리고, 시간(`ROLLOUT_TIMEOUT_SECONDS`, 기본 300초) 안에 안 되면 `kubectl rollout undo`로 직전 버전으로 되돌린다. 새 파드가 준비되기 전에는 옛 파드를 내리지 않으므로(`maxUnavailable: 0`) 되돌리는 동안에도 서비스는 끊기지 않는다. Actions → 블로그 배포 → Run workflow에서 `rollback_test`를 켜면 없는 이미지로 배포해 롤백을 시험한다.
+
+운영 배포는 도메인 연결 뒤에 `deploy/scripts/smoke.sh`로 공개 주소(overlay `app.env`의 `SITE_BASE_URL`)를 바깥에서 한 번 더 연다. 첫 화면이 HTML로 열리고, `/actuator/health`가 UP이고, 첫 화면 목록 맨 위 글을 API로 읽을 수 있어야 한다. 10초 간격으로 6번까지 다시 해 보고 끝내 안 되면 이번 배포 직전 버전으로 되돌리고 배포를 실패로 둔다. 이번 배포로 바뀐 버전이 없으면(같은 이미지 재배포) 되돌리지 않고 실패만 알린다. 터널 토큰이 없으면 건너뛰고, 저장소 변수 `SMOKE_ENABLED=false`로 끌 수 있다.
 
 ### 저장소 설정 (Settings → Secrets and variables → Actions)
 
