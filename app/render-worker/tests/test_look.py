@@ -55,6 +55,9 @@ class LookTest(unittest.TestCase):
     def test_fast_style_puts_character_scenes_on_split(self):
         script = Script("t", [Scene("a", "b"), Scene("c", "d", custom={"kind": "outro", "data": None})], style="fast", seed=2)
         self.assertEqual(Renderer._look(script, False).layouts, ["split", "stage"])
+        # 코드 창은 빠른 스타일에서도 가운데 무대
+        script = Script("t", [Scene("a", "b"), Scene("c", "d", code="print(1)")], style="fast", seed=2)
+        self.assertEqual(Renderer._look(script, False).layouts, ["split", "stage"])
 
     def test_one_or_two_events_prefer_surprise_and_skip_hook(self):
         kinds = ["character"] * 6 + ["custom"]

@@ -320,7 +320,7 @@ class Renderer:
                 for i, act in enumerate(stages):
                     if act is not None:
                         effects += [sfx.Effect(i, at, name, volume) for name, at, volume in act.effects()]
-                self._join(work, segments, audios, timings, total, joined, effects)
+                self._join(work, segments, audios, timings, total, joined, effects, music_variant=self._look(script, False).music)
             out.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(joined), str(out))
         return probe_ms(out, self.ffmpeg)
@@ -388,8 +388,8 @@ class Renderer:
         kinds = ["custom" if s.custom else "diagram" if s.diagram else "code" if s.code else "character" for s in script.scenes]
         actions = [getattr(v, "action", "") for v in visuals] if visuals else None
         lk = look.choose(script.seed, len(script.scenes), splittable, "paper" if replay_video else script.look, kinds, actions)
-        if script.fast:  # 대본이 빠른 견본 스타일을 고르면 캐릭터 장면은 모두 위 그림·아래 캐릭터
-            lk.layouts = ["split" if s.custom is None else "stage" for s in script.scenes]
+        if script.fast:  # 대본이 빠른 견본 스타일을 고르면 캐릭터 장면은 모두 위 그림·아래 캐릭터(코드 창은 가운데 무대)
+            lk.layouts = ["split" if s.custom is None and not s.code else "stage" for s in script.scenes]
         log.info("연출: 룩 %s, 배경음 %d, 전환 %s, 사건 %s", lk.name, lk.music, ",".join(lk.transitions[1:]),
                  ",".join(f"{i + 1}:{ev}" for i, ev in enumerate(lk.events) if ev) or "없음")
         return lk
