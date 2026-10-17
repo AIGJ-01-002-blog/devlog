@@ -1,5 +1,7 @@
 package com.team.blog.shared.security;
 
+import java.time.Instant;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -15,12 +17,15 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class LoginSessions {
+    /** 로그인한 시각 (Instant). 세션 절대 만료(SessionLifetimeFilter)가 본다 */
+    public static final String LOGGED_IN_AT = "auth.loggedInAt";
+
     private final SecurityContextRepository repository = new HttpSessionSecurityContextRepository();
     private final SecurityContextHolderStrategy holder = SecurityContextHolder.getContextHolderStrategy();
 
     public void login(HttpServletRequest request, HttpServletResponse response, MemberPrincipal principal) {
         if (request.getSession(false) != null) request.changeSessionId();
-        else request.getSession(true);
+        request.getSession(true).setAttribute(LOGGED_IN_AT, Instant.now());
         SecurityContext context = holder.createEmptyContext();
         context.setAuthentication(new MemberAuthentication(principal));
         holder.setContext(context);

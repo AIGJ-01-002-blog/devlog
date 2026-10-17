@@ -1,5 +1,6 @@
 package com.team.blog.account.web;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,11 +25,14 @@ import com.team.blog.account.application.EmailVerification;
 import com.team.blog.account.application.LoginOutcome;
 import com.team.blog.account.application.PasswordService;
 import com.team.blog.account.application.SignupEmailCode;
+import com.team.blog.shared.config.BlogProperties;
 import com.team.blog.shared.error.ApiException;
 import com.team.blog.shared.security.CurrentMember;
 import com.team.blog.shared.security.LoginSessions;
 import com.team.blog.shared.security.MemberPrincipal;
 import com.team.blog.shared.web.ClientIpResolver;
+import com.team.blog.shared.web.RateLimiter;
+import com.team.blog.shared.web.TooManyRequestsException;
 
 /** 이메일 가입·로그인·인증, 비밀번호 재설정·변경 (004). 같은 IP 로그인 제한과 저장소 장애 처리는 LoginGuardFilter가 한다. */
 @RestController
@@ -40,14 +44,20 @@ public class EmailAuthController {
     private final ClientIpResolver ipResolver;
     private final ClientRegistrationRepository clients;
     private final SignupEmailCode signupCode;
+    private final RateLimiter rateLimiter;
+    private final int signupPerIpPerHour;
 
     /** 가입 화면에서 인증번호를 맞힌 이메일과 그 시각 (spec 065). 이 브라우저 세션에만 둔다 */
     static final String VERIFIED_EMAIL = "signup.verifiedEmail";
     static final String VERIFIED_AT = "signup.verifiedAt";
+    static final String SIGNUP_IP_KEY = "signup:ip:";
+    static final Duration SIGNUP_WINDOW = Duration.ofHours(1);
 
     public EmailAuthController(EmailAccountService accounts, EmailVerification verification, PasswordService passwords,
                                LoginSessions sessions, ClientIpResolver ipResolver, ClientRegistrationRepository clients,
-                               SignupEmailCode signupCode) {
+                               SignupEmailCode signupCode, RateLimiter rateLimiter, BlogProperties props) {
+        this.rateLimiter = rateLimiter;
+        this.signupPerIpPerHour = props.auth().signupPerIpPerHour();
         this.clients = clients;
         this.signupCode = signupCode;
         this.accounts = accounts;
@@ -103,9 +113,23 @@ public class EmailAuthController {
     @PostMapping("/api/auth/signup/email")
     public ResponseEntity<Map<String, String>> signup(@RequestBody EmailSignupRequest b, HttpServletRequest request,
                                                       HttpServletResponse response) {
-        MemberPrincipal principal = accounts.signup(new EmailAccountService.EmailSignupForm(b.email(), b.handleBody(),
-                b.password(), b.passwordConfirm(), b.nickname(), b.agreeTerms(), b.agreePrivacy(), Boolean.TRUE.equals(b.agreeAi())),
-                verifiedEmail(request.getSession(false)));
+        // 같은 IP의 가입은 만든 계정 수로 센다. 동시에 들어온 가입이 한도를 함께 넘지 않게 먼저 한 자리를 잡고,
+        // 가입이 실패하면(입력 오류 등) 그 자리를 돌려준다 (보안 점검 2026-10-16)
+        RateLimiter.Slot slot = rateLimiter.reserve(SIGNUP_IP_KEY + ipResolver.resolve(request), signupPerIpPerHour, SIGNUP_WINDOW);
+        if (!slot.allowed()) {
+            rateLimiter.release(slot);
+            throw new TooManyRequestsException(SIGNUP_WINDOW.toSeconds(), "TOO_MANY_SIGNUPS",
+                    "이 네트워크에서 가입이 너무 많아요. 잠시 후 다시 시도해 주세요.");
+        }
+        MemberPrincipal principal;
+        try {
+            principal = accounts.signup(new EmailAccountService.EmailSignupForm(b.email(), b.handleBody(),
+                    b.password(), b.passwordConfirm(), b.nickname(), b.agreeTerms(), b.agreePrivacy(), Boolean.TRUE.equals(b.agreeAi())),
+                    verifiedEmail(request.getSession(false)));
+        } catch (RuntimeException e) {
+            rateLimiter.release(slot);
+            throw e;
+        }
         HttpSession before = request.getSession(false);
         if (before != null) {
             before.removeAttribute(VERIFIED_EMAIL);
