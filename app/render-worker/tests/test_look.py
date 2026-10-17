@@ -56,6 +56,27 @@ class LookTest(unittest.TestCase):
         script = Script("t", [Scene("a", "b"), Scene("c", "d", custom={"kind": "outro", "data": None})], style="fast", seed=2)
         self.assertEqual(Renderer._look(script, False).layouts, ["split", "stage"])
 
+    def test_one_or_two_events_prefer_surprise_and_skip_hook(self):
+        kinds = ["character"] * 6 + ["custom"]
+        actions = ["shock", "explain", "explain", "panic", "explain", "explain", ""]
+        for k in range(20):
+            lk = look.choose(look.seed_of("e", k), 7, [True] * 7, kinds=kinds, actions=actions)
+            picked = [i for i, ev in enumerate(lk.events) if ev]
+            self.assertEqual(len(picked), 2)
+            self.assertNotIn(0, picked)  # 첫 장면(훅)은 빼고
+            self.assertNotIn(6, picked)  # 등록된 장면(끝 광고 등)도 빼고
+            self.assertIn(3, picked)  # 당황 연기가 먼저
+            self.assertTrue(all(lk.events[i] in look.EVENTS for i in picked))
+        self.assertEqual(look.choose(1, 2, [True, True]).events, [None, None])
+
+    def test_camera_follows_scene_kind(self):
+        kinds = ["code", "diagram", "code", "diagram", "character"]
+        for k in range(20):
+            lk = look.choose(look.seed_of("c", k), 5, [False] * 5, kinds=kinds)
+            self.assertIn(lk.cameras[0], look.CAMERA_BY_KIND["code"])
+            self.assertIn(lk.cameras[1], look.CAMERA_BY_KIND["diagram"])
+            self.assertIn(lk.cameras[2], look.CAMERA_BY_KIND["code"])
+
 
 class MusicVariantTest(unittest.TestCase):
     def test_variants_differ_and_first_is_original(self):

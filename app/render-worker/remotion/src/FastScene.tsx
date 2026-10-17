@@ -6,6 +6,7 @@ import {AbsoluteFill, spring, useCurrentFrame, useVideoConfig} from 'remotion';
 import {Act, Presenter} from './actions';
 import {Background} from './Background';
 import {allItems, DIAGRAM_H, DiagramStage} from './Diagram';
+import {EventOverlay, useShake} from './Event';
 import {CodeLine} from './props';
 import {look} from './looks';
 import {accent, card, theme} from './theme';
@@ -47,8 +48,9 @@ export const FastScene: React.FC<{scene: SceneData; index: number; title: string
   const items = d ? allItems(d) : [];
   const done = items.length > 0 && ms >= Math.max(...items.map((it) => it.atMs)) + 1200;
   const beats = items.map((it) => scene.leadFrames / fps + it.atMs / 1000);
+  const shake = useShake(scene);
   return (
-    <AbsoluteFill>
+    <AbsoluteFill style={{translate: shake}}>
       <Background index={index} image={scene.image} />
       <div style={{position: 'absolute', top: 84, left: 0, right: 0, textAlign: 'center', font: theme.type.title, color: look().color.onBgSub,
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '0 80px'}}>{title}</div>
@@ -74,6 +76,7 @@ export const FastScene: React.FC<{scene: SceneData; index: number; title: string
       <div style={{position: 'absolute', top: theme.layout.footerTop, left: 0, right: 0, textAlign: 'center', font: theme.type.footer, color: look().color.onBgSub}}>
         {footer}
       </div>
+      <EventOverlay scene={scene} tint={tint} />
     </AbsoluteFill>
   );
 };

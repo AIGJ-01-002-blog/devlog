@@ -288,7 +288,7 @@ class Renderer:
                     total = timings[-1].start + timings[-1].length
                 # 화면은 Remotion이 한 번에(전환 포함) 그리고, 소리는 아래 _join이 섞는다
                 visuals = self._visuals(script)
-                lk = self._look(script, chart is not None)
+                lk = self._look(script, chart is not None, visuals)
                 video = work / "screen.mp4"
                 props = self._props(script, timings, total, audios, words, images, visuals, lk)
                 remotion.render(props, work, video)
@@ -302,6 +302,8 @@ class Renderer:
                 # 장면이 넘어갈 때마다 전환에 맞는 소리(전환과 같은 때). 점프 컷으로 넘어가는 장면은 소리 없이 끊는다
                 effects += [sfx.Effect(i, 0.0, lk.sound(i), 0.3) for i in range(1, len(script.scenes))
                             if not (script.scenes[i].custom or {}).get("cut") and lk.sound(i)]
+                # 사건(흔들림·섬광·도장)은 목소리가 시작할 때 소리와 함께
+                effects += [sfx.Effect(i, timings[i].lead, look.EVENT_SOUND[ev], 0.45) for i, ev in enumerate(lk.events) if ev]
                 music = {}
                 if chart is not None:  # 배경음은 제목 카드가 끝나면 들어오고 결산 화면부터 작아진다
                     soft = replay.result_scene(chart, [t.start for t in body[:-1]])
@@ -379,14 +381,17 @@ class Renderer:
             script.effects.append(sfx.Effect(scene, at, str(trade_sfx.sound_file(kind, trade_sfx.cache_dir())), volume))
 
     @staticmethod
-    def _look(script: Script, replay_video: bool) -> look.Look:
+    def _look(script: Script, replay_video: bool, visuals: list | None = None) -> look.Look:
         """영상 한 편의 연출. 매매 재현은 차트가 주인공이라 기본 룩·전환을 쓴다(차트 장면은 점프 컷)."""
         # 위 그림·아래 캐릭터 배치는 아래 칸이 작아서 코드 창(타자 연기)이 읽히지 않으므로 코드가 없는 캐릭터 장면만 바꾼다
         splittable = [s.custom is None and not s.code for s in script.scenes]
-        lk = look.choose(script.seed, len(script.scenes), splittable, "paper" if replay_video else script.look)
+        kinds = ["custom" if s.custom else "diagram" if s.diagram else "code" if s.code else "character" for s in script.scenes]
+        actions = [getattr(v, "action", "") for v in visuals] if visuals else None
+        lk = look.choose(script.seed, len(script.scenes), splittable, "paper" if replay_video else script.look, kinds, actions)
         if script.fast:  # 대본이 빠른 견본 스타일을 고르면 캐릭터 장면은 모두 위 그림·아래 캐릭터
             lk.layouts = ["split" if s.custom is None else "stage" for s in script.scenes]
-        log.info("연출: 룩 %s, 배경음 %d, 전환 %s", lk.name, lk.music, ",".join(lk.transitions[1:]))
+        log.info("연출: 룩 %s, 배경음 %d, 전환 %s, 사건 %s", lk.name, lk.music, ",".join(lk.transitions[1:]),
+                 ",".join(f"{i + 1}:{ev}" for i, ev in enumerate(lk.events) if ev) or "없음")
         return lk
 
     def _visuals(self, script: Script) -> list:
@@ -399,7 +404,7 @@ class Renderer:
     def _props(self, script: Script, timings: list[Timing], total: float, audios: list[Path], words, images, visuals,
                lk: look.Look | None = None) -> dict:
         """Remotion에 넘길 props (remotion/src/types.ts의 ShortsProps)"""
-        lk = lk or self._look(script, script.replay is not None)
+        lk = lk or self._look(script, script.replay is not None, visuals)
         scenes = []
         for i, scene in enumerate(script.scenes):
             t, v = timings[i], visuals[i]
@@ -425,6 +430,7 @@ class Renderer:
                 "layout": lk.layouts[i],
                 "camera": lk.cameras[i],
                 "transition": lk.transitions[i] or None,
+                "event": lk.events[i] if i < len(lk.events) else None,
             })
         # 영상 한 편에 두세 번, 요점 낱말을 색으로 강조한다(자막 모양마다 칠하는 방식이 다르다)
         captions.emphasize([sc["pages"] for sc in scenes], [sc.caption for sc in script.scenes])

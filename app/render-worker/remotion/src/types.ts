@@ -57,6 +57,8 @@ export type SceneData = {
   camera?: string | null;
   /** 앞 장면에서 이 장면으로 넘어오는 전환(looks.ts transition()). 0번 장면은 null */
   transition?: string | null;
+  /** 목소리가 시작할 때 한 번 일어나는 사건(looks.ts EventLayer): shake 흔들림, flash 섬광, stamp 도장. 영상 한 편에 한두 장면 */
+  event?: 'shake' | 'flash' | 'stamp' | null;
 };
 
 export type ShortsProps = {

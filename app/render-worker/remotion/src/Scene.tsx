@@ -7,6 +7,7 @@ import {Background} from './Background';
 import {Captions} from './Captions';
 import {CUSTOM_SCENES} from './custom';
 import {DiagramStage} from './Diagram';
+import {EventOverlay, useShake} from './Event';
 import {camera, look} from './looks';
 import {accent, theme} from './theme';
 import type {SceneData} from './types';
@@ -21,8 +22,9 @@ export const Scene: React.FC<{scene: SceneData; index: number; title: string; fo
   const tint = accent(index);
   const Custom = scene.custom ? CUSTOM_SCENES[scene.custom.kind] : undefined;
   const cam = camera(scene.camera, frame, fps, scene.durationInFrames);
+  const shake = useShake(scene);
   return (
-    <AbsoluteFill>
+    <AbsoluteFill style={{translate: shake}}>
       <Background index={index} image={scene.image} />
       <div style={{position: 'absolute', top: layout.titleTop, left: 0, right: 0, display: 'flex', justifyContent: 'center'}}>
         <div style={{display: 'flex', alignItems: 'center', gap: 14, font: theme.type.title, color: color.sub, background: color.surface,
@@ -46,6 +48,7 @@ export const Scene: React.FC<{scene: SceneData; index: number; title: string; fo
       <div style={{position: 'absolute', top: layout.footerTop, left: 0, right: 0, textAlign: 'center', font: theme.type.footer, color: lk.color.onBgSub}}>
         {footer}
       </div>
+      <EventOverlay scene={scene} tint={tint} />
     </AbsoluteFill>
   );
 };

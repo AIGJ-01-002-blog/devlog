@@ -82,7 +82,7 @@ class RemotionPathTest(unittest.TestCase):
         self.assertEqual(props["scenes"][-1]["pages"], [])
 
         keys = {"caption", "code", "action", "params", "durationInFrames", "leadFrames", "speechFrames", "pages", "mouth", "image", "custom", "cut", "diagram",
-                "layout", "camera", "transition"}
+                "layout", "camera", "transition", "event"}
         for s in props["scenes"][:-1]:
             self.assertEqual(set(s), keys)
             self.assertIn(s["camera"], look.CAMERAS)

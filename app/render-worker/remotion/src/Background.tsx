@@ -1,4 +1,5 @@
-// 장면 배경: 룩의 바탕색에 장면 강조색으로 아주 옅은 빛 하나와 룩마다 다른 무늬(모눈·점·사선·동심원). 글 이미지가 있으면 흐리게 깐다(looks.ts).
+// 장면 배경: 룩의 바탕색을 장면 강조색 쪽으로 조금 물들이고(장면마다 바탕색이 달라진다), 강조색 빛 하나와 룩마다 다른 무늬(모눈·점·사선·동심원)를 깐다.
+// 글 이미지가 있으면 흐리게 깐다(looks.ts).
 import React from 'react';
 import {AbsoluteFill, Img, interpolate, staticFile, useCurrentFrame, useVideoConfig} from 'remotion';
 import {look, type Pattern} from './looks';
@@ -28,8 +29,10 @@ export const Background: React.FC<{index: number; image: string | null}> = ({ind
   const a = accent(index);
   const lk = look();
   const lines = pattern(lk.pattern, lk.color.line, t);
+  // 참고 영상 분석(2026-10-17): 잘 되는 릴스는 장면마다 바탕색이 바뀐다. 글자가 읽히도록 강조색은 조금만 섞는다
+  const bg = `color-mix(in srgb, ${theme.color.bg} ${lk.dark ? 84 : 90}%, ${a})`;
   return (
-    <AbsoluteFill style={{background: theme.color.bg, overflow: 'hidden'}}>
+    <AbsoluteFill style={{background: bg, overflow: 'hidden'}}>
       {image ? (
         <>
           <Img src={staticFile(image)} style={{position: 'absolute', inset: -60, width: 'calc(100% + 120px)', height: 'calc(100% + 120px)',
