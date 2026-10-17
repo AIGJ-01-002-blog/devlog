@@ -73,14 +73,14 @@ export const Captions: React.FC<{pages: Page[]; leadFrames: number; top: number;
 const CHUNK_WORDS = 2;
 const CHUNK_CHARS = 10;
 
-/** 구절의 낱말을 1~2어절 묶음으로 나눠 지금 읽는 낱말이 든 묶음만 보인다. 마침표는 뺀다 */
+/** 구절의 낱말을 1~2어절 묶음(띄어쓰기 포함 10자 이내)으로 나눠 지금 읽는 낱말이 든 묶음만 보인다. 마침표는 뺀다 */
 const Chunk: React.FC<{page: Page; current: number; top: number; color: string}> = ({page, current, top, color}) => {
   const lk = look();
   const groups: number[][] = [];
   page.words.forEach((w, k) => {
     const last = groups[groups.length - 1];
     const chars = last ? last.reduce((n, j) => n + page.words[j].text.length, 0) : 0;
-    if (last && last.length < CHUNK_WORDS && chars + w.text.length <= CHUNK_CHARS) last.push(k);
+    if (last && last.length < CHUNK_WORDS && chars + 1 + w.text.length <= CHUNK_CHARS) last.push(k);
     else groups.push([k]);
   });
   const group = groups.find((g) => g.includes(current)) ?? groups[0] ?? [];
