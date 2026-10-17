@@ -36,9 +36,11 @@ check_once() {
   if [ "$code" != 200 ]; then
     echo "글 목록: $code"; return 1
   fi
+  # items가 배열이 아니면(빠졌거나 null) 목록 API가 깨진 것으로 보고 실패한다. 빈 배열일 때만 글 확인을 건너뛴다
   first=$(python3 -c 'import json,sys
-items=json.load(open(sys.argv[1])).get("items") or []
-print(items[0]["id"] if items else "")' "$body" 2>/dev/null) || { echo "글 목록: JSON이 아닙니다"; return 1; }
+items=json.load(open(sys.argv[1])).get("items")
+if not isinstance(items, list): sys.exit(1)
+print(items[0]["id"] if items else "")' "$body" 2>/dev/null) || { echo "글 목록: items 배열이 있는 JSON이 아닙니다"; return 1; }
   if [ -z "$first" ]; then
     echo "공개 글이 없어 글 확인은 건너뜁니다."
     return 0
