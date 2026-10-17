@@ -18,7 +18,7 @@ jobs:
       SSH_USER: ${{ vars.SCHOOL_SSH_USER }}
       SSHPASS: ${{ secrets.SCHOOL_SSH_PASSWORD }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: 클러스터 상태 보기
         env:
           KNOWN_HOSTS: ${{ vars.SCHOOL_SSH_KNOWN_HOSTS }}
