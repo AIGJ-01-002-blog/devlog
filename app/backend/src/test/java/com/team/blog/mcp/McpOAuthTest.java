@@ -242,4 +242,34 @@ class McpOAuthTest extends IntegrationTest {
         token(Map.of("grant_type", "password")).andExpect(status().isBadRequest());
         assertThat(read(me.http().perform(get("/api/me/tokens")).andReturn())).isEmpty();
     }
+
+    /** tools/list로 보이는 도구 이름 */
+    String toolNames(String token) throws Exception {
+        return read(mvc.perform(post("/api/mcp").header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}")).andExpect(status().isOk()).andReturn())
+                .path("result").path("tools").findValuesAsString("name").toString();
+    }
+
+    @Test
+    void 관리자가_동의_화면에서_관리자_도구를_켤_때만_연결에_문의_도구가_보인다() throws Exception {
+        String clientId = register();
+        Session admin = signup(uniqueLogin("oauthadm"));
+        jdbc.update("UPDATE member SET role = 'ADMIN' WHERE id = ?", admin.memberId());
+
+        String plain = read(exchange(approvedCode(admin, clientId), clientId, VERIFIER).andExpect(status().isOk()).andReturn())
+                .path("access_token").asString();
+        assertThat(toolNames(plain)).doesNotContain("list_inquiries");
+
+        Map<String, Object> body = authorize(clientId, true);
+        body.put("adminTools", true);
+        String code = query(read(admin.http().perform(asJson(post("/api/oauth/authorize"), body)).andReturn()).path("redirect").asString()).get("code");
+        String withAdmin = read(exchange(code, clientId, VERIFIER).andExpect(status().isOk()).andReturn()).path("access_token").asString();
+        assertThat(toolNames(withAdmin)).contains("list_inquiries");
+
+        // 관리자가 아닌 회원이 켜서 보내도 끈 채로 발급된다
+        Session user = signup(uniqueLogin("oauthusr"));
+        String userCode = query(read(user.http().perform(asJson(post("/api/oauth/authorize"), body)).andReturn()).path("redirect").asString()).get("code");
+        String userToken = read(exchange(userCode, clientId, VERIFIER).andExpect(status().isOk()).andReturn()).path("access_token").asString();
+        assertThat(toolNames(userToken)).doesNotContain("list_inquiries");
+    }
 }

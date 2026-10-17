@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
 import java.util.HashMap;
 import java.util.List;
@@ -40,7 +41,11 @@ class InquiryTest extends IntegrationTest {
     }
 
     private String token(Session s, String scope) throws Exception {
-        return read(s.http().perform(asJson(post("/api/me/tokens"), Map.of("name", "Claude Code", "scope", scope)))
+        return token(s, scope, false);
+    }
+
+    private String token(Session s, String scope, boolean adminTools) throws Exception {
+        return read(s.http().perform(asJson(post("/api/me/tokens"), Map.of("name", "Claude Code", "scope", scope, "adminTools", adminTools)))
                 .andExpect(status().isCreated()).andReturn()).path("secret").asString();
     }
 
@@ -139,7 +144,13 @@ class InquiryTest extends IntegrationTest {
 
         Session adminSession = signup(uniqueLogin("inqaiadm"));
         jdbc.update("UPDATE member SET role = 'ADMIN' WHERE id = ?", adminSession.memberId());
-        String adminToken = token(adminSession, "WRITE");
+        // 관리자라도 관리자 도구를 따로 켜지 않은 토큰에는 보이지 않는다 (#378)
+        String plainToken = token(adminSession, "WRITE");
+        assertThat(toolNames(plainToken)).contains("report_bug").doesNotContain("list_inquiries", "get_inquiry", "update_inquiry");
+        assertThat(text(call(plainToken, "get_inquiry", Map.of("inquiry_id", id)))).contains("없는 도구");
+        assertThat(rpc(plainToken, "initialize", Map.of("protocolVersion", "2025-06-18")).path("instructions").asString()).doesNotContain("list_inquiries");
+
+        String adminToken = token(adminSession, "WRITE", true);
         assertThat(toolNames(adminToken)).contains("report_bug", "list_inquiries", "get_inquiry", "update_inquiry");
         assertThat(rpc(adminToken, "initialize", Map.of("protocolVersion", "2025-06-18")).path("instructions").asString()).contains("list_inquiries");
 
@@ -167,5 +178,20 @@ class InquiryTest extends IntegrationTest {
         assertThat(notes.path("current").asString()).isEqualTo(releases.get(0).path("version").asString());
         assertThat(releases.get(0).path("html").asString()).contains("<li>");
         mvc.perform(get("/releases")).andExpect(status().isOk());
+    }
+
+    @Test
+    void 관리자_도구는_관리자만_토큰에_켤_수_있고_역할이_빠지면_바로_사라진다() throws Exception {
+        Session user = signup(uniqueLogin("inqtok"));
+        user.http().perform(asJson(post("/api/me/tokens"), Map.of("name", "Claude Code", "scope", "READ", "adminTools", true)))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("ADMIN_ONLY"));
+
+        jdbc.update("UPDATE member SET role = 'ADMIN' WHERE id = ?", user.memberId());
+        String adminToken = token(user, "READ", true);
+        assertThat(read(user.http().perform(get("/api/me/tokens")).andReturn()).get(0).path("adminTools").asBoolean()).isTrue();
+        assertThat(toolNames(adminToken)).contains("list_inquiries");
+
+        jdbc.update("UPDATE member SET role = 'USER' WHERE id = ?", user.memberId());
+        assertThat(toolNames(adminToken)).doesNotContain("list_inquiries");
     }
 }
