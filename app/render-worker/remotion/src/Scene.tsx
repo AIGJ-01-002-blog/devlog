@@ -21,7 +21,9 @@ export const Scene: React.FC<{scene: SceneData; index: number; title: string; fo
   const lk = look();
   const tint = accent(index);
   const Custom = scene.custom ? CUSTOM_SCENES[scene.custom.kind] : undefined;
-  const cam = camera(scene.camera, frame, fps, scene.durationInFrames);
+  // 첫 구절은 장면 시작과 같은 화면이므로 두 번째 구절부터 끊는다
+  const cuts = holdCuts(scene.pages.slice(1).map((pg) => scene.leadFrames + Math.round((pg.startMs / 1000) * fps)), scene.durationInFrames, fps);
+  const cam = camera(scene.camera, frame, fps, scene.durationInFrames, cuts);
   const shake = useShake(scene);
   return (
     <AbsoluteFill style={{translate: shake}}>
@@ -54,6 +56,23 @@ export const Scene: React.FC<{scene: SceneData; index: number; title: string; fo
 };
 
 /** 요점 자막. 룩마다 등장 방식이 다르다: rise(낱말이 떠오르고 형광펜), pop(통째로 튀어나오고 강조색 밑줄), type(한 글자씩), slide(왼쪽에서 밀려오고 강조색 막대) */
+/** 한 화면을 이만큼(초)보다 오래 두지 않는다(워커 look.MAX_HOLD와 같다) */
+const MAX_HOLD_S = 6;
+
+/** 구절 컷 사이(장면 시작·끝 포함)가 MAX_HOLD_S보다 길면 그 사이를 고르게 나눠 컷을 더 넣는다 */
+const holdCuts = (cuts: number[], duration: number, fps: number): number[] => {
+  const max = MAX_HOLD_S * fps;
+  const edges = [0, ...cuts, duration];
+  const out: number[] = [];
+  for (let k = 1; k < edges.length; k++) {
+    const [a, b] = [edges[k - 1], edges[k]];
+    const parts = Math.ceil((b - a) / max);
+    for (let j = 1; j < parts; j++) out.push(Math.round(a + ((b - a) * j) / parts));
+    if (k < edges.length - 1) out.push(b);
+  }
+  return out;
+};
+
 const Heading: React.FC<{text: string; tint: string; duration: number}> = ({text, tint, duration}) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();

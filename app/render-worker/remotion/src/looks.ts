@@ -15,8 +15,9 @@ import {theme} from './theme';
 
 /** 배경 무늬. grid: 모눈, dots: 점, stripes: 사선, rings: 동심원, plain: 무늬 없이 빛만 */
 export type Pattern = 'grid' | 'dots' | 'stripes' | 'rings' | 'plain';
-/** 구절 자막. marker: 지금 단어에 강조색+형광펜, outline: 흰 글씨 검은 테두리(강조 낱말만 색), box: 지금 단어를 강조색 칸에 흰 글씨, pop: 지금 단어가 커진다 */
-export type CaptionStyle = 'marker' | 'outline' | 'box' | 'pop';
+/** 구절 자막. marker: 지금 단어에 강조색+형광펜, outline: 흰 글씨 검은 테두리(강조 낱말만 색), box: 지금 단어를 강조색 칸에 흰 글씨, pop: 지금 단어가 커진다,
+ *  chunk: 지금 읽는 1~2어절만 크게(움직임 없이) */
+export type CaptionStyle = 'marker' | 'outline' | 'box' | 'pop' | 'chunk';
 /** 요점 자막 등장. rise: 낱말이 떠오르고 형광펜, pop: 통째로 튀어나오고 강조색 밑줄, type: 한 글자씩 타자, slide: 왼쪽에서 밀려오고 강조색 막대 */
 export type HeadingStyle = 'rise' | 'pop' | 'type' | 'slide';
 
@@ -49,7 +50,7 @@ export const LOOKS: Record<string, Look> = {
     accents: ['#facc15', '#ffffff', '#f87171', '#4ade80'], pattern: 'grid', caption: 'outline', heading: 'pop'},
   // 연보라 바탕
   grape: {dark: false, color: {bg: '#f5f3ff', surfaceAlt: '#ede9fe', highlight: '#ddd6fe', onBg: '#2e1065', onBgSub: '#8b7fb0', line: '#e4dcff'},
-    accents: ['#7c3aed', '#c026d3', '#2563eb', '#16a34a'], pattern: 'dots', caption: 'marker', heading: 'slide'},
+    accents: ['#7c3aed', '#c026d3', '#2563eb', '#16a34a'], pattern: 'dots', caption: 'chunk', heading: 'slide'},
   // 짙은 바다색 바탕
   ocean: {dark: true, color: {bg: '#082f49', surfaceAlt: '#0c4a6e', highlight: '#38bdf866', onBg: '#f0f9ff', onBgSub: '#7dd3fc', line: '#164e63'},
     accents: ['#38bdf8', '#fbbf24', '#34d399', '#fb7185'], pattern: 'rings', caption: 'box', heading: 'rise'},
@@ -98,10 +99,12 @@ export const transition = (name: string | null | undefined, width: number, heigh
   }
 };
 
-/** 무대 카메라(look.py CAMERAS): 장면 안에서 무대에 주는 크기·위치. 흔들림 없이 천천히 움직인다 */
-export const camera = (name: string | null | undefined, frame: number, fps: number, duration: number): {scale: number; x: number; y: number} => {
+/** 무대 카메라(look.py CAMERAS·JUMP): 장면 안에서 무대에 주는 크기·위치. 흔들림 없이 천천히 움직인다.
+ *  jump는 cuts(프레임, 구절 자막이 바뀌는 때)마다 확대 배율을 1↔1.1배로 번갈아 끊는다(참고 영상의 점프 컷. 더 키우면 무대 양옆이 잘린다) */
+export const camera = (name: string | null | undefined, frame: number, fps: number, duration: number, cuts: number[] = []): {scale: number; x: number; y: number} => {
   const p = interpolate(frame, [0, Math.max(1, duration)], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
   switch (name) {
+    case 'jump': return {scale: cuts.filter((c) => c <= frame).length % 2 === 0 ? 1 : 1.1, x: 0, y: 0};
     case 'zoom-in': return {scale: interpolate(p, [0, 1], [1, 1.08]), x: 0, y: 0};
     case 'zoom-out': return {scale: interpolate(p, [0, 1], [1.1, 1]), x: 0, y: 0};
     case 'pan-left': return {scale: 1.06, x: interpolate(p, [0, 1], [30, -30]), y: 0};

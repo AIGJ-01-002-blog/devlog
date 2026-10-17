@@ -85,7 +85,7 @@ class RemotionPathTest(unittest.TestCase):
                 "layout", "camera", "transition", "event"}
         for s in props["scenes"][:-1]:
             self.assertEqual(set(s), keys)
-            self.assertIn(s["camera"], look.CAMERAS)
+            self.assertIn(s["camera"], look.CAMERAS + [look.JUMP])
             self.assertTrue(all(0 <= m <= 1 for m in s["mouth"]))
             self.assertTrue(s["pages"] and s["pages"][0]["words"])
         self.assertEqual(props["scenes"][1]["code"], ["docker compose down -v"])

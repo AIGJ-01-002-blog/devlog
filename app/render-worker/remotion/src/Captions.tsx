@@ -1,5 +1,6 @@
 // 구절 자막: 1~2줄을 한 번에 띄우고 지금 읽는 단어를 강조한다. 강조 방식은 룩마다 다르다(looks.ts CaptionStyle).
 // marker: 강조색 글자+형광펜, outline: 흰 글씨 검은 테두리에 워커가 고른 낱말만 빨강·노랑, box: 강조색 칸에 흰 글씨(밝은 칸이면 검정), pop: 강조색으로 커진다.
+// chunk: 지금 읽는 1~2어절(10자 이내)만 크게 띄우고 움직임 없이 바로 바꾼다(참고 영상 분석 2026-10-17, 온크트리 편집 규칙).
 // 시각은 장면 목소리 시작 기준 ms.
 import React from 'react';
 import {spring, useCurrentFrame, useVideoConfig} from 'remotion';
@@ -34,6 +35,7 @@ export const Captions: React.FC<{pages: Page[]; leadFrames: number; top: number;
   const enter = spring({frame: frame - leadFrames - Math.round((page.startMs / 1000) * fps), fps, config: theme.motion.caption});
   const wordStart = current >= 0 ? Math.round((page.words[current].startMs / 1000) * fps) + leadFrames : 0;
   const pop = spring({frame: frame - wordStart, fps, config: theme.motion.pop});
+  if (lk.caption === 'chunk') return <Chunk page={page} current={Math.max(0, current)} top={top} color={color} />;
   const outline = lk.caption === 'outline';
   return (
     <div style={{position: 'absolute', left: theme.layout.gutter, right: theme.layout.gutter, top, display: 'flex', justifyContent: 'center',
@@ -64,6 +66,36 @@ export const Captions: React.FC<{pages: Page[]; leadFrames: number; top: number;
           );
         })}
       </div>
+    </div>
+  );
+};
+
+const CHUNK_WORDS = 2;
+const CHUNK_CHARS = 10;
+
+/** 구절의 낱말을 1~2어절 묶음(띄어쓰기 포함 10자 이내)으로 나눠 지금 읽는 낱말이 든 묶음만 보인다. 마침표는 뺀다 */
+const Chunk: React.FC<{page: Page; current: number; top: number; color: string}> = ({page, current, top, color}) => {
+  const lk = look();
+  const groups: number[][] = [];
+  page.words.forEach((w, k) => {
+    const last = groups[groups.length - 1];
+    const chars = last ? last.reduce((n, j) => n + page.words[j].text.length, 0) : 0;
+    if (last && last.length < CHUNK_WORDS && chars + 1 + w.text.length <= CHUNK_CHARS) last.push(k);
+    else groups.push([k]);
+  });
+  const group = groups.find((g) => g.includes(current)) ?? groups[0] ?? [];
+  return (
+    <div style={{position: 'absolute', left: theme.layout.gutter, right: theme.layout.gutter, top, display: 'flex', justifyContent: 'center',
+      font: `800 84px/1.2 ${theme.font}`, letterSpacing: '-0.02em', color: lk.color.onBg,
+      textShadow: lk.dark ? '0 4px 18px rgba(0,0,0,0.55)' : '0 4px 18px rgba(255,255,255,0.9)'}}>
+      {group.map((k) => {
+        const w = page.words[k];
+        return (
+          <span key={k} style={{margin: '0 0.14em', color: w.emph ? EMPH[w.emph] : k === current ? color : undefined}}>
+            {w.text.replace(/[.。]+$/, '')}
+          </span>
+        );
+      })}
     </div>
   );
 };
