@@ -7,14 +7,15 @@ import {accent, theme} from './theme';
 
 const MASK = 'linear-gradient(180deg, transparent 0%, #000 30%, #000 75%, transparent 100%)';
 
-const pattern = (kind: Pattern, line: string, t: number): React.CSSProperties | null => {
+// 무늬는 움직이지 않는다. 화면 전체가 매 프레임 바뀌면 렌더가 두 배 느려지고 영상 용량도 1.6배로 커진다(견본 렌더 CI, 2026-10-17)
+const pattern = (kind: Pattern, line: string): React.CSSProperties | null => {
   switch (kind) {
     case 'grid':
       return {backgroundImage: `linear-gradient(${line}66 2px, transparent 2px), linear-gradient(90deg, ${line}66 2px, transparent 2px)`, backgroundSize: '72px 72px'};
     case 'dots':
-      return {backgroundImage: `radial-gradient(${line} 3px, transparent 3.5px)`, backgroundSize: '48px 48px', backgroundPosition: `0 ${(t * 8) % 48}px`};
+      return {backgroundImage: `radial-gradient(${line} 3px, transparent 3.5px)`, backgroundSize: '48px 48px'};
     case 'stripes':
-      return {backgroundImage: `repeating-linear-gradient(135deg, ${line}55 0 3px, transparent 3px 40px)`, backgroundPosition: `${(t * 10) % 57}px 0`};
+      return {backgroundImage: `repeating-linear-gradient(135deg, ${line}55 0 3px, transparent 3px 40px)`};
     case 'rings':
       return {backgroundImage: `repeating-radial-gradient(circle at 50% 38%, ${line}66 0 3px, transparent 3px 64px)`};
     default:
@@ -28,7 +29,7 @@ export const Background: React.FC<{index: number; image: string | null}> = ({ind
   const t = frame / fps;
   const a = accent(index);
   const lk = look();
-  const lines = pattern(lk.pattern, lk.color.line, t);
+  const lines = pattern(lk.pattern, lk.color.line);
   // 참고 영상 분석(2026-10-17): 잘 되는 릴스는 장면마다 바탕색이 바뀐다. 글자가 읽히도록 강조색은 조금만 섞는다
   const bg = `color-mix(in srgb, ${theme.color.bg} ${lk.dark ? 84 : 90}%, ${a})`;
   return (
