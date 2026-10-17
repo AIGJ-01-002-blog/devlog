@@ -44,8 +44,14 @@ class SessionLifetimeTest extends IntegrationTest {
         s.http().perform(get("/api/me/settings")).andExpect(status().isOk());
     }
 
-    /** 세션 쿠키 값은 Spring Session이 Base64로 감싼 세션 ID다. */
+    /**
+     * 세션 쿠키 값은 Spring Session이 Base64로 감싼 세션 ID다. 운영 이름은 BLOGSESSION이지만 MockMvc 시험에서는
+     * 내장 서버 쿠키 설정을 거치지 않아 Spring Session 기본 이름 SESSION으로 나온다.
+     */
     private static String sessionId(Session s) {
-        return new String(Base64.getDecoder().decode(s.http().cookie("BLOGSESSION")), StandardCharsets.UTF_8);
+        String cookie = s.http().cookie("BLOGSESSION");
+        if (cookie == null) cookie = s.http().cookie("SESSION");
+        assertThat(cookie).as("세션 쿠키").isNotNull();
+        return new String(Base64.getDecoder().decode(cookie), StandardCharsets.UTF_8);
     }
 }
