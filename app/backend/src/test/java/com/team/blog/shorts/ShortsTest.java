@@ -158,7 +158,11 @@ class ShortsTest extends IntegrationTest {
             assertThat(job.path("id").asLong()).isEqualTo(id);
             mvc.perform(put("/api/render/jobs/" + id + "/video").param("claim", job.path("claim").asString()).header("X-Render-Token", TOKEN)
                     .header("X-Duration-Ms", "31500").header("X-Look", look).contentType("video/mp4").content(MP4)).andExpect(status().isOk());
+            // 같은 대본을 또 만들면 양산형 검사에 막히므로 끝난 대본의 장면은 비운다(연출 기록만 본다)
+            jdbc.update("UPDATE shorts SET scenes = '[]'::jsonb WHERE id = ?", id);
         }
+        assertThat(jdbc.queryForList("SELECT look FROM shorts WHERE member_id = ? ORDER BY id", String.class, me.memberId()))
+                .containsExactly("grape:2", null, "ocean:0");
         // 모양이 틀린 값은 적지 않고, 최근 것부터 준다
         long next = queue(me, postId);
         JsonNode job = claim();
