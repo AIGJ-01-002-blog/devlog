@@ -4,7 +4,7 @@ import {theme} from './theme';
 import {
   Archive, ArrowRightLeft, Box, Bug, Check, Cloud, Code, Cpu, Database, FileText, Folder, Gauge, GitBranch, Globe, HardDrive, Hash, KeyRound,
   Layers, List, Lock, Mail, MemoryStick, Monitor, Network, Package, RefreshCw, Router, ScrollText, Search, Server, Settings, Shield,
-  Smartphone, Table, Terminal, Timer, Trash2, User, Workflow, X, Zap, type LucideIcon,
+  Smartphone, Table, Terminal, Timer, Trash2, TrendingDown, TrendingUp, User, Workflow, X, Zap, type LucideIcon,
 } from 'lucide-react';
 
 export const ICONS: Record<string, LucideIcon> = {
@@ -12,7 +12,7 @@ export const ICONS: Record<string, LucideIcon> = {
   database: Database, 'file-text': FileText, folder: Folder, gauge: Gauge, 'git-branch': GitBranch, globe: Globe, 'hard-drive': HardDrive,
   hash: Hash, key: KeyRound, layers: Layers, list: List, lock: Lock, mail: Mail, memory: MemoryStick, monitor: Monitor, network: Network,
   package: Package, refresh: RefreshCw, router: Router, log: ScrollText, search: Search, server: Server, settings: Settings, shield: Shield,
-  phone: Smartphone, table: Table, terminal: Terminal, timer: Timer, trash: Trash2, user: User, workflow: Workflow, x: X, zap: Zap,
+  phone: Smartphone, table: Table, terminal: Terminal, timer: Timer, trash: Trash2, down: TrendingDown, up: TrendingUp, user: User, workflow: Workflow, x: X, zap: Zap,
 };
 
 /** 이름표 글 → 아이콘. 앞에 있는 규칙이 이긴다 */

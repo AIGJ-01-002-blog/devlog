@@ -27,12 +27,16 @@ export type ActionParams = {
 /** 도식 칸 하나. atMs: 목소리 시작 기준으로 이 칸이 나타나는 때(워커가 내레이션에서 이름표가 나오는 때로 정한다) */
 export type DiagramItem = {label: string; icon: string | null; note: string | null; atMs: number};
 
-/** CS 설명용 도식(#277). flow: 왼쪽→오른쪽 흐름, stack: 위→아래 층, steps: 순서, compare: 왼쪽(전·나쁨) 대 오른쪽(후·좋음) */
+/** CS 설명용 도식(#277). flow: 왼쪽→오른쪽 흐름, stack: 위→아래 층, steps: 순서, compare: 왼쪽(전·나쁨) 대 오른쪽(후·좋음),
+ *  timeline: 시간 흐름(점과 선), define: 용어 정의 카드, number: 숫자가 from→to로 바뀐다(items 한 칸이 이름표) */
 export type Diagram =
   | {type: 'flow'; items: DiagramItem[]}
   | {type: 'stack'; items: DiagramItem[]; highlight: number | null}
   | {type: 'steps'; items: DiagramItem[]}
-  | {type: 'compare'; left: {title: string; atMs: number; items: DiagramItem[]}; right: {title: string; atMs: number; items: DiagramItem[]}};
+  | {type: 'compare'; left: {title: string; atMs: number; items: DiagramItem[]}; right: {title: string; atMs: number; items: DiagramItem[]}}
+  | {type: 'timeline'; items: DiagramItem[]}
+  | {type: 'define'; term: {label: string; atMs: number}; items: DiagramItem[]}
+  | {type: 'number'; from: number; to: number; unit: string; items: DiagramItem[]};
 
 export type SceneData = {
   caption: string;

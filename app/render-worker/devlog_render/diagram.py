@@ -5,6 +5,9 @@
 - {"type": "stack", "items": ["컨테이너", "볼륨", "디스크"], "highlight": 1}  위→아래 층, highlight 층을 끝에 강조
 - {"type": "steps", "items": ["덤프 뜨기", "외장 디스크로 복사", "복원 연습"]}  순서
 - {"type": "compare", "left": {"title": "캐시 없음", "items": ["매번 DB 조회"]}, "right": {"title": "캐시 있음", "items": ["메모리에서 바로"]}}
+- {"type": "timeline", "items": [{"label": "2019", "note": "도커 도입"}, "2022", "2024"]}  왼쪽→오른쪽 시간 흐름(점과 선)
+- {"type": "define", "term": "인덱스", "items": ["책 뒤 찾아보기처럼", "원하는 줄로 바로 간다"]}  개념 정의 카드(용어 + 풀이 1~3줄)
+- {"type": "number", "label": "목록 조회", "from": 4000, "to": 100, "unit": "ms"}  숫자가 from에서 to로 바뀌며 올라가거나 내려간다
 
 칸은 내레이션이 그 이름표의 첫 낱말을 말할 때 나타난다. 말하지 않는 칸은 앞뒤 칸 사이(또는 말의 앞 70%)에 고르게 놓는다.
 """
@@ -13,9 +16,12 @@ from __future__ import annotations
 
 import re
 
-TYPES = ("flow", "stack", "steps", "compare")
-MAX_ITEMS = {"flow": 4, "stack": 5, "steps": 5, "compare": 4}
+TYPES = ("flow", "stack", "steps", "compare", "timeline", "define", "number")
+MAX_ITEMS = {"flow": 4, "stack": 5, "steps": 5, "compare": 4, "timeline": 5, "define": 3}
 LABEL_MAX = 20
+UNIT_MAX = 8
+#: number 도식의 숫자 범위. 화면 한 줄에 들어가는 크기까지
+NUMBER_MAX = 1e9
 #: 이름표가 나타나는 간격의 최소(ms). 한꺼번에 튀어나오지 않게
 MIN_GAP_MS = 250
 
@@ -28,7 +34,12 @@ def parse(raw) -> dict | None:
     if kind == "compare":
         left, right = _side(raw.get("left")), _side(raw.get("right"))
         return {"type": kind, "left": left, "right": right} if left and right else None
+    if kind == "number":
+        return _number(raw)
     items = _items(raw.get("items"), MAX_ITEMS[kind])
+    if kind == "define":
+        term = _label(raw.get("term"))
+        return {"type": kind, "term": term, "items": items} if term and items else None
     if len(items) < 2:
         return None
     out: dict = {"type": kind, "items": items}
@@ -36,6 +47,17 @@ def parse(raw) -> dict | None:
         h = raw.get("highlight")
         out["highlight"] = h if isinstance(h, int) and not isinstance(h, bool) and 0 <= h < len(items) else None
     return out
+
+
+def _number(raw: dict) -> dict | None:
+    """숫자 하나가 바뀌는 도식. 바뀌는 때는 이름표(label)를 말할 때다(items 한 칸으로 둔다)"""
+    label = _label(raw.get("label"))
+    values = [raw.get("from"), raw.get("to")]
+    if not label or not all(isinstance(v, (int, float)) and not isinstance(v, bool) and abs(v) <= NUMBER_MAX for v in values):
+        return None
+    unit = " ".join(raw["unit"].split())[:UNIT_MAX] if isinstance(raw.get("unit"), str) else ""
+    return {"type": "number", "from": values[0], "to": values[1], "unit": unit,
+            "items": [{"label": label, "icon": None, "note": None}]}
 
 
 def _side(raw) -> dict | None:
@@ -81,6 +103,11 @@ def timed(d: dict, pages: list[dict], speech: float) -> dict:
         right = {"title": d["right"]["title"], "atMs": next(it), "items": [{**x, "atMs": next(it)} for x in d["right"]["items"]]}
         assert len(left["items"]) == nl
         return {"type": "compare", "left": left, "right": right}
+    if d["type"] == "define":
+        # 용어 칸이 먼저 나오고 풀이 줄이 차례로 나온다
+        times = _times([d["term"], *[x["label"] for x in d["items"]]], words, speech)
+        return {**d, "term": {"label": d["term"], "atMs": times[0]},
+                "items": [{**x, "atMs": t} for x, t in zip(d["items"], times[1:])]}
     return {**d, "items": [{**x, "atMs": t} for x, t in zip(d["items"], times)]}
 
 
@@ -119,4 +146,6 @@ def reveal_times(d: dict) -> list[int]:
     """timed()가 붙인 atMs 모두(효과음용). 비교의 제목 칸도 포함"""
     if d["type"] == "compare":
         return [d[s]["atMs"] for s in ("left", "right")] + [x["atMs"] for s in ("left", "right") for x in d[s]["items"]]
+    if d["type"] == "define":
+        return [d["term"]["atMs"]] + [x["atMs"] for x in d["items"]]
     return [x["atMs"] for x in d["items"]]
