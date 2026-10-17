@@ -52,13 +52,19 @@ secret() { kubectl -n "$NS" get secret "$SECRET" -o "jsonpath={.data.$1}" | base
 BUCKET="$(config S3_BUCKET)"
 BUCKET="${BUCKET:-blog-images}"
 
-# 같은 이름의 Midnight Commander와 헷갈리지 않게 MinIO 클라이언트인지 확인하고, 없으면 공식 배포본을 임시로 받는다
+# 같은 이름의 Midnight Commander와 헷갈리지 않게 MinIO 클라이언트인지 확인한다.
+# 없으면 클러스터가 버킷을 만들 때 쓰는 mc 이미지(ensure-bucket)를 docker로 돌린다.
+# MinIO가 공식 배포본(dl.min.io) 내려받기를 닫아서(410) 내려받기는 마지막 수단으로만 둔다.
 MC="$(command -v mc || true)"
-if [ -z "$MC" ] || ! "$MC" --version 2>/dev/null | grep -qi minio; then
+if [ -n "$MC" ] && ! "$MC" --version 2>/dev/null | grep -qi minio; then MC=""; fi
+MC_IMAGE="${MC_IMAGE:-$(kubectl -n "$NS" get deployment blog-app -o 'jsonpath={.spec.template.spec.initContainers[?(@.name=="ensure-bucket")].image}' 2>/dev/null || true)}"
+MC_IMAGE="${MC_IMAGE:-pgsty/mc:RELEASE.2026-09-16T00-00-00Z}"
+if [ -z "$MC" ] && ! { command -v docker >/dev/null && docker info >/dev/null 2>&1; }; then
   os="$(uname -s | tr '[:upper:]' '[:lower:]')"
   case "$(uname -m)" in x86_64|amd64) arch=amd64 ;; arm64|aarch64) arch=arm64 ;; *) die "지원하지 않는 CPU: $(uname -m)" ;; esac
   MC="$WORK/mc"
-  curl -fsSL -o "$MC" "https://dl.min.io/client/mc/release/${os}-${arch}/mc" || die "MinIO 클라이언트(mc)를 받지 못했어요."
+  curl -fsSL -o "$MC" "https://dl.min.io/client/mc/release/${os}-${arch}/mc" \
+    || die "MinIO 클라이언트(mc)가 없고 docker도 쓸 수 없어요. 학교 서버에 mc를 설치하거나 docker 권한을 확인해 주세요."
   chmod +x "$MC"
 fi
 
@@ -70,9 +76,27 @@ for _ in $(seq 1 30); do
 done
 curl -fs "http://127.0.0.1:$PORT/minio/health/ready" >/dev/null || die "MinIO에 연결하지 못했어요: $(cat "$WORK/pf.log")"
 
-export MC_CONFIG_DIR="$WORK/mc-config"
-"$MC" alias set devlog "http://127.0.0.1:$PORT" "$(secret S3_ACCESS_KEY)" "$(secret S3_SECRET_KEY)" >/dev/null
-"$MC" mirror --overwrite --quiet "devlog/$BUCKET" "$OUT/media"
+# 열쇠는 명령줄에 두지 않는다(여럿이 쓰는 서버에서 ps로 보인다). 나만 읽는 임시 파일·환경 변수로만 넘긴다
+mkdir -p "$WORK/mc-config"
+{
+  printf 'MC_URL=http://127.0.0.1:%s\n' "$PORT"
+  printf 'MC_AK=%s\n' "$(secret S3_ACCESS_KEY)"
+  printf 'MC_SK=%s\n' "$(secret S3_SECRET_KEY)"
+} > "$WORK/mc.env"
+if [ -n "$MC" ]; then
+  ( set -a; . "$WORK/mc.env"; set +a
+    export MC_CONFIG_DIR="$WORK/mc-config"
+    "$MC" alias set devlog "$MC_URL" "$MC_AK" "$MC_SK" >/dev/null
+    "$MC" mirror --overwrite --quiet "devlog/$BUCKET" "$OUT/media" )
+else
+  echo "mc 이미지로 받는 중: $MC_IMAGE"
+  # 포트 전달이 127.0.0.1에 열려 있어 host 네트워크로 붙고, 받은 파일이 내 것이 되게 내 사용자 번호로 돌린다
+  docker run --rm --network host --user "$(id -u):$(id -g)" --env-file "$WORK/mc.env" \
+    -e MC_CONFIG_DIR=/mc -e BUCKET="$BUCKET" \
+    -v "$WORK/mc-config:/mc" -v "$OUT/media:/out" --entrypoint sh "$MC_IMAGE" -c \
+    'mc alias set devlog "$MC_URL" "$MC_AK" "$MC_SK" >/dev/null && mc mirror --overwrite --quiet "devlog/$BUCKET" /out'
+fi
+rm -f "$WORK/mc.env"
 
 say "3/3 확인 목록 만드는 중"
 if command -v sha256sum >/dev/null; then sum() { sha256sum "$1" | cut -d' ' -f1; }; else sum() { shasum -a 256 "$1" | cut -d' ' -f1; }; fi
