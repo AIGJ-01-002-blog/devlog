@@ -36,7 +36,7 @@ export const Scene: React.FC<{scene: SceneData; index: number; title: string; fo
       {scene.caption.trim() ? (
       <div style={{position: 'absolute', top: layout.headingTop, left: layout.gutter, right: layout.gutter, height: layout.headingHeight,
         display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-        <Heading text={scene.caption} tint={tint} />
+        <Heading text={scene.caption} tint={tint} duration={scene.durationInFrames} />
       </div>
       ) : null}
       <div style={{position: 'absolute', top: layout.stageTop, left: 0, width: layout.stageWidth, height: layout.stageHeight, transformOrigin: '50% 60%',
@@ -54,7 +54,7 @@ export const Scene: React.FC<{scene: SceneData; index: number; title: string; fo
 };
 
 /** 요점 자막. 룩마다 등장 방식이 다르다: rise(낱말이 떠오르고 형광펜), pop(통째로 튀어나오고 강조색 밑줄), type(한 글자씩), slide(왼쪽에서 밀려오고 강조색 막대) */
-const Heading: React.FC<{text: string; tint: string}> = ({text, tint}) => {
+const Heading: React.FC<{text: string; tint: string; duration: number}> = ({text, tint, duration}) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
   const {color, motion} = theme;
@@ -74,7 +74,9 @@ const Heading: React.FC<{text: string; tint: string}> = ({text, tint}) => {
   }
   if (lk.heading === 'type') {
     const chars = Array.from(text);
-    const shown = Math.min(chars.length, Math.floor(frame / 1.6));
+    // 한 글자에 1.6프레임. 장면이 짧으면 끝나기 전에 다 써지도록 빨라진다
+    const step = Math.min(1.6, Math.max(1, duration - 1) / Math.max(1, chars.length));
+    const shown = Math.min(chars.length, Math.floor(frame / step));
     const caret = shown < chars.length || Math.floor(frame / (fps / 2)) % 2 === 0;
     // 아직 안 쓴 글자도 투명하게 자리를 잡아 두어 글자가 늘어날 때 줄이 흔들리지 않게 한다. 커서는 마지막으로 쓴 글자 뒤에 붙는다
     return (
