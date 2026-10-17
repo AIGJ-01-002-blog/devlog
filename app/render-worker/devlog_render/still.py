@@ -32,9 +32,12 @@ def still_seconds(raw: bytes) -> float:
     """WIDTH×HEIGHT 흑백 그림을 이어 붙인 바이트에서 같은 화면이 가장 길게 이어진 시간(초)"""
     size = WIDTH * HEIGHT
     frames = [raw[k:k + size] for k in range(0, len(raw) - size + 1, size)]
-    longest = run = 0
+    if not frames:
+        return 0.0
+    # 같은 그림 n장은 n / SAMPLE_FPS초 동안 보인다(마지막 장의 몫까지)
+    longest = run = 1
     for prev, cur in zip(frames, frames[1:]):
         diff = sum(abs(a - b) for a, b in zip(prev, cur)) / size
-        run = run + 1 if diff < THRESHOLD else 0
+        run = run + 1 if diff < THRESHOLD else 1
         longest = max(longest, run)
     return longest / SAMPLE_FPS

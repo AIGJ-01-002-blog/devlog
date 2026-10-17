@@ -11,8 +11,10 @@ class StillSecondsTest(unittest.TestCase):
     def test_counts_longest_run_of_same_frames(self):
         size = still.WIDTH * still.HEIGHT
         a, b = bytes([10]) * size, bytes([200]) * size
-        # a 5장(4번 같음) → b 3장(2번 같음) → a 1장
-        self.assertEqual(still.still_seconds(a * 5 + b * 3 + a), 4 / still.SAMPLE_FPS)
+        # a 5장 → b 3장 → a 1장: 가장 긴 건 a 5장
+        self.assertEqual(still.still_seconds(a * 5 + b * 3 + a), 5 / still.SAMPLE_FPS)
+        # 6.5초(13장) 같은 화면은 경고 기준(6초)을 넘는다
+        self.assertGreater(still.still_seconds(a * 13 + b), still.WARN_SECONDS)
         self.assertEqual(still.still_seconds(b""), 0)
 
 
