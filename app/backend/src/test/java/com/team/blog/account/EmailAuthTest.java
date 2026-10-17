@@ -162,6 +162,34 @@ class EmailAuthTest extends IntegrationTest {
     }
 
     @Test
+    void 같은_IP에서_동시에_가입해도_정한_계정_수를_넘지_않는다() throws Exception {
+        long seed = System.nanoTime() % 100000;
+        ExecutorService pool = Executors.newFixedThreadPool(15);
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<Integer>> results = new ArrayList<>();
+        for (int i = 0; i < 15; i++) {
+            int n = i;
+            results.add(pool.submit(() -> {
+                start.await();
+                return browser().from("198.51.100.77").perform(asJson(post("/api/auth/signup/email"),
+                                signupForm(uniqueEmail("ipburst" + n), "ipburst" + seed + "x" + n, "동시" + n + "닉" + seed % 1000, PASSWORD)))
+                        .andReturn().getResponse().getStatus();
+            }));
+        }
+        start.countDown();
+        int created = 0;
+        int limited = 0;
+        for (Future<Integer> f : results) {
+            int code = f.get();
+            if (code == 201) created++;
+            if (code == 429) limited++;
+        }
+        pool.shutdown();
+        assertThat(created).isEqualTo(10);
+        assertThat(limited).isEqualTo(5);
+    }
+
+    @Test
     void 가입_화면의_AI_동의는_선택이라_따로_기록되고_안_하면_기록이_없다() throws Exception {
         // 이메일 가입: 선택 항목에 동의
         String email = uniqueEmail("aiyes");

@@ -115,9 +115,9 @@ public class EmailAuthController {
                                                       HttpServletResponse response) {
         // 같은 IP의 가입은 만든 계정 수로 센다. 동시에 들어온 가입이 한도를 함께 넘지 않게 먼저 한 자리를 잡고,
         // 가입이 실패하면(입력 오류 등) 그 자리를 돌려준다 (보안 점검 2026-10-16)
-        String ipKey = SIGNUP_IP_KEY + ipResolver.resolve(request);
-        if (!rateLimiter.tryAcquire(ipKey, signupPerIpPerHour, SIGNUP_WINDOW)) {
-            rateLimiter.release(ipKey);
+        RateLimiter.Slot slot = rateLimiter.reserve(SIGNUP_IP_KEY + ipResolver.resolve(request), signupPerIpPerHour, SIGNUP_WINDOW);
+        if (!slot.allowed()) {
+            rateLimiter.release(slot);
             throw new TooManyRequestsException(SIGNUP_WINDOW.toSeconds(), "TOO_MANY_SIGNUPS",
                     "이 네트워크에서 가입이 너무 많아요. 잠시 후 다시 시도해 주세요.");
         }
@@ -127,7 +127,7 @@ public class EmailAuthController {
                     b.password(), b.passwordConfirm(), b.nickname(), b.agreeTerms(), b.agreePrivacy(), Boolean.TRUE.equals(b.agreeAi())),
                     verifiedEmail(request.getSession(false)));
         } catch (RuntimeException e) {
-            rateLimiter.release(ipKey);
+            rateLimiter.release(slot);
             throw e;
         }
         HttpSession before = request.getSession(false);

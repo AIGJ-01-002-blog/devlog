@@ -21,12 +21,30 @@ public class RateLimiter {
             return c
             """, Long.class);
 
-    /** 센 수를 하나 되돌린다. 키가 없거나 0이면 그대로 둔다 (창 길이는 그대로) */
-    private static final RedisScript<Long> DECR_IF_POSITIVE = RedisScript.of("""
-            local c = tonumber(redis.call('GET', KEYS[1]) or '0')
-            if c > 0 then return redis.call('DECR', KEYS[1]) end
-            return 0
+    /** tryAcquire와 같고, 잡은 자리가 어느 창인지 알 수 있게 창이 끝나는 시각(PEXPIRETIME, Redis 7+)도 돌려준다 */
+    @SuppressWarnings("rawtypes")
+    private static final RedisScript<List> RESERVE = RedisScript.of("""
+            local c = redis.call('INCR', KEYS[1])
+            if c == 1 then redis.call('PEXPIRE', KEYS[1], ARGV[1]) end
+            return {c, redis.call('PEXPIRETIME', KEYS[1])}
+            """, List.class);
+
+    /**
+     * 잡은 자리를 돌려준다. 자리를 잡은 창이 아직 그대로일 때만 줄여서, 그새 창이 바뀌었으면 새 창의 수를 건드리지 않는다.
+     * 0이 되면 키를 지워 다음 첫 요청이 새 창을 연다(아무도 세지 않은 창이 남아 늦게 시작한 요청의 창을 줄이지 않게)
+     */
+    private static final RedisScript<Long> RELEASE = RedisScript.of("""
+            if redis.call('PEXPIRETIME', KEYS[1]) ~= tonumber(ARGV[1]) then return -1 end
+            local c = redis.call('DECR', KEYS[1])
+            if c <= 0 then redis.call('DEL', KEYS[1]) end
+            return c
             """, Long.class);
+
+    /**
+     * reserve로 잡은 자리. windowEndsAt은 그 창이 끝나는 시각(epoch ms)이고, 모르면(Redis 장애) -1.
+     * @param allowed 한도 안이면 true
+     */
+    public record Slot(String key, boolean allowed, long windowEndsAt) {}
 
     private final StringRedisTemplate redis;
 
@@ -55,10 +73,26 @@ public class RateLimiter {
         }
     }
 
-    /** tryAcquire로 미리 잡은 한 번을 돌려준다 (그 일이 실패해 세지 않을 때). Redis 장애면 창이 끝날 때 저절로 맞춰진다 */
-    public void release(String key) {
+    /**
+     * 일을 하기 전에 한 자리를 잡는다. 일이 실패해 세지 않을 때는 release로 돌려준다.
+     * 동시에 들어온 요청도 INCR 한 번으로 자리를 나눠 가져 한도를 함께 넘지 않는다. Redis 장애 중에는 통과시킨다
+     */
+    public Slot reserve(String key, int limit, Duration window) {
         try {
-            redis.execute(DECR_IF_POSITIVE, List.of("rl:" + key));
+            List<?> r = redis.execute(RESERVE, List.of("rl:" + key), String.valueOf(window.toMillis()));
+            long count = ((Number) r.get(0)).longValue();
+            return new Slot(key, count <= limit, ((Number) r.get(1)).longValue());
+        } catch (RuntimeException e) {
+            log.warn("요청 제한 카운터를 쓸 수 없어 통과시킵니다: {}", e.getMessage());
+            return new Slot(key, true, -1);
+        }
+    }
+
+    /** reserve로 잡은 자리를 돌려준다. 창이 이미 바뀌었거나 Redis 장애면 그대로 둔다(창이 끝날 때 저절로 맞춰진다) */
+    public void release(Slot slot) {
+        if (slot.windowEndsAt() < 0) return;
+        try {
+            redis.execute(RELEASE, List.of("rl:" + slot.key()), String.valueOf(slot.windowEndsAt()));
         } catch (RuntimeException e) {
             log.warn("요청 제한 카운터를 되돌리지 못했습니다: {}", e.getMessage());
         }
