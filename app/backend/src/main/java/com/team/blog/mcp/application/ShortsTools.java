@@ -39,7 +39,7 @@ class ShortsTools {
                   "sound":{"type":"string","enum":["pop","ding","whoosh","boing","tick","typing"]},
                   "at":{"type":"number","description":"장면이 시작하고 몇 초 뒤"},
                   "volume":{"type":"number","description":"0~1 (선택)"}},"required":["sound","at"]}},
-                "diagram":{"type":"object","description":"CS 개념을 풀어 줄 설명 도식 (선택). type은 flow(왼쪽→오른쪽 흐름, 칸 4개까지)·stack(위→아래 층, 5개까지, highlight는 0부터 센 강조 층)·steps(순서, 5개까지)·compare(left·right에 {title, items} 4개까지). 칸은 문자열이나 {label, icon, note}, 이름표는 20자까지. 칸은 내레이션이 이름표 첫 낱말을 말할 때 나타나니 내레이션에 이름표 말을 넣는다. 예 {'type':'flow','items':['브라우저','서버',{'label':'DB','icon':'database','note':'디스크'}]}"}},
+                "diagram":{"type":"object","description":"CS 개념을 풀어 줄 설명 도식 (선택). type은 flow(왼쪽→오른쪽 흐름, 칸 4개까지)·stack(위→아래 층, 5개까지, highlight는 0부터 센 강조 층)·steps(순서, 5개까지)·compare(left·right에 {title, items} 4개까지)·timeline(시간 순 사건, 5개까지, note에 날짜·버전)·define(term에 정의할 말, items에 뜻·특징 3개까지)·number(label·from·to·unit: 이름표를 말할 때 숫자가 from에서 to로 바뀜, 글에 있는 실제 숫자만). 같은 영상 안에서 같은 type을 이어 쓰지 말고 장면마다 내용에 맞게 바꾼다. 칸은 문자열이나 {label, icon, note}, 이름표는 20자까지. 칸은 내레이션이 이름표 첫 낱말을 말할 때 나타나니 내레이션에 이름표 말을 넣는다. 예 {'type':'flow','items':['브라우저','서버',{'label':'DB','icon':'database','note':'디스크'}]}, {'type':'number','label':'응답 시간','from':1200,'to':35,'unit':'ms'}"}},
               "required":["caption","narration"]}}""";
 
     static final String CHARACTER = "character";
@@ -62,7 +62,7 @@ class ShortsTools {
             + "사용자가 직접 겪은 일과 결과 숫자를 한 장면 이상 넣고, 글에 없는 경험이나 수치를 지어내지 않는다. "
             + "원본 글 문장을 그대로 읽지 말고 말로 풀어 쓰며, 장면마다 새 정보를 하나씩 넣고 같은 말로 시작하지 않는다. "
             + "장면마다 내용에 맞는 visual(연출)을 고르고, 효과음(effects)은 강조할 순간에만 넣는다. "
-            + "CS 개념을 설명하는 장면은 diagram으로 도식(흐름·층·순서·비교)을 주어 그림으로 쉽게 푼다.";
+            + "CS 개념을 설명하는 장면은 diagram으로 도식(흐름·층·순서·비교·연표·정의·숫자 변화)을 주어 그림으로 쉽게 푼다.";
 
     /** 매매 재현 대본(#265) 다시 쓰기 안내. 장면 순서가 영상의 차트 진행과 맞물린다 */
     static final String REPLAY_GUIDE = "매매 재현 영상이에요. 1번 장면은 짧은 제목 카드(요점 자막이 제목이 돼요) 뒤로 차트가 흐르기 시작하고, 2번 장면부터 체결 하나에 장면 하나씩 "

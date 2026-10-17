@@ -169,9 +169,20 @@ class ShortsBatchTest extends IntegrationTest {
                 Map.<String, Object>of("type", "pie", "items", List.of("a", "b")),
                 Map.<String, Object>of("type", "flow", "items", List.of("a", "b", "c", "d", "e")),
                 Map.<String, Object>of("type", "steps", "items", List.of("하나", "x".repeat(21))),
-                Map.<String, Object>of("type", "compare", "left", Map.of("title", "전", "items", List.of("느림"))))) {
+                Map.<String, Object>of("type", "compare", "left", Map.of("title", "전", "items", List.of("느림"))),
+                Map.<String, Object>of("type", "define", "items", List.of("뜻")),
+                Map.<String, Object>of("type", "number", "label", "빌드", "from", "7", "to", 2),
+                Map.<String, Object>of("type", "number", "from", 7, "to", 2),
+                Map.<String, Object>of("type", "number", "label", "빌드", "from", 7, "to", 2e12))) {
             JsonNode r2 = call(token, "create_shorts_script", Map.of("title", "x", "scenes", List.of(Map.of("caption", "a", "narration", "b", "diagram", wrong))));
             assertThat(text(r2)).as(wrong.toString()).contains("설명 그림");
+        }
+        for (Object right : List.of(
+                Map.<String, Object>of("type", "timeline", "items", List.of("캐시 도입", "캐시 삭제", "복구")),
+                Map.<String, Object>of("type", "define", "term", "캐시 키", "items", List.of("파일 해시")),
+                Map.<String, Object>of("type", "number", "label", "빌드 시간", "from", 7, "to", 2.5, "unit", "분"))) {
+            JsonNode ok = call(token, "create_shorts_script", Map.of("title", "x", "scenes", List.of(Map.of("caption", "a", "narration", "b", "diagram", right))));
+            assertThat(text(ok)).as(right.toString()).doesNotContain("설명 그림");
         }
     }
 
