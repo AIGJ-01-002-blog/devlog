@@ -51,6 +51,14 @@ export type SceneData = {
   cut?: boolean;
   /** 있으면 고양이 연기 대신 도식을 그리고, 고양이는 왼쪽 아래에서 도식을 가리키며 설명한다 */
   diagram: Diagram | null;
+  /** 화면 배치(워커 look.py). stage: 위 요점·가운데 무대(Scene), split: 위 그림·아래 캐릭터(FastScene). 없으면 style을 따른다 */
+  layout?: 'stage' | 'split';
+  /** 무대 카메라 움직임(looks.ts camera()). 없으면 시작할 때 살짝 당겨 들어온다 */
+  camera?: string | null;
+  /** 앞 장면에서 이 장면으로 넘어오는 전환(looks.ts transition()). 0번 장면은 null */
+  transition?: string | null;
+  /** 목소리가 시작할 때 한 번 일어나는 사건(looks.ts EventLayer): shake 흔들림, flash 섬광, stamp 도장. 영상 한 편에 한두 장면 */
+  event?: 'shake' | 'flash' | 'stamp' | null;
 };
 
 export type ShortsProps = {
@@ -63,4 +71,6 @@ export type ShortsProps = {
   style?: 'clean' | 'fast';
   /** 고양이 대신 연기할 캐릭터(remotion/src/character/<이름>/). 없으면 기본 고양이 */
   character?: string | null;
+  /** 이 영상의 룩 이름(looks.ts LOOKS). 없으면 paper */
+  look?: string | null;
 };
