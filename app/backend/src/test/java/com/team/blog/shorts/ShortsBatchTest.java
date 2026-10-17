@@ -182,6 +182,7 @@ class ShortsBatchTest extends IntegrationTest {
                 Map.<String, Object>of("type", "define", "term", "캐시 키", "items", List.of("파일 해시")),
                 Map.<String, Object>of("type", "number", "label", "빌드 시간", "from", 7, "to", 2.5, "unit", "분"))) {
             JsonNode ok = call(token, "create_shorts_script", Map.of("title", "x", "scenes", List.of(Map.of("caption", "a", "narration", "b", "diagram", right))));
+            assertThat(ok.path("isError").asBoolean()).as(text(ok)).isFalse();
             assertThat(text(ok)).as(right.toString()).doesNotContain("설명 그림");
         }
     }

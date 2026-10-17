@@ -10,7 +10,8 @@ import type {Diagram, DiagramItem, SceneData} from './types';
 const clamp = {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'} as const;
 const {color} = theme;
 
-type Clock = {ms: number; frame: number; fps: number; leadFrames: number};
+/** endMs: 장면이 끝나는 때(목소리 시작 기준 ms) */
+type Clock = {ms: number; frame: number; fps: number; leadFrames: number; endMs: number};
 
 /** atMs부터 0→1 등장 */
 const appear = (c: Clock, atMs: number) =>
@@ -29,7 +30,8 @@ export const DiagramStage: React.FC<{scene: SceneData; tint: string; presenter?:
   const {fps} = useVideoConfig();
   const d = scene.diagram;
   if (!d) return null;
-  const c: Clock = {ms: ((frame - scene.leadFrames) / fps) * 1000, frame, fps, leadFrames: scene.leadFrames};
+  const c: Clock = {ms: ((frame - scene.leadFrames) / fps) * 1000, frame, fps, leadFrames: scene.leadFrames,
+    endMs: ((scene.durationInFrames - scene.leadFrames) / fps) * 1000};
   const items = allItems(d);
   const beats = items.map((it) => scene.leadFrames / fps + it.atMs / 1000);
   const done = items.length > 0 && c.ms >= Math.max(...items.map((it) => it.atMs)) + 1200;
@@ -246,16 +248,18 @@ const Define: React.FC<{d: Diagram; c: Clock; tint: string}> = ({d, c, tint}) =>
   );
 };
 
-/** 소수 자리를 from·to 가운데 긴 쪽에 맞춰 천 단위 쉼표로 쓴다 */
+/** 소수 자리(4자리까지)를 from·to 가운데 긴 쪽에 맞춰 천 단위 쉼표로 쓴다 */
 const formatNumber = (v: number, digits: number) => v.toLocaleString('ko-KR', {minimumFractionDigits: digits, maximumFractionDigits: digits});
-const decimals = (v: number) => (Number.isInteger(v) ? 0 : Math.min(2, String(v).split('.')[1]?.length ?? 0));
+const decimals = (v: number) => (Number.isInteger(v) ? 0 : Math.min(4, v.toFixed(4).replace(/0+$/, '').split('.')[1]?.length ?? 0));
 
-/** 숫자 변화: 이름표를 말할 때 숫자가 from에서 to로 1.2초 동안 바뀐다. 줄면 초록·내림, 늘면 강조색·오름 화살표 */
+/** 숫자 변화: 이름표를 말할 때 숫자가 from에서 to로 1.2초(장면 끝이 가까우면 더 짧게) 동안 바뀐다. 줄면 초록·내림, 늘면 강조색·오름 화살표 */
 const NumberChange: React.FC<{d: Diagram; c: Clock; tint: string}> = ({d, c, tint}) => {
   if (d.type !== 'number') return null;
   const at = d.items[0]?.atMs ?? 0;
   const s = appear(c, at);
-  const p = interpolate(c.ms - at, [200, 1400], [0, 1], {...clamp, easing: (t) => 1 - Math.pow(1 - t, 3)});
+  // 이름표를 늦게 말해도 장면이 끝나기 0.3초 전에는 to에 닿게 세는 시간을 줄인다
+  const end = Math.max(400, Math.min(1400, c.endMs - at - 300));
+  const p = interpolate(c.ms - at, [Math.min(200, end / 4), end], [0, 1], {...clamp, easing: (t) => 1 - Math.pow(1 - t, 3)});
   const digits = Math.max(decimals(d.from), decimals(d.to));
   const value = d.from + (d.to - d.from) * p;
   const down = d.to < d.from;
