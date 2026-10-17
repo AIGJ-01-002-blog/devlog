@@ -42,6 +42,7 @@ import com.team.blog.account.web.LoginGuardFilter;
 import com.team.blog.mcp.web.McpController;
 import com.team.blog.mcp.web.McpUploadController;
 import com.team.blog.shared.config.BlogProperties;
+import com.team.blog.shared.security.SessionLifetimeFilter;
 import com.team.blog.shared.web.ClientIpResolver;
 import com.team.blog.shared.web.RateLimiter;
 import com.team.blog.shared.web.RequestPaths;
@@ -164,6 +165,7 @@ public class SecurityConfig {
                         .referrerPolicy(r -> r.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
                         .addHeaderWriter(csp))
                 .addFilterBefore(new LoginGuardFilter(rateLimiter, ipResolver, redis, props), OAuth2AuthorizationRequestRedirectFilter.class)
+                .addFilterBefore(new SessionLifetimeFilter(props.auth().sessionAbsoluteTtl()), AnonymousAuthenticationFilter.class)
                 .addFilterBefore(new AccountStateFilter(members, identities), AnonymousAuthenticationFilter.class);
         return http.build();
     }

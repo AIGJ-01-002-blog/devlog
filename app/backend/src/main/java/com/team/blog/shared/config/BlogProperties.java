@@ -57,7 +57,11 @@ public record BlogProperties(
                        @DefaultValue("15m") Duration loginLockDuration,
                        @DefaultValue("devlog <no-reply@devlog.local>") String mailFrom,
                        // 가입 화면 이메일 인증번호 (spec 065): auto는 메일을 실제로 보내거나 개발 환경이면 요구, on·off는 강제
-                       @DefaultValue("auto") String signupEmailCode) {}
+                       @DefaultValue("auto") String signupEmailCode,
+                       // 로그인 세션은 쓰는 동안 늘어나도 로그인한 때부터 이 기간이 지나면 끝난다 (보안 점검 2026-10-16)
+                       @DefaultValue("30d") Duration sessionAbsoluteTtl,
+                       // 같은 IP에서 1시간에 만들 수 있는 이메일 가입 계정 수. 학교처럼 여럿이 한 IP를 쓰는 곳을 생각해 넉넉히 둔다
+                       @DefaultValue("10") int signupPerIpPerHour) {}
 
     public record Handle(@DefaultValue("16") int autoBodyMaxLength, @DefaultValue Set<String> reserved) {}
 

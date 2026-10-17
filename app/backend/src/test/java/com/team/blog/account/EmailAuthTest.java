@@ -143,6 +143,25 @@ class EmailAuthTest extends IntegrationTest {
     }
 
     @Test
+    void 같은_IP의_이메일_가입은_1시간에_정한_계정_수까지만_받는다() throws Exception {
+        long seed = System.nanoTime() % 100000;
+        // 입력을 틀린 요청은 세지 않는다
+        Map<String, Object> bad = signupForm("not-an-email", "iplimitbad" + seed, "틀린입력" + seed % 1000, PASSWORD);
+        browser().perform(asJson(post("/api/auth/signup/email"), bad)).andExpect(status().isBadRequest());
+        for (int i = 0; i < 10; i++) {
+            String email = uniqueEmail("iplimit" + i);
+            browser().perform(asJson(post("/api/auth/signup/email"),
+                            signupForm(email, "iplimit" + seed + "x" + i, "제한" + i + "닉" + seed % 1000, PASSWORD)))
+                    .andExpect(status().isCreated());
+        }
+        String body = browser().perform(asJson(post("/api/auth/signup/email"),
+                        signupForm(uniqueEmail("iplimit10"), "iplimit" + seed + "x10", "제한열닉" + seed % 1000, PASSWORD)))
+                .andExpect(status().isTooManyRequests())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(body).contains("TOO_MANY_SIGNUPS");
+    }
+
+    @Test
     void 가입_화면의_AI_동의는_선택이라_따로_기록되고_안_하면_기록이_없다() throws Exception {
         // 이메일 가입: 선택 항목에 동의
         String email = uniqueEmail("aiyes");
