@@ -54,7 +54,7 @@ describe('shorts', () => {
     scenes: [scene('왜 배포만 하면 다 로그아웃될까요?'), scene('직렬화가 범인이었어요.'), scene('JSON으로 바꿨어요.')],
     status: 'READY', attempts: 1, videoUrl: '/media/shorts/2026/10/a.mp4', durationMs: 31500, videoBytes: 1000, error: null,
     estimatedSeconds: 30, queuedAt: null, renderedAt: null, createdAt: '', updatedAt: '', version: 1,
-    postTags: ['spring', 'spring-boot', 'c++', '세션', 'redis', 'docker', 'k8s'], uploads: [], batchId: null, topic: null, replay: null, character: null, outro: true, ...over,
+    postTags: ['spring', 'spring-boot', 'c++', '세션', 'redis', 'docker', 'k8s'], uploads: [], batchId: null, topic: null, replay: null, character: null, outro: true, onBlog: true, ...over,
   })
 
   it('태그를 해시태그로 바꿀 때 못 쓰는 글자를 빼고 한도까지만 쓴다', () => {

@@ -15,7 +15,7 @@ describe('StudioUploadGuide 내 채널', () => {
     scenes: [{ caption: '소켓', narration: '소켓 하나로 시작해요.', code: null }],
     status: 'READY', attempts: 0, videoUrl: '/media/shorts/a.mp4', durationMs: 30000, videoBytes: 1000, error: null,
     estimatedSeconds: 30, queuedAt: null, renderedAt: null, createdAt: '', updatedAt: '', version: 1,
-    postTags: [], uploads: [], replay: null, batchId: null, topic: null, character: null, outro: true,
+    postTags: [], uploads: [], replay: null, batchId: null, topic: null, character: null, outro: true, onBlog: true,
   }
   const serve = (socialLinks: unknown) => vi.stubGlobal('fetch', vi.fn(async () => json({ socialLinks })))
 
@@ -47,5 +47,27 @@ describe('StudioUploadGuide 내 채널', () => {
     await act(async () => { tab('Instagram').click() })
     expect(open()).toBeUndefined()
     expect([...host.querySelectorAll('a')].find((a) => a.textContent === '설정에서 채널 넣기')?.getAttribute('href')).toBe('/settings')
+  })
+
+  it('남긴 주소가 있으면 블로그에 보일지 고를 수 있다', async () => {
+    const sent: unknown[] = []
+    vi.stubGlobal('fetch', vi.fn(async (raw: string, init?: RequestInit) => {
+      if (String(raw).endsWith('/blog')) {
+        sent.push(JSON.parse(String(init?.body)))
+        return json({ ...withUpload, onBlog: false })
+      }
+      return json({ socialLinks: {} })
+    }))
+    const withUpload = { ...item, uploads: [{ platform: 'YOUTUBE' as const, url: 'https://youtube.com/shorts/a', uploadedAt: '' }] }
+    let current: ShortsItem = withUpload
+    await act(async () => root.render(<StudioUploadGuide item={current} onChange={(n) => { current = n }} />))
+    const box = host.querySelector<HTMLInputElement>('.studio-onblog input')!
+    expect(box.checked).toBe(true)
+    await act(async () => { box.click() })
+    expect(sent).toEqual([{ visible: false }])
+    expect(current.onBlog).toBe(false)
+
+    await act(async () => root.render(<StudioUploadGuide item={item} onChange={() => {}} />))
+    expect(host.querySelector('.studio-onblog')).toBeNull()
   })
 })

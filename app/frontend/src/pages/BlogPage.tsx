@@ -4,7 +4,9 @@ import { Feed } from '../components/Feed'
 import { GraphLogo } from '../components/GraphLogo'
 import { FollowButton } from '../components/FollowButton'
 import { SearchBox } from '../components/SearchBox'
+import { ShortsGrid } from '../components/ShortsGrid'
 import { SocialLinkList } from '../components/SocialLinkList'
+import { blogShorts, type BlogShortsCard } from '../lib/shorts'
 import { parseSort } from '../lib/search'
 import { PostResults } from './SearchPage'
 import { api, ApiError, takeInitialData } from '../lib/api'
@@ -29,8 +31,8 @@ export function blogTone(handle: string): number {
   return AVATAR_COLORS.indexOf(avatarColor(handle) as (typeof AVATAR_COLORS)[number]) % 4
 }
 
-/** tab: 블로그 글 목록(기본), [시리즈] 탭 (024), [소개] 탭 (042) */
-export function BlogPage({ handle, tab = 'posts' }: { handle: string; tab?: 'posts' | 'series' | 'about' }) {
+/** tab: 블로그 글 목록(기본), [시리즈] 탭 (024), [소개] 탭 (042), [쇼츠] 탭 (103) */
+export function BlogPage({ handle, tab = 'posts' }: { handle: string; tab?: 'posts' | 'series' | 'about' | 'shorts' }) {
   const [initial] = useState(() => takeInitialData<{ profile: BlogProfile; feed: FeedPage; blogTags: TagCount[]; tag?: string }>('blog'))
   const [profile, setProfile] = useState<BlogProfile | null>(initial?.profile.handle === handle ? initial.profile : null)
   const [missing, setMissing] = useState(false)
@@ -51,6 +53,16 @@ export function BlogPage({ handle, tab = 'posts' }: { handle: string; tab?: 'pos
     return () => { alive = false }
   }, [handle, pointsOn])
   const topBadge = badges.length > 0 ? badges[badges.length - 1] : null
+  const shortsOn = !!me?.features?.shorts
+  // 직접 올린 쇼츠 (spec 103). 쇼츠를 켠 서버에서만 받고, 하나도 없으면 남의 블로그에는 탭을 숨긴다
+  const [shorts, setShorts] = useState<BlogShortsCard[] | null>(null)
+  useEffect(() => {
+    setShorts(null)
+    if (!shortsOn) return
+    let alive = true
+    blogShorts(handle).then((c) => { if (alive) setShorts(c) }).catch(() => { if (alive) setShorts([]) })
+    return () => { alive = false }
+  }, [handle, shortsOn])
   const [deco, setDeco] = useState<Decorations | null>(null)
 
   useEffect(() => {
@@ -127,11 +139,15 @@ export function BlogPage({ handle, tab = 'posts' }: { handle: string; tab?: 'pos
         <Link to={`/@${profile.handle}`} aria-current={tab === 'posts' ? 'page' : undefined}>{t('글')}</Link>
         <Link to={`/@${profile.handle}/series`} aria-current={tab === 'series' ? 'page' : undefined}>{t('시리즈')}</Link>
         <Link to={`/@${profile.handle}/about`} aria-current={tab === 'about' ? 'page' : undefined}>{t('소개')}</Link>
+        {shortsOn && (tab === 'shorts' || profile.mine || (shorts?.length ?? 0) > 0) && (
+          <Link to={`/@${profile.handle}/shorts`} aria-current={tab === 'shorts' ? 'page' : undefined}
+            data-tip={t('YouTube·Instagram·TikTok에 올린 쇼츠')}>{t('쇼츠')}</Link>
+        )}
         <Link to={`/@${profile.handle}/portfolio`} className="blog-tab-portfolio" data-tip={t('프로젝트 위주로 정리한 포트폴리오 화면')}>
           <GraphLogo size={16} />  {t('포트폴리오로 보기')}
         </Link>
       </nav>
-      {tab === 'about' ? <BlogAbout handle={profile.handle} /> : tab === 'series' ? <BlogSeries handle={profile.handle} mine={profile.mine} /> : <>
+      {tab === 'shorts' ? <BlogShortsTab cards={shortsOn ? shorts : []} mine={profile.mine} /> : tab === 'about' ? <BlogAbout handle={profile.handle} /> : tab === 'series' ? <BlogSeries handle={profile.handle} mine={profile.mine} /> : <>
       <SearchBox initial={q} placeholder={t('{0}님의 글 검색', { 0: profile.nickname })} onSearch={searchIn} />
       {q ? (
         <>
@@ -155,6 +171,23 @@ export function BlogPage({ handle, tab = 'posts' }: { handle: string; tab?: 'pos
       </>}
     </main>
   )
+}
+
+/** 블로그 [쇼츠] 탭 (spec 103): 직접 올리고 주소를 남긴 쇼츠. 비어 있으면 주인에게는 스튜디오로 가는 길을 보인다 */
+function BlogShortsTab({ cards, mine }: { cards: BlogShortsCard[] | null; mine: boolean }) {
+  if (!cards) return <p className="muted center">{t('불러오는 중…')}</p>
+  if (cards.length === 0) {
+    return (
+      <div className="empty blog-shorts-empty">
+        <p>{t('아직 블로그에 보이는 쇼츠가 없어요.')}</p>
+        {mine && <>
+          <p className="muted small">{t('스튜디오에서 영상을 올린 뒤 올린 주소를 남기면 여기에 보여요.')}</p>
+          <Link to="/studio" className="btn btn-primary" data-tip={t('글로 쇼츠 대본과 영상을 만드는 곳')}>{t('쇼츠 스튜디오')}</Link>
+        </>}
+      </div>
+    )
+  }
+  return <ShortsGrid cards={cards} showPost />
 }
 
 /** 블로그 태그 줄과 필터 머리 (010 FR-030·FR-031): 공개 글의 태그, 글 수 많은 순 처음 10개 + [태그 더 보기]. */

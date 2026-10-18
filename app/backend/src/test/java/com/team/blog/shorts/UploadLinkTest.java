@@ -37,4 +37,17 @@ class UploadLinkTest {
         assertThat(Platform.parse("TikTok")).contains(Platform.TIKTOK);
         assertThat(Platform.parse("facebook")).isEmpty();
     }
+
+    @Test
+    void YouTube_영상_주소에서_재생할_영상_ID를_꺼낸다() {
+        assertThat(UploadLink.youtubeId("https://www.youtube.com/shorts/AbCdEfGhIj0")).contains("AbCdEfGhIj0");
+        assertThat(UploadLink.youtubeId("https://youtube.com/shorts/AbCdEfGhIj0?feature=share")).contains("AbCdEfGhIj0");
+        assertThat(UploadLink.youtubeId("https://m.youtube.com/watch?si=x&v=AbCdEfGhIj0&t=3")).contains("AbCdEfGhIj0");
+        assertThat(UploadLink.youtubeId("https://youtu.be/AbCdEfGhIj0")).contains("AbCdEfGhIj0");
+        assertThat(UploadLink.youtubeId("https://www.youtube.com/live/AbCdEfGhIj0")).contains("AbCdEfGhIj0");
+        assertThat(UploadLink.youtubeId("https://www.youtube.com/@me")).isEmpty();
+        assertThat(UploadLink.youtubeId("https://www.youtube.com/shorts/short")).isEmpty();
+        assertThat(UploadLink.youtubeId("https://evil.example/shorts/AbCdEfGhIj0")).isEmpty();
+        assertThat(UploadLink.youtubeId("https://www.youtube.com/shorts/AbCdEf\"><x")).isEmpty();
+    }
 }

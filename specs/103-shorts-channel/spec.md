@@ -2,7 +2,7 @@
 
 **Feature Branch**: `feature/103-shorts-channel-links`, `feature/103-shorts-on-blog`
 **Created**: 2026-10-18
-**Status**: In progress
+**Status**: Implemented
 **근거**: 2026-10-18 블로그 주인 질문 "숏츠 스튜디오에서 생성한 숏츠를 올리는 채널을 사용자의 블로그에 연동하고 싶은데 어떻게 하는게 좋을까?"에 대한 추천안. 목표 이슈 #397, 할 일 #398·#399.
 
 ## 고른 것과 이유
@@ -24,7 +24,10 @@
 
 ### 2단계: 블로그·글 화면의 쇼츠 (#399)
 
-`specs/103-shorts-channel/spec.md`의 이 구획은 #399 PR에서 채운다.
+- **FR-006**: `shorts.on_blog`(V57, 기본 true)로 회원이 쇼츠마다 블로그·글 화면에 보일지 고른다. `PUT /api/me/shorts/{id}/blog {visible}`. 대본 버전은 올리지 않는다. 스튜디오 올리기 안내에서 남긴 주소가 하나라도 있으면 [내 블로그 [쇼츠] 탭과 바탕 글 아래에 보이기] 체크가 보인다.
+- **FR-007**: `GET /api/members/{handle}/shorts`(최근 올린 순 60편)·`GET /api/posts/{id}/shorts`(6편)는 누구나 읽는다. 남긴 주소가 하나 이상이고 `on_blog`이며 회원이 탈퇴하지 않았고, 바탕 글이 있으면 그 글이 공개·발행·숨김 아님일 때만 보인다. 바탕 글이 없는 쇼츠(매매 재현 등)는 블로그 탭에만 보인다. 쇼츠가 꺼진 서버는 404다.
+- **FR-008**: 카드에는 제목·길이·바탕 글 링크·플랫폼별 링크(새 탭, nofollow)를 둔다. YouTube 주소(shorts·watch·youtu.be·embed·live)에서 영상 ID를 꺼내면 썸네일(i.ytimg.com)을 보이고, 누르면 그 자리에서 `youtube-nocookie.com` 임베드로 재생한다. 썸네일을 못 받거나 YouTube가 아니면 제목을 얹은 색 카드로 그 플랫폼에 간다. Instagram·TikTok 임베드 스크립트는 싣지 않는다.
+- **FR-009**: 블로그 [쇼츠] 탭(`/@handle/shorts`)은 쇼츠가 켜진 서버에서 주인에게는 늘, 남에게는 보일 쇼츠가 있을 때만 메뉴에 보인다. 서버가 첫 화면(제목·영상 링크 목록)을 그리고, 수집하지 않는다(noindex). 글 상세는 공개 발행 글에서만 "이 글의 쇼츠"를 받는다. 휴대폰은 두 줄 카드다.
 
 ## 범위 밖
 
