@@ -76,20 +76,27 @@ for _ in $(seq 1 30); do
 done
 curl -fs "http://127.0.0.1:$PORT/minio/health/ready" >/dev/null || die "MinIO에 연결하지 못했어요: $(cat "$WORK/pf.log")"
 
-# 열쇠는 명령줄에 두지 않는다(여럿이 쓰는 서버에서 ps로 보인다). 나만 읽는 임시 파일·환경 변수로만 넘긴다
+# 열쇠는 명령줄에 두지 않는다(여럿이 쓰는 서버에서 ps로 보인다. docker 안에서 돈 프로세스도 서버의 ps에 보인다).
+# mc alias set은 열쇠를 인자로 받으므로 쓰지 않고, mc가 읽는 MC_HOST_<별칭> 환경 변수로만 넘긴다.
+# 환경 변수는 같은 계정과 root만 읽을 수 있다(/proc/<pid>/environ)
 mkdir -p "$WORK/mc-config"
+# 주소 안의 열쇠에 @ : / 같은 글자가 있어도 깨지지 않게 퍼센트 인코딩한다(mc가 풀어서 읽는다)
+urlenc() {
+  local s="$1" out="" c
+  while [ -n "$s" ]; do
+    c="${s:0:1}"; s="${s:1}"
+    case "$c" in
+      [A-Za-z0-9._~-]) out+="$c" ;;
+      *) out+="$(printf '%%%02X' "'$c")" ;;
+    esac
+  done
+  printf '%s' "$out"
+}
 # 값을 셸 문법으로 다시 읽지 않게 변수에 바로 담고, 파일은 docker --env-file용으로만 쓴다
-MC_URL="http://127.0.0.1:$PORT"
-MC_AK="$(secret S3_ACCESS_KEY)"
-MC_SK="$(secret S3_SECRET_KEY)"
-{
-  printf 'MC_URL=%s\n' "$MC_URL"
-  printf 'MC_AK=%s\n' "$MC_AK"
-  printf 'MC_SK=%s\n' "$MC_SK"
-} > "$WORK/mc.env"
+MC_HOST_devlog="http://$(LC_ALL=C urlenc "$(secret S3_ACCESS_KEY)"):$(LC_ALL=C urlenc "$(secret S3_SECRET_KEY)")@127.0.0.1:$PORT"
+printf 'MC_HOST_devlog=%s\n' "$MC_HOST_devlog" > "$WORK/mc.env"
 if [ -n "$MC" ]; then
-  ( export MC_CONFIG_DIR="$WORK/mc-config"
-    "$MC" alias set devlog "$MC_URL" "$MC_AK" "$MC_SK" >/dev/null
+  ( export MC_CONFIG_DIR="$WORK/mc-config" MC_HOST_devlog
     "$MC" mirror --overwrite --quiet "devlog/$BUCKET" "$OUT/media" )
 else
   echo "mc 이미지로 받는 중: $MC_IMAGE"
@@ -97,8 +104,9 @@ else
   docker run --rm --network host --user "$(id -u):$(id -g)" --env-file "$WORK/mc.env" \
     -e MC_CONFIG_DIR=/mc -e BUCKET="$BUCKET" \
     -v "$WORK/mc-config:/mc" -v "$OUT/media:/out" --entrypoint sh "$MC_IMAGE" -c \
-    'mc alias set devlog "$MC_URL" "$MC_AK" "$MC_SK" >/dev/null && mc mirror --overwrite --quiet "devlog/$BUCKET" /out'
+    'mc mirror --overwrite --quiet "devlog/$BUCKET" /out'
 fi
+unset MC_HOST_devlog
 rm -f "$WORK/mc.env"
 
 say "3/3 확인 목록 만드는 중"

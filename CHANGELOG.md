@@ -10,6 +10,13 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
+## [2.6.1] - 2026-10-19
+
+### 보안
+- 집 PC 백업(`deploy/home/backup.sh`)이 MinIO 접근 키를 `mc alias set`의 명령 인자로 넘겨, 여럿이 쓰는 학교 서버에서 다른 계정이 `ps`로 잠깐 볼 수 있던 문제를 고쳤다. docker로 돌린 mc도 서버의 `ps`에 보인다. 이제 키는 mc가 읽는 `MC_HOST_devlog` 환경 변수로만 넘기고, 주소 안에서 깨지지 않게 퍼센트 인코딩한다.
+
+**비교:** [v2.6.0...v2.6.1](https://github.com/AIGJ-01-002-blog/devlog/compare/v2.6.0...v2.6.1)
+
 ## [2.6.0] - 2026-10-18
 
 **목표: 쇼츠 채널을 블로그에 잇기** ([목표 이슈 #397](https://github.com/AIGJ-01-002-blog/devlog/issues/397))
