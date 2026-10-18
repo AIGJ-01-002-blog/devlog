@@ -111,10 +111,15 @@ export const FACE_OF: Record<Clip, Face> = {idle: 'smile', talk: 'grin', point: 
   typing: 'wry', idea: 'love', sleepy: 'pout', panic: 'shock', walk: 'smile'};
 
 /** from: 동작을 처음부터 다시 틀 프레임(구절이 바뀌어 동작이 바뀔 때). 없으면 장면 처음부터 */
-export const Mascot: React.FC<{p: Pose; face: Face; clip?: Clip; from?: number}> = ({p, face, clip, from}) => {
+/** 구절 동작(actions.tsx useBeat): 이 동작들은 쉬는 동작이라 연기를 덮지 않는다 */
+const RESTING: Clip[] = ['idle', 'talk', 'point'];
+/** beat: 지금 구절의 동작. 연기가 쉬는 동안(idle)에는 구절 말에 맞는 동작·표정으로 갈아타고, 연기의 큰 순간(놀람·기쁨 등)은 그대로 둔다 */
+export const Mascot: React.FC<{p: Pose; face: Face; clip?: Clip; from?: number; beat?: {clip: Clip; from: number}}> = ({p, face, clip, from, beat}) => {
   const clips = useCharacter();
-  if (clips) return <Character p={p} clip={clip ?? CLIP_OF[face]} clips={clips} from={from} />;
-  return <Cat p={p} face={face} />;
+  const staged = clip ?? CLIP_OF[face];
+  const own = beat !== undefined && staged === 'idle' && !RESTING.includes(beat.clip);
+  if (clips) return <Character p={p} clip={own ? beat.clip : staged} clips={clips} from={own ? beat.from : from} />;
+  return <Cat p={p} face={own ? FACE_OF[beat.clip] : face} />;
 };
 
 /** 기본 캐릭터: Noto 고양이 얼굴 + 같은 색 몸 */

@@ -132,14 +132,16 @@ const Stairs: React.FC<{d: Diagram; c: Clock; tint: string}> = ({d, c, tint}) =>
   const n = d.items.length;
   const cur = currentIndex(d.items, c.ms);
   const w = Math.min(260, 1000 / n - 12);
-  const rise = (DIAGRAM_H - 150) / Math.max(1, n - 1);
+  // 설명(note)이 있으면 가장 낮은 계단도 그 줄이 들어갈 만큼 높인다
+  const base = d.items.some((it) => it.note) ? 170 : 110;
+  const rise = (DIAGRAM_H - base - 40) / Math.max(1, n - 1);
   return (
     <div style={{position: 'absolute', inset: 0}}>
       {d.items.map((it, k) => {
         const s = appear(c, it.atMs);
         const on = k === cur;
         const reached = k <= cur;
-        const h = 110 + k * rise;
+        const h = base + k * rise;
         return (
           <div key={k} style={{position: 'absolute', left: (1000 - n * (w + 12)) / 2 + k * (w + 12), bottom: 0, width: w, height: h * s,
             borderRadius: '24px 24px 0 0', background: reached ? tint : color.surface, boxShadow: theme.shadow.card,
@@ -147,6 +149,8 @@ const Stairs: React.FC<{d: Diagram; c: Clock; tint: string}> = ({d, c, tint}) =>
             <div style={{font: `900 44px ${theme.font}`, color: reached ? '#fff' : tint, lineHeight: 1}}>{k + 1}</div>
             <div style={{font: theme.type.label, fontSize: w < 200 ? 28 : 34, color: reached ? '#fff' : color.ink, textAlign: 'center', padding: '0 12px',
               wordBreak: 'keep-all', opacity: s}}>{it.label}</div>
+            {it.note ? <div style={{font: theme.type.body, fontSize: w < 200 ? 20 : 24, color: reached ? '#ffffffcc' : color.sub, textAlign: 'center', padding: '0 10px',
+              wordBreak: 'keep-all', opacity: s}}>{it.note}</div> : null}
           </div>
         );
       })}

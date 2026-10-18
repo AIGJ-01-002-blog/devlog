@@ -218,6 +218,7 @@ const Explain: React.FC<ActProps> = ({scene, life}) => {
 };
 
 const Shock: React.FC<ActProps> = ({scene, life}) => {
+  const beat = useBeat(scene);
   const {t, live, pop, fps, frame} = life;
   const hit = 0.9;
   const shocked = t > hit;
@@ -239,7 +240,7 @@ const Shock: React.FC<ActProps> = ({scene, life}) => {
     <>
       <Emoji name="trash" x={880} y={540} size={280} scale={1 + 0.12 * lid} rotate={-6 * lid} />
       {papers}
-      <Mascot face={crying ? 'cry' : shocked ? 'shock' : 'smile'} p={live({
+      <Mascot beat={beat} face={crying ? 'cry' : shocked ? 'shock' : 'smile'} p={live({
         x: 330, y: FEET - jump, eyes: crying ? 'sad' : shocked ? 'shock' : 'open',
         mouth: shocked && !crying ? 'o' : crying ? 'frown' : 'smile', brows: shocked ? 'worried' : '',
         armL: shocked ? 165 : 12, armR: shocked ? 165 : 12, sweat: shocked ? 1 : 0, tears: crying ? (t * 1.2) % 1 : 0,
@@ -252,6 +253,7 @@ const Shock: React.FC<ActProps> = ({scene, life}) => {
 };
 
 const Typing: React.FC<ActProps> = ({scene, life}) => {
+  const beat = useBeat(scene);
   const {t, live, pop, fps, frame} = life;
   const {params, code} = scene;
   const lead = scene.leadFrames / fps;
@@ -291,7 +293,7 @@ const Typing: React.FC<ActProps> = ({scene, life}) => {
         </div>
       </div>
       {/* 캐릭터는 코드 창(아래 끝 y 440) 밑에 작게 서서 코드를 가리지 않는다 */}
-      <Mascot face={done && params.good ? 'joy' : done && params.focus !== null ? 'shock' : 'wry'} p={live({x: 200, y: STAGE_H - 4, size: 230, armL: typed < 1 ? 60 + tap * 12 : 12, armR: typed < 1 ? 60 - tap * 12 : done && params.good ? 160 : 12,
+      <Mascot beat={beat} face={done && params.good ? 'joy' : done && params.focus !== null ? 'shock' : 'wry'} p={live({x: 200, y: STAGE_H - 4, size: 230, armL: typed < 1 ? 60 + tap * 12 : 12, armR: typed < 1 ? 60 - tap * 12 : done && params.good ? 160 : 12,
         eyes: done && params.good ? 'happy' : typed < 1 ? 'focus' : 'open', look: [0.6, -0.8],
         sweat: done && !params.good && params.focus !== null ? 1 : 0, brows: done && !params.good && params.focus !== null ? 'worried' : ''})} />
       {done && params.focus !== null ? (
@@ -303,6 +305,7 @@ const Typing: React.FC<ActProps> = ({scene, life}) => {
 };
 
 const Panic: React.FC<ActProps> = ({scene, life}) => {
+  const beat = useBeat(scene);
   const {t, live, frame, fps, pop} = life;
   const target = scene.params.count ?? 100;
   const alert = interpolate(t, [0.9, 1.3], [0, 1], clamp);
@@ -321,13 +324,14 @@ const Panic: React.FC<ActProps> = ({scene, life}) => {
       <Pill x={880} y={190} text={`${n.toLocaleString()}번`} bg={alert > 0.5 ? C.red : '#fff'} color={alert > 0.5 ? '#fff' : '#0f172a'} size={60} />
       {alert > 0.5 ? <Emoji name="siren" x={600} y={110} size={190} scale={pop(0.9, 8)} /> : null}
       {alert > 0.5 ? <Emoji name="fire" x={880} y={620} size={170} /> : null}
-      <Mascot face={alert > 0.5 ? 'shock' : 'smile'} clip={alert > 0.5 ? 'panic' : 'idle'} p={live({x: 340 + shake, eyes: alert > 0.5 ? 'shock' : 'open', mouth: alert > 0.5 && life.talk < 0.06 ? 'o' : 'smile',
+      <Mascot beat={beat} face={alert > 0.5 ? 'shock' : 'smile'} clip={alert > 0.5 ? 'panic' : 'idle'} p={live({x: 340 + shake, eyes: alert > 0.5 ? 'shock' : 'open', mouth: alert > 0.5 && life.talk < 0.06 ? 'o' : 'smile',
         armL: alert > 0.5 ? 168 : 12, armR: alert > 0.5 ? 168 : 12, sweat: alert, brows: alert > 0.5 ? 'worried' : '', look: [1, 0]})} />
     </>
   );
 };
 
 const Restore: React.FC<ActProps> = ({scene, life}) => {
+  const beat = useBeat(scene);
   const {t, live, pop, fps} = life;
   const fillEnd = 0.5 + Math.max(1.0, (scene.speechFrames / fps) * 0.6);
   const fill = interpolate(t, [0.5, fillEnd], [0, 1], {...clamp, easing: Easing.inOut(Easing.quad)});
@@ -345,13 +349,14 @@ const Restore: React.FC<ActProps> = ({scene, life}) => {
       {flying}
       {done ? <Emoji name="check" x={860} y={150} size={190} scale={pop(fillEnd, 9)} /> : null}
       {done ? <Emoji name="sparkles" x={640} y={250} size={170} scale={pop(fillEnd + 0.1, 9)} /> : null}
-      <Mascot face={done ? 'joy' : 'smile'} p={live({x: 250, eyes: done ? 'happy' : 'open', mouth: done ? 'grin' : 'smile', armL: done ? 165 : 20,
+      <Mascot beat={beat} face={done ? 'joy' : 'smile'} p={live({x: 250, eyes: done ? 'happy' : 'open', mouth: done ? 'grin' : 'smile', armL: done ? 165 : 20,
         armR: done ? 165 : 70 + Math.sin(t * 8) * 25, y: FEET - (done ? Math.abs(Math.sin(t * 4)) * 8 : 0), look: [1, 0]})} />
     </>
   );
 };
 
 const Wait: React.FC<ActProps> = ({scene, life}) => {
+  const beat = useBeat(scene);
   const {t, live, fps} = life;
   const total = parseDuration(scene.params.before) ?? 4;
   const shown = total * interpolate(t, [0.2, 0.2 + Math.max(1, (scene.speechFrames / fps) * 0.8)], [0, 1], clamp);
@@ -365,7 +370,7 @@ const Wait: React.FC<ActProps> = ({scene, life}) => {
       </div>
       <Emoji name="hourglass" x={750} y={330} size={190} />
       <Pill x={750} y={40} text={`${shown.toFixed(1)}초`} bg={C.red} color="#fff" size={58} />
-      <Mascot face={sleepy ? 'pout' : 'smile'} p={live({x: 260, eyes: sleepy ? 'bored' : 'open', mouth: sleepy && life.talk < 0.06 ? 'flat' : 'smile', headTilt: sleepy ? -10 : 0,
+      <Mascot beat={beat} face={sleepy ? 'pout' : 'smile'} p={live({x: 260, eyes: sleepy ? 'bored' : 'open', mouth: sleepy && life.talk < 0.06 ? 'flat' : 'smile', headTilt: sleepy ? -10 : 0,
         armL: sleepy ? 130 : 12, look: [1, -0.3]})} />
       {sleepy ? [0, 1, 2].map((k) => {
         const ph = ((t - 1.2) * 0.7 + k / 3) % 1;
@@ -376,6 +381,7 @@ const Wait: React.FC<ActProps> = ({scene, life}) => {
 };
 
 const Fast: React.FC<ActProps> = ({scene, life}) => {
+  const beat = useBeat(scene);
   const {t, live, pop} = life;
   const {before, after, label} = scene.params;
   const b = parseDuration(before);
@@ -403,7 +409,7 @@ const Fast: React.FC<ActProps> = ({scene, life}) => {
       }) : null}
       {cheer ? <Emoji name="rocket" x={interpolate(t, [1.0, 2.2], [620, 1000], clamp)} y={interpolate(t, [1.0, 2.2], [620, 300], clamp)} size={210} /> : null}
       {/* 위의 전·후 막대(아래 끝 y 208)에 머리가 닿지 않는 크기 */}
-      <Mascot face={cheer ? 'love' : 'smile'} p={live({x: 300, size: 380, eyes: cheer ? 'happy' : 'open', mouth: cheer ? 'grin' : 'smile', armL: cheer ? 160 : 12, armR: cheer ? 160 : 12,
+      <Mascot beat={beat} face={cheer ? 'love' : 'smile'} p={live({x: 300, size: 380, eyes: cheer ? 'happy' : 'open', mouth: cheer ? 'grin' : 'smile', armL: cheer ? 160 : 12, armR: cheer ? 160 : 12,
         y: FEET - (cheer ? Math.abs(Math.sin(t * 4)) * 10 : 0)})} />
       {/* 결과 딱지는 캐릭터 위에, 긴 문구도 화면 밖으로 잘리지 않게 가운데 쪽에 둔다 */}
       {cheer ? <Pill x={700} y={330} text={label} bg={C.yellow} size={58} scale={pop(1.0, 8)} /> : null}
@@ -411,19 +417,21 @@ const Fast: React.FC<ActProps> = ({scene, life}) => {
   );
 };
 
-const Idea: React.FC<ActProps> = ({life}) => {
+const Idea: React.FC<ActProps> = ({scene, life}) => {
+  const beat = useBeat(scene);
   const {t, live, pop} = life;
   const on = t > 0.5;
   return (
     <>
       {on ? <Emoji name="bulb" x={770} y={180} size={300} scale={pop(0.5, 8)} /> : null}
-      <Mascot face={t > 0.7 ? 'grin' : 'smile'} clip={on ? 'idea' : 'idle'} p={live({x: 390, eyes: t > 0.7 ? 'happy' : 'open', brows: on ? 'up' : '', armR: on ? 150 : 12, look: [0.6, -1],
+      <Mascot beat={beat} face={t > 0.7 ? 'grin' : 'smile'} clip={on ? 'idea' : 'idle'} p={live({x: 390, eyes: t > 0.7 ? 'happy' : 'open', brows: on ? 'up' : '', armR: on ? 150 : 12, look: [0.6, -1],
         y: FEET - interpolate(t, [0.5, 0.65, 0.85], [0, 15, 0], clamp)})} />
     </>
   );
 };
 
-const Protect: React.FC<ActProps> = ({life}) => {
+const Protect: React.FC<ActProps> = ({scene, life}) => {
+  const beat = useBeat(scene);
   const {t, live, pop} = life;
   const on = t > 0.4;
   return (
@@ -433,16 +441,17 @@ const Protect: React.FC<ActProps> = ({life}) => {
         const ang = k * 1.57 + t * 1.6;
         return <Star key={k} x={760 + 210 * Math.cos(ang)} y={360 + 190 * Math.sin(ang)} />;
       }) : null}
-      <Mascot face={t > 0.6 ? 'wry' : 'smile'} clip={on ? 'point' : 'idle'} p={live({x: 330, eyes: t > 0.6 ? 'happy' : 'open', brows: t > 0.6 ? 'angry' : '', armR: on ? 120 : 12, mouth: t > 0.6 ? 'grin' : 'smile'})} />
+      <Mascot beat={beat} face={t > 0.6 ? 'wry' : 'smile'} clip={on ? 'point' : 'idle'} p={live({x: 330, eyes: t > 0.6 ? 'happy' : 'open', brows: t > 0.6 ? 'angry' : '', armR: on ? 120 : 12, mouth: t > 0.6 ? 'grin' : 'smile'})} />
     </>
   );
 };
 
-const Think: React.FC<ActProps> = ({life}) => {
+const Think: React.FC<ActProps> = ({scene, life}) => {
+  const beat = useBeat(scene);
   const {t, live, pop} = life;
   return (
     <>
-      <Mascot face="kiss" p={live({x: 420, armR: 150, headTilt: 4 * Math.sin(t * 1.3), look: [0.8, -0.8], eyes: 'open', mouth: life.talk > 0.06 ? 'talk' : 'flat'})} />
+      <Mascot beat={beat} face="kiss" p={live({x: 420, armR: 150, headTilt: 4 * Math.sin(t * 1.3), look: [0.8, -0.8], eyes: 'open', mouth: life.talk > 0.06 ? 'talk' : 'flat'})} />
       <Emoji name="thinking" x={800} y={170} size={240} scale={pop(0.3, 8)} />
       {[[960, 80, 90], [660, 70, 80]].map(([x, y, s], k) => (
         <Mark key={k} x={x} y={y + Math.sin(t * 3 + k) * 5} text="?" color={C.yellow} size={s} scale={pop(0.55 + k * 0.25, 8)} rotate={-10 + k * 20} />
@@ -451,7 +460,8 @@ const Think: React.FC<ActProps> = ({life}) => {
   );
 };
 
-const Celebrate: React.FC<ActProps> = ({life}) => {
+const Celebrate: React.FC<ActProps> = ({scene, life}) => {
+  const beat = useBeat(scene);
   const {t, live} = life;
   return (
     <>
@@ -461,7 +471,7 @@ const Celebrate: React.FC<ActProps> = ({life}) => {
       })}
       <Emoji name="party" x={170} y={150} size={220} rotate={-15} />
       <Emoji name="party" x={910} y={150} size={220} rotate={15} />
-      <Mascot face="joy" p={live({x: 540, eyes: 'happy', mouth: 'grin', armL: 160, armR: 160, y: FEET - Math.abs(Math.sin(t * 4)) * 12})} />
+      <Mascot beat={beat} face="joy" p={live({x: 540, eyes: 'happy', mouth: 'grin', armL: 160, armR: 160, y: FEET - Math.abs(Math.sin(t * 4)) * 12})} />
     </>
   );
 };
