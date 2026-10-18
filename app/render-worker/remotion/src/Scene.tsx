@@ -44,7 +44,7 @@ export const Scene: React.FC<{scene: SceneData; index: number; title: string; fo
       <div style={{position: 'absolute', top: layout.stageTop, left: 0, width: layout.stageWidth, height: layout.stageHeight, transformOrigin: '50% 60%',
         scale: String(Custom ? 1 : cam.scale), translate: Custom ? undefined : `${cam.x}px ${cam.y}px`}}>
         {Custom ? <Custom scene={scene} data={scene.custom?.data} index={index} /> : scene.diagram ? <DiagramStage scene={scene} tint={tint} /> :
-          <Act scene={scene} first={index === 0} last={last} />}
+          <Act scene={scene} first={index === 0} last={last} tint={tint} />}
       </div>
       <Captions pages={scene.pages} leadFrames={scene.leadFrames} top={layout.captionTop} color={tint} />
       <div style={{position: 'absolute', top: layout.footerTop, left: 0, right: 0, textAlign: 'center', font: theme.type.footer, color: lk.color.onBgSub}}>
