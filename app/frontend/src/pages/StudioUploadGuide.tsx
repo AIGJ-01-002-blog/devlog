@@ -6,7 +6,7 @@ import { fieldErrors } from '../lib/fieldErrors'
 import { t } from '../lib/i18n'
 import { CHANNEL_KIND, socialHref, type SocialLinks } from '../lib/socialLinks'
 import {
-  canShareFiles, deleteUpload, PLATFORMS, recordUpload, shareVideo, uploadGuide, videoFileName,
+  canShareFiles, deleteUpload, PLATFORMS, recordUpload, setOnBlog, shareVideo, uploadGuide, videoFileName,
   type Platform, type ShortsItem,
 } from '../lib/shorts'
 
@@ -72,6 +72,7 @@ export function StudioUploadGuide({ item, onChange }: { item: ShortsItem; onChan
 
         <UploadRecord key={`${platform}:${uploaded?.url ?? ''}`} item={item} platform={platform} url={uploaded?.url ?? null} onChange={onChange} />
       </div>
+      {item.uploads.length > 0 && <OnBlogToggle item={item} onChange={onChange} />}
     </section>
   )
 }
@@ -138,6 +139,30 @@ function MyChannel({ platform, links }: { platform: Platform; links: SocialLinks
   )
 }
 
+/** 남긴 영상을 내 블로그 [쇼츠] 탭과 바탕 글 아래에 보일지 (spec 103) */
+function OnBlogToggle({ item, onChange }: { item: ShortsItem; onChange: (item: ShortsItem) => void }) {
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(false)
+  const toggle = async (visible: boolean) => {
+    setSaving(true)
+    setError(false)
+    try {
+      onChange(await setOnBlog(item.id, visible))
+    } catch {
+      setError(true)
+    } finally {
+      setSaving(false)
+    }
+  }
+  return (
+    <label className="check studio-onblog small" data-tip={t('끄면 블로그와 글 화면에서만 빠지고, 올린 영상과 남긴 주소는 그대로예요')}>
+      <input type="checkbox" checked={item.onBlog} disabled={saving} onChange={(e) => void toggle(e.target.checked)} />
+      {t('내 블로그 [쇼츠] 탭과 바탕 글 아래에 보이기')}
+      {error && <span className="error" role="alert"> {t('잠시 후 다시 시도해 주세요.')}</span>}
+    </label>
+  )
+}
+
 function UploadRecord({ item, platform, url, onChange }: { item: ShortsItem; platform: Platform; url: string | null; onChange: (item: ShortsItem) => void }) {
   const [value, setValue] = useState(url ?? '')
   const [error, setError] = useState<string | null>(null)
@@ -166,7 +191,7 @@ function UploadRecord({ item, platform, url, onChange }: { item: ShortsItem; pla
             data-tip={t('남긴 주소만 지워요. 올린 영상은 그대로예요')}>{t('지우기')}</button>
         )}
       </div>
-      <span className="muted small">{url ? <a href={url} target="_blank" rel="noopener noreferrer">{t('올린 영상 보기')}</a> : t('올린 뒤 주소를 남기면 대시보드에서 반응을 모아 볼 수 있어요.')}</span>
+      <span className="muted small">{url ? <a href={url} target="_blank" rel="noopener noreferrer">{t('올린 영상 보기')}</a> : t('올린 뒤 주소를 남기면 대시보드에서 반응을 모아 보고, 내 블로그에도 보여요.')}</span>
       {error && <span className="error" role="alert">{error}</span>}
     </form>
   )

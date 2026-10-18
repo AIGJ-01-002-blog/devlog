@@ -77,6 +77,8 @@ export interface ShortsItem {
   character: ShortsCharacter | null
   /** 영상 끝 3초 블로그 광고를 붙일지. 기본 true */
   outro: boolean
+  /** 남긴 영상 주소를 블로그·글 화면에 보일지 (spec 103). 기본 true */
+  onBlog: boolean
 }
 
 /** 주제 묶음의 한 주제. 아직 대본이 없으면 shortsId·status가 null */
@@ -252,6 +254,22 @@ export const recordUpload = (id: number, platform: Platform, url: string) =>
   api<ShortsItem>(`/api/me/shorts/${id}/uploads/${platform.toLowerCase()}`, { method: 'PUT', body: { url } })
 export const deleteUpload = (id: number, platform: Platform) =>
   api<ShortsItem>(`/api/me/shorts/${id}/uploads/${platform.toLowerCase()}`, { method: 'DELETE' })
+export const setOnBlog = (id: number, visible: boolean) =>
+  api<ShortsItem>(`/api/me/shorts/${id}/blog`, { method: 'PUT', body: { visible } })
+
+/** 블로그·글 화면의 쇼츠 카드 (spec 103). embedId가 있으면 YouTube 영상 ID라 youtube-nocookie로 재생한다 */
+export interface BlogShortsLink { platform: Platform; url: string; embedId: string | null }
+export interface BlogShortsCard {
+  id: number
+  title: string
+  postTitle: string | null
+  postUrl: string | null
+  durationMs: number | null
+  uploadedAt: string
+  links: BlogShortsLink[]
+}
+export const blogShorts = (handle: string) => api<BlogShortsCard[]>(`/api/members/${encodeURIComponent(handle)}/shorts`)
+export const postShorts = (postId: number) => api<BlogShortsCard[]>(`/api/posts/${postId}/shorts`)
 
 /**
  * 플랫폼별 직접 올리기 안내 (#238). devlog는 아무 데도 올리지 않고, 올릴 때 붙여 넣을 문구와 순서만 준다.

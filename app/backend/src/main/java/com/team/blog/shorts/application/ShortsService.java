@@ -53,10 +53,10 @@ public class ShortsService {
                        int attempts, String videoUrl, Integer durationMs, Long videoBytes, String error, double estimatedSeconds,
                        Instant queuedAt, Instant renderedAt, Instant createdAt, Instant updatedAt, int version,
                        List<String> postTags, List<Upload> uploads, Long batchId, Integer topic, TradeReplay replay, String character,
-                       boolean outro) {
+                       boolean outro, boolean onBlog) {
         Item with(List<String> tags, List<Upload> ups) {
             return new Item(id, postId, postTitle, postUrl, title, scenes, status, attempts, videoUrl, durationMs, videoBytes, error,
-                    estimatedSeconds, queuedAt, renderedAt, createdAt, updatedAt, version, tags, ups, batchId, topic, replay, character, outro);
+                    estimatedSeconds, queuedAt, renderedAt, createdAt, updatedAt, version, tags, ups, batchId, topic, replay, character, outro, onBlog);
         }
     }
 
@@ -310,6 +310,23 @@ public class ShortsService {
         return get(memberId, id);
     }
 
+    public record BlogBody(Boolean visible) {}
+
+    /**
+     * 남긴 영상 주소를 블로그·글 화면에 보일지 (spec 103, #399). 기본은 보인다. 대본이 아니라서 버전을 올리지 않는다.
+     */
+    public Item setOnBlog(long memberId, long id, BlogBody body) {
+        requireEnabled();
+        if (body == null || body.visible() == null) {
+            throw ApiException.validation(List.of(new FieldErrorItem("visible", "REQUIRED", "블로그에 보일지 골라 주세요.")));
+        }
+        tx.executeWithoutResult(s -> {
+            lock(memberId, id);
+            jdbc.update("UPDATE shorts SET on_blog = ? WHERE id = ?", body.visible(), id);
+        });
+        return get(memberId, id);
+    }
+
     public Item deleteUpload(long memberId, long id, String platformRaw) {
         requireEnabled();
         UploadLink.Platform platform = UploadLink.Platform.parse(platformRaw).orElseThrow(NotFoundException::new);
@@ -499,7 +516,7 @@ public class ShortsService {
                 Math.round(ShortsScript.estimateSeconds(scenes) * 10) / 10.0,
                 instant(rs, "queued_at"), instant(rs, "rendered_at"), instant(rs, "created_at"), instant(rs, "updated_at"),
                 rs.getInt("version"), List.of(), List.of(), nullableLong(rs, "batch_id"), nullableInt(rs, "topic"), replay(rs.getString("replay")),
-                rs.getString("mascot"), rs.getBoolean("outro"));
+                rs.getString("mascot"), rs.getBoolean("outro"), rs.getBoolean("on_blog"));
     }
 
     private TradeReplay replay(String raw) {
