@@ -40,12 +40,14 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ### 고침
 - 1~2자 한글 YouTube 핸들(`@김`)을 받고, 마침표로 끝나는 TikTok 아이디를 거부한다(PR #401)
+- 광고를 싣지 않는 화면에서도 쇼츠 카드의 YouTube 썸네일과 재생 화면이 열린다(CSP `img-src https://i.ytimg.com`, `frame-src https://www.youtube-nocookie.com`). Instagram 아이디는 마침표로 시작하거나 끝날 수 없다. 블로그 탭·글 아래 쇼츠 개수 상한(60·6)은 `blog.shorts.blog-max`·`post-max` 설정으로 옮겼다(PR #403)
 
 ### 포함된 작업
 | 이슈 | 브랜치 | PR |
 |---|---|---|
 | #398 소셜 정보에 YouTube·Instagram·TikTok 채널 칸과 스튜디오 [내 채널 열기] | `feature/103-shorts-channel-links` | #400 |
 | #399 직접 올린 쇼츠를 글 상세와 블로그 "쇼츠" 탭에 보이기 | `feature/103-shorts-on-blog` | #401 |
+| 릴리스 리뷰 반영(CSP·Instagram 아이디·쇼츠 개수 설정) | `feature/103-shorts-review-fixes` | #403 |
 | 쇼츠 캐릭터 연기와 설명 그림 (목표 밖, 민서님 피드백) | `claude/project-thread-sz8mnc` | #396 |
 
 **비교:** [v2.5.0...v2.6.0](https://github.com/AIGJ-01-002-blog/devlog/compare/v2.5.0...v2.6.0)
