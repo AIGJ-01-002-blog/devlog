@@ -35,13 +35,15 @@ export const DiagramStage: React.FC<{scene: SceneData; tint: string; presenter?:
   const items = allItems(d);
   const beats = items.map((it) => scene.leadFrames / fps + it.atMs / 1000);
   const done = items.length > 0 && c.ms >= Math.max(...items.map((it) => it.atMs)) + 1200;
-  const Body = {flow: Flow, stack: Stack, steps: Steps, compare: Compare, timeline: Timeline, define: Define, number: NumberChange}[d.type] as React.FC<{d: Diagram; c: Clock; tint: string}>;
+  // 같은 종류 도식도 모양을 바꿔 그린다(scene.variant, 워커 look.py): 흐름은 한 칸씩 크게 비추기, 순서는 계단
+  const alt = (scene.variant ?? 0) % 2 === 1;
+  const Body = {flow: alt ? Spotlight : Flow, stack: Stack, steps: alt ? Stairs : Steps, compare: Compare, timeline: Timeline, define: Define, number: NumberChange}[d.type] as React.FC<{d: Diagram; c: Clock; tint: string}>;
   return (
     <>
       <div style={{position: 'absolute', left: 40, right: 40, top: 0, height: DIAGRAM_H}}>
         <Body d={d} c={c} tint={tint} />
       </div>
-      {presenter ? <Presenter scene={scene} beats={beats} done={done} /> : null}
+      {presenter ? <Presenter scene={scene} beats={beats} done={done} x={(scene.side ?? -1) > 0 ? 930 : 150} /> : null}
     </>
   );
 };
@@ -81,6 +83,70 @@ const Flow: React.FC<{d: Diagram; c: Clock; tint: string}> = ({d, c, tint}) => {
                   background: tint, boxShadow: `0 0 0 6px ${tint}33`}} /> : null}
               </div>
             ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+/** 흐름의 다른 모양: 지금 말하는 칸 하나를 가운데 크게 비추고, 지난 칸은 위쪽 작은 칩 줄로 물러난다 */
+const Spotlight: React.FC<{d: Diagram; c: Clock; tint: string}> = ({d, c, tint}) => {
+  if (d.type !== 'flow') return null;
+  const cur = Math.max(0, currentIndex(d.items, c.ms));
+  const it = d.items[cur];
+  const s = appear(c, it.atMs);
+  const Arrow = ICONS['arrow-right-left'];
+  return (
+    <div style={{position: 'absolute', inset: 0}}>
+      <div style={{position: 'absolute', left: 0, right: 0, top: 10, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 14}}>
+        {d.items.map((x, k) => {
+          const seen = k <= cur && c.ms >= x.atMs;
+          return (
+            <React.Fragment key={k}>
+              {k > 0 ? <div style={{width: 34, height: 6, borderRadius: 3, background: seen ? tint : theme.color.line}} /> : null}
+              <div style={{padding: '10px 20px', borderRadius: 999, font: theme.type.body, fontSize: 26, fontWeight: 800, whiteSpace: 'nowrap',
+                background: k === cur ? tint : seen ? `${tint}22` : theme.color.surface, color: k === cur ? '#fff' : seen ? theme.color.ink : theme.color.sub,
+                boxShadow: theme.shadow.soft}}>{k + 1}. {x.label}</div>
+            </React.Fragment>
+          );
+        })}
+      </div>
+      <div style={{position: 'absolute', left: '50%', top: 250, width: 560, translate: `-50% -50%`, scale: String(0.7 + 0.3 * s), opacity: Math.min(1, s * 1.6)}}>
+        <div style={card({padding: '36px 40px', display: 'flex', alignItems: 'center', gap: 34, outline: `8px solid ${tint}`})}>
+          <IconBadge Icon={iconFor(it.label, it.icon)} color={tint} size={150} on={1} fallback={cur + 1} />
+          <div style={{flex: 1}}>
+            <div style={{font: theme.type.label, fontSize: 52, color: color.ink, wordBreak: 'keep-all'}}>{it.label}</div>
+            {it.note ? <div style={{font: theme.type.body, fontSize: 30, color: color.sub, marginTop: 10, wordBreak: 'keep-all'}}>{it.note}</div> : null}
+          </div>
+        </div>
+        {cur < d.items.length - 1 ? <div style={{position: 'absolute', right: -70, top: '50%', marginTop: -26, opacity: 0.5}}><Arrow size={52} color={tint} /></div> : null}
+      </div>
+    </div>
+  );
+};
+
+/** 순서의 다른 모양: 왼쪽 아래에서 오른쪽 위로 올라가는 계단. 말한 단계까지 계단이 강조색으로 찬다 */
+const Stairs: React.FC<{d: Diagram; c: Clock; tint: string}> = ({d, c, tint}) => {
+  if (d.type !== 'steps') return null;
+  const n = d.items.length;
+  const cur = currentIndex(d.items, c.ms);
+  const w = Math.min(260, 1000 / n - 12);
+  const rise = (DIAGRAM_H - 150) / Math.max(1, n - 1);
+  return (
+    <div style={{position: 'absolute', inset: 0}}>
+      {d.items.map((it, k) => {
+        const s = appear(c, it.atMs);
+        const on = k === cur;
+        const reached = k <= cur;
+        const h = 110 + k * rise;
+        return (
+          <div key={k} style={{position: 'absolute', left: (1000 - n * (w + 12)) / 2 + k * (w + 12), bottom: 0, width: w, height: h * s,
+            borderRadius: '24px 24px 0 0', background: reached ? tint : color.surface, boxShadow: theme.shadow.card,
+            outline: on ? `6px solid ${tint}55` : 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 18, gap: 8, overflow: 'hidden'}}>
+            <div style={{font: `900 44px ${theme.font}`, color: reached ? '#fff' : tint, lineHeight: 1}}>{k + 1}</div>
+            <div style={{font: theme.type.label, fontSize: w < 200 ? 28 : 34, color: reached ? '#fff' : color.ink, textAlign: 'center', padding: '0 12px',
+              wordBreak: 'keep-all', opacity: s}}>{it.label}</div>
           </div>
         );
       })}

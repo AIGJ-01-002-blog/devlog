@@ -2,7 +2,7 @@
 // 마스코트(고양이 얼굴)와 소품(전구·로켓·폭죽 등)을 @remotion/lottie로 그린다. 재생은 장면 프레임에 맞춰 Remotion이 돌린다.
 import {Lottie, type LottieAnimationData} from '@remotion/lottie';
 import React from 'react';
-import {Freeze, useCurrentFrame} from 'remotion';
+import {Freeze, Sequence, useCurrentFrame} from 'remotion';
 import type {Pose} from './Cat';
 import {MOUTH, ONCE, useCharacter, type Clip, type Clips} from './character';
 import bulb from './emoji/1f4a1.json';
@@ -88,7 +88,7 @@ const CLIP_OF: Record<Face, Clip> = {grin: 'idle', smile: 'idle', joy: 'happy', 
   pout: 'sleepy'};
 
 /** 블로그 주인 캐릭터: 동작 Lottie를 발끝 기준으로 그린다. 없는 동작은 말할 때 talk, 아니면 idle */
-const Character: React.FC<{p: Pose; clip: Clip; clips: Clips}> = ({p, clip, clips}) => {
+const Character: React.FC<{p: Pose; clip: Clip; clips: Clips; from?: number}> = ({p, clip, clips, from}) => {
   // 캐릭터 그림은 512 칸 안에 발끝까지 약 80%라, 고양이와 같은 키로 보이게 조금 크게 그린다
   const H = p.size * 1.18;
   const talking = p.talk > 0.06;
@@ -100,14 +100,20 @@ const Character: React.FC<{p: Pose; clip: Clip; clips: Clips}> = ({p, clip, clip
   return (
     <div style={{position: 'absolute', left: p.x - H / 2, top: p.y - H, width: H, height: H, transformOrigin: '50% 100%',
       scale: `${(p.flip ? -1 : 1) / Math.sqrt(p.squash)} ${p.squash}`, rotate: `${p.bodyTilt}deg`}}>
-      {want === 'talk' && data === clips.talk ? <Freeze frame={mouth}>{anim}</Freeze> : anim}
+      {want === 'talk' && data === clips.talk ? <Freeze frame={mouth}>{anim}</Freeze>
+        : from !== undefined ? <Sequence from={from} layout="none">{anim}</Sequence> : anim}
     </div>
   );
 };
 
-export const Mascot: React.FC<{p: Pose; face: Face; clip?: Clip}> = ({p, face, clip}) => {
+/** 캐릭터 동작 → 기본 고양이 표정(블로그 주인 캐릭터가 없을 때) */
+export const FACE_OF: Record<Clip, Face> = {idle: 'smile', talk: 'grin', point: 'grin', happy: 'joy', shock: 'shock', sad: 'cry', think: 'kiss',
+  typing: 'wry', idea: 'love', sleepy: 'pout', panic: 'shock', walk: 'smile'};
+
+/** from: 동작을 처음부터 다시 틀 프레임(구절이 바뀌어 동작이 바뀔 때). 없으면 장면 처음부터 */
+export const Mascot: React.FC<{p: Pose; face: Face; clip?: Clip; from?: number}> = ({p, face, clip, from}) => {
   const clips = useCharacter();
-  if (clips) return <Character p={p} clip={clip ?? CLIP_OF[face]} clips={clips} />;
+  if (clips) return <Character p={p} clip={clip ?? CLIP_OF[face]} clips={clips} from={from} />;
   return <Cat p={p} face={face} />;
 };
 

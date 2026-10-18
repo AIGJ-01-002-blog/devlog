@@ -2,10 +2,12 @@
 import React from 'react';
 import {Easing, interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
 import {basePose, type Pose} from './Cat';
-import {Emoji, Mascot} from './Emoji';
+import type {Clip} from './character';
+import {Emoji, FACE_OF, Mascot, type EmojiName} from './Emoji';
+import {guessIcon, ICONS} from './Icons';
 import {FONT} from './fonts';
 import {Badge, C, CodeLine, Database, Mark, Paper, Pill, Server, Shield, Star} from './props';
-import {theme} from './theme';
+import {card, theme} from './theme';
 import type {SceneData} from './types';
 
 export const STAGE_W = 1080;
@@ -70,14 +72,14 @@ const useLife = (scene: SceneData, enterFrom = -1, beats: number[] = [], emphasi
   return {frame, fps, t, talk, live, pop};
 };
 
-export const Act: React.FC<{scene: SceneData; first: boolean; last?: boolean}> = ({scene, first, last = false}) => {
+export const Act: React.FC<{scene: SceneData; first: boolean; last?: boolean; tint?: string}> = ({scene, first, last = false, tint = theme.accents[0]}) => {
   // 첫 장면은 고양이가 통 튀어나오며 시작(훅), 다음 장면부터는 옆에서 뛰어 들어온다
   const life = useLife(scene, first ? 0 : -1, [], {hook: first, cta: last && !first});
   const enter = first ? life.pop(0, 16) : 1;
   const Body = ACTS[scene.action] ?? Explain;
   return (
     <div style={{position: 'absolute', inset: 0, scale: String(0.55 + 0.45 * enter), transformOrigin: '50% 95%'}}>
-      <Body scene={scene} life={life} />
+      <Body scene={scene} life={{...life, tint}} />
     </div>
   );
 };
@@ -85,21 +87,134 @@ export const Act: React.FC<{scene: SceneData; first: boolean; last?: boolean}> =
 /** 도식 장면의 발표자: 도식 칸(무대 위 DIAGRAM_H) 아래 띠에 서서 손가락으로 가리키며 설명한다. 도식을 가리지 않게 작게 둔다 */
 export const PRESENTER_SIZE = 230;
 export const Presenter: React.FC<{scene: SceneData; beats: number[]; done: boolean; x?: number}> = ({scene, beats, done, x = 150}) => {
-  const life = useLife(scene, -1, beats);
+  const life = useLife(scene, x > 540 ? 1 : -1, beats);
+  const beat = useBeat(scene);
   const {t, live, talk} = life;
-  // 오른팔로 도식을 가리키고(말할 때 더 크게 흔든다), 다 나오면 두 팔을 들어 기뻐한다
+  // 도식 쪽을 보고 가리키며(말할 때 더 크게 흔든다), 구절 말에 맞춰 동작이 바뀌고, 다 나오면 기뻐한다. 오른쪽에 서면 왼쪽을 본다
+  const dir = x > 540 ? -1 : 1;
   const reach = Math.sin(t * 3.2) * 4 + talk * 6;
-  const p = live({x, y: STAGE_H - 4, size: PRESENTER_SIZE, look: [1, -0.6], bodyTilt: done ? 0 : 6,
+  const p = live({x, y: STAGE_H - 4, size: PRESENTER_SIZE, look: [dir, -0.6], bodyTilt: done ? 0 : 6 * dir,
     armR: done ? 115 : 105 + reach, armL: done ? 115 : 18 + Math.sin(t * 2) * 3});
-  return <Mascot face={done ? 'joy' : talk > 0.06 ? 'grin' : 'smile'} p={p} clip={done ? 'happy' : 'point'} />;
+  const clip: Clip = done ? 'happy' : beat.clip === 'talk' ? 'point' : beat.clip;
+  return <Mascot face={done ? 'joy' : FACE_OF[clip]} p={p} clip={clip} from={done ? undefined : beat.from} />;
 };
 
-type Life = ReturnType<typeof useLife>;
+type Life = ReturnType<typeof useLife> & {tint: string};
 type ActProps = {scene: SceneData; life: Life};
 
-const Explain: React.FC<ActProps> = ({life}) => {
+/** 지금 구절의 캐릭터 동작(scene.beats)과 그 동작을 처음부터 틀 프레임. 같은 동작이 이어지는 구절은 끊지 않고 이어 튼다 */
+export const useBeat = (scene: SceneData) => {
+  const frame = useCurrentFrame();
+  const {fps} = useVideoConfig();
+  const ms = ((frame - scene.leadFrames) / fps) * 1000;
+  const k = scene.pages.reduce((cur, pg, i) => (ms >= pg.startMs ? i : cur), 0);
+  const beats = scene.beats ?? [];
+  const clip = (beats[k] ?? 'talk') as Clip;
+  let s = k;
+  while (s > 0 && beats[s - 1] === beats[k]) s--;
+  const startOf = (i: number) => (i === 0 ? 0 : scene.leadFrames + Math.round((scene.pages[i].startMs / 1000) * fps));
+  const text = (scene.pages[k]?.words ?? []).map((w) => w.text).join(' ');
+  return {k, clip, from: startOf(s), pageStart: startOf(k), text};
+};
+
+/** 구절 글에서 고른 그림: 숫자가 있으면 숫자를 크게, 아니면 낱말에 맞는 아이콘, 그것도 없으면 동작에 맞는 이모지 */
+type Cue = {kind: 'number'; value: string; unit: string} | {kind: 'icon'; name: string; word: string} | {kind: 'emoji'; name: EmojiName};
+const NUMBER = /(\d[\d,]*(?:\.\d+)?)\s*(%|배|ms|초|분|시간|명|개|번|건|원|만|천|억|MB|GB|KB|줄|일|달|년)?/;
+const EMOJI_OF: Record<Clip, EmojiName> = {think: 'thinking', idea: 'bulb', happy: 'party', shock: 'boom', panic: 'siren', sad: 'fire',
+  sleepy: 'hourglass', typing: 'sparkles', walk: 'rocket', point: 'pointR', talk: 'sparkles', idle: 'sparkles'};
+export const cueOf = (text: string, clip: Clip): Cue => {
+  const n = text.match(NUMBER);
+  if (n && (n[2] || n[1].length >= 2)) return {kind: 'number', value: n[1], unit: n[2] ?? ''};
+  const hit = guessIcon(text);
+  if (hit) {
+    const name = Object.keys(ICONS).find((key) => ICONS[key] === hit.Icon) ?? 'zap';
+    return {kind: 'icon', name, word: hit.word};
+  }
+  return {kind: 'emoji', name: EMOJI_OF[clip]};
+};
+
+/** 구절마다 바뀌는 그림 카드. 구절이 바뀔 때 번갈아 다른 쪽으로 기울며 튀어나온다 */
+const CueCard: React.FC<{cue: Cue; x: number; y: number; size: number; tint: string; start: number; k: number; bubble?: boolean}> = ({cue, x, y, size, tint, start, k, bubble = false}) => {
+  const frame = useCurrentFrame();
+  const {fps} = useVideoConfig();
+  const s = spring({frame: frame - start, fps, config: {damping: 12, stiffness: 170}});
+  const tilt = (k % 2 === 0 ? -1 : 1) * 3;
+  const bob = Math.sin((frame / fps) * 2.2 + k) * 6;
+  const inner = cue.kind === 'number' ? (
+    <div style={{textAlign: 'center', lineHeight: 1}}>
+      <div style={{font: `900 ${Math.round(size * (cue.value.length > 4 ? 0.24 : 0.34))}px ${theme.font}`, color: tint, letterSpacing: '-0.04em'}}>{cue.value}</div>
+      {cue.unit ? <div style={{font: `800 ${Math.round(size * 0.15)}px ${theme.font}`, color: theme.color.ink, marginTop: size * 0.04}}>{cue.unit}</div> : null}
+    </div>
+  ) : cue.kind === 'icon' ? (() => {
+    const Icon = ICONS[cue.name];
+    return (
+      <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: size * 0.06}}>
+        <div style={{width: size * 0.5, height: size * 0.5, borderRadius: size * 0.16, background: tint, display: 'grid', placeItems: 'center'}}>
+          <Icon size={size * 0.3} color="#ffffff" strokeWidth={2.2} />
+        </div>
+        <div style={{font: `800 ${Math.round(size * (cue.word.length > 5 ? 0.1 : 0.13))}px ${theme.font}`, color: theme.color.ink, maxWidth: size * 0.86,
+          textAlign: 'center', wordBreak: 'keep-all'}}>{cue.word}</div>
+      </div>
+    );
+  })() : <Emoji name={cue.name} x={size * 0.38} y={size * 0.38} size={size * 0.62} />;
+  return (
+    <div style={{position: 'absolute', left: x - size / 2, top: y - size / 2 + bob, width: size, height: size, scale: String(0.4 + 0.6 * s),
+      opacity: Math.min(1, s * 2), rotate: `${tilt * s}deg`}}>
+      <div style={card({position: 'absolute', inset: 0, borderRadius: bubble ? size / 2 : theme.radius.card, outline: `6px solid ${tint}33`,
+        display: 'grid', placeItems: 'center', ...(cue.kind === 'emoji' ? {padding: size * 0.12} : {})})}>
+        {cue.kind === 'emoji' ? <div style={{position: 'relative', width: size * 0.76, height: size * 0.76}}>{inner}</div> : inner}
+      </div>
+      {bubble ? [0, 1].map((j) => (
+        <div key={j} style={card({position: 'absolute', left: size * (0.12 - j * 0.1), top: size * (0.92 + j * 0.14), width: size * (0.14 - j * 0.05),
+          height: size * (0.14 - j * 0.05), borderRadius: '50%'})} />
+      )) : null}
+    </div>
+  );
+};
+
+/** 캐릭터 설명 장면. 짜임(scene.framing)마다 캐릭터 자리·크기와 그림 카드가 다르고, 구절마다 캐릭터 동작과 카드 그림이 바뀐다
+ *  (민서님 피드백 2026-10-18: 배경만 바뀌고 캐릭터 움직임·표정·설명 그림은 늘 같다) */
+const Explain: React.FC<ActProps> = ({scene, life}) => {
   const {t, live} = life;
-  return <Mascot face="grin" p={live({x: 540, bodyTilt: Math.sin(t * 1.5) * 1})} />;
+  const beat = useBeat(scene);
+  const tint = life.tint;
+  const cue = cueOf(`${beat.text}`, beat.clip);
+  const face = FACE_OF[beat.clip];
+  const sway = Math.sin(t * 1.5) * 1;
+  const mood = !['talk', 'point', 'idle', 'walk'].includes(beat.clip);
+  const framing = scene.framing ?? 'solo';
+  if (framing === 'card-right' || framing === 'card-left') {
+    const right = framing === 'card-right';
+    return (
+      <>
+        <CueCard cue={cue} x={right ? 770 : 310} y={320} size={380} tint={tint} start={beat.pageStart} k={beat.k} />
+        <Mascot face={face} clip={beat.clip} from={beat.from} p={live({x: right ? 280 : 800, size: 470, look: [right ? 0.7 : -0.7, -0.2], bodyTilt: sway + (right ? 3 : -3)})} />
+      </>
+    );
+  }
+  if (framing === 'closeup') {
+    return (
+      <>
+        <Mascot face={face} clip={beat.clip} from={beat.from} p={live({x: 470, size: 660, bodyTilt: sway, look: [0.5, -0.4]})} />
+        <CueCard cue={cue} x={860} y={170} size={250} tint={tint} start={beat.pageStart} k={beat.k} bubble />
+      </>
+    );
+  }
+  if (framing === 'corner') {
+    return (
+      <>
+        <CueCard cue={cue} x={640} y={330} size={520} tint={tint} start={beat.pageStart} k={beat.k} />
+        <Mascot face={face} clip={beat.clip} from={beat.from} p={live({x: 170, size: 300, look: [1, -0.6], bodyTilt: sway + 6})} />
+      </>
+    );
+  }
+  // solo: 가운데 혼자 서고, 표정이 바뀌는 구절에서만 머리 옆에 작은 그림 말풍선이 뜬다
+  return (
+    <>
+      <Mascot face={face} clip={beat.clip} from={beat.from} p={live({x: 540, bodyTilt: sway})} />
+      {mood ? <CueCard cue={{kind: 'emoji', name: EMOJI_OF[beat.clip]}} x={830} y={150} size={190} tint={tint} start={beat.pageStart} k={beat.k} bubble /> : null}
+    </>
+  );
 };
 
 const Shock: React.FC<ActProps> = ({scene, life}) => {

@@ -63,6 +63,13 @@ export type SceneData = {
   transition?: string | null;
   /** 목소리가 시작할 때 한 번 일어나는 사건(looks.ts EventLayer): shake 흔들림, flash 섬광, stamp 도장. 영상 한 편에 한두 장면 */
   event?: 'shake' | 'flash' | 'stamp' | null;
+  /** 구절(pages)마다 캐릭터 동작(character/index.ts Clip). 워커 acting.beats가 그 구절 말에서 고른다 */
+  beats?: string[];
+  /** 캐릭터 설명 장면의 화면 짜임(워커 look.FRAMINGS, actions.tsx Explain) */
+  framing?: 'solo' | 'card-right' | 'card-left' | 'closeup' | 'corner' | null;
+  /** 도식 모양(0·1, Diagram.tsx)과 발표자 자리(-1 왼쪽, 1 오른쪽) */
+  variant?: number;
+  side?: number;
 };
 
 export type ShortsProps = {
