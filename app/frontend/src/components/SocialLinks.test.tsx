@@ -40,6 +40,17 @@ describe('SocialLinkList', () => {
     expect(links[1].rel).toBe('me nofollow noopener noreferrer')
   })
 
+  it('쇼츠 채널은 채널 주소로 가고 툴팁에 채널 이름을 보인다', async () => {
+    const el = await mount(<SocialLinkList links={{ youtube: '@로그냥', instagram: 'dev.kim', tiktok: 'dev_kim' }} />)
+    const links = [...el.querySelectorAll('a')]
+    expect(links.map((a) => a.textContent)).toEqual(['YouTube', 'Instagram', 'TikTok'])
+    expect(links.map((a) => a.getAttribute('href'))).toEqual([
+      'https://www.youtube.com/@%EB%A1%9C%EA%B7%B8%EB%83%A5', 'https://www.instagram.com/dev.kim/', 'https://www.tiktok.com/@dev_kim'])
+    expect(links.map((a) => a.title)).toEqual(['YouTube 채널 @로그냥', 'Instagram 채널 @dev.kim', 'TikTok 채널 @dev_kim'])
+    const id = await mount(<SocialLinkList links={{ youtube: 'channel/UCabcdefghijklmnopqrstuv' }} />)
+    expect(id.querySelector('a')!.getAttribute('href')).toBe('https://www.youtube.com/channel/UCabcdefghijklmnopqrstuv')
+  })
+
   it('아무것도 없으면 목록을 그리지 않는다', async () => {
     const el = await mount(<SocialLinkList links={{}} />)
     expect(el.querySelector('.social-links')).toBeNull()
@@ -52,7 +63,7 @@ describe('SocialLinksForm', () => {
     vi.unstubAllGlobals()
   })
 
-  it('다섯 칸을 한 번에 보내고 서버가 정리한 값으로 칸을 바꾼다', async () => {
+  it('모든 칸을 한 번에 보내고 서버가 정리한 값으로 칸을 바꾼다', async () => {
     const fetch = serve(200, { github: 'octo' })
     const onSaved = vi.fn<(l: SocialLinks) => void>()
     const el = await mount(<SocialLinksForm initial={{ x: 'old' }} onSaved={onSaved} />)
@@ -65,7 +76,7 @@ describe('SocialLinksForm', () => {
     const [url, init] = fetch.mock.calls[0]
     expect(String(url)).toBe('/api/me/social-links')
     expect(init?.method).toBe('PUT')
-    expect(JSON.parse(String(init?.body))).toEqual({ email: '', github: 'https://github.com/octo', x: '', facebook: '', homepage: '' })
+    expect(JSON.parse(String(init?.body))).toEqual({ email: '', github: 'https://github.com/octo', x: '', facebook: '', homepage: '', youtube: '', instagram: '', tiktok: '' })
     expect(input(el, 'GitHub').value).toBe('octo')
     expect(onSaved).toHaveBeenCalledWith({ github: 'octo' })
     expect(el.querySelector('[role="status"]')?.textContent).toBe('저장했어요.')

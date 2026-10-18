@@ -2,6 +2,8 @@ package com.team.blog.account.application;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
@@ -20,8 +22,10 @@ import com.team.blog.shared.error.ApiException;
 import com.team.blog.shared.error.FieldErrorItem;
 
 /**
- * 블로그 소셜 정보 (spec 043): 이메일·GitHub·X·Facebook·홈페이지. (회원, 종류)당 한 행이고 빈 칸은 행이 없다.
- * GitHub·X·Facebook은 아이디만 저장해 주소 앞부분을 행마다 되풀이하지 않는다. 주소를 붙여 넣어도 아이디를 꺼낸다.
+ * 블로그 소셜 정보 (spec 043): 이메일·GitHub·X·Facebook·홈페이지, 쇼츠 채널 YouTube·Instagram·TikTok(spec 103).
+ * (회원, 종류)당 한 행이고 빈 칸은 행이 없다.
+ * GitHub·X·Facebook·Instagram·TikTok은 아이디만 저장해 주소 앞부분을 행마다 되풀이하지 않는다. 주소를 붙여 넣어도 아이디를 꺼낸다.
+ * YouTube는 핸들과 채널 ID가 겹칠 수 있어 "@핸들" 또는 "channel/UC…"처럼 youtube.com/ 뒤 경로로 저장한다.
  */
 @Service
 public class SocialLinks {
@@ -33,7 +37,10 @@ public class SocialLinks {
         GITHUB("GitHub 아이디나 주소를 확인해 주세요."),
         X("X 아이디나 주소를 확인해 주세요."),
         FACEBOOK("Facebook 아이디나 주소를 확인해 주세요."),
-        HOMEPAGE("http:// 또는 https://로 시작하는 주소를 넣어 주세요.");
+        HOMEPAGE("http:// 또는 https://로 시작하는 주소를 넣어 주세요."),
+        YOUTUBE("YouTube 핸들(@이름)이나 채널 주소를 확인해 주세요."),
+        INSTAGRAM("Instagram 아이디나 주소를 확인해 주세요."),
+        TIKTOK("TikTok 아이디나 주소를 확인해 주세요.");
 
         private final String message;
 
@@ -47,8 +54,9 @@ public class SocialLinks {
     }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record Links(String email, String github, String x, String facebook, String homepage) {
-        public static final Links EMPTY = new Links(null, null, null, null, null);
+    public record Links(String email, String github, String x, String facebook, String homepage,
+                        String youtube, String instagram, String tiktok) {
+        public static final Links EMPTY = new Links(null, null, null, null, null, null, null, null);
 
         String get(Kind k) {
             return switch (k) {
@@ -57,11 +65,15 @@ public class SocialLinks {
                 case X -> x;
                 case FACEBOOK -> facebook;
                 case HOMEPAGE -> homepage;
+                case YOUTUBE -> youtube;
+                case INSTAGRAM -> instagram;
+                case TIKTOK -> tiktok;
             };
         }
 
         static Links of(Map<Kind, String> m) {
-            return new Links(m.get(Kind.EMAIL), m.get(Kind.GITHUB), m.get(Kind.X), m.get(Kind.FACEBOOK), m.get(Kind.HOMEPAGE));
+            return new Links(m.get(Kind.EMAIL), m.get(Kind.GITHUB), m.get(Kind.X), m.get(Kind.FACEBOOK), m.get(Kind.HOMEPAGE),
+                    m.get(Kind.YOUTUBE), m.get(Kind.INSTAGRAM), m.get(Kind.TIKTOK));
         }
     }
 
@@ -71,6 +83,17 @@ public class SocialLinks {
     private static final Pattern GITHUB_URL = profileUrl("github\\.com");
     private static final Pattern X_URL = profileUrl("(?:x|twitter)\\.com");
     private static final Pattern FACEBOOK_URL = profileUrl("(?:facebook|fb)\\.com");
+    /** Instagram 사용자 이름: 영문·숫자·밑줄·마침표 30자까지 */
+    private static final Pattern INSTAGRAM_ID = Pattern.compile("[A-Za-z0-9._]{1,30}");
+    /** TikTok 사용자 이름: 영문·숫자·밑줄·마침표 2~24자 */
+    private static final Pattern TIKTOK_ID = Pattern.compile("[A-Za-z0-9._]{2,24}");
+    private static final Pattern INSTAGRAM_URL = profileUrl("instagram\\.com");
+    private static final Pattern TIKTOK_URL = profileUrl("tiktok\\.com");
+    /** YouTube 핸들은 여러 언어 글자를 받는다(3~30자, 글자·숫자·밑줄·하이픈·마침표) */
+    private static final Pattern YOUTUBE_HANDLE = Pattern.compile("[\\p{L}\\p{N}\\p{M}._-]{3,30}");
+    private static final Pattern YOUTUBE_CHANNEL_ID = Pattern.compile("UC[A-Za-z0-9_-]{22}");
+    private static final Pattern YOUTUBE_URL = Pattern.compile(
+            "(?i)(?:https?://)?(?:www\\.|m\\.)?youtube\\.com/(@[^/?#]+|channel/[^/?#]+)(?:/[^?#]*)?(?:[?#].*)?");
 
     private final JdbcTemplate jdbc;
 
@@ -118,7 +141,31 @@ public class SocialLinks {
             case X -> account(raw, X_URL, X_ID);
             case FACEBOOK -> account(raw, FACEBOOK_URL, FACEBOOK_ID);
             case HOMEPAGE -> homepage(raw);
+            case YOUTUBE -> youtube(raw);
+            case INSTAGRAM -> account(raw, INSTAGRAM_URL, INSTAGRAM_ID);
+            case TIKTOK -> account(raw, TIKTOK_URL, TIKTOK_ID);
         };
+    }
+
+    /** 채널 주소(youtube.com/@핸들, /channel/UC…), @핸들, 채널 ID를 받아 youtube.com/ 뒤 경로로 정리한다. */
+    private static String youtube(String raw) {
+        Matcher m = YOUTUBE_URL.matcher(raw);
+        String path = raw;
+        if (m.matches()) {
+            // 한글 핸들은 주소에 %EB%… 로 들어온다
+            try {
+                path = URLDecoder.decode(m.group(1).replace("+", "%2B"), StandardCharsets.UTF_8);
+            } catch (IllegalArgumentException e) {
+                return null;
+            }
+        }
+        if (path.regionMatches(true, 0, "channel/", 0, 8)) {
+            String id = path.substring(8);
+            return YOUTUBE_CHANNEL_ID.matcher(id).matches() ? "channel/" + id : null;
+        }
+        if (YOUTUBE_CHANNEL_ID.matcher(path).matches()) return "channel/" + path;
+        String handle = path.startsWith("@") ? path.substring(1) : path;
+        return YOUTUBE_HANDLE.matcher(handle).matches() ? "@" + handle : null;
     }
 
     /** 프로필 주소면 첫 경로를, 아니면 앞의 @를 뗀 입력을 아이디로 본다. */
