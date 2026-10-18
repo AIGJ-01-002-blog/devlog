@@ -14,7 +14,8 @@ class ContentSecurityPolicyHeaderTest extends IntegrationTest {
     void 광고_없는_화면_응답의_CSP가_YouTube_썸네일과_재생_화면을_연다() throws Exception {
         String policy = mvc.perform(get("/settings")).andReturn().getResponse().getHeader("Content-Security-Policy");
 
-        assertThat(policy).contains("img-src 'self' https://i.ytimg.com data: blob:")
+        // 시험 설정은 저장소 공개 주소(localhost)가 img-src에 함께 들어가므로 출처만 본다
+        assertThat(policy).containsPattern("img-src 'self'[^;]* https://i\\.ytimg\\.com data: blob:")
                 .contains("frame-src https://www.youtube-nocookie.com;")
                 .contains("frame-ancestors 'none'")
                 .doesNotContain("frame-src https:;");
