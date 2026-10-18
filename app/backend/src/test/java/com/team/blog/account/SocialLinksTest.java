@@ -51,6 +51,20 @@ class SocialLinksTest extends IntegrationTest {
         assertThat(saved.path("homepage").asString()).isEqualTo("https://devlog.life/@me");
 
         assertThat(profileLinks(me.handle())).isEqualTo(saved);
+
+        // spec 103: 쇼츠 채널도 같은 칸 묶음으로 저장한다
+        JsonNode channels = read(save(me, Map.of(
+                "youtube", "https://www.youtube.com/@devlog_kim/shorts",
+                "instagram", "https://www.instagram.com/dev.kim/",
+                "tiktok", "https://www.tiktok.com/@dev.kim")).andExpect(status().isOk()).andReturn());
+        assertThat(channels.path("youtube").asString()).isEqualTo("@devlog_kim");
+        assertThat(channels.path("instagram").asString()).isEqualTo("dev.kim");
+        assertThat(channels.path("tiktok").asString()).isEqualTo("dev.kim");
+        assertThat(profileLinks(me.handle())).isEqualTo(channels);
+        saved = read(save(me, Map.of(
+                "email", "me@example.com", "github", "octo-cat", "x", "dev_kim", "facebook", "kim.dev.5",
+                "homepage", "https://devlog.life/@me")).andExpect(status().isOk()).andReturn());
+
         assertThat(read(me.http().perform(get("/api/me/settings")).andReturn()).path("socialLinks")).isEqualTo(saved);
 
         // 보내지 않거나 비운 칸은 지운다
@@ -73,9 +87,12 @@ class SocialLinksTest extends IntegrationTest {
         bad.put("x", "this_is_too_long_for_x");
         bad.put("facebook", "abc");
         bad.put("homepage", "javascript:alert(1)");
+        bad.put("youtube", "https://www.youtube.com/watch?v=abc");
+        bad.put("instagram", "한글");
+        bad.put("tiktok", "https://www.tiktok.com/@kim/video/1");
         String body = save(me, bad).andExpect(status().isBadRequest()).andReturn().getResponse().getContentAsString();
         assertThat(body).contains("SOCIAL_EMAIL_INVALID", "SOCIAL_GITHUB_INVALID", "SOCIAL_X_INVALID", "SOCIAL_FACEBOOK_INVALID",
-                "SOCIAL_HOMEPAGE_INVALID");
+                "SOCIAL_HOMEPAGE_INVALID", "SOCIAL_YOUTUBE_INVALID", "SOCIAL_INSTAGRAM_INVALID", "SOCIAL_TIKTOK_INVALID");
         assertThat(profileLinks(me.handle()).path("github").asString()).isEqualTo("octo");
 
         // 다른 사이트 주소나 계정 정보가 든 홈페이지는 받지 않는다
