@@ -16,6 +16,8 @@ import org.springframework.util.unit.DataSize;
  * @param dailyRenders   회원별 하루(한국 0시 기준) 영상 만들기 횟수
  * @param renderTimeout  워커가 받은 뒤 이만큼 결과가 없으면 대기로 되돌린다
  * @param maxAttempts    이만큼 실패하면 FAILED로 끝낸다
+ * @param blogMax        블로그 [쇼츠] 탭에 보이는 최대 개수(spec 103)
+ * @param postMax        글 아래 "이 글의 쇼츠"에 보이는 최대 개수(spec 103)
  */
 @ConfigurationProperties(prefix = "blog.shorts")
 public record ShortsProperties(@DefaultValue("false") boolean enabled,
@@ -24,7 +26,9 @@ public record ShortsProperties(@DefaultValue("false") boolean enabled,
                                @DefaultValue("20MB") DataSize maxVideo,
                                @DefaultValue("10") int dailyRenders,
                                @DefaultValue("15m") Duration renderTimeout,
-                               @DefaultValue("3") int maxAttempts) {
+                               @DefaultValue("3") int maxAttempts,
+                               @DefaultValue("60") int blogMax,
+                               @DefaultValue("6") int postMax) {
 
     public boolean workerEnabled() {
         return enabled && workerToken != null && !workerToken.isBlank();

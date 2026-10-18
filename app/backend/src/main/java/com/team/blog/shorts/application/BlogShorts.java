@@ -22,8 +22,6 @@ import com.team.blog.shared.error.NotFoundException;
  */
 @Service
 public class BlogShorts {
-    static final int BLOG_MAX = 60;
-    static final int POST_MAX = 6;
 
     /** @param embedId YouTube 영상이면 영상 ID(화면이 youtube-nocookie로 재생), 아니면 null */
     public record Link(UploadLink.Platform platform, String url, String embedId) {}
@@ -56,13 +54,13 @@ public class BlogShorts {
     public List<Card> ofBlog(String handle) {
         if (!props.enabled()) throw new NotFoundException();
         long memberId = members.activeId(handle).orElseThrow(NotFoundException::new);
-        return read(SELECT + " AND s.member_id = ?", BLOG_MAX, memberId);
+        return read(SELECT + " AND s.member_id = ?", props.blogMax(), memberId);
     }
 
     /** 글 상세의 "이 글의 쇼츠". 글이 누구에게나 보이지 않으면 비어 있다. 쇼츠가 꺼져 있으면 404 */
     public List<Card> ofPost(long postId) {
         if (!props.enabled()) throw new NotFoundException();
-        return read(SELECT + " AND s.post_id = ?", POST_MAX, postId);
+        return read(SELECT + " AND s.post_id = ?", props.postMax(), postId);
     }
 
     /** 쇼츠 한 편에 플랫폼 링크가 여럿이라 행을 쇼츠로 묶는다. 올린 시각은 가장 최근 것 */
