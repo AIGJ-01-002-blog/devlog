@@ -76,20 +76,24 @@ for _ in $(seq 1 30); do
 done
 curl -fs "http://127.0.0.1:$PORT/minio/health/ready" >/dev/null || die "MinIO에 연결하지 못했어요: $(cat "$WORK/pf.log")"
 
-# 열쇠는 명령줄에 두지 않는다(여럿이 쓰는 서버에서 ps로 보인다). 나만 읽는 임시 파일·환경 변수로만 넘긴다
+# 열쇠는 명령줄에 두지 않는다(여럿이 쓰는 서버에서 ps로 보인다. docker 안에서 돈 프로세스도 서버의 ps에 보인다).
+# mc alias set은 열쇠를 인자로 받으므로 쓰지 않고, mc가 읽는 MC_HOST_<별칭> 환경 변수로만 넘긴다.
+# 환경 변수는 같은 계정과 root만 읽을 수 있다(/proc/<pid>/environ)
 mkdir -p "$WORK/mc-config"
-# 값을 셸 문법으로 다시 읽지 않게 변수에 바로 담고, 파일은 docker --env-file용으로만 쓴다
-MC_URL="http://127.0.0.1:$PORT"
+# mc는 MC_HOST_ 값을 정규식으로 잘라 열쇠를 그대로 쓴다(퍼센트 인코딩을 풀지 않는다).
+# 접근 키는 첫 ':' 앞, 비밀 키는 그 뒤부터 마지막 '@' 앞까지라서, ':'가 들어가면 세션 토큰으로 잘못 잘린다.
+# 그런 열쇠나 줄바꿈이 든 열쇠는 docker --env-file에도 못 담으니 받지 않고 멈춘다
 MC_AK="$(secret S3_ACCESS_KEY)"
 MC_SK="$(secret S3_SECRET_KEY)"
-{
-  printf 'MC_URL=%s\n' "$MC_URL"
-  printf 'MC_AK=%s\n' "$MC_AK"
-  printf 'MC_SK=%s\n' "$MC_SK"
-} > "$WORK/mc.env"
+case "$MC_AK$MC_SK" in
+  *:*|*$'\n'*) die "MinIO 열쇠에 ':'나 줄바꿈이 있어 mc 환경 변수로 넘길 수 없어요. 열쇠를 다시 만들어 주세요." ;;
+esac
+# 값을 셸 문법으로 다시 읽지 않게 변수에 바로 담고, 파일은 docker --env-file용으로만 쓴다
+MC_HOST_devlog="http://$MC_AK:$MC_SK@127.0.0.1:$PORT"
+unset MC_AK MC_SK
+printf 'MC_HOST_devlog=%s\n' "$MC_HOST_devlog" > "$WORK/mc.env"
 if [ -n "$MC" ]; then
-  ( export MC_CONFIG_DIR="$WORK/mc-config"
-    "$MC" alias set devlog "$MC_URL" "$MC_AK" "$MC_SK" >/dev/null
+  ( export MC_CONFIG_DIR="$WORK/mc-config" MC_HOST_devlog
     "$MC" mirror --overwrite --quiet "devlog/$BUCKET" "$OUT/media" )
 else
   echo "mc 이미지로 받는 중: $MC_IMAGE"
@@ -97,8 +101,9 @@ else
   docker run --rm --network host --user "$(id -u):$(id -g)" --env-file "$WORK/mc.env" \
     -e MC_CONFIG_DIR=/mc -e BUCKET="$BUCKET" \
     -v "$WORK/mc-config:/mc" -v "$OUT/media:/out" --entrypoint sh "$MC_IMAGE" -c \
-    'mc alias set devlog "$MC_URL" "$MC_AK" "$MC_SK" >/dev/null && mc mirror --overwrite --quiet "devlog/$BUCKET" /out'
+    'mc mirror --overwrite --quiet "devlog/$BUCKET" /out'
 fi
+unset MC_HOST_devlog
 rm -f "$WORK/mc.env"
 
 say "3/3 확인 목록 만드는 중"
