@@ -78,14 +78,17 @@ curl -fs "http://127.0.0.1:$PORT/minio/health/ready" >/dev/null || die "MinIO에
 
 # 열쇠는 명령줄에 두지 않는다(여럿이 쓰는 서버에서 ps로 보인다). 나만 읽는 임시 파일·환경 변수로만 넘긴다
 mkdir -p "$WORK/mc-config"
+# 값을 셸 문법으로 다시 읽지 않게 변수에 바로 담고, 파일은 docker --env-file용으로만 쓴다
+MC_URL="http://127.0.0.1:$PORT"
+MC_AK="$(secret S3_ACCESS_KEY)"
+MC_SK="$(secret S3_SECRET_KEY)"
 {
-  printf 'MC_URL=http://127.0.0.1:%s\n' "$PORT"
-  printf 'MC_AK=%s\n' "$(secret S3_ACCESS_KEY)"
-  printf 'MC_SK=%s\n' "$(secret S3_SECRET_KEY)"
+  printf 'MC_URL=%s\n' "$MC_URL"
+  printf 'MC_AK=%s\n' "$MC_AK"
+  printf 'MC_SK=%s\n' "$MC_SK"
 } > "$WORK/mc.env"
 if [ -n "$MC" ]; then
-  ( set -a; . "$WORK/mc.env"; set +a
-    export MC_CONFIG_DIR="$WORK/mc-config"
+  ( export MC_CONFIG_DIR="$WORK/mc-config"
     "$MC" alias set devlog "$MC_URL" "$MC_AK" "$MC_SK" >/dev/null
     "$MC" mirror --overwrite --quiet "devlog/$BUCKET" "$OUT/media" )
 else
