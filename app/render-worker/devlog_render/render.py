@@ -462,6 +462,11 @@ class Renderer:
                 "camera": look.hold_camera(lk.cameras[i], lk.layouts[i], self._kind(scene), t.length),
                 "transition": lk.transitions[i] or None,
                 "event": lk.events[i] if i < len(lk.events) else None,
+                # 구절마다 캐릭터 동작, 캐릭터 장면의 화면 짜임, 도식 모양과 발표자 자리(민서님 피드백 2026-10-18)
+                "beats": acting.beats([" ".join(w["text"] for w in pg["words"]) for pg in pages], v.action),
+                "framing": lk.framings[i] if i < len(lk.framings) else "solo",
+                "variant": lk.variants[i] if i < len(lk.variants) else 0,
+                "side": lk.sides[i] if i < len(lk.sides) else -1,
             })
         # 영상 한 편에 두세 번, 요점 낱말을 색으로 강조한다(자막 모양마다 칠하는 방식이 다르다)
         captions.emphasize([sc["pages"] for sc in scenes], [sc.caption for sc in script.scenes])

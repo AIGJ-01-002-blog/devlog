@@ -1,9 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { Link } from '../lib/router'
 import { CopyCode } from '../components/CopyCode'
+import { api } from '../lib/api'
 import { fieldErrors } from '../lib/fieldErrors'
 import { t } from '../lib/i18n'
+import { CHANNEL_KIND, socialHref, type SocialLinks } from '../lib/socialLinks'
 import {
-  canShareFiles, deleteUpload, PLATFORMS, recordUpload, shareVideo, uploadGuide, videoFileName,
+  canShareFiles, deleteUpload, PLATFORMS, recordUpload, setOnBlog, shareVideo, uploadGuide, videoFileName,
   type Platform, type ShortsItem,
 } from '../lib/shorts'
 
@@ -15,6 +18,7 @@ export function StudioUploadGuide({ item, onChange }: { item: ShortsItem; onChan
   const [platform, setPlatform] = useState<Platform>('YOUTUBE')
   const guide = uploadGuide(item, platform, window.location.origin)
   const uploaded = item.uploads.find((u) => u.platform === platform) ?? null
+  const links = useMyLinks()
 
   return (
     <section className="studio-guide" aria-labelledby="studio-guide-title">
@@ -47,7 +51,9 @@ export function StudioUploadGuide({ item, onChange }: { item: ShortsItem; onChan
           {guide.steps.map((step) => <li key={step}>{step}</li>)}
         </ol>
 
-        <ShareButtons item={item} appName={guide.spec.name} uploadUrl={guide.spec.uploadUrl} />
+        <ShareButtons item={item} appName={guide.spec.name} uploadUrl={guide.spec.uploadUrl}>
+          {links && <MyChannel platform={platform} links={links} />}
+        </ShareButtons>
 
         {guide.title !== null && (
           <div className="field">
@@ -66,11 +72,12 @@ export function StudioUploadGuide({ item, onChange }: { item: ShortsItem; onChan
 
         <UploadRecord key={`${platform}:${uploaded?.url ?? ''}`} item={item} platform={platform} url={uploaded?.url ?? null} onChange={onChange} />
       </div>
+      {item.uploads.length > 0 && <OnBlogToggle item={item} onChange={onChange} />}
     </section>
   )
 }
 
-function ShareButtons({ item, appName, uploadUrl }: { item: ShortsItem; appName: string; uploadUrl: string }) {
+function ShareButtons({ item, appName, uploadUrl, children }: { item: ShortsItem; appName: string; uploadUrl: string; children?: ReactNode }) {
   const [note, setNote] = useState<string | null>(null)
   const [sharing, setSharing] = useState(false)
   if (!item.videoUrl) return null
@@ -96,8 +103,63 @@ function ShareButtons({ item, appName, uploadUrl }: { item: ShortsItem; appName:
           data-tip={t('휴대폰 공유 창으로 영상을 {0} 앱에 바로 넘겨요', { 0: appName })}>{t('앱으로 보내기')}</button>
       )}
       <a className="btn btn-text btn-small" href={uploadUrl} target="_blank" rel="noopener noreferrer">{t('{0} 열기', { 0: appName })}</a>
+      {children}
       {note && <p className="muted small" role="status">{note}</p>}
     </div>
+  )
+}
+
+/** 설정의 소셜 정보(쇼츠 채널 칸)를 한 번 읽는다. 못 읽으면 채널 안내를 숨긴다 */
+function useMyLinks(): SocialLinks | null {
+  const [links, setLinks] = useState<SocialLinks | null>(null)
+  useEffect(() => {
+    let alive = true
+    api<{ socialLinks?: SocialLinks }>('/api/me/settings')
+      .then((s) => { if (alive) setLinks(s.socialLinks ?? {}) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [])
+  return links
+}
+
+/** 내 채널 바로 가기 (spec 103). 채널을 넣지 않았으면 블로그에 채널을 잇는 설정으로 안내한다 */
+function MyChannel({ platform, links }: { platform: Platform; links: SocialLinks }) {
+  const kind = CHANNEL_KIND[platform]
+  const value = links[kind]
+  if (!value) {
+    return (
+      <span className="muted small">
+        {t('내 채널을 아직 잇지 않았어요.')} <Link to="/settings" data-tip={t('설정의 소셜 정보에 채널을 넣으면 블로그 머리에 보여요')}>{t('설정에서 채널 넣기')}</Link>
+      </span>
+    )
+  }
+  return (
+    <a className="btn btn-outline btn-small" href={socialHref(kind, value)} target="_blank" rel="noopener noreferrer"
+      data-tip={t('블로그에 이은 내 채널을 새 탭에서 열어요')}>{t('내 채널 열기')}</a>
+  )
+}
+
+/** 남긴 영상을 내 블로그 [쇼츠] 탭과 바탕 글 아래에 보일지 (spec 103) */
+function OnBlogToggle({ item, onChange }: { item: ShortsItem; onChange: (item: ShortsItem) => void }) {
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(false)
+  const toggle = async (visible: boolean) => {
+    setSaving(true)
+    setError(false)
+    try {
+      onChange(await setOnBlog(item.id, visible))
+    } catch {
+      setError(true)
+    } finally {
+      setSaving(false)
+    }
+  }
+  return (
+    <label className="check studio-onblog small" data-tip={t('끄면 블로그와 글 화면에서만 빠지고, 올린 영상과 남긴 주소는 그대로예요')}>
+      <input type="checkbox" checked={item.onBlog} disabled={saving} onChange={(e) => void toggle(e.target.checked)} />
+      {t('내 블로그 [쇼츠] 탭과 바탕 글 아래에 보이기')}
+      {error && <span className="error" role="alert"> {t('잠시 후 다시 시도해 주세요.')}</span>}
+    </label>
   )
 }
 
@@ -129,7 +191,7 @@ function UploadRecord({ item, platform, url, onChange }: { item: ShortsItem; pla
             data-tip={t('남긴 주소만 지워요. 올린 영상은 그대로예요')}>{t('지우기')}</button>
         )}
       </div>
-      <span className="muted small">{url ? <a href={url} target="_blank" rel="noopener noreferrer">{t('올린 영상 보기')}</a> : t('올린 뒤 주소를 남기면 대시보드에서 반응을 모아 볼 수 있어요.')}</span>
+      <span className="muted small">{url ? <a href={url} target="_blank" rel="noopener noreferrer">{t('올린 영상 보기')}</a> : t('올린 뒤 주소를 남기면 대시보드에서 반응을 모아 보고, 내 블로그에도 보여요.')}</span>
       {error && <span className="error" role="alert">{error}</span>}
     </form>
   )

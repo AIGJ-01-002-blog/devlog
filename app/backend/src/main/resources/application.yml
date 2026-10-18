@@ -234,6 +234,9 @@ blog:
     daily-renders: 10
     render-timeout: 15m
     max-attempts: 3
+    # 블로그 [쇼츠] 탭과 글 아래 "이 글의 쇼츠"에 보이는 최대 개수 (spec 103)
+    blog-max: 60
+    post-max: 6
   # 매매 일지 (#243, 목표 v2.0.0): 2.0.0 릴리스 전까지 꺼 둔다. 봇은 개인 쓰기 토큰으로 MCP record_trade를 부른다
   trades:
     enabled: ${TRADES_ENABLED:false}

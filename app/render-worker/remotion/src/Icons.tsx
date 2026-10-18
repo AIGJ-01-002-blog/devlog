@@ -67,6 +67,15 @@ export const iconFor = (label: string, name: string | null): LucideIcon | null =
   return hit ? ICONS[hit[1]] : null;
 };
 
+/** 문장 → 아이콘과 그 아이콘을 고른 낱말(설명 카드에 이름표로 쓴다). 못 고르면 null */
+export const guessIcon = (text: string): {Icon: LucideIcon; word: string} | null => {
+  for (const [re, name] of GUESS) {
+    const m = text.match(re);
+    if (m) return {Icon: ICONS[name], word: m[0]};
+  }
+  return null;
+};
+
 /** 아이콘을 짐작하지 못한 칸은 빈 네모 대신 순서 번호(fallback)를 보인다 */
 export const IconBadge: React.FC<{Icon: LucideIcon | null; color: string; size: number; on: number; fallback?: number}> = ({Icon, color, size, on, fallback}) => {
   const ink = on > 0.5 ? '#ffffff' : color;

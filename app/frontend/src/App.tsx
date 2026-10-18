@@ -135,6 +135,7 @@ function route(path: string): ReactNode {
   if ((p = match('/@:handle/rss', path))) return <RssGuidePage key={`${p.handle}/rss`} handle={p.handle.toLowerCase()} />
   if (path === '/rss') return <RssGuidePage handle={null} />
   if ((p = match('/@:handle/about', path))) return <BlogPage key={p.handle} handle={p.handle} tab="about" />
+  if ((p = match('/@:handle/shorts', path))) return <BlogPage key={p.handle} handle={p.handle} tab="shorts" />
   if ((p = match('/@:handle', path))) return <BlogPage key={p.handle} handle={p.handle} />
   if (path === '/search') return <SearchPage />
   if (path === '/mcp') return <McpPage />

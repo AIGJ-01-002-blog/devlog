@@ -67,10 +67,10 @@ export const FastScene: React.FC<{scene: SceneData; index: number; title: string
           )}
         </div>
       </div>
-      {/* 아래: 캐릭터. 도식 장면은 가리키는 발표자, 그 밖은 원래 연기 */}
+      {/* 아래: 캐릭터. 도식 장면은 가리키는 발표자(도식 장면마다 왼쪽·오른쪽을 번갈아, 칸이 1.95배라 화면에서는 약 300·780), 그 밖은 원래 연기 */}
       <div style={d ? {position: 'absolute', top: PRESENTER_FEET - 720, left: 0, width: 1080, height: 720, transformOrigin: '50% 100%', scale: String(PRESENTER_SCALE * f.char)}
         : {position: 'absolute', top: BOTTOM, left: 0, width: 1080, height: 720, transformOrigin: '50% 0%', scale: String(CHAR_SCALE * f.char)}}>
-        {d ? <Presenter scene={scene} beats={beats} done={done} x={540} /> : <Act scene={scene} first={index === 0} last={last} />}
+        {d ? <Presenter scene={scene} beats={beats} done={done} x={(scene.side ?? -1) > 0 ? 660 : 420} /> : <Act scene={scene} first={index === 0} last={last} tint={tint} />}
       </div>
       <FastCaptions pages={scene.pages} leadFrames={scene.leadFrames} />
       <div style={{position: 'absolute', top: theme.layout.footerTop, left: 0, right: 0, textAlign: 'center', font: theme.type.footer, color: look().color.onBgSub}}>

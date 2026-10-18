@@ -42,6 +42,13 @@ LAYOUTS = ["stage", "split"]
 #: 룩마다 split을 쓸 몫(0~1). 같은 영상 안에서도 배치가 바뀌게 한다
 SPLIT_SHARE = {"paper": 0.3, "night": 0.5, "mint": 0.35, "sunset": 0.4, "mono": 0.6, "grape": 0.4, "ocean": 0.35}
 
+#: 캐릭터 설명 장면(도식·코드가 없는 장면)의 화면 짜임(민서님 피드백 2026-10-18: 캐릭터가 늘 가운데 같은 자리에 서 있다).
+#: remotion/src/actions.tsx Explain과 같다. solo: 가운데 혼자, card-right/left: 캐릭터 옆에 구절마다 바뀌는 그림 카드,
+#: closeup: 캐릭터를 크게 당겨 찍고 머리 위에 그림 말풍선, corner: 캐릭터는 구석에 작게 두고 그림 카드를 크게
+FRAMINGS = ["solo", "card-right", "card-left", "closeup", "corner"]
+#: 도식 모양 갈래 수(remotion/src/Diagram.tsx). 같은 종류 도식도 영상마다 다른 모양으로 그린다
+DIAGRAM_VARIANTS = 2
+
 #: 배경음 갈래 수(bgm.VARIANTS와 같다)
 MUSIC_VARIANTS = 4
 #: 최근 몇 편의 룩을 피할지(룩이 7개라 3편을 빼도 넷이 남는다). 룩:배경음 조합은 서버가 준 만큼(최근 5편) 모두 피한다
@@ -81,6 +88,11 @@ class Look:
     layouts: list[str] = field(default_factory=list)
     #: 장면마다 사건(EVENTS) 또는 None. 영상 한 편에 한두 번
     events: list[str | None] = field(default_factory=list)
+    #: 장면마다 화면 짜임(FRAMINGS). 캐릭터 설명 장면에서만 쓴다
+    framings: list[str] = field(default_factory=list)
+    #: 장면마다 도식 모양(0..DIAGRAM_VARIANTS-1)과 발표자 자리(-1 왼쪽, 1 오른쪽)
+    variants: list[int] = field(default_factory=list)
+    sides: list[int] = field(default_factory=list)
 
     @property
     def tag(self) -> str:
@@ -159,7 +171,22 @@ def choose(seed: int, scenes: int, splittable: list[bool], name: str | None = No
             pick = "stage" if pick == "split" else "split"
         layouts.append(pick if ok else "stage")
     music = _pick_music(rng, look, recent)
-    return Look(look, music, transitions, cameras, layouts, _events(rng, scenes, kinds, actions))
+    lk = Look(look, music, transitions, cameras, layouts, _events(rng, scenes, kinds, actions))
+    # 짜임·도식 모양은 따로 씨앗을 써서, 위에서 고른 룩·전환·카메라가 예전과 같게 남는다
+    staging = random.Random(seed ^ 0x5EED)
+    # 캐릭터 장면끼리, 도식 장면끼리 세어 앞 장면과 짜임·모양·발표자 자리가 겹치지 않게 한다(사이에 다른 장면이 끼어도)
+    framing, variant, side = None, staging.randrange(DIAGRAM_VARIANTS), staging.choice([-1, 1])
+    for i in range(scenes):
+        kind = kinds[i] if i < len(kinds) else "character"
+        if kind == "character":
+            framing = _no_repeat(staging, FRAMINGS, framing)
+        lk.framings.append(framing or "solo")
+        lk.variants.append(variant)
+        lk.sides.append(side)
+        if kind == "diagram":
+            variant = (variant + 1) % DIAGRAM_VARIANTS
+            side = -side
+    return lk
 
 
 def _events(rng: random.Random, scenes: int, kinds: list[str], actions: list[str]) -> list[str | None]:

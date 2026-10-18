@@ -108,6 +108,49 @@ def _ratio(text: str) -> str:
     return f"{m.group(1)}배 빨라짐" if m else "빨라짐!"
 
 
+# ── 구절마다 표정·동작 ──────────────────────────────────────────────────────────
+# 민서님 피드백(2026-10-18): 배경만 바뀌고 캐릭터 움직임·표정은 늘 같다. 그래서 장면 하나 안에서도 구절(자막 한 화면)마다
+# 그 말에 맞는 캐릭터 동작(remotion/src/character의 클립 이름)을 고른다. 앞에 있는 규칙이 이긴다.
+
+#: 캐릭터 클립 이름(remotion/src/character/index.ts의 Clip)
+CLIPS = ("talk", "point", "think", "happy", "shock", "sad", "idea", "panic", "typing", "sleepy", "walk", "idle")
+
+_MOODS: list[tuple[str, str]] = [
+    ("shock", r"사라졌|날렸|날아갔|터졌|망가|헉|충격|무려|맙소사|통째로|전부 (?:지워|날아)"),
+    ("panic", r"폭주|난리|쏟아|급하|큰일|비상|장애|먹통|다운됐"),
+    ("sad", r"실패|안 ?됐|안 ?돼|못 ?했|에러|오류|버그|문제가|느려|느렸|답답|아까|손해|망했"),
+    ("happy", r"해결|성공|빨라|줄었|줄어|끝났|드디어|좋아|살았|됐어요|완벽|깔끔|0으로|한 명도"),
+    ("idea", r"팁|비결|핵심|하세요|보세요|두세요|기억|중요한|방법은|정답|꿀|추천|먼저"),
+    ("think", r"\?|왜|어떻게|뭘까|일까|알고 ?보니|원인|이유|궁금|과연|생각"),
+    ("typing", r"코드|명령|입력|설정|한 ?줄|스크립트|커밋|작성|고쳤|바꿨"),
+    ("sleepy", r"기다|오래|하루 ?종일|밤새|지루|몇 ?시간|느릿"),
+    ("walk", r"다음|이제|그래서|그다음|넘어가|이어서|단계"),
+    ("point", r"여기|이거|이게|보면|바로|숫자|\d"),
+]
+
+#: 장면 연기(ACTIONS)마다 어울리는 첫 동작. 구절 글에서 고르지 못하면 이걸로 시작한다
+_ACTION_CLIP = {"shock": "shock", "panic": "panic", "typing": "typing", "restore": "happy", "wait": "sleepy", "fast": "happy",
+                "idea": "idea", "protect": "point", "think": "think", "celebrate": "happy"}
+
+
+def mood(text: str) -> str | None:
+    """구절 하나의 글에서 캐릭터 동작을 고른다. 고르지 못하면 None"""
+    return next((name for name, pattern in _MOODS if re.search(pattern, text)), None)
+
+
+def beats(texts: list[str], action: str = "explain") -> list[str]:
+    """구절마다 캐릭터 동작. 말에서 고르지 못한 구절은 말하기(talk)와 가리키기(point)를 번갈아 써서,
+    같은 동작이 세 구절 넘게 이어지지 않게 한다."""
+    out: list[str] = []
+    for k, text in enumerate(texts):
+        pick = mood(text) or (_ACTION_CLIP.get(action) if k == 0 else None)
+        if pick is None or (len(out) >= 2 and out[-1] == out[-2] == pick):
+            prev = out[-1] if out else None
+            pick = "point" if prev == "talk" else "talk"
+        out.append(pick)
+    return out
+
+
 # ── 입 모양: 소리 크기 ─────────────────────────────────────────────────────────
 
 def mouth_envelope(wav: Path, fps: int) -> list[float]:

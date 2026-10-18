@@ -25,6 +25,7 @@ import { enhanceGifs } from '../lib/gifPlayer'
 import { renderDiagramsWithin } from '../lib/diagram'
 import { highlightWithin } from '../lib/highlight'
 import { useAuth } from '../lib/auth'
+import { PostShorts } from '../components/ShortsGrid'
 import { setFlash } from '../lib/flash'
 import { Link, navigate } from '../lib/router'
 import type { CommentPage } from '../lib/comments'
@@ -201,6 +202,7 @@ export function PostPage({ handle, id }: { handle: string; id: string }) {
         <ImageZoom bodyRef={bodyRef} html={post.contentHtml} />
         <AttachmentList key={post.id} postId={post.id} />
         {branch && <BranchBox nav={branch} postId={post.id} />}
+        <PostShorts postId={post.id} enabled={!!me?.features?.shorts && post.status === 'PUBLISHED' && post.visibility === 'PUBLIC'} />
         {post.status === 'PUBLISHED' && <SimilarPosts key={`similar-${post.id}`} postId={post.id} />}
         <div className="post-stats muted">
           <LikeButton postId={post.id} mine={post.mine} initial={{ liked: post.liked, likeCount: post.likeCount }}

@@ -28,6 +28,7 @@ import com.team.blog.shorts.application.ShortsService;
  *   <li>POST /api/me/shorts/{id}/check: 양산형 방지 검사만</li>
  *   <li>POST /api/me/shorts/{id}/render: 검사를 통과하면 대기열에 넣기</li>
  *   <li>PUT·DELETE /api/me/shorts/{id}/uploads/{platform}: 직접 올린 영상 주소 남기기·지우기 (youtube·instagram·tiktok)</li>
+ *   <li>PUT /api/me/shorts/{id}/blog: 남긴 영상을 블로그·글 화면에 보일지 (spec 103)</li>
  *   <li>GET /api/me/shorts/batches: 주제 묶음 목록 (#276). 묶음은 AI가 MCP plan_shorts로 만든다</li>
  *   <li>POST /api/me/shorts/batches/{id}/render: 묶음의 대본을 모두 영상 만들기 대기열에 넣기 (막힌 편은 이유와 함께 건너뜀)</li>
  *   <li>DELETE /api/me/shorts/batches/{id}: 묶음 풀기 (대본·영상은 남는다)</li>
@@ -62,6 +63,11 @@ public class ShortsController {
     @GetMapping("/api/me/shorts")
     public ResponseEntity<ShortsService.Overview> list(@CurrentMember MemberPrincipal me) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(shorts.overview(me.id()));
+    }
+
+    @PutMapping("/api/me/shorts/{id}/blog")
+    public ShortsService.Item setOnBlog(@CurrentMember MemberPrincipal me, @PathVariable long id, @RequestBody ShortsService.BlogBody body) {
+        return shorts.setOnBlog(me.id(), id, body);
     }
 
     @GetMapping("/api/me/shorts/{id}")

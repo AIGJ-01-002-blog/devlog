@@ -6,7 +6,7 @@ import { t } from '../lib/i18n'
 
 const toDraft = (l: SocialLinks) => Object.fromEntries(SOCIAL_FIELDS.map((f) => [f.kind, l[f.kind] ?? ''])) as Record<SocialKind, string>
 
-/** 설정의 소셜 정보 (spec 043). 다섯 칸을 한 번에 저장하고, 서버가 정리한 값(주소 → 아이디 등)으로 칸을 바꾼다. */
+/** 설정의 소셜 정보 (spec 043, 쇼츠 채널 spec 103). 모든 칸을 한 번에 저장하고, 서버가 정리한 값(주소 → 아이디 등)으로 칸을 바꾼다. */
 export function SocialLinksForm({ initial, onSaved }: { initial: SocialLinks; onSaved: (l: SocialLinks) => void }) {
   const [saved, setSavedLinks] = useState(() => toDraft(initial))
   const [draft, setDraft] = useState(saved)
@@ -42,7 +42,7 @@ export function SocialLinksForm({ initial, onSaved }: { initial: SocialLinks; on
   return (
     <section className="settings-section">
       <h2>{t('소셜 정보')}</h2>
-      <p className="muted small">{t('블로그 머리에 링크로 보여요. 비워 두면 보이지 않아요.')}</p>
+      <p className="muted small">{t('블로그 머리에 링크로 보여요. 비워 두면 보이지 않아요.')} {t('쇼츠를 올리는 YouTube·Instagram·TikTok 채널을 넣으면 방문자가 블로그에서 바로 채널로 가요.')}</p>
       <form className="form" ref={formRef} onSubmit={save} noValidate>
         {SOCIAL_FIELDS.map((f) => (
           <label className="field" key={f.kind}>

@@ -4,6 +4,7 @@ import java.net.URI;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -33,6 +34,8 @@ import com.team.blog.search.web.SearchIpLimit;
 import com.team.blog.release.ReleaseNotes;
 import com.team.blog.portfolio.application.PortfolioQuery;
 import com.team.blog.series.application.SeriesQuery;
+import com.team.blog.shorts.application.BlogShorts;
+import com.team.blog.shared.error.NotFoundException;
 import com.team.blog.account.application.MemberAbout;
 import com.team.blog.shared.config.BlogProperties;
 import com.team.blog.shared.security.CurrentMember;
@@ -82,6 +85,7 @@ public class PageController {
     private final MemberAbout about;
     private final ReleaseNotes releaseNotes;
     private final PortfolioQuery portfolios;
+    private final BlogShorts blogShorts;
     private final SiteOwner owner;
     private final PolicyDocuments policies;
 
@@ -101,6 +105,7 @@ public class PageController {
         this.series = blogPages.series();
         this.about = blogPages.about();
         this.portfolios = blogPages.portfolios();
+        this.blogShorts = blogPages.shorts();
         this.owner = sitePages.owner();
         this.policies = sitePages.policies();
         this.releaseNotes = sitePages.releaseNotes();
@@ -362,6 +367,31 @@ public class PageController {
                 absolute("/@" + handle + ABOUT_PATH), PROFILE,
                 p.profileImageUrl() != null ? p.profileImageUrl() : absolute(site.defaultOgImage()), null, a.updatedAt(), a.html() != null);
         return html(HttpStatus.OK, shell.render(meta, body, Map.of("page", "about")), CacheControl.noCache().cachePrivate());
+    }
+
+    /** 블로그 [쇼츠] 탭 (spec 103). 쇼츠가 꺼져 있으면 없는 주소다. 누구에게나 같은 공개 정보라 저장해도 된다. */
+    @GetMapping("/@{handle}/shorts")
+    public ResponseEntity<String> blogShorts(@PathVariable String handle, @CurrentMember(required = false) MemberPrincipal me) {
+        if (!HANDLE_CHARS.matcher(handle).matches()) return notFound();
+        if (!handle.equals(handle.toLowerCase())) return redirect(HttpStatus.MOVED_PERMANENTLY, "/@" + handle.toLowerCase() + "/shorts");
+        var profile = feed.profile(handle, me == null ? null : me.id());
+        if (profile.isEmpty()) return notFound();
+        List<BlogShorts.Card> cards;
+        try {
+            cards = blogShorts.ofBlog(handle);
+        } catch (NotFoundException e) {
+            return notFound();
+        }
+        FeedQuery.BlogProfile p = profile.get();
+        String title = p.nickname() + "님의 쇼츠";
+        StringBuilder body = new StringBuilder(MAIN_H1).append(SpaShell.esc(title)).append(H1_END).append("<ul>");
+        cards.forEach(c -> body.append(LI_LINK).append(SpaShell.esc(c.links().get(0).url())).append("\" rel=\"nofollow noopener\">")
+                .append(SpaShell.esc(c.title())).append(LINK_LI_END));
+        body.append(UL_MAIN_END);
+        HeadMeta meta = new HeadMeta(title + " - " + site.name(), p.nickname() + "님이 YouTube·Instagram·TikTok에 올린 쇼츠",
+                absolute("/@" + handle + "/shorts"), PROFILE,
+                p.profileImageUrl() != null ? p.profileImageUrl() : absolute(site.defaultOgImage()), null, null, false);
+        return html(HttpStatus.OK, shell.render(meta, body.toString(), Map.of("page", "shorts")), CacheControl.noCache().cachePrivate());
     }
 
     /** 포트폴리오 (072 3단계). 공개 정보만 담겨 누구에게나 같고, 프로젝트 이름과 설명을 담아 수집한다. */

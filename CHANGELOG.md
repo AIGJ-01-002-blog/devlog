@@ -10,6 +10,48 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-10-18
+
+**목표: 쇼츠 채널을 블로그에 잇기** ([목표 이슈 #397](https://github.com/AIGJ-01-002-blog/devlog/issues/397))
+
+쇼츠 스튜디오에서 만든 쇼츠를 올리는 YouTube·Instagram·TikTok 채널을 회원마다 블로그에 잇고, 직접 올린 쇼츠를 블로그에서 바로 볼 수 있게 했다. 플랫폼 자동 업로드는 하지 않는다(심사 전 API로 올린 영상은 YouTube·TikTok에서 비공개로 묶이고, Instagram은 앱 심사가 필요하다). 운영 DB에 V56(소셜 링크 종류)과 V57(`shorts.on_blog`)이 적용되며, 이미 주소를 남긴 쇼츠는 바탕 글이 공개면 블로그에 바로 보인다.
+
+### 화면
+전에는 블로그에 쇼츠 채널 링크도 쇼츠 목록도 없었다.
+
+| 블로그 머리의 채널 링크 (휴대폰) | 다크 | 스튜디오 [내 채널 열기] (PC) |
+|---|---|---|
+| ![블로그 채널 링크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.6.0/channel-blog-m.webp) | ![블로그 채널 링크 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.6.0/channel-blog-m-dark.webp) | ![스튜디오 내 채널 열기](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.6.0/channel-studio-pc.webp) |
+
+| 블로그 [쇼츠] 탭 (휴대폰) | 다크 | PC |
+|---|---|---|
+| ![쇼츠 탭](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.6.0/shorts-blog-tab-m.webp) | ![쇼츠 탭 다크](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.6.0/shorts-blog-tab-m-dark.webp) | ![쇼츠 탭 PC](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.6.0/shorts-blog-tab-pc.webp) |
+
+| 글 아래 "이 글의 쇼츠" (PC 다크) | 스튜디오 "블로그에 보이기" (휴대폰) |
+|---|---|
+| ![이 글의 쇼츠](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.6.0/shorts-post-pc-dark.webp) | ![블로그에 보이기](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.6.0/shorts-studio-onblog-m.webp) |
+
+### 추가
+- 쇼츠를 올리는 YouTube·Instagram·TikTok 채널을 블로그에 잇는다. 설정의 소셜 정보에 채널 칸 3개가 생겼고(채널 주소를 붙여 넣으면 핸들·아이디를 꺼낸다, V56), 블로그 머리·글 작성자 영역에 "YouTube 채널 @핸들" 툴팁이 붙은 링크로 보인다. 스튜디오 올리기 안내에는 고른 플랫폼의 [내 채널 열기]가 생겼다(spec 103, #398, PR #400)
+- 직접 올리고 주소를 남긴 쇼츠가 블로그 [쇼츠] 탭(`/@아이디/shorts`)과 바탕 글 아래 "이 글의 쇼츠"에 9:16 카드로 보인다. YouTube 영상은 썸네일을 누르면 그 자리에서 youtube-nocookie로 재생하고, Instagram·TikTok은 그 앱으로 가는 링크 카드다. 바탕 글이 공개일 때만 보이고, 스튜디오에서 쇼츠마다 블로그에 보일지 끌 수 있다(V57 `shorts.on_blog`, spec 103, #399, PR #401)
+
+### 쇼츠
+- 캐릭터 동작·표정과 설명 그림이 대본 내용을 따라 바뀐다. 구절 자막마다 그 구절의 말("사라졌어요"는 놀람, "왜 그럴까요?"는 생각, "드디어"는 기쁨, 숫자는 가리키기)에 맞는 동작으로 갈아타고, 같은 동작이 세 번 이어지지 않는다. 캐릭터 설명 장면은 영상마다 짜임 5가지(가운데 혼자·옆에 그림 카드 왼쪽/오른쪽·크게 당겨 말풍선·구석에 작게 두고 큰 카드) 가운데 앞 장면과 다른 것을 고르고, 그림 카드는 구절마다 그 말에 든 숫자·낱말 아이콘·기분 이모지로 바뀐다. 흐름·순서 도식은 모양이 2가지(한 칸씩 크게 비추기·계단)씩이라 도식 장면마다 번갈아 쓰고, 발표자는 도식 장면마다 왼쪽·오른쪽 자리를 바꾼다(민서님 피드백 2026-10-18: 배경만 달라지고 연기와 그림은 늘 같다) (PR #396)
+
+### 고침
+- 1~2자 한글 YouTube 핸들(`@김`)을 받고, 마침표로 끝나는 TikTok 아이디를 거부한다(PR #401)
+- 광고를 싣지 않는 화면에서도 쇼츠 카드의 YouTube 썸네일과 재생 화면이 열린다(CSP `img-src https://i.ytimg.com`, `frame-src https://www.youtube-nocookie.com`). Instagram 아이디는 마침표로 시작하거나 끝날 수 없다. 블로그 탭·글 아래 쇼츠 개수 상한(60·6)은 `blog.shorts.blog-max`·`post-max` 설정으로 옮겼다(PR #403)
+
+### 포함된 작업
+| 이슈 | 브랜치 | PR |
+|---|---|---|
+| #398 소셜 정보에 YouTube·Instagram·TikTok 채널 칸과 스튜디오 [내 채널 열기] | `feature/103-shorts-channel-links` | #400 |
+| #399 직접 올린 쇼츠를 글 상세와 블로그 "쇼츠" 탭에 보이기 | `feature/103-shorts-on-blog` | #401 |
+| 릴리스 리뷰 반영(CSP·Instagram 아이디·쇼츠 개수 설정) | `feature/103-shorts-review-fixes` | #403 |
+| 쇼츠 캐릭터 연기와 설명 그림 (목표 밖, 민서님 피드백) | `claude/project-thread-sz8mnc` | #396 |
+
+**비교:** [v2.5.0...v2.6.0](https://github.com/AIGJ-01-002-blog/devlog/compare/v2.5.0...v2.6.0)
+
 ## [2.5.0] - 2026-10-18
 
 **목표: 쇼츠 다양화** ([목표 이슈 #394](https://github.com/AIGJ-01-002-blog/devlog/issues/394))

@@ -166,7 +166,7 @@ flowchart LR
     T[Telegram] -->|Bot API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>複数 Pod]
     I -->|/blog-images| M[(MinIO / S3<br/>画像・添付)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V55)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V57)]
     A --> R[(Redis<br/>セッション・レート制限・閲覧数・キャッシュ)]
     A --> M
     A -.任意.-> G[Google Gemini]
@@ -262,7 +262,7 @@ GitHub Actions でテストし、イメージを作って GHCR に上げたあ�
 
 | パス | 説明 |
 | --- | --- |
-| [app/backend](app/backend) | バックエンド：Spring Boot 4.1、Java 21。機能モジュール、Flyway マイグレーション（V1~V55）、テスト |
+| [app/backend](app/backend) | バックエンド：Spring Boot 4.1、Java 21。機能モジュール、Flyway マイグレーション（V1~V57）、テスト |
 | [app/frontend](app/frontend) | フロントエンド：React 19 SPA、TypeScript、Vite。画面、自動保存（IndexedDB）、ダークモード |
 | [deploy](deploy) | デプロイ：Dockerfile、Kubernetes マニフェスト（base・selfhosted・nhn・local）、デプロイ・ロールバック・シークレット検査のスクリプト |
 | [app/render-worker](app/render-worker) | ショート動画のレンダーワーカー：Python 3.10、ffmpeg、Remotion（Node）。自分のパソコンで待ち行列の台本を 9:16 の MP4 にしてアップロードします |
@@ -343,7 +343,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub・Google・カカオ・NAVER・Facebook ログイン、セッション、CSRF、パスごとの権限 |
 | Spring Data JPA (Hibernate) | Boot 4.1 | ドメイン全体 | 会員・記事・コメントなどドメインデータの保存 |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | セッション、レート制限、閲覧数、キャッシュ | 複数の Pod が同じセッションを共有し、同時リクエストも Redis スクリプト 1 つで判定します |
-| Flyway | Boot 4.1 | DB | スキーマを V1~V55 のマイグレーションで管理し、起動時に適用します |
+| Flyway | Boot 4.1 | DB | スキーマを V1~V57 のマイグレーションで管理し、起動時に適用します |
 | commonmark-java (+ GFM 拡張) | 0.30.0 | 本文のレンダリング | Markdown → HTML。表・取り消し線・チェックリスト・自動リンク・見出しアンカー |
 | OWASP Java HTML Sanitizer | 20260924.2 | 本文のサニタイズ | レンダリングした HTML を許可リストでサニタイズし XSS を防ぎます |
 | AWS SDK for Java (S3) | 2.55.12 | media | MinIO・S3 に画像と添付をアップロードします |
@@ -391,6 +391,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | バージョン | 日付 | 主な内容 | リリースノート |
 | --- | --- | --- | --- |
+| v2.6.0 | 2026-10-18 | ショートのチャンネルをブログにつなぐ: ソーシャル情報に YouTube・Instagram・TikTok のチャンネル欄とスタジオの「自分のチャンネルを開く」、アップロードしたショートをブログの「ショート」タブと元記事の下に9:16カードで表示(YouTube はその場で再生)、ショートごとにブログ表示を切り替え、キャラクターの動き・表情と説明図が台本の内容に合わせて変わる | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.6.0) |
 | v2.5.0 | 2026-10-18 | ショート動画の多様化: 動画ごとに異なるルック・トランジション・カメラ・配置・BGM、長い場面のジャンプカットと1〜2語字幕、説明図3種(年表・定義カード・数値変化)、直近5本と演出・台本構成・フックが重ならない、レンダー後の静止画面検査、自宅PCバックアップがMinIOのダウンロード終了で止まらない | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.5.0) |
 | v2.4.0 | 2026-10-17 | セキュリティの後続対応: JSON リクエスト本文のパス別上限、本番デプロイ後の公開 URL 確認と失敗時のロールバック、ダッシュボード読み取り権限と名前空間の外向き通信の制限、デバッグ用ワークフロー整理と外部アクションのコミット SHA 固定、MCP 管理者ツールは有効にしたトークンだけ、セッション 30 日の絶対期限とメール登録の IP 別制限 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.4.0) |
 | v2.3.0 | 2026-10-16 | ボット判断の記録と振り返り: 約定ごとに戦略バージョン・バスケット・セットアップ・損切り利確・決済理由・R倍数を残し、売買日誌・要約記事・ショートに手法別成績、サーバー模擬ボットのBinance口座のUSDT両替と3倍先物、取引所風チャート(移動平均線・出来高・1秒〜1週足・平均単価線)、レンダーワーカーがサーバー再起動で止まる問題を修正 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.3.0) |

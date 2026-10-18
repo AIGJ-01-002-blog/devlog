@@ -24,6 +24,9 @@ class ShortsDisabledTest extends IntegrationTest {
         Session me = signup(uniqueLogin("shoff"));
         assertThat(read(me.http().perform(get("/api/auth/me")).andReturn()).path("features").path("shorts").asBoolean()).isFalse();
         me.http().perform(get("/api/me/shorts")).andExpect(status().isNotFound());
+        mvc.perform(get("/api/members/" + me.handle() + "/shorts")).andExpect(status().isNotFound());
+        mvc.perform(get("/api/posts/1/shorts")).andExpect(status().isNotFound());
+        mvc.perform(get("/@" + me.handle() + "/shorts")).andExpect(status().isNotFound());
         me.http().perform(asJson(post("/api/me/shorts"), Map.of("title", "x", "scenes", java.util.List.of()))).andExpect(status().isNotFound());
         mvc.perform(post("/api/render/jobs/claim").header("X-Render-Token", "test-render-token")).andExpect(status().isNotFound());
 

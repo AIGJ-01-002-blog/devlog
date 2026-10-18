@@ -113,3 +113,31 @@ class MusicVariantTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class StagingTest(unittest.TestCase):
+    """민서님 피드백(2026-10-18): 캐릭터 짜임·도식 모양도 장면마다 바뀐다"""
+
+    def test_framings_do_not_repeat_across_character_scenes(self):
+        kinds = ["character", "diagram", "character", "character", "code", "character"]
+        for k in range(30):
+            lk = look.choose(look.seed_of("x", k), 6, [True] * 6, kinds=kinds)
+            chars = [lk.framings[i] for i, kind in enumerate(kinds) if kind == "character"]
+            self.assertTrue(all(f in look.FRAMINGS for f in chars))
+            for a, b in zip(chars, chars[1:]):
+                self.assertNotEqual(a, b)
+
+    def test_diagram_variant_and_side_flip_between_diagrams(self):
+        kinds = ["diagram", "character", "diagram", "diagram"]
+        lk = look.choose(look.seed_of("y", 1), 4, [False] * 4, kinds=kinds)
+        self.assertNotEqual(lk.variants[0], lk.variants[2])
+        self.assertNotEqual(lk.variants[2], lk.variants[3])
+        self.assertEqual(lk.sides[0], -lk.sides[2])
+
+    def test_staging_keeps_old_picks(self):
+        # 짜임을 더해도 룩·전환·카메라는 같은 씨앗에서 예전과 같은 것을 고른다
+        import random
+        seed = look.seed_of("z", 2)
+        lk = look.choose(seed, 5, [True] * 5)
+        rng = random.Random(seed)
+        self.assertEqual(lk.name, look._pick_look(rng, look._recent(None)))

@@ -82,9 +82,12 @@ class RemotionPathTest(unittest.TestCase):
         self.assertEqual(props["scenes"][-1]["pages"], [])
 
         keys = {"caption", "code", "action", "params", "durationInFrames", "leadFrames", "speechFrames", "pages", "mouth", "image", "custom", "cut", "diagram",
-                "layout", "camera", "transition", "event"}
+                "layout", "camera", "transition", "event", "beats", "framing", "variant", "side"}
         for s in props["scenes"][:-1]:
             self.assertEqual(set(s), keys)
+            # 구절마다 캐릭터 동작 하나
+            self.assertEqual(len(s["beats"]), len(s["pages"]))
+            self.assertIn(s["framing"], look.FRAMINGS)
             self.assertIn(s["camera"], look.CAMERAS + [look.JUMP])
             self.assertTrue(all(0 <= m <= 1 for m in s["mouth"]))
             self.assertTrue(s["pages"] and s["pages"][0]["words"])

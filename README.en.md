@@ -166,7 +166,7 @@ flowchart LR
     T[Telegram] -->|Bot API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>multiple pods]
     I -->|/blog-images| M[(MinIO / S3<br/>images · attachments)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V55)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V57)]
     A --> R[(Redis<br/>sessions · rate limits · views · cache)]
     A --> M
     A -.optional.-> G[Google Gemini]
@@ -262,7 +262,7 @@ Code lives in this repository; design documents live in the documentation reposi
 
 | Path | Description |
 | --- | --- |
-| [app/backend](app/backend) | Backend: Spring Boot 4.1, Java 21. Feature modules, Flyway migrations (V1~V55), tests |
+| [app/backend](app/backend) | Backend: Spring Boot 4.1, Java 21. Feature modules, Flyway migrations (V1~V57), tests |
 | [app/frontend](app/frontend) | Frontend: React 19 SPA, TypeScript, Vite. Screens, autosave (IndexedDB), dark mode |
 | [deploy](deploy) | Deployment: Dockerfile, Kubernetes manifests (base, selfhosted, nhn, local), deploy, rollback and secret-check scripts |
 | [app/render-worker](app/render-worker) | Shorts render worker: Python 3.10, ffmpeg, Remotion (Node). Runs on your computer and turns queued scripts into 9:16 MP4s |
@@ -343,7 +343,7 @@ To try it on Kubernetes, run `kubectl apply -k deploy/k8s/overlays/local` on kin
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub, Google, Kakao, Naver and Facebook login, sessions, CSRF, per-path authorization |
 | Spring Data JPA (Hibernate) | Boot 4.1 | All domains | Storing members, posts, comments and other domain data |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | Sessions, rate limits, views, cache | Lets multiple pods share sessions, and decides concurrent requests with a single Redis script |
-| Flyway | Boot 4.1 | Database | Manages the schema as migrations V1~V55, applied at startup |
+| Flyway | Boot 4.1 | Database | Manages the schema as migrations V1~V57, applied at startup |
 | commonmark-java (+ GFM extensions) | 0.30.0 | Body rendering | Markdown → HTML: tables, strikethrough, task lists, autolinks, heading anchors |
 | OWASP Java HTML Sanitizer | 20260924.2 | Body sanitizing | Sanitizes rendered HTML against an allow list to prevent XSS |
 | AWS SDK for Java (S3) | 2.55.12 | media | Uploads images and attachments to MinIO and S3 |
@@ -391,6 +391,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v2.6.0 | 2026-10-18 | Shorts channels on the blog: YouTube, Instagram and TikTok channel fields in social links plus "Open my channel" in the studio; uploaded shorts shown as 9:16 cards in a blog Shorts tab and under the source post (YouTube plays in place); per-short "show on blog" switch; character gestures, expressions and explainer graphics follow the script | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.6.0) |
 | v2.5.0 | 2026-10-18 | Shorts variety: per-video look, transitions, camera, layout and music; jump cuts on long scenes and 1-2 word captions; three new explainer graphics (timeline, definition card, number change); no repeat of looks, script structures or hooks across the last 5 videos; post-render frozen-frame check; home PC backup no longer blocked by the MinIO download shutdown | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.5.0) |
 | v2.4.0 | 2026-10-17 | Security follow-ups: per-path JSON body limits, post-deploy public URL smoke test with rollback, dashboard read access and namespace egress narrowed, debug workflows removed and external actions pinned to commit SHAs, MCP admin tools only on tokens that opt in, 30-day absolute session expiry and per-IP email signup limit | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.4.0) |
 | v2.3.0 | 2026-10-16 | Bot decision traces and review: each fill keeps strategy version, basket, setup, stop/take-profit, exit reason and R multiple, with per-setup stats in the trade journal, summary drafts and shorts; the server paper bot's Binance account converts credits to USDT and trades 3x futures; exchange-style charts (moving averages, volume, 1s–1w candles, break-even line); render worker no longer stops on server restarts | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.3.0) |
