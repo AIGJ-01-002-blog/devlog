@@ -26,7 +26,7 @@ import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import acting, bgm, candles, captions, diagram, draw, layout, remotion, replay, sfx, trade_bgm, trade_sfx, tts
+from . import acting, bgm, candles, captions, diagram, draw, layout, look, remotion, replay, sfx, still, trade_bgm, trade_sfx, tts
 
 try:  # 캐릭터 무대는 Pillow가 있을 때만. 없으면 글자 화면으로 만든다
     from . import stage
@@ -129,6 +129,12 @@ class Script:
     character: str | None = None
     #: 끝에 3초 블로그 광고(Outro)를 붙일지. 서버 작업의 outro가 false면 붙이지 않는다
     outro: bool = True
+    #: 영상마다 다른 연출(look.py)을 고르는 씨앗. 같은 대본이면 같은 값
+    seed: int = 0
+    #: 룩 이름을 정해 두려면(look.LOOKS). None이면 씨앗으로 고른다
+    look: str | None = None
+    #: 같은 회원의 최근 영상 연출("룩:배경음", 최근 것부터). 이 조합을 피해 고른다
+    avoid: list[str] = field(default_factory=list)
 
     @property
     def fast(self) -> bool:
@@ -163,8 +169,13 @@ class Script:
         character = job.get("character") or DEFAULT_CHARACTER
         if not isinstance(character, str) or character not in remotion.characters():  # "cat"이나 모르는 이름이면 기본 고양이(Noto)
             character = None
+        # 대본(제목·내레이션)이 같으면 같은 연출, 고치면 다른 연출이 나온다
+        seed = look.seed_of(job.get("id"), job.get("title"), *(s.narration for s in scenes))
+        name = job.get("look") if job.get("look") in look.LOOKS else None
+        avoid = [str(t) for t in job.get("recentLooks") or [] if isinstance(t, str)]
         return Script(job.get("title") or "", scenes, footer, effects, style="fast" if job.get("style") == "fast" else "clean",
-                      character=character, replay=job.get("replay"), outro=job.get("outro") is not False)
+                      character=character, replay=job.get("replay"), outro=job.get("outro") is not False, seed=seed, look=name,
+                      avoid=avoid)
 
 
 @dataclass
@@ -237,6 +248,8 @@ class Renderer:
         self.engine = tts.pick(engine)
         self.ffmpeg = ffmpeg
         self.voice = voice
+        #: 마지막으로 그린 영상의 연출(룩:배경음). 워커가 서버에 알려 다음 영상이 피하게 한다
+        self.last_look: str | None = None
         #: None이면 직접 합성한 배경음, "none"이면 배경음 없음, 아니면 음악 파일 경로
         self.music = music
         #: 2D 캐릭터가 상황을 연기하는 무대를 쓸지(Pillow 필요)
@@ -249,6 +262,7 @@ class Renderer:
         """MP4를 만들고 길이(ms)를 돌려준다."""
         if not script.scenes:
             raise ValueError("장면이 없어요.")
+        self.last_look = None
         chart = self._replay(script) if script.replay else None
         if chart is not None:
             if not self.use_remotion:
@@ -257,7 +271,8 @@ class Renderer:
             mode = "실계좌" if (script.replay or {}).get("mode") == "LIVE" else "모의투자"
             card = Scene("", "", custom={"kind": "replay-card", "data": {"mode": mode}})
             script = Script(script.title, [*script.scenes, card], script.footer, list(script.effects), style=script.style,
-                            character=script.character, replay=script.replay, outro=script.outro)
+                            character=script.character, replay=script.replay, outro=script.outro, seed=script.seed, look=script.look,
+                            avoid=script.avoid)
         with tempfile.TemporaryDirectory(prefix="devlog-render-") as tmp:
             work = Path(tmp)
             shutil.copyfile(self.font, work / ("font" + Path(self.font).suffix))
@@ -281,8 +296,9 @@ class Renderer:
                     total = timings[-1].start + timings[-1].length
                 # 화면은 Remotion이 한 번에(전환 포함) 그리고, 소리는 아래 _join이 섞는다
                 visuals = self._visuals(script)
+                lk = self._look(script, chart is not None, visuals)
                 video = work / "screen.mp4"
-                props = self._props(script, timings, total, audios, words, images, visuals)
+                props = self._props(script, timings, total, audios, words, images, visuals, lk)
                 remotion.render(props, work, video)
                 effects = list(script.effects) + [
                     sfx.Effect(i, at, name, volume)
@@ -291,14 +307,19 @@ class Renderer:
                 # 도식 칸이 나타날 때마다 톡
                 effects += [sfx.Effect(i, timings[i].lead + at / 1000, "pop", 0.35)
                             for i, sc in enumerate(props["scenes"]) if sc["diagram"] for at in diagram.reveal_times(sc["diagram"])]
-                # 장면이 넘어갈 때마다 휙 소리(전환과 같은 때). 점프 컷으로 넘어가는 장면은 소리 없이 끊는다
-                effects += [sfx.Effect(i, 0.0, "whip", 0.3) for i in range(1, len(script.scenes)) if not (script.scenes[i].custom or {}).get("cut")]
+                # 장면이 넘어갈 때마다 전환에 맞는 소리(전환과 같은 때). 점프 컷으로 넘어가는 장면은 소리 없이 끊는다
+                effects += [sfx.Effect(i, 0.0, lk.sound(i), 0.3) for i in range(1, len(script.scenes))
+                            if not (script.scenes[i].custom or {}).get("cut") and lk.sound(i)]
+                # 사건(흔들림·섬광·도장)은 목소리가 시작할 때 소리와 함께
+                effects += [sfx.Effect(i, timings[i].lead, look.EVENT_SOUND[ev], 0.45) for i, ev in enumerate(lk.events) if ev]
                 music = {}
                 if chart is not None:  # 배경음은 제목 카드가 끝나면 들어오고 결산 화면부터 작아진다
                     soft = replay.result_scene(chart, [t.start for t in body[:-1]])
                     music = {"music_at": replay.TITLE,
                              "music_soft": body[soft].start if soft is not None else body[-1].start}
-                self._join(work, [video], audios, timings, total, joined, effects, joined_video=True, upbeat=chart is not None, **music)
+                self._join(work, [video], audios, timings, total, joined, effects, joined_video=True, upbeat=chart is not None,
+                           music_variant=lk.music, **music)
+                self.last_look = lk.tag
             else:
                 stages = self._stages(script, audios, timings)
                 segments = [self._encode(work, i, timings[i], images[i], stages[i],
@@ -308,10 +329,25 @@ class Renderer:
                 for i, act in enumerate(stages):
                     if act is not None:
                         effects += [sfx.Effect(i, at, name, volume) for name, at, volume in act.effects()]
-                self._join(work, segments, audios, timings, total, joined, effects)
+                lk = self._look(script, False)
+                self._join(work, segments, audios, timings, total, joined, effects, music_variant=lk.music)
+                self.last_look = lk.tag
+            self._check_still(joined)
             out.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(joined), str(out))
         return probe_ms(out, self.ffmpeg)
+
+    def _check_still(self, video: Path) -> None:
+        """같은 화면이 너무 오래 머물면 로그로 알린다(렌더는 막지 않는다)"""
+        try:
+            seconds = still.longest_still(video, self.ffmpeg)
+        except Exception as e:  # 검사가 실패해도 영상은 올린다
+            log.warning("화면 변화 검사를 못 했어요: %s", e)
+            return
+        if seconds > still.WARN_SECONDS:
+            log.warning("같은 화면이 %.1f초 이어져요(기준 %.0f초). 장면을 나누거나 도식을 넣으면 좋아요.", seconds, still.WARN_SECONDS)
+        else:
+            log.info("화면 변화: 가장 오래 머문 화면 %.1f초", seconds)
 
     def _with_outro(self, work: Path, script: Script, timings: list[Timing], audios: list[Path], words: list, images: list):
         """맨 끝에 말 없는 블로그 광고 장면(OUTRO_SECONDS초)을 붙인다. 앞 장면과는 전환으로 겹치고, 주소 칩이 뜰 때 딩 소리를 낸다.
@@ -320,7 +356,8 @@ class Renderer:
         outro = Scene("", "", custom={"kind": OUTRO, "data": None})
         effects = [*script.effects, sfx.Effect(i, 0.6, "ding", 0.35)]
         script = Script(script.title, [*script.scenes, outro], script.footer, effects, style=script.style,
-                        character=script.character, replay=script.replay, outro=script.outro)
+                        character=script.character, replay=script.replay, outro=script.outro, seed=script.seed, look=script.look,
+                        avoid=script.avoid)
         audio = work / f"a{i}.wav"
         self._ffmpeg(work, ["-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo", "-t", f"{SILENT_SECONDS:.2f}", audio.name])
         audios.append(audio)
@@ -368,6 +405,26 @@ class Renderer:
         for scene, at, kind, volume in trade_sfx.per_scene(replay.cues(chart, starts, end), starts):
             script.effects.append(sfx.Effect(scene, at, str(trade_sfx.sound_file(kind, trade_sfx.cache_dir())), volume))
 
+    @staticmethod
+    def _kind(scene: Scene) -> str:
+        """장면 성격: custom(등록된 장면)·diagram(도식)·code(코드 창)·character(캐릭터 연기)"""
+        return "custom" if scene.custom else "diagram" if scene.diagram else "code" if scene.code else "character"
+
+    @staticmethod
+    def _look(script: Script, replay_video: bool, visuals: list | None = None) -> look.Look:
+        """영상 한 편의 연출. 매매 재현은 차트가 주인공이라 기본 룩·전환을 쓴다(차트 장면은 점프 컷)."""
+        # 위 그림·아래 캐릭터 배치는 아래 칸이 작아서 코드 창(타자 연기)이 읽히지 않으므로 코드가 없는 캐릭터 장면만 바꾼다
+        splittable = [s.custom is None and not s.code for s in script.scenes]
+        kinds = [Renderer._kind(s) for s in script.scenes]
+        actions = [getattr(v, "action", "") for v in visuals] if visuals else None
+        lk = look.choose(script.seed, len(script.scenes), splittable, "paper" if replay_video else script.look, kinds, actions,
+                         script.avoid)
+        if script.fast:  # 대본이 빠른 견본 스타일을 고르면 캐릭터 장면은 모두 위 그림·아래 캐릭터(코드 창은 가운데 무대)
+            lk.layouts = ["split" if s.custom is None and not s.code else "stage" for s in script.scenes]
+        log.info("연출: 룩 %s, 배경음 %d, 전환 %s, 사건 %s", lk.name, lk.music, ",".join(lk.transitions[1:]),
+                 ",".join(f"{i + 1}:{ev}" for i, ev in enumerate(lk.events) if ev) or "없음")
+        return lk
+
     def _visuals(self, script: Script) -> list:
         everything = " ".join(f"{s.caption} {s.narration}" for s in script.scenes)
         visuals = [acting.infer(scene, everything) for scene in script.scenes]
@@ -375,13 +432,17 @@ class Renderer:
             log.info("장면 %d 연기: %s", i + 1, v.action)
         return visuals
 
-    def _props(self, script: Script, timings: list[Timing], total: float, audios: list[Path], words, images, visuals) -> dict:
+    def _props(self, script: Script, timings: list[Timing], total: float, audios: list[Path], words, images, visuals,
+               lk: look.Look | None = None) -> dict:
         """Remotion에 넘길 props (remotion/src/types.ts의 ShortsProps)"""
+        lk = lk or self._look(script, script.replay is not None, visuals)
         scenes = []
         for i, scene in enumerate(script.scenes):
             t, v = timings[i], visuals[i]
+            split = lk.layouts[i] == "split"
+            # 위 그림·아래 캐릭터 배치는 경계에 한 줄 자막만 들어가므로 짧게 끊는다
             pages = captions.pages(scene.narration, t.speech, words[i], tail=SCENE_PADDING,
-                                   max_units=captions.FAST_PHRASE_UNITS if script.fast else captions.PHRASE_UNITS)
+                                   max_units=captions.FAST_PHRASE_UNITS if split else captions.PHRASE_UNITS)
             scenes.append({
                 "caption": scene.caption,
                 "code": layout.code_lines(scene.code, 40, 8) if scene.code else [],
@@ -397,12 +458,16 @@ class Renderer:
                 "custom": scene.custom,
                 "cut": bool((scene.custom or {}).get("cut")),
                 "diagram": diagram.timed(scene.diagram, pages, t.speech) if scene.diagram and scene.custom is None else None,
+                "layout": lk.layouts[i],
+                "camera": look.hold_camera(lk.cameras[i], lk.layouts[i], self._kind(scene), t.length),
+                "transition": lk.transitions[i] or None,
+                "event": lk.events[i] if i < len(lk.events) else None,
             })
-        if script.fast:
-            captions.emphasize([sc["pages"] for sc in scenes], [sc.caption for sc in script.scenes])
+        # 영상 한 편에 두세 번, 요점 낱말을 색으로 강조한다(자막 모양마다 칠하는 방식이 다르다)
+        captions.emphasize([sc["pages"] for sc in scenes], [sc.caption for sc in script.scenes])
         return {"title": script.title, "footer": script.footer, "transitionFrames": round(TRANSITION * FPS),
                 "totalFrames": round(total * FPS), "scenes": scenes, "style": script.style,
-                "character": script.character}
+                "character": script.character, "look": lk.name}
 
     def _voices(self, work: Path, script: Script) -> tuple[list[Path], list[list[captions.Word] | None]]:
         """장면마다 음성. 한 장면이라도 실패하면 다음 엔진으로 처음부터 다시 만든다(목소리가 섞이지 않게).
@@ -600,7 +665,7 @@ class Renderer:
 
     def _join(self, work: Path, segments: list[Path], audios: list[Path], timings: list[Timing], total: float, out: Path,
               effects: list | None = None, joined_video: bool = False, upbeat: bool = False,
-              music_at: float = 0.0, music_soft: float | None = None) -> None:
+              music_at: float = 0.0, music_soft: float | None = None, music_variant: int = 0) -> None:
         """장면을 xfade로 잇고, 내레이션을 제자리에 놓고, 배경음을 깔고, 효과음을 얹어 한 번에 최종 인코딩한다.
 
         효과음(sfx.Effect)은 장면이 화면에 나오기 시작한 시각(timings[scene].start) + at에 놓는다. 같은 소리 파일은 입력 하나를
@@ -617,7 +682,7 @@ class Renderer:
                 args += ["-i", seg.name]
         for audio in audios:
             args += ["-i", audio.name]
-        music = self._music(upbeat)
+        music = self._music(upbeat, music_variant)
         if music:
             args += ["-stream_loop", "-1", "-i", str(music)]
         placed: dict[str, list[tuple[float, float]]] = {}
@@ -679,7 +744,7 @@ class Renderer:
             "-c:a", "aac", "-b:a", str(AUDIO_BITRATE), "-ar", "44100", "-ac", "2",
             "-movflags", "+faststart", out.name], timeout=FINAL_TIMEOUT)
 
-    def _music(self, upbeat: bool = False) -> Path | None:
+    def _music(self, upbeat: bool = False, variant: int = 0) -> Path | None:
         """upbeat: 매매 재현처럼 빨리감기 영상이면 빠른 배경음(trade_bgm)을 쓴다. --bgm 파일이 있으면 그 파일이 우선한다."""
         if self.music == "none":
             return None
@@ -688,7 +753,7 @@ class Renderer:
                 raise FileNotFoundError(f"배경음 파일이 없어요: {self.music}")
             return Path(self.music).resolve()
         try:
-            return (trade_bgm.path() if upbeat else bgm.path()).resolve()
+            return (trade_bgm.path() if upbeat else bgm.path(variant)).resolve()
         except OSError as e:
             log.warning("배경음을 만들지 못해 배경음 없이 만들어요: %s", e)
             return None

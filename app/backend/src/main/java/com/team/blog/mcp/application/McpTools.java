@@ -288,7 +288,7 @@ public class McpTools {
                     },
                      "required":["shorts_id"]}""", Gate.SHORTS, false),
             new Tool("list_shorts", "내 쇼츠 보기",
-                    "사용자의 쇼츠 목록(번호·제목·상태·장면 수·예상 길이·원본 글)과 오늘 영상 만들기 횟수를 돌려준다.", false, NO_ARGS_SCHEMA, Gate.SHORTS, false),
+                    "사용자의 쇼츠 목록(번호·제목·상태·장면 수·예상 길이·원본 글·첫 장면 후킹)과 오늘 영상 만들기 횟수를 돌려준다.", false, NO_ARGS_SCHEMA, Gate.SHORTS, false),
             new Tool("get_shorts", "쇼츠 대본 보기",
                     "쇼츠 하나의 제목·장면·상태를 돌려준다. 매매 재현 영상이면 고른 체결(시각·매수/매도·가격·이유), 차트 구간, 그날 사용자 메모와 "
                             + "대본을 다시 쓰는 규칙을 함께 준다. 사용자가 스튜디오에서 [AI에게 대본 부탁]으로 번호를 알려 주면 이 도구로 읽고 update_shorts_script로 고친다.",

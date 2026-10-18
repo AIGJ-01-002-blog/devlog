@@ -166,7 +166,7 @@ flowchart LR
     T[Telegram] -->|Bot API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>多个 Pod]
     I -->|/blog-images| M[(MinIO / S3<br/>图片 · 附件)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V54)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V55)]
     A --> R[(Redis<br/>会话 · 限流 · 浏览数 · 缓存)]
     A --> M
     A -.可选.-> G[Google Gemini]
@@ -262,7 +262,7 @@ sequenceDiagram
 
 | 路径 | 说明 |
 | --- | --- |
-| [app/backend](app/backend) | 后端：Spring Boot 4.1、Java 21。功能模块、Flyway 迁移（V1~V54）、测试 |
+| [app/backend](app/backend) | 后端：Spring Boot 4.1、Java 21。功能模块、Flyway 迁移（V1~V55）、测试 |
 | [app/frontend](app/frontend) | 前端：React 19 SPA、TypeScript、Vite。界面、自动保存（IndexedDB）、深色模式 |
 | [deploy](deploy) | 部署：Dockerfile、Kubernetes 清单（base、selfhosted、nhn、local），部署、回滚、密钥检查脚本 |
 | [app/render-worker](app/render-worker) | 短视频渲染程序：Python 3.10、ffmpeg、Remotion（Node）。在你自己的电脑上把队列中的脚本做成 9:16 的 MP4 并上传 |
@@ -343,7 +343,7 @@ npm run dev        # http://localhost:5173
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub、Google、Kakao、Naver、Facebook 登录，会话，CSRF，按路径的权限 |
 | Spring Data JPA (Hibernate) | Boot 4.1 | 所有领域 | 保存会员、文章、评论等领域数据 |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | 会话、限流、浏览数、缓存 | 多个 Pod 共享同一会话，并发请求也由一个 Redis 脚本判定 |
-| Flyway | Boot 4.1 | 数据库 | 用 V1~V54 迁移管理模式，启动时自动应用 |
+| Flyway | Boot 4.1 | 数据库 | 用 V1~V55 迁移管理模式，启动时自动应用 |
 | commonmark-java (+ GFM 扩展) | 0.30.0 | 正文渲染 | Markdown → HTML。表格、删除线、任务清单、自动链接、标题锚点 |
 | OWASP Java HTML Sanitizer | 20260924.2 | 正文净化 | 按白名单净化渲染后的 HTML，防止 XSS |
 | AWS SDK for Java (S3) | 2.55.12 | media | 把图片和附件上传到 MinIO、S3 |
@@ -372,17 +372,17 @@ npm run dev        # http://localhost:5173
 | Docker · GHCR | 镜像 | 构建界面并放进后端，打成一个镜像。以非 root 用户运行 |
 | Kubernetes · kustomize | 部署 | Deployment、HPA、PDB、NetworkPolicy，3 种 overlay（selfhosted、nhn、local） |
 | nginx Ingress | 入口 | TLS 和按路径分流（`/blog-images` 转到 MinIO） |
-| GitHub Actions | CI/CD | 测试、清单校验（kubeconform）、密钥检查、镜像构建、部署、版本发布、通知 |
+| GitHub Actions | CI/CD | 测试、清单校验（kubeconform）、密钥检查、镜像构建、部署（部署后访问公开地址确认，打不开就回滚到上一版本）、版本发布、通知。外部 Action 固定到提交 SHA |
 | SonarQube · SonarCloud · CodeRabbit | 质量 | 静态分析（学校的 SonarQube 或 SonarCloud，可选）、每个 PR 的 AI 评审（韩语） |
 
 ### 测试
 
 | 技术 | 使用位置 | 作用 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | 后端 | 单元与集成测试 832 个（截至 v2.3.0） |
+| JUnit 5 · Spring Boot Test · Spring Security Test | 后端 | 单元与集成测试 851 个（截至 v2.4.0） |
 | Testcontainers (PostgreSQL) | 后端 | 在真实的 PostgreSQL 上验证迁移、查询和并发 |
 | JaCoCo | 后端 | 在 CI 中检查 40% 行覆盖率的门槛 |
-| Vitest · Testing Library · jsdom | 前端 | 界面与逻辑测试 420 个（截至 v2.3.0） |
+| Vitest · Testing Library · jsdom | 前端 | 界面与逻辑测试 421 个（截至 v2.4.0） |
 | fake-indexeddb | 前端 | 离线自动保存的测试 |
 
 ## 版本发布
@@ -391,6 +391,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v2.5.0 | 2026-10-18 | 短视频多样化: 每个视频不同的风格、转场、镜头、布局和背景音乐，长场景跳切与1~2词字幕，3种新说明图(时间线、定义卡、数字变化)，与最近5个视频的演出、脚本结构和开头不重复，渲染后静止画面检查，家用电脑备份不再因 MinIO 下载停止而受阻 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.5.0) |
 | v2.4.0 | 2026-10-17 | 安全后续: JSON 请求体按路径限制大小、生产部署后检查公开地址并在失败时回滚、收窄仪表盘读取权限与命名空间出站连接、清理调试工作流并将外部 Action 固定到提交 SHA、MCP 管理员工具仅在单独开启的令牌中可用、会话 30 天绝对过期与邮箱注册按 IP 限制 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.4.0) |
 | v2.3.0 | 2026-10-16 | 机器人决策痕迹与复盘: 每笔成交记录策略版本、篮子、形态、止损止盈、平仓原因与R倍数,并在交易日志、摘要草稿和短视频中显示按形态的战绩;服务器模拟机器人的币安账户将积分兑换为USDT并交易3倍合约;交易所风格图表(均线、成交量、1秒至1周K线、保本线);修复渲染工作器在服务器重启时自行停止的问题 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.3.0) |
 | v2.2.1 | 2026-10-16 | 安全修复: 限价单填入极大数量时几乎不冻结积分即可买入(订单金额与数量上限) | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.2.1) |

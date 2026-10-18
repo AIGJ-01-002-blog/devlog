@@ -79,6 +79,8 @@ function Pull {
     $psi.CreateNoWindow = $true
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError = $true
+    # 서버 안내는 UTF-8로 온다. 한국어 Windows 기본(CP949)으로 읽으면 글자가 깨진다
+    $psi.StandardErrorEncoding = [System.Text.Encoding]::UTF8
     $proc = [System.Diagnostics.Process]::Start($psi)
     $errTask = $proc.StandardError.ReadToEndAsync()
     $fs = [System.IO.File]::Create($tar)

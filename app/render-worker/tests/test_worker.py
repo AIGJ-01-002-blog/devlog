@@ -14,7 +14,7 @@ from devlog_render.worker import Client, loop, run_once
 
 JOB = {
     "id": 7, "claim": "c-1", "attempt": 1, "title": "도커 볼륨 날린 날: 100% 복구한 방법", "handle": "minseo",
-    "postUrl": "https://devlog.life/@minseo/1",
+    "postUrl": "https://devlog.life/@minseo/1", "recentLooks": ["paper:0", "night:1", "mint:2"],
     "scenes": [
         {"caption": "볼륨이 사라졌어요", "narration": "어제 도커 볼륨을 지웠더니 글이 전부 사라졌어요.", "code": None},
         {"caption": "원인: down -v", "narration": "compose down 뒤에 -v를 붙이면 볼륨까지 지워져요.", "code": "docker compose down -v\n# %{pts} 그대로 보여야 해요"},
@@ -56,7 +56,7 @@ class FakeServer:
 
     def __init__(self, job, upload_status=200):
         self.jobs = [job] if job else []
-        self.uploads, self.failures, self.tokens = [], [], []
+        self.uploads, self.failures, self.tokens, self.looks = [], [], [], []
         outer = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -89,6 +89,7 @@ class FakeServer:
                 outer.tokens.append(self.headers.get("X-Render-Token"))
                 body = self._body()
                 outer.uploads.append((self.path, self.headers.get("X-Duration-Ms"), body))
+                outer.looks.append(self.headers.get("X-Look"))
                 self.send_response(upload_status)
                 self.send_header("Content-Length", "2")
                 self.end_headers()
@@ -121,6 +122,8 @@ class WorkerLoopTest(unittest.TestCase):
         self.assertGreater(int(duration), 5000)
         self.assertEqual(body[4:8], b"ftyp")
         self.assertTrue(all(t == "tok" for t in server.tokens))
+        self.assertRegex(server.looks[0], r"^[a-z]+:[0-9]$")
+        self.assertNotIn(server.looks[0].split(":")[0], {"paper", "night", "mint"})  # 최근 3편 룩은 피한다
 
     def test_render_error_is_reported_as_failure(self):
         server = FakeServer(JOB)

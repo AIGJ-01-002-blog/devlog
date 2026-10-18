@@ -59,10 +59,15 @@ public final class ShortsScript {
     /** 설명 도식(#277 렌더 워커 diagram.py): flow·stack·steps·compare. 칸 수 상한과 이름표 길이 */
     private static final String STACK = "stack";
     private static final String COMPARE = "compare";
+    private static final String DEFINE = "define";
+    private static final String NUMBER = "number";
     private static final String ITEMS = "items";
-    public static final List<String> DIAGRAM_TYPES = List.of("flow", STACK, "steps", COMPARE);
-    static final java.util.Map<String, Integer> DIAGRAM_ITEMS_MAX = java.util.Map.of("flow", 4, STACK, 5, "steps", 5, COMPARE, 4);
+    public static final List<String> DIAGRAM_TYPES = List.of("flow", STACK, "steps", COMPARE, "timeline", DEFINE, NUMBER);
+    static final java.util.Map<String, Integer> DIAGRAM_ITEMS_MAX = java.util.Map.of("flow", 4, STACK, 5, "steps", 5, COMPARE, 4, "timeline", 5, DEFINE, 3);
     public static final int DIAGRAM_LABEL_MAX = 20;
+    /** number 도식: 단위 글자 수와 숫자 크기(워커 diagram.py UNIT_MAX·NUMBER_MAX와 같다) */
+    static final int DIAGRAM_UNIT_MAX = 8;
+    static final double DIAGRAM_NUMBER_MAX = 1e9;
 
     /**
      * diagram: CS 개념을 풀어 줄 설명 도식 (선택). 워커에 그대로 넘긴다. 예 {"type":"flow","items":["브라우저","서버",{"label":"DB","icon":"database"}]}
@@ -153,9 +158,11 @@ public final class ShortsScript {
         if (d == null) return null;
         Object type = d.get("type");
         if (!(type instanceof String t) || !DIAGRAM_TYPES.contains(t)) return "type은 " + String.join("·", DIAGRAM_TYPES) + " 중 하나예요.";
+        if (t.equals(NUMBER)) return numberError(d);
         int max = DIAGRAM_ITEMS_MAX.get(t);
         if (t.equals(COMPARE)) return compareError(d, max);
-        String e = itemsError(d.get(ITEMS), 2, max);
+        if (t.equals(DEFINE) && !validLabel(d.get("term"))) return "define은 term(정의할 말)이 1~" + DIAGRAM_LABEL_MAX + "자로 있어야 해요.";
+        String e = itemsError(d.get(ITEMS), t.equals(DEFINE) ? 1 : 2, max);
         if (e != null) return e;
         if (t.equals(STACK)) return highlightError(d);
         return null;
@@ -167,6 +174,19 @@ public final class ShortsScript {
             String e = itemsError(m.get(ITEMS), 1, max);
             if (e != null) return e;
         }
+        return null;
+    }
+
+    /** number: 이름표(label)를 말할 때 from에서 to로 숫자가 바뀐다. 블로그 글에 있는 실제 숫자여야 한다 */
+    private static String numberError(java.util.Map<String, Object> d) {
+        if (!validLabel(d.get("label"))) return "number는 label(무슨 숫자인지)이 1~" + DIAGRAM_LABEL_MAX + "자로 있어야 해요.";
+        for (String key : List.of("from", "to")) {
+            if (!(d.get(key) instanceof Number n) || !Double.isFinite(n.doubleValue()) || Math.abs(n.doubleValue()) > DIAGRAM_NUMBER_MAX) {
+                return "number의 from·to는 숫자예요(절댓값 10억 이하).";
+            }
+        }
+        Object unit = d.get("unit");
+        if (unit != null && !(unit instanceof String u && u.strip().length() <= DIAGRAM_UNIT_MAX)) return "unit은 " + DIAGRAM_UNIT_MAX + "자 이하 글자예요.";
         return null;
     }
 

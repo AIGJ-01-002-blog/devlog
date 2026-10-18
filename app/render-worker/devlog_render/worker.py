@@ -45,9 +45,12 @@ class Client:
         status, body = self._send("POST", "/api/render/jobs/claim", b"", "application/json")
         return None if status == 204 or not body else json.loads(body)
 
-    def upload(self, job: dict, video: Path, duration_ms: int) -> None:
+    def upload(self, job: dict, video: Path, duration_ms: int, look: str | None = None) -> None:
+        headers = {"X-Duration-Ms": str(duration_ms)}
+        if look:  # 고른 연출(룩:배경음). 서버가 적어 두고 다음 작업에 최근 연출로 돌려준다
+            headers["X-Look"] = look
         self._send("PUT", f"/api/render/jobs/{job['id']}/video?claim={quote(job['claim'])}", video.read_bytes(),
-                   "video/mp4", {"X-Duration-Ms": str(duration_ms)}, timeout=max(self.timeout, 300))
+                   "video/mp4", headers, timeout=max(self.timeout, 300))
 
     def fail(self, job: dict, message: str) -> None:
         data = json.dumps({"message": message[:500]}, ensure_ascii=False).encode("utf-8")
@@ -88,7 +91,7 @@ def run_once(client: Client, renderer: Renderer, site: str) -> bool:
                 log.warning("실패 보고도 안 됐어요(시간 초과로 서버가 되돌릴 거예요): %s", report)
             return True
         try:
-            client.upload(job, out, duration)
+            client.upload(job, out, duration, getattr(renderer, "last_look", None))
         except ServerError as e:
             if e.status == 409:  # 시간이 지나 다른 워커에게 넘어갔거나 대본이 바뀜. 결과는 버린다
                 log.warning("작업 %s 결과를 버려요: %s", job["id"], e)

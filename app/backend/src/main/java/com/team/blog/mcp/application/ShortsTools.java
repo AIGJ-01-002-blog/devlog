@@ -39,7 +39,7 @@ class ShortsTools {
                   "sound":{"type":"string","enum":["pop","ding","whoosh","boing","tick","typing"]},
                   "at":{"type":"number","description":"장면이 시작하고 몇 초 뒤"},
                   "volume":{"type":"number","description":"0~1 (선택)"}},"required":["sound","at"]}},
-                "diagram":{"type":"object","description":"CS 개념을 풀어 줄 설명 도식 (선택). type은 flow(왼쪽→오른쪽 흐름, 칸 4개까지)·stack(위→아래 층, 5개까지, highlight는 0부터 센 강조 층)·steps(순서, 5개까지)·compare(left·right에 {title, items} 4개까지). 칸은 문자열이나 {label, icon, note}, 이름표는 20자까지. 칸은 내레이션이 이름표 첫 낱말을 말할 때 나타나니 내레이션에 이름표 말을 넣는다. 예 {'type':'flow','items':['브라우저','서버',{'label':'DB','icon':'database','note':'디스크'}]}"}},
+                "diagram":{"type":"object","description":"CS 개념을 풀어 줄 설명 도식 (선택). type은 flow(왼쪽→오른쪽 흐름, 칸 4개까지)·stack(위→아래 층, 5개까지, highlight는 0부터 센 강조 층)·steps(순서, 5개까지)·compare(left·right에 {title, items} 4개까지)·timeline(시간 순 사건, 5개까지, note에 날짜·버전)·define(term에 정의할 말, items에 뜻·특징 3개까지)·number(label·from·to·unit: 이름표를 말할 때 숫자가 from에서 to로 바뀜, 글에 있는 실제 숫자만). 같은 영상 안에서 같은 type을 이어 쓰지 말고 장면마다 내용에 맞게 바꾼다. 칸은 문자열이나 {label, icon, note}, 이름표는 20자까지. 칸은 내레이션이 이름표 첫 낱말을 말할 때 나타나니 내레이션에 이름표 말을 넣는다. 예 {'type':'flow','items':['브라우저','서버',{'label':'DB','icon':'database','note':'디스크'}]}, {'type':'number','label':'응답 시간','from':1200,'to':35,'unit':'ms'}"}},
               "required":["caption","narration"]}}""";
 
     static final String CHARACTER = "character";
@@ -50,19 +50,26 @@ class ShortsTools {
     /**
      * 대본 쓰기 안내 (#277). 길이는 1분~1분 30초. 구조는 블로그 주인이 정한 "잘 되는 쇼츠" 틀(후킹 → 본론 → 반전·정리 → CTA)을
      * 이 길이에 맞게 늘린 것이고, "AI 티" 줄이는 법(내 말투, 후킹 고르기, 상투어 빼기, 실제 경험·숫자)을 함께 둔다.
+     * 후킹 종류와 본론 틀은 여러 가지 가운데 최근 영상과 다른 것을 고르게 한다(쇼츠 다양화 2026-10-17: 반복적인 영상은 수익화가 안 된다).
      */
     static final String GUIDE = "길이는 1분~1분 30초(장면 8~12개)이고, 가볍게 훑지 말고 한 주제를 깊게 판다. 구조: "
-            + "① 후킹(첫 장면, 3초 안): 질문·충격적인 결과·결론을 먼저 말해 스크롤을 멈추게 한다. "
-            + "② 본론(약 50초): 핵심은 1~3개만, 짧은 문장으로 빠르게. 문제 상황(실제 증상·숫자) → 원리(왜 그런지, 도식 장면 2~3개로 단계별로, 처음 듣는 사람도 따라오게 비유 하나) → 해결(코드나 명령) 순서. "
+            + "① 후킹(첫 장면, 3초 안): 후킹 종류 가운데 하나로 스크롤을 멈추게 한다. 질문(\"왜 ~일까요?\"), 결과 먼저(결론·결과 숫자부터), "
+            + "반박(\"다들 ~라는데 아니에요\"), 숫자 한 방(글에 있는 놀라운 숫자), 경고(\"이거 모르면 ~ 날려요\"). "
+            + "② 본론(약 50초): 핵심은 1~3개만, 짧은 문장으로 빠르게. 본론 틀은 글에 맞는 것 하나를 고른다: "
+            + "문제→원인→해결, 오해→진실, 전후 비교, 숫자 반전(예상한 숫자와 실제 숫자), 단계별 따라하기, 실패담(시도→실패→깨달음). "
+            + "원리는 도식 장면 2~3개로 단계별로 풀고, 처음 듣는 사람도 따라오게 비유 하나를 넣는다. "
             + "③ 반전·정리(끝에서 두 번째 장면): \"근데 진짜 중요한 건…\"처럼 한 번 더 붙잡는 반전이나 한 줄 요약. "
             + "④ CTA(마지막 장면): 행동 하나만 자연스럽게 권한다(예: 전체 코드는 블로그 글에서). 여러 행동을 한꺼번에 권하지 않는다. "
+            + "내용이 거의 같은 틀의 영상이 이어지면 유튜브가 반복적인 영상으로 보고 수익화에서 뺄 수 있다. 쓰기 전에 list_shorts로 최근 5편의 첫 장면을 보고, "
+            + "필요하면 get_shorts로 대본을 읽어서 그 영상들과 다른 후킹 종류와 본론 틀을 고른다. "
             + "AI 티가 나지 않게: 대본을 쓰기 전에 사용자 글(get_post)에서 말투를 읽고 그 말투로 쓴다. "
-            + "첫 장면 후킹 문장은 후보 5개를 먼저 사용자에게 보여 주고 고르게 한 뒤 저장한다. "
+            + "첫 장면 후킹 문장은 서로 다른 후킹 종류로 후보 5개를 먼저 사용자에게 보여 주고 고르게 한 뒤 저장한다. "
             + "\"여러분\", \"오늘은 ~에 대해 알아볼게요\", \"정말 중요한\", \"꿀팁 대방출\" 같은 뻔한 표현과 상투어는 쓰지 않는다. "
             + "사용자가 직접 겪은 일과 결과 숫자를 한 장면 이상 넣고, 글에 없는 경험이나 수치를 지어내지 않는다. "
+            + "글에 전후가 있는 실제 숫자(시간·용량·비용·오류 수 등)가 있으면 number 도식으로 바뀌는 모습을 보여 준다. 글에 없는 숫자로는 만들지 않는다. "
             + "원본 글 문장을 그대로 읽지 말고 말로 풀어 쓰며, 장면마다 새 정보를 하나씩 넣고 같은 말로 시작하지 않는다. "
             + "장면마다 내용에 맞는 visual(연출)을 고르고, 효과음(effects)은 강조할 순간에만 넣는다. "
-            + "CS 개념을 설명하는 장면은 diagram으로 도식(흐름·층·순서·비교)을 주어 그림으로 쉽게 푼다.";
+            + "CS 개념을 설명하는 장면은 diagram으로 도식(흐름·층·순서·비교·연표·정의·숫자 변화)을 주어 그림으로 쉽게 푼다.";
 
     /** 매매 재현 대본(#265) 다시 쓰기 안내. 장면 순서가 영상의 차트 진행과 맞물린다 */
     static final String REPLAY_GUIDE = "매매 재현 영상이에요. 1번 장면은 짧은 제목 카드(요점 자막이 제목이 돼요) 뒤로 차트가 흐르기 시작하고, 2번 장면부터 체결 하나에 장면 하나씩 "
@@ -86,7 +93,7 @@ class ShortsTools {
               "required":["title","hook"]}}""";
 
     static final String PLAN_GUIDE = "근거 하나를 작은 주제로 나눌 때: 한 편은 질문 하나에 답하고 끝낸다(문제 → 원인 → 내가 한 것 → 결과 숫자). "
-            + "같은 설명을 두 편에 넣지 않는다. 근거에 없는 경험·수치는 주제로 만들지 않는다. 근거가 작으면 2편, 크면 5편까지.";
+            + "같은 설명을 두 편에 넣지 않고, 편마다 후킹 종류(질문·결과 먼저·반박·숫자·경고)를 다르게 잡는다. 근거에 없는 경험·수치는 주제로 만들지 않는다. 근거가 작으면 2편, 크면 5편까지.";
 
     private final ShortsService shorts;
     private final ShortsBatches batches;
@@ -171,6 +178,15 @@ class ShortsTools {
         }
     }
 
+    /** 쇼츠 목록에 보일 첫 장면(후킹) 글자 수. 다음 대본이 다른 후킹을 고를 수 있게 */
+    static final int HOOK_PREVIEW = 60;
+
+    static String clip(String text, int max) {
+        if (text == null) return "";
+        String t = text.strip().replaceAll("\\s+", " ");
+        return t.length() <= max ? t : t.substring(0, max) + "…";
+    }
+
     McpTools.Result list(AccessTokens.Caller caller) {
         ShortsService.Overview o = shorts.overview(caller.memberId());
         if (o.items().isEmpty()) return McpTools.Result.ok("아직 쇼츠가 없어요. create_shorts_script로 내 글에서 대본을 만들 수 있어요.");
@@ -180,6 +196,7 @@ class ShortsTools {
                     .append(" · 장면 ").append(i.scenes().size()).append("개 · 예상 ").append(Math.round(i.estimatedSeconds())).append("초");
             if (i.postId() != null) sb.append(" · 원본 글 ").append(i.postId());
             if (i.replay() != null) sb.append(" · 매매 재현(체결 ").append(i.replay().fills().size()).append("개)");
+            if (!i.scenes().isEmpty()) sb.append(" · 첫 장면: ").append(clip(i.scenes().get(0).narration(), HOOK_PREVIEW));
             if (i.batchId() != null) sb.append(" · 묶음 ").append(i.batchId()).append("의 ").append(i.topic()).append("번 주제");
             if (i.error() != null && i.status() != ShortsService.Status.READY) sb.append(" · 최근 오류: ").append(i.error());
             sb.append('\n');

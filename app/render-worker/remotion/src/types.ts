@@ -27,12 +27,16 @@ export type ActionParams = {
 /** 도식 칸 하나. atMs: 목소리 시작 기준으로 이 칸이 나타나는 때(워커가 내레이션에서 이름표가 나오는 때로 정한다) */
 export type DiagramItem = {label: string; icon: string | null; note: string | null; atMs: number};
 
-/** CS 설명용 도식(#277). flow: 왼쪽→오른쪽 흐름, stack: 위→아래 층, steps: 순서, compare: 왼쪽(전·나쁨) 대 오른쪽(후·좋음) */
+/** CS 설명용 도식(#277). flow: 왼쪽→오른쪽 흐름, stack: 위→아래 층, steps: 순서, compare: 왼쪽(전·나쁨) 대 오른쪽(후·좋음),
+ *  timeline: 시간 흐름(점과 선), define: 용어 정의 카드, number: 숫자가 from→to로 바뀐다(items 한 칸이 이름표) */
 export type Diagram =
   | {type: 'flow'; items: DiagramItem[]}
   | {type: 'stack'; items: DiagramItem[]; highlight: number | null}
   | {type: 'steps'; items: DiagramItem[]}
-  | {type: 'compare'; left: {title: string; atMs: number; items: DiagramItem[]}; right: {title: string; atMs: number; items: DiagramItem[]}};
+  | {type: 'compare'; left: {title: string; atMs: number; items: DiagramItem[]}; right: {title: string; atMs: number; items: DiagramItem[]}}
+  | {type: 'timeline'; items: DiagramItem[]}
+  | {type: 'define'; term: {label: string; atMs: number}; items: DiagramItem[]}
+  | {type: 'number'; from: number; to: number; unit: string; items: DiagramItem[]};
 
 export type SceneData = {
   caption: string;
@@ -51,6 +55,14 @@ export type SceneData = {
   cut?: boolean;
   /** 있으면 고양이 연기 대신 도식을 그리고, 고양이는 왼쪽 아래에서 도식을 가리키며 설명한다 */
   diagram: Diagram | null;
+  /** 화면 배치(워커 look.py). stage: 위 요점·가운데 무대(Scene), split: 위 그림·아래 캐릭터(FastScene). 없으면 style을 따른다 */
+  layout?: 'stage' | 'split';
+  /** 무대 카메라 움직임(looks.ts camera()). 없으면 시작할 때 살짝 당겨 들어온다 */
+  camera?: string | null;
+  /** 앞 장면에서 이 장면으로 넘어오는 전환(looks.ts transition()). 0번 장면은 null */
+  transition?: string | null;
+  /** 목소리가 시작할 때 한 번 일어나는 사건(looks.ts EventLayer): shake 흔들림, flash 섬광, stamp 도장. 영상 한 편에 한두 장면 */
+  event?: 'shake' | 'flash' | 'stamp' | null;
 };
 
 export type ShortsProps = {
@@ -63,4 +75,6 @@ export type ShortsProps = {
   style?: 'clean' | 'fast';
   /** 고양이 대신 연기할 캐릭터(remotion/src/character/<이름>/). 없으면 기본 고양이 */
   character?: string | null;
+  /** 이 영상의 룩 이름(looks.ts LOOKS). 없으면 paper */
+  look?: string | null;
 };

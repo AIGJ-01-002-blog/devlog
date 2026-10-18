@@ -166,7 +166,7 @@ flowchart LR
     T[Telegram] -->|Bot API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>複数 Pod]
     I -->|/blog-images| M[(MinIO / S3<br/>画像・添付)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V54)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V55)]
     A --> R[(Redis<br/>セッション・レート制限・閲覧数・キャッシュ)]
     A --> M
     A -.任意.-> G[Google Gemini]
@@ -262,7 +262,7 @@ GitHub Actions でテストし、イメージを作って GHCR に上げたあ�
 
 | パス | 説明 |
 | --- | --- |
-| [app/backend](app/backend) | バックエンド：Spring Boot 4.1、Java 21。機能モジュール、Flyway マイグレーション（V1~V54）、テスト |
+| [app/backend](app/backend) | バックエンド：Spring Boot 4.1、Java 21。機能モジュール、Flyway マイグレーション（V1~V55）、テスト |
 | [app/frontend](app/frontend) | フロントエンド：React 19 SPA、TypeScript、Vite。画面、自動保存（IndexedDB）、ダークモード |
 | [deploy](deploy) | デプロイ：Dockerfile、Kubernetes マニフェスト（base・selfhosted・nhn・local）、デプロイ・ロールバック・シークレット検査のスクリプト |
 | [app/render-worker](app/render-worker) | ショート動画のレンダーワーカー：Python 3.10、ffmpeg、Remotion（Node）。自分のパソコンで待ち行列の台本を 9:16 の MP4 にしてアップロードします |
@@ -343,7 +343,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub・Google・カカオ・NAVER・Facebook ログイン、セッション、CSRF、パスごとの権限 |
 | Spring Data JPA (Hibernate) | Boot 4.1 | ドメイン全体 | 会員・記事・コメントなどドメインデータの保存 |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | セッション、レート制限、閲覧数、キャッシュ | 複数の Pod が同じセッションを共有し、同時リクエストも Redis スクリプト 1 つで判定します |
-| Flyway | Boot 4.1 | DB | スキーマを V1~V54 のマイグレーションで管理し、起動時に適用します |
+| Flyway | Boot 4.1 | DB | スキーマを V1~V55 のマイグレーションで管理し、起動時に適用します |
 | commonmark-java (+ GFM 拡張) | 0.30.0 | 本文のレンダリング | Markdown → HTML。表・取り消し線・チェックリスト・自動リンク・見出しアンカー |
 | OWASP Java HTML Sanitizer | 20260924.2 | 本文のサニタイズ | レンダリングした HTML を許可リストでサニタイズし XSS を防ぎます |
 | AWS SDK for Java (S3) | 2.55.12 | media | MinIO・S3 に画像と添付をアップロードします |
@@ -372,17 +372,17 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 | Docker · GHCR | イメージ | 画面をビルドしてバックエンドに入れ、1 つのイメージにします。root 以外のユーザーで実行します |
 | Kubernetes · kustomize | デプロイ | Deployment・HPA・PDB・NetworkPolicy、オーバーレイ 3 種（selfhosted・nhn・local） |
 | nginx Ingress | 前段 | TLS とパスごとの振り分け（`/blog-images` は MinIO へ） |
-| GitHub Actions | CI/CD | テスト、マニフェスト検証（kubeconform）、シークレット検査、イメージのビルド、デプロイ、リリース、通知 |
+| GitHub Actions | CI/CD | テスト、マニフェスト検証（kubeconform）、シークレット検査、イメージのビルド、デプロイ（デプロイ後に公開アドレスを開いて確かめ、開かなければ直前のバージョンに戻す）、リリース、通知。外部アクションはコミット SHA で固定 |
 | SonarQube · SonarCloud · CodeRabbit | 品質 | 静的解析（学校の SonarQube または SonarCloud、任意）、PR ごとの AI レビュー（韓国語） |
 
 ### テスト
 
 | 技術 | 使う場所 | 役割 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | バックエンド | 単体・結合テスト 832 件（v2.3.0 時点） |
+| JUnit 5 · Spring Boot Test · Spring Security Test | バックエンド | 単体・結合テスト 851 件（v2.4.0 時点） |
 | Testcontainers (PostgreSQL) | バックエンド | 本物の PostgreSQL でマイグレーション・クエリ・並行処理を検証します |
 | JaCoCo | バックエンド | 行カバレッジ 40% の基準を CI で確認します |
-| Vitest · Testing Library · jsdom | フロントエンド | 画面とロジックのテスト 420 件（v2.3.0 時点） |
+| Vitest · Testing Library · jsdom | フロントエンド | 画面とロジックのテスト 421 件（v2.4.0 時点） |
 | fake-indexeddb | フロントエンド | オフライン自動保存のテスト |
 
 ## リリース
@@ -391,6 +391,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | バージョン | 日付 | 主な内容 | リリースノート |
 | --- | --- | --- | --- |
+| v2.5.0 | 2026-10-18 | ショート動画の多様化: 動画ごとに異なるルック・トランジション・カメラ・配置・BGM、長い場面のジャンプカットと1〜2語字幕、説明図3種(年表・定義カード・数値変化)、直近5本と演出・台本構成・フックが重ならない、レンダー後の静止画面検査、自宅PCバックアップがMinIOのダウンロード終了で止まらない | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.5.0) |
 | v2.4.0 | 2026-10-17 | セキュリティの後続対応: JSON リクエスト本文のパス別上限、本番デプロイ後の公開 URL 確認と失敗時のロールバック、ダッシュボード読み取り権限と名前空間の外向き通信の制限、デバッグ用ワークフロー整理と外部アクションのコミット SHA 固定、MCP 管理者ツールは有効にしたトークンだけ、セッション 30 日の絶対期限とメール登録の IP 別制限 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.4.0) |
 | v2.3.0 | 2026-10-16 | ボット判断の記録と振り返り: 約定ごとに戦略バージョン・バスケット・セットアップ・損切り利確・決済理由・R倍数を残し、売買日誌・要約記事・ショートに手法別成績、サーバー模擬ボットのBinance口座のUSDT両替と3倍先物、取引所風チャート(移動平均線・出来高・1秒〜1週足・平均単価線)、レンダーワーカーがサーバー再起動で止まる問題を修正 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.3.0) |
 | v2.2.1 | 2026-10-16 | セキュリティ修正: 指値注文に非常に大きな数量を入れるとクレジットがほぼ拘束されずに買えた問題(注文金額・数量の上限) | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.2.1) |

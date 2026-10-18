@@ -22,6 +22,20 @@ class ParseTest(unittest.TestCase):
         self.assertIsNone(d["highlight"])
         self.assertEqual(diagram.parse({"type": "stack", "items": ["a", "b"], "highlight": 1})["highlight"], 1)
 
+    def test_new_types(self):
+        t = diagram.parse({"type": "timeline", "items": ["설계", "구현", "배포", "a", "b", "c"]})
+        self.assertEqual(len(t["items"]), 5)
+        d = diagram.parse({"type": "define", "term": "인덱스", "items": ["책의 찾아보기", "정렬된 사본", "x", "y"]})
+        self.assertEqual(d["term"], "인덱스")
+        self.assertEqual(len(d["items"]), 3)
+        self.assertIsNone(diagram.parse({"type": "define", "items": ["뜻"]}))
+        n = diagram.parse({"type": "number", "label": "응답 시간", "from": 1200, "to": 35.5, "unit": "ms"})
+        self.assertEqual((n["from"], n["to"], n["unit"], n["items"][0]["label"]), (1200, 35.5, "ms", "응답 시간"))
+        self.assertIsNone(diagram.parse({"type": "number", "label": "x", "from": True, "to": 3}))
+        self.assertIsNone(diagram.parse({"type": "number", "label": "x", "from": "1", "to": 3}))
+        self.assertIsNone(diagram.parse({"type": "number", "from": 1, "to": 3}))
+        self.assertIsNone(diagram.parse({"type": "number", "label": "x", "from": 1, "to": 1e12}))
+
     def test_job_reads_diagram(self):
         script = Script.from_job({"title": "t", "scenes": [
             {"caption": "길", "narration": "서버로 가요.", "diagram": {"type": "steps", "items": ["하나", "둘"]}},
@@ -52,6 +66,13 @@ class TimingTest(unittest.TestCase):
         self.assertLess(t["left"]["atMs"], t["right"]["atMs"])
         self.assertLess(t["right"]["atMs"], t["right"]["items"][0]["atMs"])
         self.assertEqual(len(order), 4)
+
+    def test_define_term_comes_first(self):
+        text = "인덱스는 책의 찾아보기처럼 정렬된 사본이에요."
+        d = diagram.timed(diagram.parse({"type": "define", "term": "인덱스", "items": ["찾아보기", "정렬된 사본"]}), captions.pages(text, 4.0), 4.0)
+        times = diagram.reveal_times(d)
+        self.assertEqual(len(times), 3)
+        self.assertLessEqual(d["term"]["atMs"], d["items"][0]["atMs"])
 
 
 if __name__ == "__main__":

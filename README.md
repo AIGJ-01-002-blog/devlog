@@ -164,7 +164,7 @@ flowchart LR
     T[텔레그램] -->|봇 API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>파드 여러 개]
     I -->|/blog-images| M[(MinIO / S3<br/>사진·첨부)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V54)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V55)]
     A --> R[(Redis<br/>세션·요청 제한·조회수·캐시)]
     A --> M
     A -.선택.-> G[Google Gemini]
@@ -260,7 +260,7 @@ GitHub Actions로 테스트하고 이미지를 만들어 GHCR에 올린 뒤, kus
 
 | 경로 | 설명 |
 | --- | --- |
-| [app/backend](app/backend) | 백엔드 — Spring Boot 4.1, Java 21. 기능 모듈, Flyway 마이그레이션(V1~V54), 테스트 |
+| [app/backend](app/backend) | 백엔드 — Spring Boot 4.1, Java 21. 기능 모듈, Flyway 마이그레이션(V1~V55), 테스트 |
 | [app/frontend](app/frontend) | 프론트엔드 — React 19 SPA, TypeScript, Vite. 화면, 자동 저장(IndexedDB), 다크 모드 |
 | [deploy](deploy) | 배포 — Dockerfile, 쿠버네티스 매니페스트(base·selfhosted·nhn·local), 배포·롤백·비밀값 검사 스크립트 |
 | [app/render-worker](app/render-worker) | 쇼츠 렌더 워커 — Python 3.10, ffmpeg, Remotion(Node). 내 컴퓨터에서 대기열의 대본을 9:16 MP4로 만들어 올립니다 |
@@ -341,7 +341,7 @@ npm run dev        # http://localhost:5173
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub·Google·카카오·네이버·Facebook 로그인, 세션, CSRF, 경로별 권한 |
 | Spring Data JPA (Hibernate) | Boot 4.1 | 도메인 전체 | 회원·글·댓글 등 도메인 저장 |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | 세션, 요청 제한, 조회수, 캐시 | 파드 여러 개가 같은 세션을 보고, 동시 요청도 Redis 스크립트 하나로 판정합니다 |
-| Flyway | Boot 4.1 | DB | 스키마를 V1~V54 마이그레이션으로 관리하고 앱 시작 때 적용합니다 |
+| Flyway | Boot 4.1 | DB | 스키마를 V1~V55 마이그레이션으로 관리하고 앱 시작 때 적용합니다 |
 | commonmark-java (+ GFM 확장) | 0.30.0 | 본문 렌더링 | Markdown → HTML. 표·취소선·체크 목록·자동 링크·제목 앵커 |
 | OWASP Java HTML Sanitizer | 20260924.2 | 본문 정화 | 렌더링한 HTML을 허용 목록으로 정화해 XSS를 막습니다 |
 | AWS SDK for Java (S3) | 2.55.12 | media | MinIO·S3에 사진과 첨부를 올립니다 |
@@ -370,17 +370,17 @@ npm run dev        # http://localhost:5173
 | Docker · GHCR | 이미지 | 화면 빌드 → 백엔드에 넣어 하나의 이미지로. 루트가 아닌 사용자로 실행합니다 |
 | Kubernetes · kustomize | 배포 | Deployment·HPA·PDB·NetworkPolicy, 오버레이 3종(selfhosted·nhn·local) |
 | nginx 인그레스 | 앞단 | TLS, 경로별 전달(`/blog-images`는 MinIO로) |
-| GitHub Actions | CI/CD | 테스트, 매니페스트 검증(kubeconform), 비밀값 검사, 이미지 빌드, 배포, 릴리스, 알림 |
+| GitHub Actions | CI/CD | 테스트, 매니페스트 검증(kubeconform), 비밀값 검사, 이미지 빌드, 배포(배포 뒤 공개 주소를 열어 보고 안 열리면 직전 버전으로 되돌림), 릴리스, 알림. 외부 액션은 커밋 SHA로 고정 |
 | SonarQube · SonarCloud · CodeRabbit | 품질 | 정적 분석(학교 SonarQube 또는 SonarCloud, 선택), PR마다 AI 리뷰(한국어) |
 
 ### 테스트
 
 | 기술 | 쓰는 곳 | 역할 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | 백엔드 | 단위·통합 테스트 832건(v2.3.0 기준) |
+| JUnit 5 · Spring Boot Test · Spring Security Test | 백엔드 | 단위·통합 테스트 851건(v2.4.0 기준) |
 | Testcontainers (PostgreSQL) | 백엔드 | 실제 PostgreSQL로 마이그레이션·쿼리·동시성을 검증합니다 |
 | JaCoCo | 백엔드 | 줄 커버리지 40% 기준을 CI에서 확인합니다 |
-| Vitest · Testing Library · jsdom | 프론트엔드 | 화면과 로직 테스트 420건(v2.3.0 기준) |
+| Vitest · Testing Library · jsdom | 프론트엔드 | 화면과 로직 테스트 421건(v2.4.0 기준) |
 | fake-indexeddb | 프론트엔드 | 오프라인 자동 저장 테스트 |
 
 ## 릴리스
@@ -389,6 +389,7 @@ npm run dev        # http://localhost:5173
 
 | 버전 | 날짜 | 주요 내용 | 릴리스 노트 |
 | --- | --- | --- | --- |
+| v2.5.0 | 2026-10-18 | 쇼츠 다양화: 영상마다 다른 룩·전환·카메라·배치·배경음, 긴 장면 점프 컷과 1~2어절 자막, 설명 그림 3종(연표·정의 카드·숫자 변화), 최근 5편과 연출·대본 틀·후킹이 겹치지 않게, 렌더 뒤 멈춘 화면 검사, 집 PC 백업이 MinIO 내려받기 중단에 막히지 않게 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.5.0) |
 | v2.4.0 | 2026-10-17 | 보안 후속: JSON 요청 본문 경로별 상한, 운영 배포 뒤 공개 주소 확인과 실패 시 되돌리기, 대시보드 읽기 권한과 네임스페이스 나가는 연결 좁히기, 디버그 워크플로 정리·외부 액션 SHA 고정, MCP 관리자 도구는 따로 켠 토큰에서만, 세션 30일 절대 만료·이메일 가입 IP별 제한 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.4.0) |
 | v2.3.0 | 2026-10-16 | 봇 판단 흔적과 복기: 체결마다 기법 버전·바구니·셋업·손절익절·정리 이유·R배수를 남기고 매매 일지·요약 글·쇼츠에 기법별 성적, 서버 모의 봇 바이낸스 계좌의 USDT 환전과 3배 선물, 거래소식 차트(이동평균선·거래량·1초~1주 봉·평단선), 렌더 워커가 서버 재시작에 꺼지던 문제 고침 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.3.0) |
 | v2.2.1 | 2026-10-16 | 지정가 주문에 아주 큰 수량을 넣어 크레딧을 거의 묶지 않고 살 수 있던 보안 문제 수정(주문 금액·수량 상한) | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.2.1) |
