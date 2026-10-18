@@ -40,6 +40,10 @@ class SocialLinksChannelTest {
         assertThat(SocialLinks.normalize(Kind.INSTAGRAM, "@dev.kim")).isEqualTo("dev.kim");
         assertThat(SocialLinks.normalize(Kind.INSTAGRAM, "https://www.instagram.com/reel/Cxyz/")).isNull();
         assertThat(SocialLinks.normalize(Kind.INSTAGRAM, "한글아이디")).isNull();
+        assertThat(SocialLinks.normalize(Kind.INSTAGRAM, ".")).as("instagram.com/./은 첫 화면으로 간다").isNull();
+        assertThat(SocialLinks.normalize(Kind.INSTAGRAM, "..")).isNull();
+        assertThat(SocialLinks.normalize(Kind.INSTAGRAM, ".dev.kim")).isNull();
+        assertThat(SocialLinks.normalize(Kind.INSTAGRAM, "dev.kim.")).isNull();
 
         assertThat(SocialLinks.normalize(Kind.TIKTOK, "https://www.tiktok.com/@dev.kim?lang=ko")).isEqualTo("dev.kim");
         assertThat(SocialLinks.normalize(Kind.TIKTOK, "@dev_kim")).isEqualTo("dev_kim");
