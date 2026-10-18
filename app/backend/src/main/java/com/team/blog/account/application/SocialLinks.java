@@ -85,12 +85,12 @@ public class SocialLinks {
     private static final Pattern FACEBOOK_URL = profileUrl("(?:facebook|fb)\\.com");
     /** Instagram 사용자 이름: 영문·숫자·밑줄·마침표 30자까지 */
     private static final Pattern INSTAGRAM_ID = Pattern.compile("[A-Za-z0-9._]{1,30}");
-    /** TikTok 사용자 이름: 영문·숫자·밑줄·마침표 2~24자 */
-    private static final Pattern TIKTOK_ID = Pattern.compile("[A-Za-z0-9._]{2,24}");
+    /** TikTok 사용자 이름: 영문·숫자·밑줄·마침표 2~24자, 마침표로 끝나지 않는다 */
+    private static final Pattern TIKTOK_ID = Pattern.compile("[A-Za-z0-9._]{1,23}[A-Za-z0-9_]");
     private static final Pattern INSTAGRAM_URL = profileUrl("instagram\\.com");
     private static final Pattern TIKTOK_URL = profileUrl("tiktok\\.com");
-    /** YouTube 핸들은 여러 언어 글자를 받는다(3~30자, 글자·숫자·밑줄·하이픈·마침표) */
-    private static final Pattern YOUTUBE_HANDLE = Pattern.compile("[\\p{L}\\p{N}\\p{M}._-]{3,30}");
+    /** YouTube 핸들은 여러 언어 글자를 받는다(글자·숫자·밑줄·하이픈·마침표 30자까지). 3자 미만은 한글이 든 핸들만 받는다(한글 핸들은 더 짧아도 된다) */
+    private static final Pattern YOUTUBE_HANDLE = Pattern.compile("[\\p{L}\\p{N}\\p{M}._-]{3,30}|(?=.*\\p{IsHangul})[\\p{L}\\p{N}\\p{M}._-]{1,2}");
     private static final Pattern YOUTUBE_CHANNEL_ID = Pattern.compile("UC[A-Za-z0-9_-]{22}");
     private static final Pattern YOUTUBE_URL = Pattern.compile(
             "(?i)(?:https?://)?(?:www\\.|m\\.)?youtube\\.com/(@[^/?#]+|channel/[^/?#]+)(?:/[^?#]*)?(?:[?#].*)?");

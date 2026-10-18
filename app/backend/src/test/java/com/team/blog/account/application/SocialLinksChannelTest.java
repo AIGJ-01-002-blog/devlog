@@ -17,6 +17,7 @@ class SocialLinksChannelTest {
         assertThat(SocialLinks.normalize(Kind.YOUTUBE, "m.youtube.com/@devlog.kim?si=abc")).isEqualTo("@devlog.kim");
         assertThat(SocialLinks.normalize(Kind.YOUTUBE, "https://youtube.com/@%EB%A1%9C%EA%B7%B8%EB%83%A5")).isEqualTo("@로그냥");
         assertThat(SocialLinks.normalize(Kind.YOUTUBE, "@로그냥")).isEqualTo("@로그냥");
+        assertThat(SocialLinks.normalize(Kind.YOUTUBE, "@김")).as("한글 핸들은 짧아도 된다").isEqualTo("@김");
         assertThat(SocialLinks.normalize(Kind.YOUTUBE, "https://www.youtube.com/channel/UCabcdefghijklmnopqrstuv"))
                 .isEqualTo("channel/UCabcdefghijklmnopqrstuv");
         assertThat(SocialLinks.normalize(Kind.YOUTUBE, "UCabcdefghijklmnopqrstuv")).isEqualTo("channel/UCabcdefghijklmnopqrstuv");
@@ -44,5 +45,6 @@ class SocialLinksChannelTest {
         assertThat(SocialLinks.normalize(Kind.TIKTOK, "@dev_kim")).isEqualTo("dev_kim");
         assertThat(SocialLinks.normalize(Kind.TIKTOK, "https://www.tiktok.com/@dev.kim/video/123")).isNull();
         assertThat(SocialLinks.normalize(Kind.TIKTOK, "a")).isNull();
+        assertThat(SocialLinks.normalize(Kind.TIKTOK, "dev.kim.")).as("마침표로 끝나지 않는다").isNull();
     }
 }
