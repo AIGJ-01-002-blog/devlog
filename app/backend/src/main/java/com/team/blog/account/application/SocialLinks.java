@@ -84,7 +84,7 @@ public class SocialLinks {
     private static final Pattern X_URL = profileUrl("(?:x|twitter)\\.com");
     private static final Pattern FACEBOOK_URL = profileUrl("(?:facebook|fb)\\.com");
     /** Instagram 사용자 이름: 영문·숫자·밑줄·마침표 30자까지 */
-    private static final Pattern INSTAGRAM_ID = Pattern.compile("[A-Za-z0-9._]{1,30}");
+    private static final Pattern INSTAGRAM_ID = Pattern.compile("(?!\\.)[A-Za-z0-9._]{1,30}(?<!\\.)");
     /** TikTok 사용자 이름: 영문·숫자·밑줄·마침표 2~24자, 마침표로 끝나지 않는다 */
     private static final Pattern TIKTOK_ID = Pattern.compile("[A-Za-z0-9._]{1,23}[A-Za-z0-9_]");
     private static final Pattern INSTAGRAM_URL = profileUrl("instagram\\.com");

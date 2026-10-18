@@ -12,11 +12,15 @@ import org.springframework.stereotype.Component;
  * 소셜 가입 마무리 화면에만 Google·GitHub·카카오·Facebook·네이버 사진 호스트를 img-src에 더한다 (화면별 CSP, 2026-10-07 H3).
  * 광고를 싣는 공개 화면(SpaShell이 요청에 nonce를 남긴 화면)은 애드센스가 지원하는 엄격한 CSP로 바꾼다 (spec 076).
  * 애드센스는 쓰는 도메인이 수시로 바뀌어 허용 목록 방식을 지원하지 않고, nonce + 'strict-dynamic'만 지원한다.
+ * 블로그 쇼츠 카드(spec 103)가 YouTube 썸네일과 youtube-nocookie 재생 화면을 쓰므로 그 두 곳은 모든 화면에서 연다.
+ * 화면 사이 이동은 첫 문서의 CSP를 그대로 쓰기 때문에 경로별로 나누지 않는다.
  */
 @Component
 public class ContentSecurityPolicy implements HeaderWriter {
     /** SpaShell이 광고 코드를 넣은 화면에 남기는 요청 속성. 이 값이 있으면 광고용 정책을 쓴다 */
     public static final String AD_NONCE_ATTRIBUTE = ContentSecurityPolicy.class.getName() + ".adNonce";
+    static final String YOUTUBE_THUMBNAILS = "https://i.ytimg.com";
+    static final String YOUTUBE_EMBED = "https://www.youtube-nocookie.com";
     static final String SOCIAL_AVATAR_HOSTS = "https://avatars.githubusercontent.com https://lh3.googleusercontent.com https://k.kakaocdn.net https://platform-lookaside.fbsbx.com https://phinf.pstatic.net";
     private final String storageOrigin;
 
@@ -49,8 +53,8 @@ public class ContentSecurityPolicy implements HeaderWriter {
         String storage = storageOrigin.isEmpty() ? "" : " " + storageOrigin;
         String imgExtra = "/signup/social".equals(path) ? " " + SOCIAL_AVATAR_HOSTS : "";
         return "default-src 'self'; script-src 'self'; connect-src 'self'" + storage
-                + "; img-src 'self'" + storage + imgExtra + " data: blob:"
-                + "; media-src 'self'" + storage + " blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; object-src 'none'; frame-ancestors 'none'"
+                + "; img-src 'self'" + storage + imgExtra + " " + YOUTUBE_THUMBNAILS + " data: blob:"
+                + "; media-src 'self'" + storage + " blob:; frame-src " + YOUTUBE_EMBED + "; style-src 'self' 'unsafe-inline'; font-src 'self' data:; object-src 'none'; frame-ancestors 'none'"
                 + "; base-uri 'none'; form-action 'self'";
     }
 
