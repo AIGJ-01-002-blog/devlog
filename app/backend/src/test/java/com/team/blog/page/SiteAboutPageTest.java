@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
@@ -27,7 +28,36 @@ class SiteAboutPageTest extends IntegrationTest {
 
     @Test
     void 운영자_주소_API는_비회원도_읽는다() throws Exception {
-        mvc.perform(get("/api/site/about")).andExpect(status().isOk()).andExpect(jsonPath("$.ownerHandle").hasJsonPath());
+        mvc.perform(get("/api/site/about")).andExpect(status().isOk()).andExpect(jsonPath("$.ownerHandle").hasJsonPath())
+                .andExpect(jsonPath("$.contactUrl").value("https://github.com/AIGJ-01-002-blog/devlog/issues"))
+                .andExpect(jsonPath("$.contactEmail").doesNotExist());
+    }
+
+    @Test
+    void 로그인하지_않아도_쓸_수_있는_연락_방법이_스크립트_없이도_보인다() throws Exception {
+        String page = mvc.perform(get("/about")).andExpect(status().isOk()).andReturn().getResponse()
+                .getContentAsString(StandardCharsets.UTF_8);
+        assertThat(page).contains("로그인하지 않았다면 <a href=\"https://github.com/AIGJ-01-002-blog/devlog/issues\" rel=\"noopener\">공개 문의 창구</a>로 연락해 주세요.")
+                .contains("\"contactUrl\":\"https://github.com/AIGJ-01-002-blog/devlog/issues\"");
+    }
+
+    @Test
+    void 문의_화면도_로그인_없는_연락_방법을_서버_HTML로_보여_주고_수집은_거부한다() throws Exception {
+        String page = mvc.perform(get("/support")).andExpect(status().isOk()).andReturn().getResponse()
+                .getContentAsString(StandardCharsets.UTF_8);
+        assertThat(page).contains("<h1>문의·신고</h1>")
+                .contains("로그인하지 않았다면 <a href=\"https://github.com/AIGJ-01-002-blog/devlog/issues\" rel=\"noopener\">공개 문의 창구</a>로 연락해 주세요.")
+                .contains("noindex").doesNotContain(SpaShell.SITE_FOOTER);
+    }
+
+    @Test
+    void 수집하는_화면의_서버_HTML에는_사이트_바닥글이_있고_개인_화면에는_없다() throws Exception {
+        for (String path : List.of("/", "/about", "/privacy")) {
+            assertThat(mvc.perform(get(path)).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8))
+                    .as(path).contains(SpaShell.SITE_FOOTER);
+        }
+        assertThat(mvc.perform(get("/login")).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8))
+                .doesNotContain(SpaShell.SITE_FOOTER);
     }
 
     @Test

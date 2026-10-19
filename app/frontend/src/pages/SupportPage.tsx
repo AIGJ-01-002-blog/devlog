@@ -7,6 +7,8 @@ import {
 } from '../lib/inquiry'
 import { Link, navigate, useLocation } from '../lib/router'
 import { t, tNodes } from '../lib/i18n'
+import { api } from '../lib/api'
+import { GuestContact, type About } from './AboutPage'
 
 /**
  * 문의·신고 (spec 054). 회원이 문의·버그·제안·신고를 남기고, 내가 남긴 것의 처리 상태·답변·고친 버전을 본다.
@@ -29,6 +31,7 @@ export function SupportPage() {
         <div className="support-card">
           <p>{t('문의는 로그인한 뒤 남길 수 있어요. 답변을 알림으로 보내 드리기 위해서예요.')}</p>
           <Link to={loginPath()} className="btn btn-dark">{t('로그인')}</Link>
+          <GuestSupportContact />
         </div>
       ) : (
         <>
@@ -194,4 +197,11 @@ function MyInquiries({ focusId }: { focusId: number | null }) {
       )}
     </>
   )
+}
+
+/** 비회원에게 로그인 말고도 닿는 연락 방법을 함께 보인다 (spec 104 FR-006). 서버 HTML에도 같은 안내가 있다 */
+function GuestSupportContact() {
+  const [about, setAbout] = useState<About | null>(null)
+  useEffect(() => { api<About>('/api/site/about').then(setAbout).catch(() => setAbout(null)) }, [])
+  return <GuestContact email={about?.contactEmail ?? null} url={about?.contactUrl ?? null} />
 }

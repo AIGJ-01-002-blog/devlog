@@ -146,8 +146,8 @@ cd app/frontend && npm install && npm run dev            # http://localhost:5173
 
 ### 创作与记录
 
-- **短视频工作室**：按场景（字幕、朗读文本、代码、说明图）修改你的 AI 通过 MCP 写的短视频脚本。点击［制作视频］后，你自己电脑上的渲染程序会把它做成由角色表演的 9:16 MP4 并上传。制作前用量产检查拦下与其他脚本重复或照搬文章的脚本。也可以把一篇文章拆成多个小主题。
-- **发布指南**：为 YouTube Shorts、Instagram Reels、TikTok 分别给出带复制按钮的标题、说明和置顶评论，并说明发布步骤。没有自动发布，发布后记录视频网址。
+- **短视频工作室**：按场景（字幕、朗读文本、代码、说明图）修改你的 AI 通过 MCP 写的短视频脚本。点击［制作视频］后，你自己电脑上的渲染程序会把它做成由角色表演的 9:16 MP4 并上传。制作前用量产检查拦下与其他脚本重复或照搬文章的脚本，每个视频选择与最近 5 个不同的风格、转场、镜头、背景音乐以及脚本结构和开头钩子。也可以把一篇文章拆成多个小主题。
+- **发布指南**：为 YouTube Shorts、Instagram Reels、TikTok 分别给出带复制按钮的标题、说明和置顶评论，并说明发布步骤。没有自动发布，发布后记录视频网址，短视频就会以 9:16 卡片显示在博客的［短视频］标签页和原文章下方。也可以把 YouTube、Instagram、TikTok 频道连接到博客。
 - **我的仪表盘**：按 7、30、90 天查看自己文章的浏览量、点赞和收到的评论，并与上一个周期比较。阅读最多的文章和短视频情况也集中在一个页面。
 - **交易日志**：交易机器人通过 MCP 记录的股票、加密货币现货和期货成交，按币种显示每日盈亏，实盘与模拟分开显示。每笔成交附带机器人留下的决策痕迹（形态、止损、止盈、平仓原因、R 倍数），并按策略版本和形态统计胜率与平均 R 来复盘。用当天的笔记生成摘要草稿和短视频脚本，用选中的成交生成交易回放短视频。devlog 不会下真实订单。
 - **博客积分与商店**：通过签到（奖励随连续天数增加）、连续签到徽章和发布文章积累积分，在黑铁到王者 9 个段位中购买主题色、头像边框和博客封面来装饰博客。
@@ -267,7 +267,7 @@ sequenceDiagram
 | [deploy](deploy) | 部署：Dockerfile、Kubernetes 清单（base、selfhosted、nhn、local），部署、回滚、密钥检查脚本 |
 | [app/render-worker](app/render-worker) | 短视频渲染程序：Python 3.10、ffmpeg、Remotion（Node）。在你自己的电脑上把队列中的脚本做成 9:16 的 MP4 并上传 |
 | [.github](.github) | CI/CD：后端与界面测试、镜像构建与部署、版本发布、Discord 与 Telegram 通知 |
-| [specs](specs) | 功能规格：按 [GitHub Spec Kit](https://github.com/github/spec-kit) 流程编写的各功能 spec、plan、tasks（001~102） |
+| [specs](specs) | 功能规格：按 [GitHub Spec Kit](https://github.com/github/spec-kit) 流程编写的各功能 spec、plan、tasks（001~103） |
 | [docs](https://github.com/AIGJ-01-002-blog/docs) | 设计文档：通用需求、架构、整合 ERD、各功能设计、权限表 |
 | [erd](erd) · [scripts](scripts) | 基准模式及其运行测试、设计验证脚本与报告 |
 
@@ -379,10 +379,10 @@ npm run dev        # http://localhost:5173
 
 | 技术 | 使用位置 | 作用 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | 后端 | 单元与集成测试 851 个（截至 v2.4.0） |
+| JUnit 5 · Spring Boot Test · Spring Security Test | 后端 | 单元与集成测试 862 个（截至 v2.6.1） |
 | Testcontainers (PostgreSQL) | 后端 | 在真实的 PostgreSQL 上验证迁移、查询和并发 |
 | JaCoCo | 后端 | 在 CI 中检查 40% 行覆盖率的门槛 |
-| Vitest · Testing Library · jsdom | 前端 | 界面与逻辑测试 421 个（截至 v2.4.0） |
+| Vitest · Testing Library · jsdom | 前端 | 界面与逻辑测试 427 个（截至 v2.6.1） |
 | fake-indexeddb | 前端 | 离线自动保存的测试 |
 
 ## 版本发布
@@ -391,6 +391,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v2.7.0 | 2026-10-19 | AdSense 审核准备: 没有文章的博客、空的系列列表和只有 AI 日记的标签不再被搜索收录、也不投放广告，热门标签页的规范地址指向首页，无脚本获取的公开页面带有站点页脚，介绍和咨询页面提供无需登录的联系方式 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.7.0) |
 | v2.6.1 | 2026-10-19 | 家用电脑备份不再把 MinIO 访问密钥作为命令参数传递，同一服务器上的其他账户无法再看到(仅通过环境变量传递) | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.6.1) |
 | v2.6.0 | 2026-10-18 | 把短视频频道接到博客: 社交信息新增 YouTube、Instagram、TikTok 频道栏和工作室“打开我的频道”，已上传的短视频以9:16卡片显示在博客“短视频”标签和原文下方(YouTube 原地播放)，可按短视频关闭博客展示，角色动作、表情和说明图随脚本内容变化 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.6.0) |
 | v2.5.0 | 2026-10-18 | 短视频多样化: 每个视频不同的风格、转场、镜头、布局和背景音乐，长场景跳切与1~2词字幕，3种新说明图(时间线、定义卡、数字变化)，与最近5个视频的演出、脚本结构和开头不重复，渲染后静止画面检查，家用电脑备份不再因 MinIO 下载停止而受阻 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.5.0) |

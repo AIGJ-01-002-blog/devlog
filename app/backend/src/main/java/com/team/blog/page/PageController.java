@@ -153,8 +153,9 @@ public class PageController {
                 + cards(new PostCardPage(page.items(), page.nextCursor())) + MAIN_END;
         HeadMeta meta = HeadMeta.site("#" + name + " - " + site.name(), "#" + name + " 태그가 달린 글", absolute(tagPath(name)),
                 absolute(site.defaultOgImage()));
-        // 글이 하나뿐인 태그 화면은 그 글과 내용이 겹치는 얇은 화면이라 검색 수집·광고에서 뺀다 (spec 085, 애드센스 "가치가 별로 없는 콘텐츠")
-        if (page.postCount() == null || page.postCount() < MIN_INDEXED_TAG_POSTS) meta = HeadMeta.privatePage(site.name(), "#" + name);
+        // 글이 하나뿐인 태그 화면은 그 글과 내용이 겹치는 얇은 화면이라 검색 수집·광고에서 뺀다 (spec 085, 애드센스 "가치가 별로 없는 콘텐츠").
+        // AI 일기로만 채운 태그도 얇은 화면이라 일기는 세지 않는다 (spec 104)
+        if (tags.publicArticleCount(name) < MIN_INDEXED_TAG_POSTS) meta = HeadMeta.privatePage(site.name(), "#" + name);
         return html(HttpStatus.OK, shell.render(meta, body, Map.of("page", "tag", "tag", page)), CacheControl.noCache());
     }
 
@@ -190,7 +191,7 @@ public class PageController {
             TrendingService.Page t = trending.page(null);
             PostCardPage asFeed = new PostCardPage(t.items(), t.nextCursor());
             String body = "<main><h1>트렌딩</h1>" + cards(asFeed) + MAIN_END;
-            HeadMeta meta = HeadMeta.site(site.name(), "최근 7일 동안 반응이 많은 글", absolute("/?tab=trending"), absolute(site.defaultOgImage()));
+            HeadMeta meta = HeadMeta.site(site.name(), "최근 7일 동안 반응이 많은 글", absolute("/"), absolute(site.defaultOgImage())); // 홈과 겹치는 목록이라 정규 주소는 홈 (spec 104)
             return html(HttpStatus.OK, shell.render(meta, body, Map.of("page", "home", "trending", asFeed)),
                     t.temporary() ? CacheControl.noStore() : CacheControl.noCache());
         }
@@ -210,6 +211,22 @@ public class PageController {
         return html(HttpStatus.OK, shell.render(meta, body, Map.of("page", "mcp")), CacheControl.noCache());
     }
 
+    /** 로그인하지 않아도 운영자에게 닿는 연락 방법 (spec 104 FR-006). 둘 다 비어 있으면 아무것도 붙이지 않는다 */
+    private void appendGuestContact(StringBuilder body) {
+        String email = site.contactEmailOrNull();
+        String url = site.contactUrlOrNull();
+        if (email == null && url == null) return;
+        body.append("<p>로그인하지 않았다면 ");
+        if (email != null) {
+            body.append("메일 <a href=\"mailto:").append(SpaShell.esc(email)).append("\">").append(SpaShell.esc(email)).append("</a>");
+            if (url != null) body.append("이나 ");
+        }
+        if (url != null) {
+            body.append("<a href=\"").append(SpaShell.esc(url)).append("\" rel=\"noopener\">공개 문의 창구</a>");
+        }
+        body.append("로 연락해 주세요.</p>");
+    }
+
     /**
      * 사이트 소개 (077): 무엇을 하는 곳인지, 누가 운영하는지, 어디로 연락하는지. 애드센스 심사처럼 사람이 아닌 읽기 도구도
      * 내용을 보도록 서버가 본문을 그리고, React가 같은 내용을 다시 그린다.
@@ -224,13 +241,16 @@ public class PageController {
         if (ownerHandle != null) {
             body.append(" 운영자 블로그: <a href=\"/@").append(SpaShell.esc(ownerHandle)).append("\">@").append(SpaShell.esc(ownerHandle)).append("</a>");
         }
-        body.append("</p><h2>연락하기</h2><p><a href=\"/support\">문의·신고</a>에서 질문, 버그, 권리 침해 신고를 받아요. 답변을 알림으로 드리려고 로그인한 뒤 남기도록 했어요.</p>")
-                .append("<p><a href=\"/terms\">이용약관</a> · <a href=\"/privacy\">개인정보 처리방침</a></p></main>");
+        body.append("</p><h2>연락하기</h2><p><a href=\"/support\">문의·신고</a>에서 질문, 버그, 권리 침해 신고를 받아요. 답변을 알림으로 드리려고 로그인한 뒤 남기도록 했어요.</p>");
+        appendGuestContact(body);
+        body.append("<p><a href=\"/terms\">이용약관</a> · <a href=\"/privacy\">개인정보 처리방침</a></p></main>");
         HeadMeta meta = HeadMeta.site("소개 - " + site.name(), SLOGAN + " devlog가 어떤 곳이고 누가 운영하는지 알려 드려요.",
                 absolute(ABOUT_PATH), absolute(site.defaultOgImage()));
         var data = new HashMap<String, Object>(); // 운영자 주소가 비면 null이라 Map.of를 못 쓴다
         data.put("page", "about");
         data.put("ownerHandle", ownerHandle);
+        data.put("contactEmail", site.contactEmailOrNull());
+        data.put("contactUrl", site.contactUrlOrNull());
         return html(HttpStatus.OK, shell.render(meta, body.toString(), data), CacheControl.noCache());
     }
 
@@ -298,7 +318,8 @@ public class PageController {
         String description = p.bio() == null || p.bio().isBlank() ? p.nickname() + "의 블로그" : truncate(p.bio(), 160);
         HeadMeta meta = new HeadMeta(p.nickname() + " (@" + p.handle() + ") - " + site.name(), description,
                 absolute("/@" + p.handle()), PROFILE, p.profileImageUrl() != null ? p.profileImageUrl() : absolute(site.defaultOgImage()),
-                null, null, q == null || q.isBlank()); // 블로그 안 검색 결과는 수집 거부 (014 FR-022)
+                // 블로그 안 검색 결과는 수집 거부 (014 FR-022). AI 일기 말고 글이 없는 블로그는 빈 화면이라 수집·광고에서 뺀다 (spec 104)
+                null, null, (q == null || q.isBlank()) && feed.indexableArticleCount(p.id()) > 0);
         return html(HttpStatus.OK, shell.render(meta, body, filter == null
                         ? Map.of("page", "blog", PROFILE, p, "feed", first, "blogTags", blogTags)
                         : Map.of("page", "blog", PROFILE, p, "feed", first, "blogTags", blogTags, "tag", filter), "/@" + p.handle() + "/rss"),
@@ -345,7 +366,8 @@ public class PageController {
                 .append(SpaShell.esc(x.name())).append("</a> (").append(x.postCount()).append(")</li>"));
         body.append(UL_MAIN_END);
         HeadMeta meta = new HeadMeta(title + " - " + site.name(), p.nickname() + "의 블로그 시리즈", absolute("/@" + handle + "/series"),
-                "website", p.profileImageUrl() != null ? p.profileImageUrl() : absolute(site.defaultOgImage()), null, null, true);
+                "website", p.profileImageUrl() != null ? p.profileImageUrl() : absolute(site.defaultOgImage()), null, null,
+                !listing.get().items().isEmpty()); // 시리즈가 없으면 빈 화면이라 수집하지 않는다 (spec 104)
         return html(HttpStatus.OK, shell.render(meta, body.toString(), Map.of("page", "series-list")),
                 listing.get().personal() ? CacheControl.noStore().cachePrivate() : CacheControl.noCache().cachePrivate());
     }
@@ -473,10 +495,23 @@ public class PageController {
 
     /** 로그인이 필요하거나 개인적인 화면: 같은 껍데기, 수집 거부, 저장 안 함. React가 그린다. */
     @GetMapping({"/login", "/signup", "/signup/social", "/forgot-password", "/reset-password", "/verify-email", "/agreements", "/write", "/write/{id}", "/manage/posts", "/settings", "/notifications", "/feed", "/lists/liked", "/lists/read",
-            "/settings/{section}", "/oauth/authorize", "/support"})
+            "/settings/{section}", "/oauth/authorize"})
     public ResponseEntity<String> app(@PathVariable(required = false) String id, @PathVariable(required = false) String section) {
         // 글 번호·설정 칸은 React가 주소에서 읽는다. 서버는 같은 껍데기만 준다
         return appShell();
+    }
+
+    /**
+     * 문의·신고: 글쓰기는 로그인한 뒤 React가 그린다. 수집 거부는 그대로 두고, 스크립트 없이 여는 방문자도
+     * 연락 방법을 보도록 서버가 안내 한 줄과 비로그인 연락처를 그린다 (spec 104 FR-006).
+     */
+    @GetMapping("/support")
+    public ResponseEntity<String> support() {
+        StringBuilder body = new StringBuilder("<main><h1>문의·신고</h1><p>질문, 버그, 권리 침해 신고는 로그인한 뒤 이 화면에서 남겨 주세요.</p>");
+        appendGuestContact(body);
+        body.append("</main>");
+        return html(HttpStatus.OK, shell.render(HeadMeta.privatePage(site.name(), "문의·신고"), body.toString(), Map.of("page", "app")),
+                CacheControl.noStore());
     }
 
     private ResponseEntity<String> appShell() {

@@ -99,6 +99,13 @@ public class TagQuery {
         return n == null ? 0 : n;
     }
 
+    /** 검색 수집 기준에 쓰는 공개 글 수. 자동으로 쓰인 AI 일기는 세지 않는다 (spec 104, 애드센스 얇은 화면) */
+    public long publicArticleCount(String name) {
+        Long n = jdbc.queryForObject("SELECT count(*) FROM tag t JOIN post_tag pt ON pt.tag_id = t.id" + PUBLIC_POSTS
+                + " AND NOT p.ai_diary AND t.name = ?", Long.class, name);
+        return n == null ? 0 : n;
+    }
+
     /** 전체 태그 목록: 공개 글 수 많은 순, 같으면 이름 순 상위 100개. 10분 동안 Redis에 둔다(FR-024). */
     public List<TagCount> top(int limit) {
         int n = Math.clamp(limit, 1, TOP_LIMIT);

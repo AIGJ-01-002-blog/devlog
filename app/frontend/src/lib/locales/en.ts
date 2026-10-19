@@ -2215,4 +2215,8 @@ export const en: Record<string, string> = {
   "끄면 블로그와 글 화면에서만 빠지고, 올린 영상과 남긴 주소는 그대로예요": "Turning this off only removes it from your blog and post pages. The video and saved link stay.",
   "내 블로그 [쇼츠] 탭과 바탕 글 아래에 보이기": "Show on my blog's [Shorts] tab and under the source post",
   "올린 뒤 주소를 남기면 대시보드에서 반응을 모아 보고, 내 블로그에도 보여요.": "Save the link after posting to track reactions on your dashboard and show it on your blog.",
+  "공개 문의 창구": "public contact page",
+  "로그인하지 않았다면 메일 {0}이나 {1}로 연락해 주세요.": "If you are not logged in, email {0} or use the {1}.",
+  "로그인하지 않았다면 메일 {0}로 연락해 주세요.": "If you are not logged in, email {0}.",
+  "로그인하지 않았다면 {0}로 연락해 주세요.": "If you are not logged in, use the {0}.",
 }
