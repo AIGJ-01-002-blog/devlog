@@ -391,6 +391,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v2.7.1 | 2026-10-19 | AdSense 审核准备后续: 首页动态(含系列和主题分支)与热门不再显示 AI 日记，日记仍显示在作者的博客列表中 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.7.1) |
 | v2.7.0 | 2026-10-19 | AdSense 审核准备: 没有文章的博客、空的系列列表和只有 AI 日记的标签不再被搜索收录、也不投放广告，热门标签页的规范地址指向首页，无脚本获取的公开页面带有站点页脚，介绍和咨询页面提供无需登录的联系方式 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.7.0) |
 | v2.6.1 | 2026-10-19 | 家用电脑备份不再把 MinIO 访问密钥作为命令参数传递，同一服务器上的其他账户无法再看到(仅通过环境变量传递) | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.6.1) |
 | v2.6.0 | 2026-10-18 | 把短视频频道接到博客: 社交信息新增 YouTube、Instagram、TikTok 频道栏和工作室“打开我的频道”，已上传的短视频以9:16卡片显示在博客“短视频”标签和原文下方(YouTube 原地播放)，可按短视频关闭博客展示，角色动作、表情和说明图随脚本内容变化 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.6.0) |

@@ -391,6 +391,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v2.7.1 | 2026-10-19 | AdSense prep follow-up: AI diaries are left out of the home feed (series and topic branches included) and trending, and still appear in the author's blog list | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.7.1) |
 | v2.7.0 | 2026-10-19 | AdSense approval prep: blogs without posts, empty series lists and tags filled only by AI diaries are kept out of search indexing and ads, the trending tab's canonical URL points home, a site footer in server-rendered public pages, and a way to reach the operator without logging in on the About and Support pages | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.7.0) |
 | v2.6.1 | 2026-10-19 | Home PC backup no longer passes MinIO access keys as command arguments that other accounts on the same server could see (environment variable only) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.6.1) |
 | v2.6.0 | 2026-10-18 | Shorts channels on the blog: YouTube, Instagram and TikTok channel fields in social links plus "Open my channel" in the studio; uploaded shorts shown as 9:16 cards in a blog Shorts tab and under the source post (YouTube plays in place); per-short "show on blog" switch; character gestures, expressions and explainer graphics follow the script | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.6.0) |

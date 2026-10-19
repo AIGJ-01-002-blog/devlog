@@ -42,6 +42,7 @@ public class TrendingRanker {
                            (SELECT count(*) FROM post_view v WHERE v.post_id = p.id) AS views
                     FROM post p JOIN member m ON m.id = p.author_id
                     WHERE\s""" + PostAccessPolicy.PUBLIC_LIST_CONDITION + """
+                      AND NOT p.ai_diary
                       AND p.first_public_at > ?::timestamptz - make_interval(days => ?)
                 ), scored AS (
                     SELECT id, author_id, first_public_at,
