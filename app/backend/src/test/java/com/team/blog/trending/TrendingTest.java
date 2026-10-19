@@ -35,7 +35,7 @@ class TrendingTest extends IntegrationTest {
     @BeforeEach
     void isolate() {
         jdbc.update("UPDATE post SET first_public_at = first_public_at - interval '30 days' WHERE first_public_at > now() - interval '8 days'");
-        redis.delete(List.of("trending:current"));
+        redis.delete(List.of("trending:v2:current"));
     }
 
     long publish(Session s, String title, String visibility) throws Exception {
@@ -179,7 +179,7 @@ class TrendingTest extends IntegrationTest {
         assertThat(fresh.path("items").get(0).path("id").asLong()).isEqualTo(newcomer);
 
         // 보던 순위표가 없어지면 410, 고친 커서는 400
-        redis.delete(redis.keys("trending:snapshot:*"));
+        redis.delete(redis.keys("trending:v2:snapshot:*"));
         browser().perform(get(URI.create("/api/posts/trending?cursor=" + first.path("nextCursor").asString()))).andExpect(status().isGone());
         browser().perform(get("/api/posts/trending?cursor=abc")).andExpect(status().isBadRequest());
         // 지금 순위표가 없으면 그 자리에서 만들어 준다

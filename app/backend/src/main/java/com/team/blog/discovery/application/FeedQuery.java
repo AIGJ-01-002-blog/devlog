@@ -74,8 +74,11 @@ public class FeedQuery {
         return posts.count(authorId, PostAccessPolicy.PUBLIC_LIST_CONDITION + " AND NOT p.ai_diary");
     }
 
+    /** 홈 피드는 직접 쓴 글만 보인다. AI 일기는 블로그·일기 탭에 그대로 남는다 (spec 104 FR-008, 애드센스) */
+    private static final PostFilter NOT_AI_DIARY = new PostFilter("p.ai_diary = ?", false);
+
     public PostCardPage home(String cursor) {
-        return withBranches(posts.page(PostListSpec.everyone("home"), cursor));
+        return withBranches(posts.page(PostListSpec.everyone("home", NOT_AI_DIARY), cursor));
     }
 
     /**
@@ -87,7 +90,7 @@ public class FeedQuery {
         if (!branch.matches("[st][1-9]\\d{0,17}")) throw new NotFoundException();
         long id = Long.parseLong(branch.substring(1));
         PostFilter filter = branch.charAt(0) == 's' ? SeriesSql.inSeries(id) : TopicSql.inTopic(id);
-        return withBranches(posts.page(PostListSpec.everyone("home:" + branch, filter), cursor));
+        return withBranches(posts.page(PostListSpec.everyone("home:" + branch, filter, NOT_AI_DIARY), cursor));
     }
 
     /** 카드마다 이어지는 브랜치를 붙인다. 시리즈가 먼저이고, 시리즈에 없는 글만 주제 브랜치를 갖는다 */

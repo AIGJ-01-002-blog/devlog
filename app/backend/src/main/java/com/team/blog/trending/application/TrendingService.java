@@ -36,8 +36,9 @@ import com.team.blog.shared.time.Times;
 public class TrendingService {
     private static final Logger log = LoggerFactory.getLogger(TrendingService.class);
     static final String LIST = "trending";
-    static final String CURRENT = "trending:current";
-    static final String SNAPSHOT = "trending:snapshot:";
+    // v2: AI 일기를 뺀 순위(#415). 키를 바꿔 배포 전 스냅샷을 읽지 않는다
+    static final String CURRENT = "trending:v2:current";
+    static final String SNAPSHOT = "trending:v2:snapshot:";
 
     private final TrendingRanker ranker;
     private final PostCardQuery feed;
