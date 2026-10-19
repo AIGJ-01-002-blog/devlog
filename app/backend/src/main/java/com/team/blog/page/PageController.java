@@ -211,10 +211,6 @@ public class PageController {
         return html(HttpStatus.OK, shell.render(meta, body, Map.of("page", "mcp")), CacheControl.noCache());
     }
 
-    /**
-     * 사이트 소개 (077): 무엇을 하는 곳인지, 누가 운영하는지, 어디로 연락하는지. 애드센스 심사처럼 사람이 아닌 읽기 도구도
-     * 내용을 보도록 서버가 본문을 그리고, React가 같은 내용을 다시 그린다.
-     */
     /** 로그인하지 않아도 운영자에게 닿는 연락 방법 (spec 104 FR-006). 둘 다 비어 있으면 아무것도 붙이지 않는다 */
     private void appendGuestContact(StringBuilder body) {
         String email = site.contactEmailOrNull();
@@ -231,6 +227,10 @@ public class PageController {
         body.append("로 연락해 주세요.</p>");
     }
 
+    /**
+     * 사이트 소개 (077): 무엇을 하는 곳인지, 누가 운영하는지, 어디로 연락하는지. 애드센스 심사처럼 사람이 아닌 읽기 도구도
+     * 내용을 보도록 서버가 본문을 그리고, React가 같은 내용을 다시 그린다.
+     */
     @GetMapping(ABOUT_PATH)
     public ResponseEntity<String> siteAbout() {
         String ownerHandle = owner.handle().orElse(null);
@@ -495,10 +495,23 @@ public class PageController {
 
     /** 로그인이 필요하거나 개인적인 화면: 같은 껍데기, 수집 거부, 저장 안 함. React가 그린다. */
     @GetMapping({"/login", "/signup", "/signup/social", "/forgot-password", "/reset-password", "/verify-email", "/agreements", "/write", "/write/{id}", "/manage/posts", "/settings", "/notifications", "/feed", "/lists/liked", "/lists/read",
-            "/settings/{section}", "/oauth/authorize", "/support"})
+            "/settings/{section}", "/oauth/authorize"})
     public ResponseEntity<String> app(@PathVariable(required = false) String id, @PathVariable(required = false) String section) {
         // 글 번호·설정 칸은 React가 주소에서 읽는다. 서버는 같은 껍데기만 준다
         return appShell();
+    }
+
+    /**
+     * 문의·신고: 글쓰기는 로그인한 뒤 React가 그린다. 수집 거부는 그대로 두고, 스크립트 없이 여는 방문자도
+     * 연락 방법을 보도록 서버가 안내 한 줄과 비로그인 연락처를 그린다 (spec 104 FR-006).
+     */
+    @GetMapping("/support")
+    public ResponseEntity<String> support() {
+        StringBuilder body = new StringBuilder("<main><h1>문의·신고</h1><p>질문, 버그, 권리 침해 신고는 로그인한 뒤 이 화면에서 남겨 주세요.</p>");
+        appendGuestContact(body);
+        body.append("</main>");
+        return html(HttpStatus.OK, shell.render(HeadMeta.privatePage(site.name(), "문의·신고"), body.toString(), Map.of("page", "app")),
+                CacheControl.noStore());
     }
 
     private ResponseEntity<String> appShell() {

@@ -3,7 +3,7 @@ import { api, takeInitialData } from '../lib/api'
 import { Link } from '../lib/router'
 import { t, tNodes } from '../lib/i18n'
 
-interface About { ownerHandle: string | null; contactEmail?: string | null; contactUrl?: string | null }
+export interface About { ownerHandle: string | null; contactEmail?: string | null; contactUrl?: string | null }
 
 /**
  * 사이트 소개 (077). 무엇을 하는 곳인지, 누가 운영하는지, 어디로 연락하는지. 서버(PageController.siteAbout)가 같은 내용을
@@ -51,7 +51,7 @@ export function AboutPage() {
 }
 
 /** 로그인하지 않아도 운영자에게 닿는 연락 방법 (spec 104 FR-006). 서버 설정이 둘 다 비면 그리지 않는다 */
-function GuestContact({ email, url }: { email: string | null; url: string | null }) {
+export function GuestContact({ email, url }: { email: string | null; url: string | null }) {
   if (!email && !url) return null
   const mail = email && <a href={`mailto:${email}`}>{email}</a>
   const desk = url && <a href={url} target="_blank" rel="noopener noreferrer" title={t('새 창에서 열려요')}>{t('공개 문의 창구')}</a>

@@ -42,6 +42,15 @@ class SiteAboutPageTest extends IntegrationTest {
     }
 
     @Test
+    void 문의_화면도_로그인_없는_연락_방법을_서버_HTML로_보여_주고_수집은_거부한다() throws Exception {
+        String page = mvc.perform(get("/support")).andExpect(status().isOk()).andReturn().getResponse()
+                .getContentAsString(StandardCharsets.UTF_8);
+        assertThat(page).contains("<h1>문의·신고</h1>")
+                .contains("로그인하지 않았다면 <a href=\"https://github.com/AIGJ-01-002-blog/devlog/issues\" rel=\"noopener\">공개 문의 창구</a>로 연락해 주세요.")
+                .contains("noindex").doesNotContain(SpaShell.SITE_FOOTER);
+    }
+
+    @Test
     void 수집하는_화면의_서버_HTML에는_사이트_바닥글이_있고_개인_화면에는_없다() throws Exception {
         for (String path : List.of("/", "/about", "/privacy")) {
             assertThat(mvc.perform(get(path)).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8))
