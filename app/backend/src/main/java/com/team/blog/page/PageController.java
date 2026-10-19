@@ -215,6 +215,22 @@ public class PageController {
      * 사이트 소개 (077): 무엇을 하는 곳인지, 누가 운영하는지, 어디로 연락하는지. 애드센스 심사처럼 사람이 아닌 읽기 도구도
      * 내용을 보도록 서버가 본문을 그리고, React가 같은 내용을 다시 그린다.
      */
+    /** 로그인하지 않아도 운영자에게 닿는 연락 방법 (spec 104 FR-006). 둘 다 비어 있으면 아무것도 붙이지 않는다 */
+    private void appendGuestContact(StringBuilder body) {
+        String email = site.contactEmailOrNull();
+        String url = site.contactUrlOrNull();
+        if (email == null && url == null) return;
+        body.append("<p>로그인하지 않았다면 ");
+        if (email != null) {
+            body.append("메일 <a href=\"mailto:").append(SpaShell.esc(email)).append("\">").append(SpaShell.esc(email)).append("</a>");
+            if (url != null) body.append("이나 ");
+        }
+        if (url != null) {
+            body.append("<a href=\"").append(SpaShell.esc(url)).append("\" rel=\"noopener\">공개 문의 창구</a>");
+        }
+        body.append("로 연락해 주세요.</p>");
+    }
+
     @GetMapping(ABOUT_PATH)
     public ResponseEntity<String> siteAbout() {
         String ownerHandle = owner.handle().orElse(null);
@@ -225,13 +241,16 @@ public class PageController {
         if (ownerHandle != null) {
             body.append(" 운영자 블로그: <a href=\"/@").append(SpaShell.esc(ownerHandle)).append("\">@").append(SpaShell.esc(ownerHandle)).append("</a>");
         }
-        body.append("</p><h2>연락하기</h2><p><a href=\"/support\">문의·신고</a>에서 질문, 버그, 권리 침해 신고를 받아요. 답변을 알림으로 드리려고 로그인한 뒤 남기도록 했어요.</p>")
-                .append("<p><a href=\"/terms\">이용약관</a> · <a href=\"/privacy\">개인정보 처리방침</a></p></main>");
+        body.append("</p><h2>연락하기</h2><p><a href=\"/support\">문의·신고</a>에서 질문, 버그, 권리 침해 신고를 받아요. 답변을 알림으로 드리려고 로그인한 뒤 남기도록 했어요.</p>");
+        appendGuestContact(body);
+        body.append("<p><a href=\"/terms\">이용약관</a> · <a href=\"/privacy\">개인정보 처리방침</a></p></main>");
         HeadMeta meta = HeadMeta.site("소개 - " + site.name(), SLOGAN + " devlog가 어떤 곳이고 누가 운영하는지 알려 드려요.",
                 absolute(ABOUT_PATH), absolute(site.defaultOgImage()));
         var data = new HashMap<String, Object>(); // 운영자 주소가 비면 null이라 Map.of를 못 쓴다
         data.put("page", "about");
         data.put("ownerHandle", ownerHandle);
+        data.put("contactEmail", site.contactEmailOrNull());
+        data.put("contactUrl", site.contactUrlOrNull());
         return html(HttpStatus.OK, shell.render(meta, body.toString(), data), CacheControl.noCache());
     }
 

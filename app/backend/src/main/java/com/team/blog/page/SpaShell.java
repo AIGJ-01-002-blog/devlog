@@ -32,6 +32,12 @@ public class SpaShell {
     static final String BODY_MARK = "<!--app-body-->";
     /** 속성값을 닫고 머리 태그를 끝내는 꼬리 */
     private static final String TAG_END = "\">\n";
+    /**
+     * 수집하는 화면의 서버 HTML 끝에 붙이는 사이트 바닥글 (spec 104 FR-005). 스크립트를 돌리지 않는 심사 도구·검색 로봇도
+     * 소개·약관·처리방침·문의로 갈 수 있게 한다. React가 뜨면 루트를 다시 그리고 SiteFooter가 같은 링크를 보여 준다.
+     */
+    static final String SITE_FOOTER = "<footer><nav aria-label=\"사이트 정보\"><a href=\"/about\">소개</a> · <a href=\"/terms\">이용약관</a> · "
+            + "<a href=\"/privacy\">개인정보 처리방침</a> · <a href=\"/support\">문의</a> · <a href=\"/releases\">릴리스 노트</a></nav></footer>";
     private static final String FALLBACK = """
             <!doctype html>
             <html lang="ko">
@@ -104,7 +110,9 @@ public class SpaShell {
                     .replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026");
             head.append("<script id=\"initial-data\" type=\"application/json\">").append(data).append("</script>\n");
         }
-        return page.replace(HEAD_MARK, head.toString()).replace(BODY_MARK, bodyHtml == null ? "" : bodyHtml);
+        String body = bodyHtml == null ? "" : bodyHtml;
+        if (meta.indexable()) body += SITE_FOOTER;
+        return page.replace(HEAD_MARK, head.toString()).replace(BODY_MARK, body);
     }
 
     /** 수집하는 화면의 정규 주소·RSS·링크 미리보기(og·twitter) 머리말 */
