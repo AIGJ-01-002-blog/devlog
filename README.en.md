@@ -123,7 +123,7 @@ If you have agreed to AI use, the AI adds a title and tidies up the text; otherw
 
 ### Reading and discovery
 
-- **Home**: Latest and Trending tabs. Trending covers the last 7 days, scores likes, comments and views with decay by post age, refreshes every 10 minutes, and shows at most 3 posts per author.
+- **Home**: Latest and Trending tabs. Trending covers the last 7 days, scores likes, comments and views with decay by post age, refreshes every 10 minutes, and shows at most 3 posts per author. AI diary entries stay off Home and Trending and appear only on the author's blog.
 - **Post page**: table of contents, reading time, series, previous/next post, author bio and social links, share button, link previews (Open Graph).
 - **Tags and search**: browse posts by tag, hybrid search over title, tag and body keywords plus meaning (by relevance or newest), and search for people.
 - **RSS**: per-blog `/@your-id/rss` and site-wide `/rss`.
@@ -267,7 +267,7 @@ Code lives in this repository; design documents live in the documentation reposi
 | [deploy](deploy) | Deployment: Dockerfile, Kubernetes manifests (base, selfhosted, nhn, local), deploy, rollback and secret-check scripts |
 | [app/render-worker](app/render-worker) | Shorts render worker: Python 3.10, ffmpeg, Remotion (Node). Runs on your computer and turns queued scripts into 9:16 MP4s |
 | [.github](.github) | CI/CD: backend and frontend tests, image build and deploy, releases, Discord and Telegram notifications |
-| [specs](specs) | Feature specs: spec, plan and tasks per feature (001~103) following the [GitHub Spec Kit](https://github.com/github/spec-kit) flow |
+| [specs](specs) | Feature specs: spec, plan and tasks per feature (001~104) following the [GitHub Spec Kit](https://github.com/github/spec-kit) flow |
 | [docs](https://github.com/AIGJ-01-002-blog/docs) | Design documents: common requirements, architecture, unified ERD, per-feature designs, permission matrix |
 | [erd](erd) · [scripts](scripts) | Baseline schema and its tests, design-check scripts and reports |
 
@@ -379,10 +379,10 @@ To try it on Kubernetes, run `kubectl apply -k deploy/k8s/overlays/local` on kin
 
 | Technology | Where | Role |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | Backend | 862 unit and integration tests (as of v2.6.1) |
+| JUnit 5 · Spring Boot Test · Spring Security Test | Backend | 870 unit and integration tests (as of v2.7.1) |
 | Testcontainers (PostgreSQL) | Backend | Verifies migrations, queries and concurrency against a real PostgreSQL |
 | JaCoCo | Backend | Enforces a 40% line-coverage threshold in CI |
-| Vitest · Testing Library · jsdom | Frontend | 427 UI and logic tests (as of v2.6.1) |
+| Vitest · Testing Library · jsdom | Frontend | 427 UI and logic tests (as of v2.7.1) |
 | fake-indexeddb | Frontend | Tests for offline autosave |
 
 ## Releases
