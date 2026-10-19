@@ -3,7 +3,7 @@ import { api, takeInitialData } from '../lib/api'
 import { Link } from '../lib/router'
 import { t, tNodes } from '../lib/i18n'
 
-interface About { ownerHandle: string | null }
+export interface About { ownerHandle: string | null; contactEmail?: string | null; contactUrl?: string | null }
 
 /**
  * 사이트 소개 (077). 무엇을 하는 곳인지, 누가 운영하는지, 어디로 연락하는지. 서버(PageController.siteAbout)가 같은 내용을
@@ -42,9 +42,26 @@ export function AboutPage() {
       <p>
         {tNodes('{0}에서 질문, 버그, 권리 침해 신고를 받아요. 답변을 알림으로 드리려고 로그인한 뒤 남기도록 했어요.', { 0: <Link to="/support">{t('문의·신고')}</Link> })}
       </p>
+      <GuestContact email={about?.contactEmail ?? null} url={about?.contactUrl ?? null} />
       <p className="muted small">
         <Link to="/terms">{t('이용약관')}</Link> · <Link to="/privacy">{t('개인정보 처리방침')}</Link> · <Link to="/releases">{t('릴리스 노트')}</Link>
       </p>
     </main>
+  )
+}
+
+/** 로그인하지 않아도 운영자에게 닿는 연락 방법 (spec 104 FR-006). 서버 설정이 둘 다 비면 그리지 않는다 */
+export function GuestContact({ email, url }: { email: string | null; url: string | null }) {
+  if (!email && !url) return null
+  const mail = email && <a href={`mailto:${email}`}>{email}</a>
+  const desk = url && <a href={url} target="_blank" rel="noopener noreferrer" title={t('새 창에서 열려요')}>{t('공개 문의 창구')}</a>
+  return (
+    <p>
+      {mail && desk
+        ? tNodes('로그인하지 않았다면 메일 {0}이나 {1}로 연락해 주세요.', { 0: mail, 1: desk })
+        : mail
+          ? tNodes('로그인하지 않았다면 메일 {0}로 연락해 주세요.', { 0: mail })
+          : tNodes('로그인하지 않았다면 {0}로 연락해 주세요.', { 0: desk })}
+    </p>
   )
 }

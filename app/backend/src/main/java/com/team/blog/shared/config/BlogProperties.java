@@ -27,7 +27,22 @@ public record BlogProperties(
         @DefaultValue Search search,
         @DefaultValue Series series) {
 
-    public record Site(String baseUrl, @DefaultValue("devlog") String name, @DefaultValue("/og-default.png") String defaultOgImage) {}
+    /**
+     * @param contactEmail 로그인하지 않아도 운영자에게 연락할 메일 주소 (spec 104). 비우면 보이지 않는다
+     * @param contactUrl   로그인하지 않아도 남길 수 있는 공개 문의 창구 (spec 104, 기본: 공개 저장소의 GitHub 이슈). 비우면 보이지 않는다
+     */
+    public record Site(String baseUrl, @DefaultValue("devlog") String name, @DefaultValue("/og-default.png") String defaultOgImage,
+                       @DefaultValue("") String contactEmail,
+                       @DefaultValue("https://github.com/AIGJ-01-002-blog/devlog/issues") String contactUrl) {
+
+        public String contactEmailOrNull() {
+            return contactEmail == null || contactEmail.isBlank() ? null : contactEmail.strip();
+        }
+
+        public String contactUrlOrNull() {
+            return contactUrl == null || contactUrl.isBlank() ? null : contactUrl.strip();
+        }
+    }
 
     /**
      * @param trustedProxies 이 대역에서 온 요청만 X-Forwarded-For를 믿는다 (docs/02 §5 H4)
