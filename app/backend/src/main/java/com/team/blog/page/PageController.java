@@ -153,8 +153,9 @@ public class PageController {
                 + cards(new PostCardPage(page.items(), page.nextCursor())) + MAIN_END;
         HeadMeta meta = HeadMeta.site("#" + name + " - " + site.name(), "#" + name + " 태그가 달린 글", absolute(tagPath(name)),
                 absolute(site.defaultOgImage()));
-        // 글이 하나뿐인 태그 화면은 그 글과 내용이 겹치는 얇은 화면이라 검색 수집·광고에서 뺀다 (spec 085, 애드센스 "가치가 별로 없는 콘텐츠")
-        if (page.postCount() == null || page.postCount() < MIN_INDEXED_TAG_POSTS) meta = HeadMeta.privatePage(site.name(), "#" + name);
+        // 글이 하나뿐인 태그 화면은 그 글과 내용이 겹치는 얇은 화면이라 검색 수집·광고에서 뺀다 (spec 085, 애드센스 "가치가 별로 없는 콘텐츠").
+        // AI 일기로만 채운 태그도 얇은 화면이라 일기는 세지 않는다 (spec 104)
+        if (tags.publicArticleCount(name) < MIN_INDEXED_TAG_POSTS) meta = HeadMeta.privatePage(site.name(), "#" + name);
         return html(HttpStatus.OK, shell.render(meta, body, Map.of("page", "tag", "tag", page)), CacheControl.noCache());
     }
 
@@ -190,7 +191,7 @@ public class PageController {
             TrendingService.Page t = trending.page(null);
             PostCardPage asFeed = new PostCardPage(t.items(), t.nextCursor());
             String body = "<main><h1>트렌딩</h1>" + cards(asFeed) + MAIN_END;
-            HeadMeta meta = HeadMeta.site(site.name(), "최근 7일 동안 반응이 많은 글", absolute("/?tab=trending"), absolute(site.defaultOgImage()));
+            HeadMeta meta = HeadMeta.site(site.name(), "최근 7일 동안 반응이 많은 글", absolute("/"), absolute(site.defaultOgImage())); // 홈과 겹치는 목록이라 정규 주소는 홈 (spec 104)
             return html(HttpStatus.OK, shell.render(meta, body, Map.of("page", "home", "trending", asFeed)),
                     t.temporary() ? CacheControl.noStore() : CacheControl.noCache());
         }
@@ -298,7 +299,8 @@ public class PageController {
         String description = p.bio() == null || p.bio().isBlank() ? p.nickname() + "의 블로그" : truncate(p.bio(), 160);
         HeadMeta meta = new HeadMeta(p.nickname() + " (@" + p.handle() + ") - " + site.name(), description,
                 absolute("/@" + p.handle()), PROFILE, p.profileImageUrl() != null ? p.profileImageUrl() : absolute(site.defaultOgImage()),
-                null, null, q == null || q.isBlank()); // 블로그 안 검색 결과는 수집 거부 (014 FR-022)
+                // 블로그 안 검색 결과는 수집 거부 (014 FR-022). AI 일기 말고 글이 없는 블로그는 빈 화면이라 수집·광고에서 뺀다 (spec 104)
+                null, null, (q == null || q.isBlank()) && feed.indexableArticleCount(p.id()) > 0);
         return html(HttpStatus.OK, shell.render(meta, body, filter == null
                         ? Map.of("page", "blog", PROFILE, p, "feed", first, "blogTags", blogTags)
                         : Map.of("page", "blog", PROFILE, p, "feed", first, "blogTags", blogTags, "tag", filter), "/@" + p.handle() + "/rss"),
@@ -345,7 +347,8 @@ public class PageController {
                 .append(SpaShell.esc(x.name())).append("</a> (").append(x.postCount()).append(")</li>"));
         body.append(UL_MAIN_END);
         HeadMeta meta = new HeadMeta(title + " - " + site.name(), p.nickname() + "의 블로그 시리즈", absolute("/@" + handle + "/series"),
-                "website", p.profileImageUrl() != null ? p.profileImageUrl() : absolute(site.defaultOgImage()), null, null, true);
+                "website", p.profileImageUrl() != null ? p.profileImageUrl() : absolute(site.defaultOgImage()), null, null,
+                !listing.get().items().isEmpty()); // 시리즈가 없으면 빈 화면이라 수집하지 않는다 (spec 104)
         return html(HttpStatus.OK, shell.render(meta, body.toString(), Map.of("page", "series-list")),
                 listing.get().personal() ? CacheControl.noStore().cachePrivate() : CacheControl.noCache().cachePrivate());
     }
