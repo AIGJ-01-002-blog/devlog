@@ -123,7 +123,7 @@ cd app/frontend && npm install && npm run dev            # http://localhost:5173
 
 ### 阅读与发现
 
-- **首页**：最新和热门两个标签页。热门统计最近 7 天，按文章发布时长对点赞、评论、浏览进行衰减计分，每 10 分钟更新一次，每位作者最多 3 篇。
+- **首页**：最新和热门两个标签页。热门统计最近 7 天，按文章发布时长对点赞、评论、浏览进行衰减计分，每 10 分钟更新一次，每位作者最多 3 篇。AI 日记不出现在首页和热门中，只显示在作者的博客里。
 - **文章页面**：目录、阅读时长、系列、上下篇文章、作者简介和社交链接、分享按钮、链接预览（Open Graph）。
 - **标签与搜索**：按标签列出文章，结合标题、标签、正文关键词与语义的混合搜索（按相关度或最新排序），搜索用户。
 - **RSS**：每个博客的 `/@your-id/rss` 以及全站的 `/rss`。
@@ -267,7 +267,7 @@ sequenceDiagram
 | [deploy](deploy) | 部署：Dockerfile、Kubernetes 清单（base、selfhosted、nhn、local），部署、回滚、密钥检查脚本 |
 | [app/render-worker](app/render-worker) | 短视频渲染程序：Python 3.10、ffmpeg、Remotion（Node）。在你自己的电脑上把队列中的脚本做成 9:16 的 MP4 并上传 |
 | [.github](.github) | CI/CD：后端与界面测试、镜像构建与部署、版本发布、Discord 与 Telegram 通知 |
-| [specs](specs) | 功能规格：按 [GitHub Spec Kit](https://github.com/github/spec-kit) 流程编写的各功能 spec、plan、tasks（001~103） |
+| [specs](specs) | 功能规格：按 [GitHub Spec Kit](https://github.com/github/spec-kit) 流程编写的各功能 spec、plan、tasks（001~104） |
 | [docs](https://github.com/AIGJ-01-002-blog/docs) | 设计文档：通用需求、架构、整合 ERD、各功能设计、权限表 |
 | [erd](erd) · [scripts](scripts) | 基准模式及其运行测试、设计验证脚本与报告 |
 
@@ -379,10 +379,10 @@ npm run dev        # http://localhost:5173
 
 | 技术 | 使用位置 | 作用 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | 后端 | 单元与集成测试 862 个（截至 v2.6.1） |
+| JUnit 5 · Spring Boot Test · Spring Security Test | 后端 | 单元与集成测试 870 个（截至 v2.7.1） |
 | Testcontainers (PostgreSQL) | 后端 | 在真实的 PostgreSQL 上验证迁移、查询和并发 |
 | JaCoCo | 后端 | 在 CI 中检查 40% 行覆盖率的门槛 |
-| Vitest · Testing Library · jsdom | 前端 | 界面与逻辑测试 427 个（截至 v2.6.1） |
+| Vitest · Testing Library · jsdom | 前端 | 界面与逻辑测试 427 个（截至 v2.7.1） |
 | fake-indexeddb | 前端 | 离线自动保存的测试 |
 
 ## 版本发布

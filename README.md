@@ -121,7 +121,7 @@ AI 사용에 동의했다면 AI가 제목을 붙이고 문장을 다듬고, 아�
 
 ### 읽기와 발견
 
-- **홈** — 최신 탭과 트렌딩 탭(최근 7일, 좋아요·댓글·조회를 글 나이로 감쇠, 10분마다 갱신, 한 사람 글은 3개까지).
+- **홈** — 최신 탭과 트렌딩 탭(최근 7일, 좋아요·댓글·조회를 글 나이로 감쇠, 10분마다 갱신, 한 사람 글은 3개까지). AI 일기는 홈과 트렌딩에 나오지 않고 글쓴이 블로그에만 보입니다.
 - **글 상세** — 목차, 읽는 시간, 시리즈, 이전·다음 글, 작성자 소개와 소셜 링크, 공유 버튼, 링크 미리보기(Open Graph).
 - **태그·검색** — 태그별 글 모아 보기, 제목·태그·본문 키워드와 뜻을 함께 보는 하이브리드 검색(관련도순·최신순), 사람 검색.
 - **RSS** — 블로그별 `/@아이디/rss`와 전체 `/rss`.
@@ -265,7 +265,7 @@ GitHub Actions로 테스트하고 이미지를 만들어 GHCR에 올린 뒤, kus
 | [deploy](deploy) | 배포 — Dockerfile, 쿠버네티스 매니페스트(base·selfhosted·nhn·local), 배포·롤백·비밀값 검사 스크립트 |
 | [app/render-worker](app/render-worker) | 쇼츠 렌더 워커 — Python 3.10, ffmpeg, Remotion(Node). 내 컴퓨터에서 대기열의 대본을 9:16 MP4로 만들어 올립니다 |
 | [.github](.github) | CI/CD — 백엔드·화면 테스트, 이미지 빌드·배포, 릴리스, Discord·텔레그램 알림 |
-| [specs](specs) | 기능 명세 — [GitHub Spec Kit](https://github.com/github/spec-kit) 흐름의 기능별 spec·plan·tasks(001~103) |
+| [specs](specs) | 기능 명세 — [GitHub Spec Kit](https://github.com/github/spec-kit) 흐름의 기능별 spec·plan·tasks(001~104) |
 | [docs](https://github.com/AIGJ-01-002-blog/docs) | 설계 문서 — 공통 요구사항, 아키텍처, 통합 ERD, 기능별 설계, 권한 표 |
 | [erd](erd) · [scripts](scripts) | 기준 스키마와 동작 테스트, 설계 검증 스크립트와 보고서 |
 
@@ -377,10 +377,10 @@ npm run dev        # http://localhost:5173
 
 | 기술 | 쓰는 곳 | 역할 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | 백엔드 | 단위·통합 테스트 862건(v2.6.1 기준) |
+| JUnit 5 · Spring Boot Test · Spring Security Test | 백엔드 | 단위·통합 테스트 870건(v2.7.1 기준) |
 | Testcontainers (PostgreSQL) | 백엔드 | 실제 PostgreSQL로 마이그레이션·쿼리·동시성을 검증합니다 |
 | JaCoCo | 백엔드 | 줄 커버리지 40% 기준을 CI에서 확인합니다 |
-| Vitest · Testing Library · jsdom | 프론트엔드 | 화면과 로직 테스트 427건(v2.6.1 기준) |
+| Vitest · Testing Library · jsdom | 프론트엔드 | 화면과 로직 테스트 427건(v2.7.1 기준) |
 | fake-indexeddb | 프론트엔드 | 오프라인 자동 저장 테스트 |
 
 ## 릴리스
