@@ -64,6 +64,23 @@ class AdsenseThinPageTest extends IntegrationTest {
     }
 
     @Test
+    void 홈_피드에는_AI_일기가_없고_블로그에는_남는다() throws Exception {
+        Session s = signup(uniqueLogin("homediary"));
+        String tag = "hd" + System.nanoTime() % 1_000_000;
+        long diary = publish(s, "홈에 안 보일 일기", tag);
+        markDiary(diary);
+        long article = publish(s, "홈에 보일 글", tag);
+        assertThat(ids("/api/posts")).contains(article).doesNotContain(diary);
+        assertThat(ids("/api/members/" + s.handle() + "/posts")).contains(diary, article);
+    }
+
+    List<Long> ids(String path) throws Exception {
+        List<Long> out = new java.util.ArrayList<>();
+        read(mvc.perform(get(path)).andExpect(status().isOk()).andReturn()).path("items").forEach(n -> out.add(n.path("id").asLong()));
+        return out;
+    }
+
+    @Test
     void 트렌딩_탭의_정규_주소는_홈이다() throws Exception {
         assertThat(page("/?tab=trending")).contains("<link rel=\"canonical\" href=\"http://localhost:8080/\">")
                 .doesNotContain("tab=trending\">");
