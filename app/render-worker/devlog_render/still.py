@@ -15,7 +15,7 @@ WIDTH, HEIGHT = 36, 64
 #: 픽셀 평균 차이(0~255)가 이보다 작으면 같은 화면으로 본다. 캐릭터가 눈만 깜빡이는 정도는 같은 화면이다
 THRESHOLD = 1.5
 #: 이보다 오래 같은 화면이면 경고(look.MAX_HOLD와 같은 기준)
-WARN_SECONDS = 6.0
+WARN_SECONDS = 3.0
 
 
 def longest_still(video: Path, ffmpeg: str = "ffmpeg") -> float:

@@ -32,15 +32,16 @@ class LookTest(unittest.TestCase):
             for i in range(1, 8):
                 self.assertNotEqual(lk.cameras[i], lk.cameras[i - 1])
             self.assertTrue(all(t in look.TRANSITIONS for t in lk.transitions[1:]))
-            # 같은 배치가 세 번 이어지지 않는다
+            # 같은 배치가 세 번 이어지지 않는다(첫 장면을 무대로 고정한 뒤에도)
             for i in range(2, 8):
-                self.assertFalse(lk.layouts[i] == lk.layouts[i - 1] == lk.layouts[i - 2] == "split")
+                self.assertFalse(lk.layouts[i] == lk.layouts[i - 1] == lk.layouts[i - 2])
 
     def test_long_stage_scenes_jump_cut(self):
-        # 같은 화면이 6초 넘게 이어지지 않게, 긴 가운데 무대 장면은 구절마다 확대를 번갈아 끊는다
+        # 같은 화면이 3초 넘게 이어지지 않게(2026-10-20 개발 쇼츠 분석), 긴 가운데 무대 장면은 구절마다 확대를 번갈아 끊는다
         self.assertEqual(look.hold_camera("pan-left", "stage", "character", 7.0), look.JUMP)
         self.assertEqual(look.hold_camera("zoom-in", "stage", "code", 6.5), look.JUMP)
-        self.assertEqual(look.hold_camera("pan-left", "stage", "character", 5.0), "pan-left")
+        self.assertEqual(look.hold_camera("pan-left", "stage", "character", 3.5), look.JUMP)
+        self.assertEqual(look.hold_camera("pan-left", "stage", "character", 2.5), "pan-left")
         self.assertEqual(look.hold_camera("still", "stage", "diagram", 9.0), "still")  # 도식은 칸이 스스로 나타난다
         self.assertEqual(look.hold_camera("punch", "split", "character", 9.0), "punch")  # 위 그림·아래 캐릭터는 2초마다 구도가 바뀐다
 
@@ -75,11 +76,19 @@ class LookTest(unittest.TestCase):
         self.assertEqual(Renderer._look(replay, True).name, "paper")
 
     def test_fast_style_puts_character_scenes_on_split(self):
-        script = Script("t", [Scene("a", "b"), Scene("c", "d", custom={"kind": "outro", "data": None})], style="fast", seed=2)
-        self.assertEqual(Renderer._look(script, False).layouts, ["split", "stage"])
+        # 첫 장면(훅)은 커버가 되므로 빠른 스타일에서도 가운데 무대
+        script = Script("t", [Scene("a", "b"), Scene("e", "f"), Scene("c", "d", custom={"kind": "outro", "data": None})], style="fast", seed=2)
+        self.assertEqual(Renderer._look(script, False).layouts, ["stage", "split", "stage"])
         # 코드 창은 빠른 스타일에서도 가운데 무대
-        script = Script("t", [Scene("a", "b"), Scene("c", "d", code="print(1)")], style="fast", seed=2)
-        self.assertEqual(Renderer._look(script, False).layouts, ["split", "stage"])
+        script = Script("t", [Scene("a", "b"), Scene("e", "f"), Scene("c", "d", code="print(1)")], style="fast", seed=2)
+        self.assertEqual(Renderer._look(script, False).layouts, ["stage", "split", "stage"])
+
+    def test_hook_scene_is_always_on_stage(self):
+        # 첫 장면 첫 화면이 릴스 커버·쇼츠 썸네일이 된다(조회수 분석 2026-10-20). 흰 카드(split)로 시작하지 않는다
+        for k in range(60):
+            for name in look.LOOKS:
+                lk = look.choose(look.seed_of("hook", k), 6, [True] * 6, name)
+                self.assertEqual(lk.layouts[0], "stage")
 
     def test_one_or_two_events_prefer_surprise_and_skip_hook(self):
         kinds = ["character"] * 6 + ["custom"]

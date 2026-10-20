@@ -67,9 +67,18 @@ CAMERA_BY_KIND = {"code": ["zoom-in", "punch"], "diagram": ["still", "tilt-up", 
 
 #: 점프 컷 확대(참고 영상 분석 2026-10-17, 온크트리 편집 규칙: 같은 화면이 6초 넘게 이어지지 않게 하고, 컷마다 확대 배율을
 #: 번갈아 쓴다). 가운데 무대 장면이 MAX_HOLD초보다 길면 카메라를 JUMP로 바꿔 구절 자막이 바뀔 때마다 확대를 번갈아 끊는다.
-#: 도식 장면은 칸이 차례로 나타나 화면이 스스로 바뀌므로 그대로 둔다
+#: 도식 장면은 칸이 차례로 나타나 화면이 스스로 바뀌므로 그대로 둔다.
+#: 2026-10-20 개발 쇼츠 채널 분석(Fireship식 1~3초 컷)과 4~7초 이탈 구간에 맞춰 6초에서 3초로 줄였다
 JUMP = "jump"
-MAX_HOLD = 6.0
+MAX_HOLD = 3.0
+
+
+def hook_on_stage(layouts: list[str]) -> list[str]:
+    """첫 장면(훅)은 늘 가운데 무대에 둔다(조회수 분석 2026-10-20). 첫 장면 첫 화면이 릴스 커버·쇼츠 썸네일이 되는데,
+    위 그림·아래 캐릭터(split)는 흰 카드에 작은 글씨만 보여 피드에서 빈 상자처럼 보였다. 무대는 큰 요점 자막과 큰 캐릭터가 한 화면에 든다"""
+    if layouts:
+        layouts[0] = "stage"
+    return layouts
 
 
 def hold_camera(camera: str, layout: str, kind: str, seconds: float) -> str:
@@ -167,9 +176,13 @@ def choose(seed: int, scenes: int, splittable: list[bool], name: str | None = No
         ok = splittable[i] if i < len(splittable) else False
         # 같은 배치가 세 번 이어지지 않게 한다
         pick = "split" if ok and rng.random() < share else "stage"
+        if i == 0:
+            # 첫 장면(훅)은 무대로 먼저 정해 두고 뒤 장면의 반복 검사가 이를 보게 한다. 난수는 그대로 뽑아 다른 선택이 바뀌지 않게 한다
+            pick = "stage"
         if ok and len(layouts) >= 2 and layouts[-1] == layouts[-2] == pick:
             pick = "stage" if pick == "split" else "split"
         layouts.append(pick if ok else "stage")
+    hook_on_stage(layouts)
     music = _pick_music(rng, look, recent)
     lk = Look(look, music, transitions, cameras, layouts, _events(rng, scenes, kinds, actions))
     # 짜임·도식 모양은 따로 씨앗을 써서, 위에서 고른 룩·전환·카메라가 예전과 같게 남는다

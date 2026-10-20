@@ -38,7 +38,7 @@ export const Scene: React.FC<{scene: SceneData; index: number; title: string; fo
       {scene.caption.trim() ? (
       <div style={{position: 'absolute', top: layout.headingTop, left: layout.gutter, right: layout.gutter, height: layout.headingHeight,
         display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-        <Heading text={scene.caption} tint={tint} duration={scene.durationInFrames} />
+        <Heading text={scene.caption} tint={tint} duration={scene.durationInFrames} instant={index === 0} />
       </div>
       ) : null}
       <div style={{position: 'absolute', top: layout.stageTop, left: 0, width: layout.stageWidth, height: layout.stageHeight, transformOrigin: '50% 60%',
@@ -57,7 +57,7 @@ export const Scene: React.FC<{scene: SceneData; index: number; title: string; fo
 
 /** 요점 자막. 룩마다 등장 방식이 다르다: rise(낱말이 떠오르고 형광펜), pop(통째로 튀어나오고 강조색 밑줄), type(한 글자씩), slide(왼쪽에서 밀려오고 강조색 막대) */
 /** 한 화면을 이만큼(초)보다 오래 두지 않는다(워커 look.MAX_HOLD와 같다) */
-const MAX_HOLD_S = 6;
+const MAX_HOLD_S = 3;
 
 /** 구절 컷 사이(장면 시작·끝 포함)가 MAX_HOLD_S보다 길면 그 사이를 고르게 나눠 컷을 더 넣는다 */
 const holdCuts = (cuts: number[], duration: number, fps: number): number[] => {
@@ -73,9 +73,14 @@ const holdCuts = (cuts: number[], duration: number, fps: number): number[] => {
   return out;
 };
 
-const Heading: React.FC<{text: string; tint: string; duration: number}> = ({text, tint, duration}) => {
-  const frame = useCurrentFrame();
+/** 첫 장면(훅)의 요점 자막은 첫 프레임부터 다 보인다(조회수 분석 2026-10-20). 첫 화면이 릴스 커버·쇼츠 썸네일이 되고,
+ *  피드에서 넘기는 사람도 첫 순간에 제목을 읽어야 멈춘다. 등장 움직임이 끝난 뒤 모습(INSTANT_FROM초)으로 그린다 */
+const INSTANT_FROM = 4;
+
+const Heading: React.FC<{text: string; tint: string; duration: number; instant?: boolean}> = ({text, tint, duration, instant = false}) => {
+  const now = useCurrentFrame();
   const {fps} = useVideoConfig();
+  const frame = instant ? now + INSTANT_FROM * fps : now;
   const {color, motion} = theme;
   const lk = look();
   const marker = interpolate(frame, [0.3 * fps, 0.7 * fps], [0, 100], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.out(Easing.cubic)});
