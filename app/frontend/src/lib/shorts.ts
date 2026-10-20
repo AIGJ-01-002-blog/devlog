@@ -348,7 +348,8 @@ export function uploadGuide(item: ShortsItem, platform: Platform, origin: string
   ]
   return {
     spec, title, caption, tags, checks,
-    pinnedComment: t('과정과 코드는 블로그에 정리해 뒀어요: {0}', { 0: link }),
+    // 끝에 질문을 붙여 댓글을 부르고, 받은 댓글은 다음 쇼츠 소재로 쓴다(개발 쇼츠 채널 분석 2026-10-20: 댓글 답변 영상)
+    pinnedComment: `${t('과정과 코드는 블로그에 정리해 뒀어요: {0}', { 0: link })}\n${t('이 문제 겪어 보셨나요? 댓글로 남겨 주시면 다음 쇼츠에서 다뤄 볼게요.')}`,
     steps: uploadSteps(platform),
   }
 }
@@ -369,6 +370,7 @@ function uploadSteps(platform: Platform): string[] {
       t('캡션에 아래 문구를 붙여 넣어요. 캡션 링크는 누를 수 없으니 프로필 링크에 블로그 주소를 걸어 두면 좋아요.'),
       t('[커버 수정]에서 맨 처음 화면(제목이 크게 보이는 장면)을 커버로 골라요. 프로필 격자에 이 화면이 보여요.'),
       t('AI 음성을 썼다면 고급 설정에서 AI 정보 표시를 켜요.'),
+      t('첫 문장을 시험해 보고 싶으면 공유 전에 체험용 릴스(Trial Reels)를 켜요. 팔로워가 아닌 사람에게 먼저 보여 주고 반응이 좋으면 팔로워에게도 보여 줘요.'),
       t('공유한 뒤 고정 댓글을 달고, 릴스 주소(공유 → 링크 복사)를 아래에 남겨요.'),
     ]
     case 'TIKTOK': return [
