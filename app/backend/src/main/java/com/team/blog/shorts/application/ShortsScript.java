@@ -19,8 +19,11 @@ public final class ShortsScript {
     public static final int NARRATION_MAX = 200;
     public static final int CODE_MAX = 300;
     public static final int SECONDS_MAX = 90;
-    /** 대본을 쓰는 AI에게 권하는 길이(초). 이보다 짧아도 만들 수는 있다 */
+    /** 대본을 쓰는 AI에게 권하는 긴 판 길이(초). 이보다 짧아도 만들 수는 있다 */
     public static final int SECONDS_TARGET_MIN = 60;
+    /** 짧은 판 길이(초). 긴 판과 번갈아 올려 피드 성적을 비교한다(#431: 평균 시청이 20~44초라 짧은 판을 섞는다) */
+    public static final int SHORT_SECONDS_MIN = 30;
+    public static final int SHORT_SECONDS_MAX = 45;
     /** 서버가 직접 짓는 대본(매매 재현·매매 일지)은 예전처럼 60초 안으로 줄인다 */
     public static final int AUTO_SECONDS_MAX = 60;
     /** 한국어 TTS는 초당 6~7자쯤 읽는다. 장면이 바뀔 때 숨 쉬는 틈을 더한다 */

@@ -28,7 +28,7 @@ import com.team.blog.trade.application.TradeReplays;
 class ShortsTools {
     private static final Logger log = LoggerFactory.getLogger(ShortsTools.class);
     static final String SCENES_SCHEMA = """
-            "scenes":{"type":"array","maxItems":16,"description":"장면 8~12개가 좋고 3~16개까지. 합쳐서 60~90초(내레이션 약 360~540자), 90초를 넘으면 영상으로 못 만들어요","items":{"type":"object","properties":{
+            "scenes":{"type":"array","maxItems":16,"description":"긴 판은 장면 8~12개로 60~90초(내레이션 약 360~540자), 짧은 판은 장면 5~7개로 30~45초(약 180~270자). 3~16개까지, 90초를 넘으면 영상으로 못 만들어요","items":{"type":"object","properties":{
                 "caption":{"type":"string","description":"화면 큰 자막 (40자까지, 한 줄 요점)"},
                 "narration":{"type":"string","description":"읽을 문장 (200자까지, 말하듯이)"},
                 "code":{"type":"string","description":"화면에 보일 짧은 코드 (선택, 300자까지)"},
@@ -48,11 +48,15 @@ class ShortsTools {
             "\"character\":{\"type\":\"string\",\"enum\":[\"lognyang\",\"logduck\",\"dubu\",\"cat\"],\"description\":\"연기할 캐릭터 (선택). lognyang 후드 입은 고양이 로그냥(기본), logduck 스카프 맨 오리 로그덕, dubu 흰 강아지 두부, cat Noto 이모지 고양이. 사용자가 고른 캐릭터가 있을 때만 준다\"},";
 
     /**
-     * 대본 쓰기 안내 (#277). 길이는 1분~1분 30초. 구조는 블로그 주인이 정한 "잘 되는 쇼츠" 틀(후킹 → 본론 → 반전·정리 → CTA)을
+     * 대본 쓰기 안내 (#277). 길이는 긴 판 1분~1분 30초와 짧은 판 30~45초를 번갈아 쓴다(#431, 2026-10-20 블로그 주인 결정: 2주 비교). 구조는 블로그 주인이 정한 "잘 되는 쇼츠" 틀(후킹 → 본론 → 반전·정리 → CTA)을
      * 이 길이에 맞게 늘린 것이고, "AI 티" 줄이는 법(내 말투, 후킹 고르기, 상투어 빼기, 실제 경험·숫자)을 함께 둔다.
      * 후킹 종류와 본론 틀은 여러 가지 가운데 최근 영상과 다른 것을 고르게 한다(쇼츠 다양화 2026-10-17: 반복적인 영상은 수익화가 안 된다).
      */
-    static final String GUIDE = "길이는 1분~1분 30초(장면 8~12개)이고, 가볍게 훑지 말고 한 주제를 깊게 판다. 구조: "
+    static final String GUIDE = "길이는 긴 판과 짧은 판을 번갈아 쓴다. 쓰기 전에 list_shorts로 가장 최근 대본의 예상 길이를 보고, 60초 이상이면 이번은 짧은 판, "
+            + "45초 이하이면 이번은 긴 판으로 쓴다(최근 대본이 없으면 짧은 판). 사용자가 길이를 정해 주면 그것을 따른다. "
+            + "긴 판은 1분~1분 30초(장면 8~12개)로 한 주제를 깊게 판다. 짧은 판은 30~45초(장면 5~7개)로 후킹 → 답 → 근거 하나(숫자나 코드) → CTA만 남기고, "
+            + "원리 도식은 1개까지만 쓴다. 어느 판이든 두 번째 장면에서 후킹이 던진 질문의 답(결과·원인)을 먼저 말하고, 설명은 그 뒤에 붙인다"
+            + "(시청 지속 그래프에서 두 번째 장면이 시작하는 4~7초에 절반이 넘긴다). 구조: "
             + "① 후킹(첫 장면, 3초 안): 후킹 종류 가운데 하나로 스크롤을 멈추게 한다. 질문(\"왜 ~일까요?\"), 결과 먼저(결론·결과 숫자부터), "
             + "반박(\"다들 ~라는데 아니에요\"), 숫자 한 방(글에 있는 놀라운 숫자), 경고(\"이거 모르면 ~ 날려요\"). "
             + "최근 5편 가운데 질문 후킹(\"왜 ~할까요?\")이 2편 이상이면 이번에는 질문 말고 다른 후킹을 쓴다(질문만 이어지면 피드에서 다 같은 영상으로 보인다). "
@@ -157,11 +161,20 @@ class ShortsTools {
         }
     }
 
-    /** 권장 길이(1분~1분 30초)보다 짧으면 AI가 장면을 더 깊게 쓰도록 알려 준다. 만들기는 막지 않는다 */
+    /**
+     * 짧은 판(30~45초)과 긴 판(1분~1분 30초) 어디에도 들지 않으면 AI가 한쪽으로 맞추도록 알려 준다. 만들기는 막지 않는다.
+     * 반올림한 초로 판단해 안내 문구의 숫자와 어긋나지 않게 한다.
+     */
     static String lengthHint(double seconds) {
-        if (seconds >= ShortsScript.SECONDS_TARGET_MIN) return "";
-        return "길이가 " + Math.round(seconds) + "초예요. " + ShortsScript.SECONDS_TARGET_MIN + "~" + ShortsScript.SECONDS_MAX
-                + "초를 권해요: 원리 설명(도식 장면)이나 확인(전후 숫자) 장면을 더해 주제를 더 깊게 풀어 주세요.\n";
+        long s = Math.round(seconds);
+        if (s >= ShortsScript.SECONDS_TARGET_MIN || (s >= ShortsScript.SHORT_SECONDS_MIN && s <= ShortsScript.SHORT_SECONDS_MAX)) return "";
+        if (s < ShortsScript.SHORT_SECONDS_MIN) {
+            return "길이가 " + s + "초예요. 짧은 판도 " + ShortsScript.SHORT_SECONDS_MIN + "~" + ShortsScript.SHORT_SECONDS_MAX
+                    + "초를 권해요: 근거(숫자나 코드) 장면 하나를 더해 주세요.\n";
+        }
+        return "길이가 " + s + "초로 짧은 판(" + ShortsScript.SHORT_SECONDS_MIN + "~" + ShortsScript.SHORT_SECONDS_MAX + "초)과 긴 판("
+                + ShortsScript.SECONDS_TARGET_MIN + "~" + ShortsScript.SECONDS_MAX
+                + "초) 사이예요. 짧은 판이면 설명 장면을 줄이고, 긴 판이면 원리 설명(도식 장면)이나 확인(전후 숫자) 장면을 더해 주세요.\n";
     }
 
     McpTools.Result update(AccessTokens.Caller caller, JsonNode a) {
