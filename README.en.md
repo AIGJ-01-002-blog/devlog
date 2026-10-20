@@ -391,6 +391,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v2.8.0 | 2026-10-20 | AdSense re-review prep: posts with under 1,000 characters of body text (code blocks, images and link addresses excluded) are kept out of search indexing, ads and the sitemap while staying public, blog and tag indexing count the same posts, and the server-rendered home page has a site intro paragraph | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.8.0) |
 | v2.7.1 | 2026-10-19 | AdSense prep follow-up: AI diaries are left out of the home feed (series and topic branches included) and trending, and still appear in the author's blog list | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.7.1) |
 | v2.7.0 | 2026-10-19 | AdSense approval prep: blogs without posts, empty series lists and tags filled only by AI diaries are kept out of search indexing and ads, the trending tab's canonical URL points home, a site footer in server-rendered public pages, and a way to reach the operator without logging in on the About and Support pages | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.7.0) |
 | v2.6.1 | 2026-10-19 | Home PC backup no longer passes MinIO access keys as command arguments that other accounts on the same server could see (environment variable only) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.6.1) |
