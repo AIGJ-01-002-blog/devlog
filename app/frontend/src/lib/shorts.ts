@@ -328,11 +328,11 @@ function hook(item: ShortsItem): string {
   return item.scenes.find((s) => s.narration.trim())?.narration.trim() ?? ''
 }
 
-/** 블로그 글로 만든 쇼츠의 시리즈 이름(2026-10-20 블로그 주인 결정). 제목 끝에 붙여 같은 시리즈로 알아보게 한다. 매매 재현 영상에는 붙이지 않는다 */
+/** 블로그 글로 만든 쇼츠의 시리즈 이름(2026-10-20 블로그 주인 결정). 제목 끝에 붙여 같은 시리즈로 알아보게 한다. 매매 재현 영상과 글 없이 만든 쇼츠에는 붙이지 않는다 */
 export const SHORTS_SERIES = '에러로그 30초'
 
 function seriesTitle(item: ShortsItem): string {
-  return item.replay ? item.title : `${item.title} | ${SHORTS_SERIES}`
+  return item.replay || item.postId == null ? item.title : `${item.title} | ${SHORTS_SERIES}`
 }
 
 export function uploadGuide(item: ShortsItem, platform: Platform, origin: string): UploadGuide {
@@ -377,7 +377,7 @@ function uploadSteps(platform: Platform): string[] {
       t('캡션에 아래 문구를 붙여 넣어요. 캡션 링크는 누를 수 없으니 프로필 링크에 블로그 주소를 걸어 두면 좋아요.'),
       t('[커버 수정]에서 맨 처음 화면(제목이 크게 보이는 장면)을 커버로 골라요. 프로필 격자에 이 화면이 보여요.'),
       t('AI 음성을 썼다면 고급 설정에서 AI 정보 표시를 켜요.'),
-      t('첫 문장을 시험해 보고 싶으면 공유 전에 체험용 릴스(Trial Reels)를 켜요. 팔로워가 아닌 사람에게 먼저 보여 주고 반응이 좋으면 팔로워에게도 보여 줘요.'),
+      t('첫 문장을 시험해 보고 싶으면 공유 전에 체험용 릴스(Trial Reels)를 켜요. 팔로워가 아닌 사람에게 먼저 보여 줘요. 반응이 좋아도 저절로 팔로워에게 가지 않으니, 결과를 보고 직접 전체 공개를 누르거나 만들 때 자동 공유를 켜 두세요.'),
       t('공유한 뒤 고정 댓글을 달고, 릴스 주소(공유 → 링크 복사)를 아래에 남겨요.'),
     ]
     case 'TIKTOK': return [

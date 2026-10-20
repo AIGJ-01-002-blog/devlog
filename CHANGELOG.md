@@ -6,7 +6,7 @@ MVP(로그인·글쓰기·글 읽기 + 화면)를 실제로 쓸 수 있을 때 1
 
 main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/release.yml`이 태그(`v버전`)와 GitHub Release를 만든다.
 
-2026-10-12부터 목표 단위로 릴리스한다([CONTRIBUTING.md](CONTRIBUTING.md)). develop에 머지한 작업은 `## [Unreleased]
+2026-10-12부터 목표 단위로 릴리스한다([CONTRIBUTING.md](CONTRIBUTING.md)). develop에 머지한 작업은 `## [Unreleased]`에 모으고, 마일스톤을 다 채운 릴리스 PR에서 버전 머리말로 바꾼다.
 
 ## [2.10.0] - 2026-10-20
 
@@ -15,6 +15,7 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 YouTube 스튜디오 분석에서 피드 시청자의 81.5%가 넘기고, 첫 4초 뒤 4~7초 사이에 절반이 빠져나갔다. 첫 프레임이 커버·썸네일이 되는데 빈 화면이었고, 대본 58편이 같은 질문 후킹으로 시작했으며, 영상은 77~90초로 평균 시청(20~44초)보다 훨씬 길었다. 첫 화면, 후킹, 길이를 숫자에 맞추고, 개발 쇼츠 채널 13곳에서 가져온 기법을 더했다.
 
 ### 화면
+
 | 전 (첫 프레임) | 후 (첫 프레임) |
 |---|---|
 | ![전](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.10.0/shorts-first-frame-before.webp) | ![후](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.10.0/shorts-first-frame-after.webp) |
@@ -31,6 +32,7 @@ YouTube 스튜디오 분석에서 피드 시청자의 81.5%가 넘기고, 첫 4�
 - 쇼츠 시리즈 이름을 "에러로그 30초"로 고정했다. 올리기 안내가 YouTube 제목과 Instagram·TikTok 캡션 첫 줄 끝에 붙인다. 매매 재현 영상에는 붙이지 않는다 (#435)
 
 ### 포함된 작업
+
 | 이슈 | 브랜치 | PR |
 |---|---|---|
 | #429 쇼츠 첫 프레임을 커버로 | `claude/project-thread-tah6mz` | #430 |

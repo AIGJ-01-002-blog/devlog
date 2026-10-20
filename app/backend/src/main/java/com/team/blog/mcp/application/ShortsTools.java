@@ -283,7 +283,7 @@ class ShortsTools {
         if (!enabled()) return "";
         ShortsCandidates.Fit f = ShortsCandidates.fit(content);
         if (!f.fit()) return "";
-        return "\n쇼츠 후보: 이 글에는 " + String.join(", ", f.reasons()) + "이(가) 있어 1분 안팎 쇼츠로 만들 만해요. "
+        return "\n쇼츠 후보: 이 글에는 " + String.join(", ", f.reasons()) + "이(가) 있어 30~45초 쇼츠로 만들 만해요. "
                 + "지금 묻지 말고, 사용자가 글을 공개로 발행한 뒤에 쇼츠 대본을 만들지 한 번만 물어봐 주세요.";
     }
 
@@ -299,7 +299,7 @@ class ShortsTools {
         }
         ShortsCandidates.Fit f = ShortsCandidates.fit(content);
         if (!f.fit()) return "";
-        return "\n쇼츠 후보: 이 글에는 " + String.join(", ", f.reasons()) + "이(가) 있어 1분 안팎 쇼츠로 만들 만해요. "
+        return "\n쇼츠 후보: 이 글에는 " + String.join(", ", f.reasons()) + "이(가) 있어 30~45초 쇼츠로 만들 만해요. "
                 + "사용자에게 쇼츠 대본을 만들지 한 번 물어보고, 원하면 create_shorts_script에 post_id " + postId + "를 주어 만들어 주세요. "
                 + "사용자가 넘기면 다시 묻지 마세요.";
     }
