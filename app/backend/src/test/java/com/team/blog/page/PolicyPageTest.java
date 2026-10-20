@@ -53,7 +53,7 @@ class PolicyPageTest extends IntegrationTest {
     void publish(Session s, String title, String tag) throws Exception {
         long id = read(s.http().perform(asJson(post("/api/posts"), Map.of("title", title, "contentMd", "")))
                 .andExpect(status().isCreated()).andReturn()).path("id").asLong();
-        s.http().perform(asJson(post("/api/posts/" + id + "/publish"), Map.of("title", title, "contentMd", "본문",
+        s.http().perform(asJson(post("/api/posts/" + id + "/publish"), Map.of("title", title, "contentMd", ARTICLE_BODY,
                         "visibility", "PUBLIC", "baseVersion", 0, "tags", List.of(tag)))
                 .header("Idempotency-Key", UUID.randomUUID().toString())).andExpect(status().isOk());
     }

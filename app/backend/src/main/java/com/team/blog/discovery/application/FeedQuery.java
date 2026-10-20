@@ -69,9 +69,14 @@ public class FeedQuery {
                               long publicPostCount, boolean mine, String friendship, Integer lastActiveDaysAgo,
                               long followerCount, long followingCount, boolean following, SocialLinks.Links socialLinks) {}
 
-    /** 블로그를 검색 수집할지 정할 때 쓰는 공개 글 수. AI 일기는 세지 않는다 (spec 104) */
+    /** 블로그를 검색 수집할지 정할 때 쓰는 공개 글 수. AI 일기와 짧은 글은 세지 않는다 (spec 104, 105) */
     public long indexableArticleCount(long authorId) {
-        return posts.count(authorId, PostAccessPolicy.PUBLIC_LIST_CONDITION + " AND NOT p.ai_diary");
+        return posts.count(authorId, PostAccessPolicy.PUBLIC_LIST_CONDITION + " AND " + PostAccessPolicy.INDEXABLE_ARTICLE_CONDITION);
+    }
+
+    /** 글 화면을 검색 수집·광고에 넣을지. AI 일기와 본문이 짧은 글은 뺀다 (spec 088, 105) */
+    public boolean indexableArticle(long postId) {
+        return posts.indexableArticle(postId);
     }
 
     /** 홈 피드는 직접 쓴 글만 보인다. AI 일기는 블로그·일기 탭에 그대로 남는다 (spec 104 FR-008, 애드센스) */

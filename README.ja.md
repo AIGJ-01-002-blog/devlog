@@ -123,7 +123,7 @@ AI の利用に同意していれば AI がタイトルを付けて文章を整�
 
 ### 閲覧と発見
 
-- **ホーム**：最新タブとトレンドタブ。トレンドは直近 7 日間が対象で、いいね・コメント・閲覧を記事の経過時間で減衰させてスコアを付け、10 分ごとに更新し、1 人の記事は 3 件までです。
+- **ホーム**：最新タブとトレンドタブ。トレンドは直近 7 日間が対象で、いいね・コメント・閲覧を記事の経過時間で減衰させてスコアを付け、10 分ごとに更新し、1 人の記事は 3 件までです。AI 日記はホームとトレンドには出ず、書いた人のブログにだけ表示されます。
 - **記事ページ**：目次、読了時間、シリーズ、前後の記事、著者紹介とソーシャルリンク、共有ボタン、リンクプレビュー（Open Graph）。
 - **タグと検索**：タグ別の記事一覧、タイトル・タグ・本文のキーワードと意味を合わせて見るハイブリッド検索（関連度順・新しい順）、人の検索。
 - **RSS**：ブログごとの `/@your-id/rss` とサイト全体の `/rss`。
@@ -166,7 +166,7 @@ flowchart LR
     T[Telegram] -->|Bot API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>複数 Pod]
     I -->|/blog-images| M[(MinIO / S3<br/>画像・添付)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V57)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V58)]
     A --> R[(Redis<br/>セッション・レート制限・閲覧数・キャッシュ)]
     A --> M
     A -.任意.-> G[Google Gemini]
@@ -262,12 +262,12 @@ GitHub Actions でテストし、イメージを作って GHCR に上げたあ�
 
 | パス | 説明 |
 | --- | --- |
-| [app/backend](app/backend) | バックエンド：Spring Boot 4.1、Java 21。機能モジュール、Flyway マイグレーション（V1~V57）、テスト |
+| [app/backend](app/backend) | バックエンド：Spring Boot 4.1、Java 21。機能モジュール、Flyway マイグレーション（V1~V58）、テスト |
 | [app/frontend](app/frontend) | フロントエンド：React 19 SPA、TypeScript、Vite。画面、自動保存（IndexedDB）、ダークモード |
 | [deploy](deploy) | デプロイ：Dockerfile、Kubernetes マニフェスト（base・selfhosted・nhn・local）、デプロイ・ロールバック・シークレット検査のスクリプト |
 | [app/render-worker](app/render-worker) | ショート動画のレンダーワーカー：Python 3.10、ffmpeg、Remotion（Node）。自分のパソコンで待ち行列の台本を 9:16 の MP4 にしてアップロードします |
 | [.github](.github) | CI/CD：バックエンドと画面のテスト、イメージのビルドとデプロイ、リリース、Discord・Telegram 通知 |
-| [specs](specs) | 機能仕様：[GitHub Spec Kit](https://github.com/github/spec-kit) の流れに沿った機能ごとの spec・plan・tasks（001~103） |
+| [specs](specs) | 機能仕様：[GitHub Spec Kit](https://github.com/github/spec-kit) の流れに沿った機能ごとの spec・plan・tasks（001~104） |
 | [docs](https://github.com/AIGJ-01-002-blog/docs) | 設計ドキュメント：共通要件、アーキテクチャ、統合 ERD、機能別設計、権限表 |
 | [erd](erd) · [scripts](scripts) | 基準スキーマとその動作テスト、設計検証スクリプトとレポート |
 
@@ -343,7 +343,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub・Google・カカオ・NAVER・Facebook ログイン、セッション、CSRF、パスごとの権限 |
 | Spring Data JPA (Hibernate) | Boot 4.1 | ドメイン全体 | 会員・記事・コメントなどドメインデータの保存 |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | セッション、レート制限、閲覧数、キャッシュ | 複数の Pod が同じセッションを共有し、同時リクエストも Redis スクリプト 1 つで判定します |
-| Flyway | Boot 4.1 | DB | スキーマを V1~V57 のマイグレーションで管理し、起動時に適用します |
+| Flyway | Boot 4.1 | DB | スキーマを V1~V58 のマイグレーションで管理し、起動時に適用します |
 | commonmark-java (+ GFM 拡張) | 0.30.0 | 本文のレンダリング | Markdown → HTML。表・取り消し線・チェックリスト・自動リンク・見出しアンカー |
 | OWASP Java HTML Sanitizer | 20260924.2 | 本文のサニタイズ | レンダリングした HTML を許可リストでサニタイズし XSS を防ぎます |
 | AWS SDK for Java (S3) | 2.55.12 | media | MinIO・S3 に画像と添付をアップロードします |
@@ -379,10 +379,10 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | 技術 | 使う場所 | 役割 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | バックエンド | 単体・結合テスト 862 件（v2.6.1 時点） |
+| JUnit 5 · Spring Boot Test · Spring Security Test | バックエンド | 単体・結合テスト 870 件（v2.7.1 時点） |
 | Testcontainers (PostgreSQL) | バックエンド | 本物の PostgreSQL でマイグレーション・クエリ・並行処理を検証します |
 | JaCoCo | バックエンド | 行カバレッジ 40% の基準を CI で確認します |
-| Vitest · Testing Library · jsdom | フロントエンド | 画面とロジックのテスト 427 件（v2.6.1 時点） |
+| Vitest · Testing Library · jsdom | フロントエンド | 画面とロジックのテスト 427 件（v2.7.1 時点） |
 | fake-indexeddb | フロントエンド | オフライン自動保存のテスト |
 
 ## リリース
@@ -391,6 +391,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | バージョン | 日付 | 主な内容 | リリースノート |
 | --- | --- | --- | --- |
+| v2.8.0 | 2026-10-20 | AdSense 再審査準備: 本文 1,000 字未満の記事(コードブロック・画像・リンク先を除く)を検索インデックス・広告・サイトマップから除外し記事は公開のまま、ブログ・タグのインデックス基準も同じ記事数で、ホームのサーバー HTML にサイト紹介の段落 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.8.0) |
 | v2.7.1 | 2026-10-19 | AdSense 承認準備の続き: ホームフィード(シリーズ・トピックのブランチを含む)とトレンドから AI 日記を除外し、日記は書き手のブログ一覧にそのまま表示 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.7.1) |
 | v2.7.0 | 2026-10-19 | AdSense 承認準備: 記事のないブログ・空のシリーズ一覧・AI 日記だけのタグを検索インデックスと広告から除外、トレンドタブの正規 URL をホームに、スクリプトなしで受け取る公開画面にサイトフッター、紹介・問い合わせ画面にログインなしの連絡方法 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.7.0) |
 | v2.6.1 | 2026-10-19 | 自宅PCバックアップがMinIOのアクセスキーをコマンド引数で渡し、同じサーバーの他アカウントから見えた問題を修正(環境変数のみで渡す) | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.6.1) |

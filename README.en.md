@@ -123,7 +123,7 @@ If you have agreed to AI use, the AI adds a title and tidies up the text; otherw
 
 ### Reading and discovery
 
-- **Home**: Latest and Trending tabs. Trending covers the last 7 days, scores likes, comments and views with decay by post age, refreshes every 10 minutes, and shows at most 3 posts per author.
+- **Home**: Latest and Trending tabs. Trending covers the last 7 days, scores likes, comments and views with decay by post age, refreshes every 10 minutes, and shows at most 3 posts per author. AI diary entries stay off Home and Trending and appear only on the author's blog.
 - **Post page**: table of contents, reading time, series, previous/next post, author bio and social links, share button, link previews (Open Graph).
 - **Tags and search**: browse posts by tag, hybrid search over title, tag and body keywords plus meaning (by relevance or newest), and search for people.
 - **RSS**: per-blog `/@your-id/rss` and site-wide `/rss`.
@@ -166,7 +166,7 @@ flowchart LR
     T[Telegram] -->|Bot API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>multiple pods]
     I -->|/blog-images| M[(MinIO / S3<br/>images · attachments)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V57)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V58)]
     A --> R[(Redis<br/>sessions · rate limits · views · cache)]
     A --> M
     A -.optional.-> G[Google Gemini]
@@ -262,12 +262,12 @@ Code lives in this repository; design documents live in the documentation reposi
 
 | Path | Description |
 | --- | --- |
-| [app/backend](app/backend) | Backend: Spring Boot 4.1, Java 21. Feature modules, Flyway migrations (V1~V57), tests |
+| [app/backend](app/backend) | Backend: Spring Boot 4.1, Java 21. Feature modules, Flyway migrations (V1~V58), tests |
 | [app/frontend](app/frontend) | Frontend: React 19 SPA, TypeScript, Vite. Screens, autosave (IndexedDB), dark mode |
 | [deploy](deploy) | Deployment: Dockerfile, Kubernetes manifests (base, selfhosted, nhn, local), deploy, rollback and secret-check scripts |
 | [app/render-worker](app/render-worker) | Shorts render worker: Python 3.10, ffmpeg, Remotion (Node). Runs on your computer and turns queued scripts into 9:16 MP4s |
 | [.github](.github) | CI/CD: backend and frontend tests, image build and deploy, releases, Discord and Telegram notifications |
-| [specs](specs) | Feature specs: spec, plan and tasks per feature (001~103) following the [GitHub Spec Kit](https://github.com/github/spec-kit) flow |
+| [specs](specs) | Feature specs: spec, plan and tasks per feature (001~104) following the [GitHub Spec Kit](https://github.com/github/spec-kit) flow |
 | [docs](https://github.com/AIGJ-01-002-blog/docs) | Design documents: common requirements, architecture, unified ERD, per-feature designs, permission matrix |
 | [erd](erd) · [scripts](scripts) | Baseline schema and its tests, design-check scripts and reports |
 
@@ -343,7 +343,7 @@ To try it on Kubernetes, run `kubectl apply -k deploy/k8s/overlays/local` on kin
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub, Google, Kakao, Naver and Facebook login, sessions, CSRF, per-path authorization |
 | Spring Data JPA (Hibernate) | Boot 4.1 | All domains | Storing members, posts, comments and other domain data |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | Sessions, rate limits, views, cache | Lets multiple pods share sessions, and decides concurrent requests with a single Redis script |
-| Flyway | Boot 4.1 | Database | Manages the schema as migrations V1~V57, applied at startup |
+| Flyway | Boot 4.1 | Database | Manages the schema as migrations V1~V58, applied at startup |
 | commonmark-java (+ GFM extensions) | 0.30.0 | Body rendering | Markdown → HTML: tables, strikethrough, task lists, autolinks, heading anchors |
 | OWASP Java HTML Sanitizer | 20260924.2 | Body sanitizing | Sanitizes rendered HTML against an allow list to prevent XSS |
 | AWS SDK for Java (S3) | 2.55.12 | media | Uploads images and attachments to MinIO and S3 |
@@ -379,10 +379,10 @@ To try it on Kubernetes, run `kubectl apply -k deploy/k8s/overlays/local` on kin
 
 | Technology | Where | Role |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | Backend | 862 unit and integration tests (as of v2.6.1) |
+| JUnit 5 · Spring Boot Test · Spring Security Test | Backend | 870 unit and integration tests (as of v2.7.1) |
 | Testcontainers (PostgreSQL) | Backend | Verifies migrations, queries and concurrency against a real PostgreSQL |
 | JaCoCo | Backend | Enforces a 40% line-coverage threshold in CI |
-| Vitest · Testing Library · jsdom | Frontend | 427 UI and logic tests (as of v2.6.1) |
+| Vitest · Testing Library · jsdom | Frontend | 427 UI and logic tests (as of v2.7.1) |
 | fake-indexeddb | Frontend | Tests for offline autosave |
 
 ## Releases
@@ -391,6 +391,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v2.8.0 | 2026-10-20 | AdSense re-review prep: posts with under 1,000 characters of body text (code blocks, images and link addresses excluded) are kept out of search indexing, ads and the sitemap while staying public, blog and tag indexing count the same posts, and the server-rendered home page has a site intro paragraph | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.8.0) |
 | v2.7.1 | 2026-10-19 | AdSense prep follow-up: AI diaries are left out of the home feed (series and topic branches included) and trending, and still appear in the author's blog list | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.7.1) |
 | v2.7.0 | 2026-10-19 | AdSense approval prep: blogs without posts, empty series lists and tags filled only by AI diaries are kept out of search indexing and ads, the trending tab's canonical URL points home, a site footer in server-rendered public pages, and a way to reach the operator without logging in on the About and Support pages | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.7.0) |
 | v2.6.1 | 2026-10-19 | Home PC backup no longer passes MinIO access keys as command arguments that other accounts on the same server could see (environment variable only) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.6.1) |

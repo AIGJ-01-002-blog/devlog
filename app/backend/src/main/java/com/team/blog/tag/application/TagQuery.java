@@ -99,10 +99,10 @@ public class TagQuery {
         return n == null ? 0 : n;
     }
 
-    /** 검색 수집 기준에 쓰는 공개 글 수. 자동으로 쓰인 AI 일기는 세지 않는다 (spec 104, 애드센스 얇은 화면) */
+    /** 검색 수집 기준에 쓰는 공개 글 수. AI 일기와 본문이 짧은 글은 세지 않는다 (spec 104, 105, 애드센스 얇은 화면) */
     public long publicArticleCount(String name) {
         Long n = jdbc.queryForObject("SELECT count(*) FROM tag t JOIN post_tag pt ON pt.tag_id = t.id" + PUBLIC_POSTS
-                + " AND NOT p.ai_diary AND t.name = ?", Long.class, name);
+                + " AND " + PostAccessPolicy.INDEXABLE_ARTICLE_CONDITION + " AND t.name = ?", Long.class, name);
         return n == null ? 0 : n;
     }
 
