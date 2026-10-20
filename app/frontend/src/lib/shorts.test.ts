@@ -65,9 +65,10 @@ describe('shorts', () => {
 
   it('YouTube는 제목 칸과 누를 수 있는 글 링크를 설명에 넣는다', () => {
     const g = uploadGuide(ready(), 'YOUTUBE', 'https://devlog.life')
-    expect(g.title).toBe('배포하면 왜 로그아웃될까')
+    expect(g.title).toBe('배포하면 왜 로그아웃될까 | 에러로그 30초')
     expect(g.caption).toBe('왜 배포만 하면 다 로그아웃될까요?\n\n전체 글: https://devlog.life/@minseo/posts/7\n\n#spring #springboot #c')
     expect(g.pinnedComment).toContain('https://devlog.life/@minseo/posts/7')
+    expect(g.pinnedComment).toContain('이 문제 겪어 보셨나요?')
     expect(g.checks.every((c) => c.ok)).toBe(true)
     expect(g.steps.length).toBeGreaterThan(3)
   })
@@ -76,12 +77,18 @@ describe('shorts', () => {
     for (const p of ['INSTAGRAM', 'TIKTOK'] as const) {
       const g = uploadGuide(ready(), p, 'https://devlog.life')
       expect(g.title).toBeNull()
-      expect(g.caption.startsWith('배포하면 왜 로그아웃될까\n\n')).toBe(true)
+      expect(g.caption.startsWith('배포하면 왜 로그아웃될까 | 에러로그 30초\n\n')).toBe(true)
       expect(g.caption).not.toContain('https://')
       expect(g.caption).toContain('고정 댓글')
       expect(g.tags).toHaveLength(5)
       expect(g.pinnedComment).toContain('https://devlog.life/@minseo/posts/7')
+      if (p === 'INSTAGRAM') expect(g.steps.some((x) => x.includes('Trial Reels'))).toBe(true)
     }
+  })
+
+  it('매매 재현 영상에는 시리즈 이름을 붙이지 않는다', () => {
+    const g = uploadGuide(ready({ replay: {} as ShortsItem['replay'] }), 'YOUTUBE', 'https://devlog.life')
+    expect(g.title).toBe('배포하면 왜 로그아웃될까')
   })
 
   it('글 없이 만든 쇼츠는 사이트 주소로 돌아오게 하고, 넘친 한도는 표시한다', () => {
