@@ -176,6 +176,9 @@ def choose(seed: int, scenes: int, splittable: list[bool], name: str | None = No
         ok = splittable[i] if i < len(splittable) else False
         # 같은 배치가 세 번 이어지지 않게 한다
         pick = "split" if ok and rng.random() < share else "stage"
+        if i == 0:
+            # 첫 장면(훅)은 무대로 먼저 정해 두고 뒤 장면의 반복 검사가 이를 보게 한다. 난수는 그대로 뽑아 다른 선택이 바뀌지 않게 한다
+            pick = "stage"
         if ok and len(layouts) >= 2 and layouts[-1] == layouts[-2] == pick:
             pick = "stage" if pick == "split" else "split"
         layouts.append(pick if ok else "stage")

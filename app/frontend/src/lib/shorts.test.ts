@@ -95,6 +95,7 @@ describe('shorts', () => {
     const g = uploadGuide(ready({ postUrl: null, postId: null, postTags: [], title: '가'.repeat(60) }), 'YOUTUBE', 'https://devlog.life')
     expect(g.pinnedComment).toContain('https://devlog.life/')
     expect(g.tags).toEqual([])
+    expect(g.title).not.toContain('에러로그 30초')
     const long = uploadGuide(ready({ durationMs: 200_000 }), 'YOUTUBE', 'https://devlog.life')
     expect(long.checks[0].ok).toBe(false)
   })
