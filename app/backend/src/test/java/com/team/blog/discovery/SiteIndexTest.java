@@ -33,7 +33,7 @@ class SiteIndexTest extends IntegrationTest {
     }
 
     @Test
-    void 사이트맵에는_공개_글과_그_블로그만_나온다() throws Exception {
+    void 사이트맵에는_공개_글만_나온다() throws Exception {
         Session s = signup(uniqueLogin("smap"));
         long open = publish(s, "공개", "PUBLIC");
         long friends = publish(s, "친구만", "FRIENDS");
@@ -47,7 +47,7 @@ class SiteIndexTest extends IntegrationTest {
         RssTest.parse(xml); // 잘 짜인 XML
         assertThat(xml).contains("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">")
                 .contains("/@" + s.handle() + "/posts/" + open + "</loc>")
-                .contains("/@" + s.handle() + "</loc>")
+                .doesNotContain("/@" + s.handle() + "</loc>") // 블로그 첫 화면은 글 카드 목록이라 넣지 않는다 (spec 106)
                 .contains("/about</loc>").contains("/privacy</loc>").contains("/terms</loc>")
                 .contains("/mcp</loc>").contains("/releases</loc>")
                 .doesNotContain("/posts/" + friends + "<").doesNotContain("/posts/" + priv + "<")

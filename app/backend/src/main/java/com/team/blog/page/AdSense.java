@@ -33,6 +33,11 @@ public class AdSense {
         return "<script async nonce=\"" + nonce + "\" src=\"" + SCRIPT + client + "\" crossorigin=\"anonymous\"></script>\n";
     }
 
+    /** 광고를 싣지 않는 공개 화면에도 두는 사이트 소유 확인 메타 (spec 106) */
+    public String accountMeta() {
+        return "<meta name=\"google-adsense-account\" content=\"" + client + "\">\n";
+    }
+
     /** 사이트 루트 /ads.txt 한 줄 (IAB 형식: 광고 시스템, 게시자 ID, 관계, 인증 기관 ID) */
     public String adsTxt() {
         return "google.com, " + client.substring("ca-".length()) + ", DIRECT, " + GOOGLE_CERT_ID + "\n";
