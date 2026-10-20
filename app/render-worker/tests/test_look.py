@@ -32,9 +32,9 @@ class LookTest(unittest.TestCase):
             for i in range(1, 8):
                 self.assertNotEqual(lk.cameras[i], lk.cameras[i - 1])
             self.assertTrue(all(t in look.TRANSITIONS for t in lk.transitions[1:]))
-            # 같은 배치가 세 번 이어지지 않는다
+            # 같은 배치가 세 번 이어지지 않는다(첫 장면을 무대로 고정한 뒤에도)
             for i in range(2, 8):
-                self.assertFalse(lk.layouts[i] == lk.layouts[i - 1] == lk.layouts[i - 2] == "split")
+                self.assertFalse(lk.layouts[i] == lk.layouts[i - 1] == lk.layouts[i - 2])
 
     def test_long_stage_scenes_jump_cut(self):
         # 같은 화면이 3초 넘게 이어지지 않게(2026-10-20 개발 쇼츠 분석), 긴 가운데 무대 장면은 구절마다 확대를 번갈아 끊는다
