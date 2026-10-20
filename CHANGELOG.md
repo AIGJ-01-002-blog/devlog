@@ -24,7 +24,7 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 |---|---|---|
 | #424 광고는 글 화면에만, 사이트맵은 글 본문만 | `feature/adsense-ads-on-articles` | #425 |
 
-비교: [v2.8.0...v2.9.0](https://github.com/AIGJ-01-002-blog/devlog/compare/v2.8.0...v2.9.0)
+**비교:** [v2.8.0...v2.9.0](https://github.com/AIGJ-01-002-blog/devlog/compare/v2.8.0...v2.9.0)
 
 ## [2.8.0] - 2026-10-20
 
