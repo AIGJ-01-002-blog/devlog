@@ -73,9 +73,10 @@ const useLife = (scene: SceneData, enterFrom = -1, beats: number[] = [], emphasi
 };
 
 export const Act: React.FC<{scene: SceneData; first: boolean; last?: boolean; tint?: string}> = ({scene, first, last = false, tint = theme.accents[0]}) => {
-  // 첫 장면은 고양이가 통 튀어나오며 시작(훅), 다음 장면부터는 옆에서 뛰어 들어온다
+  // 첫 장면은 고양이가 살짝 튀어나오며 시작(훅), 다음 장면부터는 옆에서 뛰어 들어온다.
+  // 첫 프레임이 커버·썸네일이 되므로 작게 시작하지 않고 거의 다 큰 크기(0.88)에서 튀어나온다(조회수 분석 2026-10-20)
   const life = useLife(scene, first ? 0 : -1, [], {hook: first, cta: last && !first});
-  const enter = first ? life.pop(0, 16) : 1;
+  const enter = first ? 0.88 + 0.12 * life.pop(0, 16) : 1;
   const Body = ACTS[scene.action] ?? Explain;
   return (
     <div style={{position: 'absolute', inset: 0, scale: String(0.55 + 0.45 * enter), transformOrigin: '50% 95%'}}>

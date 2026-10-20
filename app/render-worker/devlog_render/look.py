@@ -72,6 +72,14 @@ JUMP = "jump"
 MAX_HOLD = 6.0
 
 
+def hook_on_stage(layouts: list[str]) -> list[str]:
+    """첫 장면(훅)은 늘 가운데 무대에 둔다(조회수 분석 2026-10-20). 첫 장면 첫 화면이 릴스 커버·쇼츠 썸네일이 되는데,
+    위 그림·아래 캐릭터(split)는 흰 카드에 작은 글씨만 보여 피드에서 빈 상자처럼 보였다. 무대는 큰 요점 자막과 큰 캐릭터가 한 화면에 든다"""
+    if layouts:
+        layouts[0] = "stage"
+    return layouts
+
+
 def hold_camera(camera: str, layout: str, kind: str, seconds: float) -> str:
     """장면이 한 화면으로 너무 오래 머물면 점프 컷 카메라로 바꾼다"""
     if layout == "stage" and kind in ("character", "code") and seconds > MAX_HOLD:
@@ -170,6 +178,7 @@ def choose(seed: int, scenes: int, splittable: list[bool], name: str | None = No
         if ok and len(layouts) >= 2 and layouts[-1] == layouts[-2] == pick:
             pick = "stage" if pick == "split" else "split"
         layouts.append(pick if ok else "stage")
+    hook_on_stage(layouts)
     music = _pick_music(rng, look, recent)
     lk = Look(look, music, transitions, cameras, layouts, _events(rng, scenes, kinds, actions))
     # 짜임·도식 모양은 따로 씨앗을 써서, 위에서 고른 룩·전환·카메라가 예전과 같게 남는다
