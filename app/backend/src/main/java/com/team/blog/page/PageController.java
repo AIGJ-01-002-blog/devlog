@@ -56,6 +56,10 @@ public class PageController {
     private static final Pattern HANDLE_CHARS = Pattern.compile("[A-Za-z0-9_-]{1,23}");
     /** 서비스 슬로건 (051). 첫 화면 설명과 링크 미리보기에 같이 쓴다 */
     static final String SLOGAN = "코딩은 AI와, 기록은 devlog가.";
+    /** 스크립트 없이 받은 홈에도 사이트가 무엇인지 보이게 하는 소개 문단 (spec 105, 애드센스 재심사) */
+    static final String HOME_INTRO = "<p>" + SLOGAN + "</p><p>devlog는 개발자가 직접 겪은 문제와 해결 과정을 기술 글로 남기는 블로그예요."
+            + " 설계 결정, 장애 원인, 보안 점검처럼 실제 프로젝트에서 나온 이야기를 코드와 함께 정리해요."
+            + " <a href=\"/about\">devlog 소개</a>에서 운영자와 연락 방법을 볼 수 있어요.</p>";
     /** 이보다 글이 적은 태그 화면은 noindex (spec 085) */
     static final int MIN_INDEXED_TAG_POSTS = 2;
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyy.MM.dd").withZone(ZoneId.of("Asia/Seoul"));
@@ -196,7 +200,7 @@ public class PageController {
                     t.temporary() ? CacheControl.noStore() : CacheControl.noCache());
         }
         PostCardPage first = feed.home(null);
-        String body = MAIN_H1 + SpaShell.esc(site.name()) + H1_END + cards(first) + MAIN_END;
+        String body = MAIN_H1 + SpaShell.esc(site.name()) + H1_END + HOME_INTRO + cards(first) + MAIN_END;
         HeadMeta meta = HeadMeta.site(site.name(), SLOGAN + " AI 도구에 연결하면 개발 일지를 써 주는 개발자 블로그", absolute("/"), absolute(site.defaultOgImage()));
         return html(HttpStatus.OK, shell.render(meta, body, Map.of("page", "home", "feed", first)), CacheControl.noCache());
     }
@@ -483,7 +487,7 @@ public class PageController {
             String description = d.excerpt() == null ? "" : truncate(d.excerpt(), 160);
             meta = new HeadMeta(d.title() + " - " + d.author().nickname(), description, absolute(d.url()), "article",
                     d.thumbnailUrl() != null ? d.thumbnailUrl() : absolute(site.defaultOgImage()),
-                    d.firstPublicAt(), d.editedAt(), !d.aiDiary(), d.author().nickname()); // AI 일기는 독자에게 보이되 수집·광고에서 뺀다 (spec 088)
+                    d.firstPublicAt(), d.editedAt(), !d.aiDiary() && feed.indexableArticle(d.id()), d.author().nickname()); // AI 일기·짧은 글은 독자에게 보이되 수집·광고에서 뺀다 (spec 088, 105)
         } else {
             meta = new HeadMeta(d.title() + " - " + site.name(), null, null, null, null, null, null, false);
         }
