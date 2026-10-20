@@ -328,15 +328,22 @@ function hook(item: ShortsItem): string {
   return item.scenes.find((s) => s.narration.trim())?.narration.trim() ?? ''
 }
 
+/** 블로그 글로 만든 쇼츠의 시리즈 이름(2026-10-20 블로그 주인 결정). 제목 끝에 붙여 같은 시리즈로 알아보게 한다. 매매 재현 영상에는 붙이지 않는다 */
+export const SHORTS_SERIES = '에러로그 30초'
+
+function seriesTitle(item: ShortsItem): string {
+  return item.replay ? item.title : `${item.title} | ${SHORTS_SERIES}`
+}
+
 export function uploadGuide(item: ShortsItem, platform: Platform, origin: string): UploadGuide {
   const spec = platformSpec(platform)
   const link = new URL(item.postUrl ?? '/', origin).href
   const tags = hashtags(item.postTags, spec.hashtagMax)
   const tagLine = tags.join(' ')
   const linkLine = spec.linksClickable ? t('전체 글: {0}', { 0: link }) : t('전체 글은 고정 댓글의 주소에서 볼 수 있어요.')
-  const parts = spec.titleMax === null ? [item.title, hook(item), linkLine, tagLine] : [hook(item), linkLine, tagLine]
+  const parts = spec.titleMax === null ? [seriesTitle(item), hook(item), linkLine, tagLine] : [hook(item), linkLine, tagLine]
   const caption = parts.filter(Boolean).join('\n\n')
-  const title = spec.titleMax === null ? null : item.title
+  const title = spec.titleMax === null ? null : seriesTitle(item)
   const seconds = (item.durationMs ?? item.estimatedSeconds * 1000) / 1000
   const checks: GuideCheck[] = [
     { ok: seconds <= spec.secondsMax, label: t('길이 {0}초 (최대 {1}초)', { 0: Math.round(seconds), 1: spec.secondsMax }) },
