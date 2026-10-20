@@ -1552,6 +1552,8 @@ export const en: Record<string, string> = {
   "공개로 올린 뒤 고정 댓글을 달고, 영상 주소를 아래에 남겨요.": "Publish it as public, pin the comment, and save the video link below.",
   "공유한 뒤 고정 댓글을 달고, 릴스 주소(공유 → 링크 복사)를 아래에 남겨요.": "After sharing, pin the comment and save the Reel link (Share → Copy link) below.",
   "과정과 코드는 블로그에 정리해 뒀어요: {0}": "I wrote up the full process and code on my blog: {0}",
+  "이 문제 겪어 보셨나요? 댓글로 남겨 주시면 다음 쇼츠에서 다뤄 볼게요.": "Have you run into this? Tell me in the comments and I'll cover it in a future short.",
+  "첫 문장을 시험해 보고 싶으면 공유 전에 체험용 릴스(Trial Reels)를 켜요. 팔로워가 아닌 사람에게 먼저 보여 주고 반응이 좋으면 팔로워에게도 보여 줘요.": "Want to test the opening line? Turn on Trial Reels before sharing. It's shown to non-followers first, and goes to your followers if it does well.",
   "길이 {0}초 (최대 {1}초)": "Length {0}s (max {1}s)",
   "남기기": "Save",
   "남긴 주소만 지워요. 올린 영상은 그대로예요": "Removes only the saved link. The posted video stays as is",

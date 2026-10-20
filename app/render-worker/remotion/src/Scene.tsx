@@ -57,7 +57,7 @@ export const Scene: React.FC<{scene: SceneData; index: number; title: string; fo
 
 /** 요점 자막. 룩마다 등장 방식이 다르다: rise(낱말이 떠오르고 형광펜), pop(통째로 튀어나오고 강조색 밑줄), type(한 글자씩), slide(왼쪽에서 밀려오고 강조색 막대) */
 /** 한 화면을 이만큼(초)보다 오래 두지 않는다(워커 look.MAX_HOLD와 같다) */
-const MAX_HOLD_S = 6;
+const MAX_HOLD_S = 3;
 
 /** 구절 컷 사이(장면 시작·끝 포함)가 MAX_HOLD_S보다 길면 그 사이를 고르게 나눠 컷을 더 넣는다 */
 const holdCuts = (cuts: number[], duration: number, fps: number): number[] => {
