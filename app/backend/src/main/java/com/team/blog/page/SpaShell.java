@@ -55,6 +55,7 @@ public class SpaShell {
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final String template;
+    private static final String ARTICLE = "article";
     private final AdSense adSense;
     private final JsonMapper json = JsonMapper.builder().build();
 
@@ -91,7 +92,9 @@ public class SpaShell {
     public String render(HeadMeta meta, String bodyHtml, Object initialData, String rssPath) {
         StringBuilder head = new StringBuilder();
         String page = template;
-        String nonce = meta.indexable() && adSense.enabled() ? adNonce() : null;
+        // 광고는 글 화면에만 싣는다. 홈·목록·프로필은 글 카드뿐인 화면이라 광고를 빼고 소유 확인 메타만 둔다 (spec 106)
+        String nonce = meta.indexable() && ARTICLE.equals(meta.ogType()) && adSense.enabled() ? adNonce() : null;
+        if (meta.indexable() && adSense.enabled()) head.append(adSense.accountMeta());
         if (nonce != null) {
             // 'strict-dynamic'은 nonce가 없는 스크립트를 막으므로 앱 자신의 스크립트·모듈 미리 불러오기에도 붙인다
             page = page.replace("<script", "<script nonce=\"" + nonce + "\"")
