@@ -1574,6 +1574,8 @@ export const en: Record<string, string> = {
   "제목과 설명에 아래 문구를 붙여 넣어요.": "Paste the text below into the title and description.",
   "캡션": "Caption",
   "캡션에 아래 문구를 붙여 넣어요. 캡션 링크는 누를 수 없으니 프로필 링크에 블로그 주소를 걸어 두면 좋아요.": "Paste the text below into the caption. Caption links aren't clickable, so put your blog link in your profile.",
+  "썸네일은 앱의 [썸네일 수정]에서 맨 처음 화면(제목이 크게 보이는 장면)을 골라요. 영상 중간 장면이 골라지면 무슨 내용인지 알기 어려워요.": "For the thumbnail, use [Edit thumbnail] in the app and pick the very first frame (where the title is large). A frame from the middle makes it hard to tell what the video is about.",
+  "[커버 수정]에서 맨 처음 화면(제목이 크게 보이는 장면)을 커버로 골라요. 프로필 격자에 이 화면이 보여요.": "Under [Edit cover], pick the very first frame (where the title is large) as the cover. This is what shows in your profile grid.",
   "한도를 넘었어요": "Over the limit",
   "해시태그 {0}개 (최대 {1}개)": "{0} hashtags (max {1})",
   "휴대폰 공유 창으로 영상을 {0} 앱에 바로 넘겨요": "Send the video straight to the {0} app from your phone's share sheet",

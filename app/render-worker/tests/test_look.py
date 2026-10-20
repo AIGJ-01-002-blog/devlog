@@ -75,11 +75,19 @@ class LookTest(unittest.TestCase):
         self.assertEqual(Renderer._look(replay, True).name, "paper")
 
     def test_fast_style_puts_character_scenes_on_split(self):
-        script = Script("t", [Scene("a", "b"), Scene("c", "d", custom={"kind": "outro", "data": None})], style="fast", seed=2)
-        self.assertEqual(Renderer._look(script, False).layouts, ["split", "stage"])
+        # 첫 장면(훅)은 커버가 되므로 빠른 스타일에서도 가운데 무대
+        script = Script("t", [Scene("a", "b"), Scene("e", "f"), Scene("c", "d", custom={"kind": "outro", "data": None})], style="fast", seed=2)
+        self.assertEqual(Renderer._look(script, False).layouts, ["stage", "split", "stage"])
         # 코드 창은 빠른 스타일에서도 가운데 무대
-        script = Script("t", [Scene("a", "b"), Scene("c", "d", code="print(1)")], style="fast", seed=2)
-        self.assertEqual(Renderer._look(script, False).layouts, ["split", "stage"])
+        script = Script("t", [Scene("a", "b"), Scene("e", "f"), Scene("c", "d", code="print(1)")], style="fast", seed=2)
+        self.assertEqual(Renderer._look(script, False).layouts, ["stage", "split", "stage"])
+
+    def test_hook_scene_is_always_on_stage(self):
+        # 첫 장면 첫 화면이 릴스 커버·쇼츠 썸네일이 된다(조회수 분석 2026-10-20). 흰 카드(split)로 시작하지 않는다
+        for k in range(60):
+            for name in look.LOOKS:
+                lk = look.choose(look.seed_of("hook", k), 6, [True] * 6, name)
+                self.assertEqual(lk.layouts[0], "stage")
 
     def test_one_or_two_events_prefer_surprise_and_skip_hook(self):
         kinds = ["character"] * 6 + ["custom"]
