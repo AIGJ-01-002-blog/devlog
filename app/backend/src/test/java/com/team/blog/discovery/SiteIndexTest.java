@@ -20,7 +20,7 @@ class SiteIndexTest extends IntegrationTest {
     long publish(Session s, String title, String visibility) throws Exception {
         long id = read(s.http().perform(asJson(post("/api/posts"), Map.of("title", title, "contentMd", "")))
                 .andExpect(status().isCreated()).andReturn()).path("id").asLong();
-        s.http().perform(asJson(post("/api/posts/" + id + "/publish"), Map.of("title", title, "contentMd", "본문",
+        s.http().perform(asJson(post("/api/posts/" + id + "/publish"), Map.of("title", title, "contentMd", ARTICLE_BODY,
                         "visibility", visibility, "baseVersion", 0, "tags", List.of()))
                 .header("Idempotency-Key", UUID.randomUUID().toString())).andExpect(status().isOk());
         return id;

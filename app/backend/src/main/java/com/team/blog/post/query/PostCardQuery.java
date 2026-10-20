@@ -96,10 +96,18 @@ public class PostCardQuery {
         return jdbc.query(sql, this::card, args);
     }
 
-    /** 검색 엔진 사이트맵용 공개 글 주소와 마지막 발행 시각. 본문·통계를 읽지 않는 가벼운 쿼리다. AI 일기는 뺀다 (spec 088) */
+    /** 공개 목록에 나오는 글이면서 검색 수집 대상인지 (spec 088, 105). 없거나 공개가 아니면 false */
+    public boolean indexableArticle(long postId) {
+        Long n = jdbc.queryForObject("SELECT count(*) FROM post p JOIN member m ON m.id = p.author_id WHERE p.id = ? AND "
+                + PostAccessPolicy.PUBLIC_LIST_CONDITION + " AND " + PostAccessPolicy.INDEXABLE_ARTICLE_CONDITION, Long.class, postId);
+        return n != null && n > 0;
+    }
+
+    /** 검색 엔진 사이트맵용 공개 글 주소와 마지막 발행 시각. 본문·통계를 읽지 않는 가벼운 쿼리다. AI 일기와 짧은 글은 뺀다 (spec 088, 105) */
     public List<SitemapEntry> sitemapEntries(int limit) {
         String sql = "SELECT p.id, m.handle, p.published_at FROM post p JOIN member m ON m.id = p.author_id WHERE "
-                + PostAccessPolicy.PUBLIC_LIST_CONDITION + " AND NOT p.ai_diary ORDER BY p.first_public_at DESC, p.id DESC LIMIT ?";
+                + PostAccessPolicy.PUBLIC_LIST_CONDITION + " AND " + PostAccessPolicy.INDEXABLE_ARTICLE_CONDITION
+                + " ORDER BY p.first_public_at DESC, p.id DESC LIMIT ?";
         return jdbc.query(sql, (rs, i) -> new SitemapEntry(rs.getString("handle"), rs.getLong("id"),
                 rs.getTimestamp("published_at").toInstant()), limit);
     }

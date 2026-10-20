@@ -18,9 +18,13 @@ import com.team.blog.support.IntegrationTest;
 class AdsenseThinPageTest extends IntegrationTest {
 
     long publish(Session s, String title, String tag) throws Exception {
+        return publish(s, title, tag, ARTICLE_BODY);
+    }
+
+    long publish(Session s, String title, String tag, String content) throws Exception {
         long id = read(s.http().perform(asJson(post("/api/posts"), Map.of("title", title, "contentMd", "")))
                 .andExpect(status().isCreated()).andReturn()).path("id").asLong();
-        s.http().perform(asJson(post("/api/posts/" + id + "/publish"), Map.of("title", title, "contentMd", "본문",
+        s.http().perform(asJson(post("/api/posts/" + id + "/publish"), Map.of("title", title, "contentMd", content,
                         "visibility", "PUBLIC", "baseVersion", 0, "tags", List.of(tag)))
                 .header("Idempotency-Key", UUID.randomUUID().toString())).andExpect(status().isOk());
         return id;
@@ -78,6 +82,32 @@ class AdsenseThinPageTest extends IntegrationTest {
         List<Long> out = new java.util.ArrayList<>();
         read(mvc.perform(get(path)).andExpect(status().isOk()).andReturn()).path("items").forEach(n -> out.add(n.path("id").asLong()));
         return out;
+    }
+
+    @Test
+    void 본문이_짧은_글은_독자에게_보이되_수집_광고_사이트맵에서_빠진다() throws Exception {
+        Session s = signup(uniqueLogin("shortpost"));
+        String tag = "sp" + System.nanoTime() % 1_000_000;
+        // 코드 블록·그림·링크 주소는 글자 수에 넣지 않는다
+        String padded = "짧은 소개\n\n```java\n" + "x".repeat(2000) + "\n```\n\n![그림](https://example.com/" + "a".repeat(1500)
+                + ".png) [링크](https://example.com/" + "b".repeat(1500) + ")";
+        long shortPost = publish(s, "짧은 글", tag, padded);
+        String shortPage = page("/@" + s.handle() + "/posts/" + shortPost);
+        assertThat(shortPage).contains("noindex").doesNotContain("adsbygoogle").contains("짧은 소개");
+        assertThat(page("/sitemap.xml")).doesNotContain("/posts/" + shortPost + "<");
+        assertThat(page("/@" + s.handle())).contains("noindex"); // 짧은 글만 있는 블로그도 얇은 화면
+
+        long longPost = publish(s, "긴 글", tag);
+        assertThat(page("/@" + s.handle() + "/posts/" + longPost)).doesNotContain("noindex").contains("<link rel=\"canonical\"");
+        assertThat(page("/sitemap.xml")).contains("/posts/" + longPost + "<");
+        assertThat(page("/@" + s.handle())).doesNotContain("noindex");
+        assertThat(ids("/api/posts")).contains(shortPost, longPost); // 홈 목록에는 그대로 보인다
+    }
+
+    @Test
+    void 홈_서버_화면에_사이트_소개_문단이_있다() throws Exception {
+        assertThat(page("/")).contains("devlog는 개발자가 직접 겪은 문제와 해결 과정을 기술 글로 남기는 블로그예요")
+                .contains("<a href=\"/about\">");
     }
 
     @Test

@@ -51,7 +51,7 @@ class ReadShareTest extends IntegrationTest {
     @Test
     void 공개_글은_비회원도_읽고_링크_미리보기_정보가_들어_있다() throws Exception {
         Session s = signup(uniqueLogin("detail"));
-        long id = publish(s, "제목 <script>", "첫 문단 \"요약\"\n\n## 소제목", "PUBLIC");
+        long id = publish(s, "제목 <script>", "첫 문단 \"요약\"\n\n## 소제목\n\n" + ARTICLE_BODY, "PUBLIC");
         MvcResult r = mvc.perform(get("/@" + s.handle() + "/posts/" + id + "?utm_source=x"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", org.hamcrest.Matchers.containsString("private")))
@@ -209,7 +209,7 @@ class ReadShareTest extends IntegrationTest {
     void 개인_블로그는_그_사람의_공개_글만_보이고_마지막_페이지에는_다음_커서가_없다() throws Exception {
         Session s = signup(uniqueLogin("blog"));
         List<Long> pub = new ArrayList<>();
-        for (int i = 0; i < 9; i++) pub.add(publish(s, "글" + i, "본문", "PUBLIC"));
+        for (int i = 0; i < 9; i++) pub.add(publish(s, "글" + i, i == 0 ? ARTICLE_BODY : "본문", "PUBLIC"));
         publish(s, "비공개", "x", "PRIVATE");
         // 작성자 본인이 봐도 비공개 글은 블로그에 나오지 않는다
         JsonNode page = read(s.http().perform(get("/api/members/" + s.handle() + "/posts")).andExpect(status().isOk()).andReturn());

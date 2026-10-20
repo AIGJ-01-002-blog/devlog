@@ -35,6 +35,15 @@ public class PostAccessPolicy {
      * 목록에 나올 수 있는 글의 공용 조건 (docs/06 R-2·R-2a·R-2b). 공개 목록 인덱스(ix_post_feed·ix_post_blog)의 WHERE를
      * 그대로 포함해야 인덱스를 쓴다. p = post, m = member 별칭. 숨김 예외는 목록에 없다.
      */
+    /** 검색 수집·사이트맵·광고에 넣는 글의 최소 본문 글자 수 (spec 105, 애드센스 "가치가 별로 없는 콘텐츠") */
+    public static final int MIN_ARTICLE_CHARS = 1000;
+
+    /**
+     * 공개 목록 조건에 더해 검색 수집 대상 글만 남기는 조건. AI 일기(spec 088)와 본문이 짧은 글(spec 105)을 뺀다.
+     * 글은 독자에게 그대로 보이고, 수집·사이트맵·광고와 블로그·태그 수집 기준에서만 빠진다.
+     */
+    public static final String INDEXABLE_ARTICLE_CONDITION = "NOT p.ai_diary AND p.body_chars >= " + MIN_ARTICLE_CHARS;
+
     public static final String PUBLIC_LIST_CONDITION =
             "p.status = 'PUBLISHED' AND p.visibility = 'PUBLIC' AND p.deleted_at IS NULL AND p.hidden_at IS NULL"
                     + " AND m.withdrawn_at IS NULL";

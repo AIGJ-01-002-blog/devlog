@@ -36,6 +36,9 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 public abstract class IntegrationTest {
+    /** 검색 수집 기준(본문 1,000자 이상, spec 105)을 넘는 본문. 수집·광고·사이트맵에 나와야 하는 글에 쓴다 */
+    protected static final String ARTICLE_BODY = "수집 기준을 넘는 긴 본문 ".repeat(80);
+
     private static final AtomicLong SEQ = new AtomicLong(System.nanoTime() % 1_000_000);
 
     @Autowired protected MockMvc mvc;
