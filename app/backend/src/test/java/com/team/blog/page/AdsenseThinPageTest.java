@@ -89,8 +89,9 @@ class AdsenseThinPageTest extends IntegrationTest {
         Session s = signup(uniqueLogin("shortpost"));
         String tag = "sp" + System.nanoTime() % 1_000_000;
         // 코드 블록·그림·링크 주소는 글자 수에 넣지 않는다
-        String padded = "짧은 소개\n\n```java\n" + "x".repeat(2000) + "\n```\n\n![그림](https://example.com/" + "a".repeat(1500)
-                + ".png) [링크](https://example.com/" + "b".repeat(1500) + ")";
+        String padded = "짧은 소개\n\n```java\n" + "x".repeat(2000) + "\n```\n\n~~~\n" + "y".repeat(2000) + "\n~~~\n\n````md\n```\n"
+                + "z".repeat(2000) + "\n```\n````\n\n![그림](https://example.com/" + "a".repeat(1500)
+                + ".png) [링크](https://example.com/wiki/A_(" + "b".repeat(1500) + "))";
         long shortPost = publish(s, "짧은 글", tag, padded);
         String shortPage = page("/@" + s.handle() + "/posts/" + shortPost);
         assertThat(shortPage).contains("noindex").doesNotContain("adsbygoogle").contains("짧은 소개");
