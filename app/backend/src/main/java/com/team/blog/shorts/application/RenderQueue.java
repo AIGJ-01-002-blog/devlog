@@ -56,7 +56,7 @@ public class RenderQueue {
             RETURNING s.id, s.attempts, s.title, s.scenes::text, s.post_id, s.replay::text AS replay, s.mascot, s.outro,
                       CASE WHEN s.rendered_at >= ? THEN s.look END AS own_look,
                       (SELECT count(*) FROM shorts WHERE member_id = s.member_id AND id <> s.id AND replay IS NULL
-                          AND rendered_at >= ?) AS color_slot,
+                          AND (rendered_at >= ? OR (status = 'RENDERING' AND claimed_at >= ?))) AS color_slot,
                       (SELECT handle FROM member WHERE id = s.member_id) AS handle,
                       (SELECT m.handle FROM post p JOIN member m ON m.id = p.author_id WHERE p.id = s.post_id AND p.deleted_at IS NULL) AS post_handle,
                       (SELECT %s FROM post p WHERE p.id = s.post_id AND p.deleted_at IS NULL) AS cover_key,
@@ -133,10 +133,15 @@ public class RenderQueue {
                     replay == null ? null : json.readValue(replay, TradeReplay.class), rs.getString("mascot"),
                     rs.getBoolean("outro"), recentLooks(rs.getString("recent_looks")),
                     replay == null && !now.isBefore(props.colorGroupsSince()) ? groupLook(rs.getString("own_look"), rs.getLong("color_slot")) : null);
-        }, claim, Timestamp.from(now), Timestamp.from(now), Timestamp.from(props.colorGroupsSince()), Timestamp.from(props.colorGroupsSince()))));
+        }, claim, Timestamp.from(now), Timestamp.from(now), Timestamp.from(props.colorGroupsSince()), Timestamp.from(props.colorGroupsSince()),
+                Timestamp.from(props.colorGroupsSince()))));
     }
 
-    /** 묶음을 센 뒤 이미 그린 영상을 다시 그리면 그때 룩을 그대로 쓴다(격자 자리가 바뀌지 않게). 아니면 몇 번째 영상인지로 정한다 */
+    /**
+     * 묶음을 센 뒤 이미 그린 영상을 다시 그리면 그때 룩을 그대로 쓴다(격자 자리가 바뀌지 않게). 아니면 몇 번째 영상인지로 정한다.
+     * slot은 같은 회원이 기준 시각 뒤에 다 그렸거나 지금 그리는 중인 글 쇼츠 수다. 그리는 중인 것도 세서 워커 여럿이 동시에 받아도
+     * 같은 자리를 겹쳐 받지 않는다(받기는 SKIP LOCKED로 하나씩 커밋된다). 실패해 대기로 돌아간 작업은 다시 받을 때 센다
+     */
     static String groupLook(String ownLook, long slot) {
         if (ownLook != null) {
             String name = ownLook.split(":", 2)[0];
