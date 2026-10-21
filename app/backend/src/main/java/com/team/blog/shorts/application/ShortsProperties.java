@@ -18,6 +18,7 @@ import org.springframework.util.unit.DataSize;
  * @param maxAttempts    이만큼 실패하면 FAILED로 끝낸다
  * @param blogMax        블로그 [쇼츠] 탭에 보이는 최대 개수(spec 103)
  * @param postMax        글 아래 "이 글의 쇼츠"에 보이는 최대 개수(spec 103)
+ * @param colorGroupsSince 이 시각 뒤에 만든 영상부터 세 편씩 같은 색 계열로 묶는다({@link ColorGroups}). 채널 편수가 3의 배수일 때로 맞춘다. 그 전에는 워커가 전처럼 고른다
  */
 @ConfigurationProperties(prefix = "blog.shorts")
 public record ShortsProperties(@DefaultValue("false") boolean enabled,
@@ -28,7 +29,8 @@ public record ShortsProperties(@DefaultValue("false") boolean enabled,
                                @DefaultValue("15m") Duration renderTimeout,
                                @DefaultValue("3") int maxAttempts,
                                @DefaultValue("60") int blogMax,
-                               @DefaultValue("6") int postMax) {
+                               @DefaultValue("6") int postMax,
+                               @DefaultValue("2026-10-21T06:00:00Z") java.time.Instant colorGroupsSince) {
 
     public boolean workerEnabled() {
         return enabled && workerToken != null && !workerToken.isBlank();

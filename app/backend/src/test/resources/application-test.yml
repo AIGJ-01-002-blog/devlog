@@ -6,6 +6,8 @@ blog:
     # 토큰을 바꾸는 동안 받는 옛 토큰 (#241)
     previous-worker-token: test-render-token-old
     timeout-check-interval: 1h
+    # 첫 화면 색 묶음(ColorGroups)은 시험에서 늘 켜 둔다
+    color-groups-since: 2020-01-01T00:00:00Z
   # 매매 일지(#243)도 시험에서 켠다. 하루 기록 상한은 작게 두고 시험이 넘겨 본다
   trades:
     enabled: true

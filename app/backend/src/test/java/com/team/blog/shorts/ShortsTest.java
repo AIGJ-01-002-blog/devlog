@@ -168,12 +168,47 @@ class ShortsTest extends IntegrationTest {
         JsonNode job = claim();
         assertThat(job.path("id").asLong()).isEqualTo(next);
         assertThat(job.path("recentLooks").valueStream().map(JsonNode::asString).toList()).containsExactly("ocean:0", "grape:2");
+        // 첫 화면 색은 세 편씩 같은 계열: 앞서 그린 세 편이 첫 묶음이라 네 번째는 다음 색이다
+        assertThat(job.path("look").asString()).isEqualTo("night");
         // 처음 쓰는 회원은 빈 목록
         Session other = signup(uniqueLogin("shlook"));
         long first = queue(other, writePost(other, POST_BODY));
         JsonNode firstJob = claim();
         assertThat(firstJob.path("id").asLong()).isEqualTo(first);
         assertThat(firstJob.path("recentLooks")).isEmpty();
+        assertThat(firstJob.path("look").asString()).isEqualTo("mint");
+    }
+
+    @Test
+    void 워커_둘이_동시에_받아도_한_회원의_글_쇼츠는_하나씩_그려_색_자리가_겹치지_않는다() throws Exception {
+        Session me = signup(uniqueLogin("shslot"));
+        long postId = writePost(me, POST_BODY);
+        long a = queue(me, postId);
+        // 같은 대본을 또 만들면 양산형 검사에 막히므로 앞 대본의 장면은 비운다
+        jdbc.update("UPDATE shorts SET scenes = '[]'::jsonb WHERE id = ?", a);
+        long b = queue(me, postId);
+
+        var start = new java.util.concurrent.CountDownLatch(1);
+        var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            List<java.util.concurrent.Future<java.util.Optional<RenderQueue.Job>>> results = List.of(
+                    pool.submit(() -> { start.await(); return queue.claim(); }),
+                    pool.submit(() -> { start.await(); return queue.claim(); }));
+            start.countDown();
+            List<RenderQueue.Job> mine = new java.util.ArrayList<>();
+            for (var f : results) f.get(30, java.util.concurrent.TimeUnit.SECONDS).filter(j -> j.id() == a || j.id() == b).ifPresent(mine::add);
+            // 한 회원의 글 쇼츠는 그리는 중인 것이 끝나야 다음 것을 준다
+            assertThat(mine).extracting(RenderQueue.Job::id).containsExactly(a);
+            assertThat(mine.get(0).look()).isEqualTo("mint");
+            assertThat(queue.claim()).as("앞 영상을 그리는 동안은 다음 영상을 주지 않는다").isEmpty();
+
+            upload(a, mine.get(0).claim());
+            JsonNode next = claim();
+            assertThat(next.path("id").asLong()).isEqualTo(b);
+            assertThat(next.path("look").asString()).as("두 번째 자리도 첫 묶음 색").isEqualTo("mint");
+        } finally {
+            pool.shutdownNow();
+        }
     }
 
     @Test

@@ -127,7 +127,7 @@ cd app/frontend && npm install && npm run dev            # http://localhost:5173
 - **文章页面**：目录、阅读时长、系列、上下篇文章、作者简介和社交链接、分享按钮、链接预览（Open Graph）。
 - **标签与搜索**：按标签列出文章，结合标题、标签、正文关键词与语义的混合搜索（按相关度或最新排序），搜索用户。
 - **RSS**：每个博客的 `/@your-id/rss` 以及全站的 `/rss`。
-- **搜索引擎**：包含全部公开文章的 `/sitemap.xml` 与 `/robots.txt`，让 Google 和 NAVER 发现新文章。
+- **搜索引擎**：包含全部公开文章的 `/sitemap.xml` 与 `/robots.txt`，让 Google 和 NAVER 发现新文章。正文不足 1,000 字的文章（不计代码块、图片和链接网址）仍然公开，但不参与搜索收录、站点地图和广告，广告代码只放在文章页面。
 
 ### 互动与连接
 
@@ -146,8 +146,8 @@ cd app/frontend && npm install && npm run dev            # http://localhost:5173
 
 ### 创作与记录
 
-- **短视频工作室**：按场景（字幕、朗读文本、代码、说明图）修改你的 AI 通过 MCP 写的短视频脚本。点击［制作视频］后，你自己电脑上的渲染程序会把它做成由角色表演的 9:16 MP4 并上传。制作前用量产检查拦下与其他脚本重复或照搬文章的脚本，每个视频选择与最近 5 个不同的风格、转场、镜头、背景音乐以及脚本结构和开头钩子。也可以把一篇文章拆成多个小主题。
-- **发布指南**：为 YouTube Shorts、Instagram Reels、TikTok 分别给出带复制按钮的标题、说明和置顶评论，并说明发布步骤。没有自动发布，发布后记录视频网址，短视频就会以 9:16 卡片显示在博客的［短视频］标签页和原文章下方。也可以把 YouTube、Instagram、TikTok 频道连接到博客。
+- **短视频工作室**：按场景（字幕、朗读文本、代码、说明图）修改你的 AI 通过 MCP 写的短视频脚本。点击［制作视频］后，你自己电脑上的渲染程序会把它做成由角色表演的 9:16 MP4 并上传。制作前用量产检查拦下与其他脚本重复或照搬文章的脚本，首画面颜色（风格）按短视频标签页一行每三个视频归为同一色系（从韩国时间 2026-10-21 15:00 之后渲染完成的视频开始，已上传的视频保持不变），转场、镜头、背景音乐以及脚本结构和开头钩子则与最近 5 个不同。也可以把一篇文章拆成多个小主题。第一个场景从第一帧起就显示大标题和角色，直接当作封面，建议长度为 30~45 秒。
+- **发布指南**：为 YouTube Shorts、Instagram Reels、TikTok 分别给出带复制按钮的标题、说明和置顶评论，并说明发布步骤。没有自动发布，发布后记录视频网址，短视频就会以 9:16 卡片显示在博客的［短视频］标签页和原文章下方。也可以把 YouTube、Instagram、TikTok 频道连接到博客。标题和说明第一行末尾会加上系列名“에러로그 30초”（错误日志 30 秒）。
 - **我的仪表盘**：按 7、30、90 天查看自己文章的浏览量、点赞和收到的评论，并与上一个周期比较。阅读最多的文章和短视频情况也集中在一个页面。
 - **交易日志**：交易机器人通过 MCP 记录的股票、加密货币现货和期货成交，按币种显示每日盈亏，实盘与模拟分开显示。每笔成交附带机器人留下的决策痕迹（形态、止损、止盈、平仓原因、R 倍数），并按策略版本和形态统计胜率与平均 R 来复盘。用当天的笔记生成摘要草稿和短视频脚本，用选中的成交生成交易回放短视频。devlog 不会下真实订单。
 - **博客积分与商店**：通过签到（奖励随连续天数增加）、连续签到徽章和发布文章积累积分，在黑铁到王者 9 个段位中购买主题色、头像边框和博客封面来装饰博客。
@@ -267,7 +267,7 @@ sequenceDiagram
 | [deploy](deploy) | 部署：Dockerfile、Kubernetes 清单（base、selfhosted、nhn、local），部署、回滚、密钥检查脚本 |
 | [app/render-worker](app/render-worker) | 短视频渲染程序：Python 3.10、ffmpeg、Remotion（Node）。在你自己的电脑上把队列中的脚本做成 9:16 的 MP4 并上传 |
 | [.github](.github) | CI/CD：后端与界面测试、镜像构建与部署、版本发布、Discord 与 Telegram 通知 |
-| [specs](specs) | 功能规格：按 [GitHub Spec Kit](https://github.com/github/spec-kit) 流程编写的各功能 spec、plan、tasks（001~104） |
+| [specs](specs) | 功能规格：按 [GitHub Spec Kit](https://github.com/github/spec-kit) 流程编写的各功能 spec、plan、tasks（001~106） |
 | [docs](https://github.com/AIGJ-01-002-blog/docs) | 设计文档：通用需求、架构、整合 ERD、各功能设计、权限表 |
 | [erd](erd) · [scripts](scripts) | 基准模式及其运行测试、设计验证脚本与报告 |
 
@@ -379,10 +379,10 @@ npm run dev        # http://localhost:5173
 
 | 技术 | 使用位置 | 作用 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | 后端 | 单元与集成测试 870 个（截至 v2.7.1） |
+| JUnit 5 · Spring Boot Test · Spring Security Test | 后端 | 单元与集成测试 876 个（截至 v2.10.0） |
 | Testcontainers (PostgreSQL) | 后端 | 在真实的 PostgreSQL 上验证迁移、查询和并发 |
 | JaCoCo | 后端 | 在 CI 中检查 40% 行覆盖率的门槛 |
-| Vitest · Testing Library · jsdom | 前端 | 界面与逻辑测试 427 个（截至 v2.7.1） |
+| Vitest · Testing Library · jsdom | 前端 | 界面与逻辑测试 428 个（截至 v2.10.0） |
 | fake-indexeddb | 前端 | 离线自动保存的测试 |
 
 ## 版本发布
@@ -391,6 +391,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v2.11.0 | 2026-10-21 | 短视频标签页一行(三条)使用同一色系: 首画面颜色每三条一组，明暗色系交替(薄荷 → 夜 → 日落 → 海洋 → 葡萄 → 单色 → 纸)，同一成员的文章短视频依次逐条渲染以免错行 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.11.0) |
 | v2.10.0 | 2026-10-20 | 根据短视频播放分析调整: 第一帧作为封面(大标题、舞台布局)，建议长度 30~45 秒，从 13 个开发短视频频道借鉴的 11 项(3 秒剪辑、先讲症状、循环结尾、置顶评论提问等)，系列名固定为「에러로그 30초」 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.10.0) |
 | v2.9.0 | 2026-10-20 | 参照已通过 AdSense 的同类博客: 广告代码只放在文章页面，首页、博客、标签等列表页面只保留所有权验证 meta，站点地图去掉博客首页只列文章正文 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.9.0) |
 | v2.8.0 | 2026-10-20 | AdSense 重新审核准备: 正文不足 1,000 字的文章(不计代码块、图片和链接地址)不再被搜索收录、投放广告或列入站点地图但仍公开，博客和标签的收录标准按同样的文章数计算，首页服务器 HTML 增加站点介绍段落 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.8.0) |

@@ -127,7 +127,7 @@ If you have agreed to AI use, the AI adds a title and tidies up the text; otherw
 - **Post page**: table of contents, reading time, series, previous/next post, author bio and social links, share button, link previews (Open Graph).
 - **Tags and search**: browse posts by tag, hybrid search over title, tag and body keywords plus meaning (by relevance or newest), and search for people.
 - **RSS**: per-blog `/@your-id/rss` and site-wide `/rss`.
-- **Search engines**: `/sitemap.xml` lists every public post and `/robots.txt` points crawlers to it, so Google and Naver pick up new posts.
+- **Search engines**: `/sitemap.xml` lists every public post and `/robots.txt` points crawlers to it, so Google and Naver pick up new posts. Posts with under 1,000 characters of body text (excluding code blocks, images and link URLs) stay public but are left out of indexing, the sitemap and ads, and ad code loads only on post pages.
 
 ### Reactions and relationships
 
@@ -146,8 +146,8 @@ If you have agreed to AI use, the AI adds a title and tidies up the text; otherw
 
 ### Creating and recording
 
-- **Shorts studio**: polish a shorts script your AI wrote over MCP scene by scene (caption, narration, code, explainer diagram). Press [Make video] and the render worker on your own computer turns it into a 9:16 MP4 with an animated character and uploads it. Before rendering, a mass-production check blocks scripts that overlap other scripts or copy the post as is, and each video picks a look, transitions, camera, background music, script pattern and hook that differ from the last five. One post can also be split into several small topics.
-- **Upload guide**: titles, descriptions and pinned comments with copy buttons for YouTube Shorts, Instagram Reels and TikTok, plus the upload steps. There is no automatic upload; once you record the video URL after posting, the short appears as a 9:16 card in the blog's [Shorts] tab and under its source post. You can also link your YouTube, Instagram and TikTok channels to your blog.
+- **Shorts studio**: polish a shorts script your AI wrote over MCP scene by scene (caption, narration, code, explainer diagram). Press [Make video] and the render worker on your own computer turns it into a 9:16 MP4 with an animated character and uploads it. Before rendering, a mass-production check blocks scripts that overlap other scripts or copy the post as is, the first-frame color (look) is grouped in threes to match a Shorts-tab row (videos finished after 2026-10-21 15:00 KST; already uploaded videos stay as they are), and transitions, camera, background music, script pattern and hook differ from the last five. One post can also be split into several small topics. The first scene shows a large title and the character from the very first frame so it doubles as the cover, and the recommended length is 30 to 45 seconds.
+- **Upload guide**: titles, descriptions and pinned comments with copy buttons for YouTube Shorts, Instagram Reels and TikTok, plus the upload steps. There is no automatic upload; once you record the video URL after posting, the short appears as a 9:16 card in the blog's [Shorts] tab and under its source post. You can also link your YouTube, Instagram and TikTok channels to your blog. Titles and the first caption line end with the series name "에러로그 30초" (Error Log in 30 Seconds).
 - **My dashboard**: views, likes and received comments on your posts over 7, 30 or 90 days, compared with the previous period, with your most-read posts and shorts on one screen.
 - **Trade journal**: stock and crypto spot and futures fills that a trading bot records over MCP, shown as daily profit and loss per currency, with live and paper trades kept apart. Each fill carries the bot's decision trace (setup, stop loss, take profit, exit reason, R multiple), and a table of win rate and average R per strategy version and setup helps you review. A note for the day turns into a summary draft and a shorts script, and selected fills turn into a trade replay short. devlog never places real orders.
 - **Blog points and shop**: earn credits from check-ins (the reward grows with your streak), streak badges and publishing posts, then buy theme colors, profile rings and blog covers across nine tiers from Iron to Challenger to decorate your blog.
@@ -267,7 +267,7 @@ Code lives in this repository; design documents live in the documentation reposi
 | [deploy](deploy) | Deployment: Dockerfile, Kubernetes manifests (base, selfhosted, nhn, local), deploy, rollback and secret-check scripts |
 | [app/render-worker](app/render-worker) | Shorts render worker: Python 3.10, ffmpeg, Remotion (Node). Runs on your computer and turns queued scripts into 9:16 MP4s |
 | [.github](.github) | CI/CD: backend and frontend tests, image build and deploy, releases, Discord and Telegram notifications |
-| [specs](specs) | Feature specs: spec, plan and tasks per feature (001~104) following the [GitHub Spec Kit](https://github.com/github/spec-kit) flow |
+| [specs](specs) | Feature specs: spec, plan and tasks per feature (001~106) following the [GitHub Spec Kit](https://github.com/github/spec-kit) flow |
 | [docs](https://github.com/AIGJ-01-002-blog/docs) | Design documents: common requirements, architecture, unified ERD, per-feature designs, permission matrix |
 | [erd](erd) · [scripts](scripts) | Baseline schema and its tests, design-check scripts and reports |
 
@@ -379,10 +379,10 @@ To try it on Kubernetes, run `kubectl apply -k deploy/k8s/overlays/local` on kin
 
 | Technology | Where | Role |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | Backend | 870 unit and integration tests (as of v2.7.1) |
+| JUnit 5 · Spring Boot Test · Spring Security Test | Backend | 876 unit and integration tests (as of v2.10.0) |
 | Testcontainers (PostgreSQL) | Backend | Verifies migrations, queries and concurrency against a real PostgreSQL |
 | JaCoCo | Backend | Enforces a 40% line-coverage threshold in CI |
-| Vitest · Testing Library · jsdom | Frontend | 427 UI and logic tests (as of v2.7.1) |
+| Vitest · Testing Library · jsdom | Frontend | 428 UI and logic tests (as of v2.10.0) |
 | fake-indexeddb | Frontend | Tests for offline autosave |
 
 ## Releases
@@ -391,6 +391,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v2.11.0 | 2026-10-21 | One color family per Shorts-tab row: the first frame color is grouped in threes, alternating light and dark families (mint → night → sunset → ocean → grape → mono → paper); one member's post shorts render one at a time so rows stay aligned | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.11.0) |
 | v2.10.0 | 2026-10-20 | Shorts tuned from view analytics: the first frame works as the cover (big title, stage layout), recommended length 30–45 s, 11 techniques from 13 developer shorts channels (3-second cuts, symptom first, loop ending, pinned-comment question and more), fixed series name "에러로그 30초" | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.10.0) |
 | v2.9.0 | 2026-10-20 | Following similar blogs that passed AdSense: the ad script loads only on post pages, list pages such as home, blogs and tags carry only the ownership meta tag, and the sitemap drops blog home pages to list post bodies only | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.9.0) |
 | v2.8.0 | 2026-10-20 | AdSense re-review prep: posts with under 1,000 characters of body text (code blocks, images and link addresses excluded) are kept out of search indexing, ads and the sitemap while staying public, blog and tag indexing count the same posts, and the server-rendered home page has a site intro paragraph | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.8.0) |
