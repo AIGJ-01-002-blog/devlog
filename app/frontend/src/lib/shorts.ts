@@ -79,7 +79,20 @@ export interface ShortsItem {
   outro: boolean
   /** 남긴 영상 주소를 블로그·글 화면에 보일지 (spec 103). 기본 true */
   onBlog: boolean
+  /** 넣을 재생목록 묶음. null이면 아직 안 고름 */
+  playlist: ShortsPlaylist | null
 }
+
+/** 재생목록 묶음 (2026-10-21 블로그 주인 결정 "하루 1개, 7주"): 면접 준비생이 묶음째 몰아보게 한다 */
+export type ShortsPlaylist = 'DEPLOY' | 'DB' | 'SECURITY' | 'PERFORMANCE' | 'AI'
+
+export const PLAYLISTS: { id: ShortsPlaylist; label: string }[] = [
+  { id: 'DEPLOY', label: '배포' },
+  { id: 'DB', label: 'DB' },
+  { id: 'SECURITY', label: '보안' },
+  { id: 'PERFORMANCE', label: '성능' },
+  { id: 'AI', label: 'AI협업' },
+]
 
 /** 주제 묶음의 한 주제. 아직 대본이 없으면 shortsId·status가 null */
 export interface BatchTopic {
@@ -256,6 +269,8 @@ export const deleteUpload = (id: number, platform: Platform) =>
   api<ShortsItem>(`/api/me/shorts/${id}/uploads/${platform.toLowerCase()}`, { method: 'DELETE' })
 export const setOnBlog = (id: number, visible: boolean) =>
   api<ShortsItem>(`/api/me/shorts/${id}/blog`, { method: 'PUT', body: { visible } })
+export const setPlaylist = (id: number, playlist: ShortsPlaylist | null) =>
+  api<ShortsItem>(`/api/me/shorts/${id}/playlist`, { method: 'PUT', body: { playlist: playlist ?? '' } })
 
 /** 블로그·글 화면의 쇼츠 카드 (spec 103). embedId가 있으면 YouTube 영상 ID라 youtube-nocookie로 재생한다 */
 export interface BlogShortsLink { platform: Platform; url: string; embedId: string | null }
@@ -321,6 +336,8 @@ export interface UploadGuide {
   tags: string[]
   checks: GuideCheck[]
   steps: string[]
+  /** YouTube에 만들 재생목록 이름. 묶음을 안 골랐거나 글 쇼츠가 아니면 null */
+  playlistName: string | null
 }
 
 /** 첫 장면 내레이션을 설명 첫 줄로 쓴다(영상의 첫마디와 같은 이야기로 시작하게) */
@@ -328,11 +345,25 @@ function hook(item: ShortsItem): string {
   return item.scenes.find((s) => s.narration.trim())?.narration.trim() ?? ''
 }
 
-/** 블로그 글로 만든 쇼츠의 시리즈 이름(2026-10-20 블로그 주인 결정). 제목 끝에 붙여 같은 시리즈로 알아보게 한다. 매매 재현 영상과 글 없이 만든 쇼츠에는 붙이지 않는다 */
-export const SHORTS_SERIES = '에러로그 30초'
+/**
+ * 블로그 글로 만든 쇼츠의 제목 앞머리(2026-10-21 블로그 주인 결정 "하루 1개, 7주": "[백엔드 면접] 질문형").
+ * 면접 준비생이 검색·피드에서 알아보게 앞에 붙인다. 전에 끝에 붙이던 시리즈 이름(에러로그 30초, 2026-10-20)은 이 규칙으로 바꿨다.
+ * 매매 재현 영상과 글 없이 만든 쇼츠에는 붙이지 않는다.
+ */
+export const SHORTS_TITLE_PREFIX = '[백엔드 면접]'
+
+/** 하루 한 편을 매일 같은 시각에 공개한다(같은 결정: 저녁 7~9시 가운데 고정). 한국 시간 */
+export const SHORTS_PUBLISH_TIME = '20:00'
+
+const fromPost = (item: ShortsItem) => !item.replay && item.postId != null
 
 function seriesTitle(item: ShortsItem): string {
-  return item.replay || item.postId == null ? item.title : `${item.title} | ${SHORTS_SERIES}`
+  return fromPost(item) ? `${SHORTS_TITLE_PREFIX} ${item.title}` : item.title
+}
+
+/** 재생목록 이름: 제목과 같은 앞머리로 채널 재생목록에서 한 시리즈로 보이게 */
+export function playlistName(playlist: ShortsPlaylist): string {
+  return `${SHORTS_TITLE_PREFIX} ${PLAYLISTS.find((p) => p.id === playlist)!.label}`
 }
 
 export function uploadGuide(item: ShortsItem, platform: Platform, origin: string): UploadGuide {
@@ -341,9 +372,11 @@ export function uploadGuide(item: ShortsItem, platform: Platform, origin: string
   const tags = hashtags(item.postTags, spec.hashtagMax)
   const tagLine = tags.join(' ')
   const linkLine = spec.linksClickable ? t('전체 글: {0}', { 0: link }) : t('전체 글은 고정 댓글의 주소에서 볼 수 있어요.')
-  const parts = spec.titleMax === null ? [seriesTitle(item), hook(item), linkLine, tagLine] : [hook(item), linkLine, tagLine]
+  // 설명 첫 줄은 원본 글 링크(같은 결정). 링크를 못 누르는 곳은 제목 칸이 없어 캡션 첫 줄이 제목이 된다
+  const parts = spec.titleMax === null ? [seriesTitle(item), hook(item), linkLine, tagLine] : [linkLine, hook(item), tagLine]
   const caption = parts.filter(Boolean).join('\n\n')
   const title = spec.titleMax === null ? null : seriesTitle(item)
+  const list = fromPost(item) && item.playlist ? playlistName(item.playlist) : null
   const seconds = (item.durationMs ?? item.estimatedSeconds * 1000) / 1000
   const checks: GuideCheck[] = [
     { ok: seconds <= spec.secondsMax, label: t('길이 {0}초 (최대 {1}초)', { 0: Math.round(seconds), 1: spec.secondsMax }) },
@@ -357,11 +390,12 @@ export function uploadGuide(item: ShortsItem, platform: Platform, origin: string
     spec, title, caption, tags, checks,
     // 끝에 질문을 붙여 댓글을 부르고, 받은 댓글은 다음 쇼츠 소재로 쓴다(개발 쇼츠 채널 분석 2026-10-20: 댓글 답변 영상)
     pinnedComment: `${t('과정과 코드는 블로그에 정리해 뒀어요: {0}', { 0: link })}\n${t('이 문제 겪어 보셨나요? 댓글로 남겨 주시면 다음 쇼츠에서 다뤄 볼게요.')}`,
-    steps: uploadSteps(platform),
+    steps: uploadSteps(platform, list),
+    playlistName: list,
   }
 }
 
-function uploadSteps(platform: Platform): string[] {
+function uploadSteps(platform: Platform, list: string | null): string[] {
   switch (platform) {
     case 'YOUTUBE': return [
       t('[영상 받기]로 MP4를 받아요. 휴대폰이면 [앱으로 보내기]를 눌러 YouTube 앱을 골라요.'),
@@ -369,7 +403,11 @@ function uploadSteps(platform: Platform): string[] {
       t('제목과 설명에 아래 문구를 붙여 넣어요.'),
       t('썸네일은 앱의 [썸네일 수정]에서 맨 처음 화면(제목이 크게 보이는 장면)을 골라요. 영상 중간 장면이 골라지면 무슨 내용인지 알기 어려워요.'),
       t('아동용 아님을 고르고, 목소리를 AI로 만든 사람 목소리처럼 들리면 변경된 콘텐츠를 예로 표시해요.'),
-      t('공개로 올린 뒤 고정 댓글을 달고, 영상 주소를 아래에 남겨요.'),
+      list
+        ? t('재생목록에서 "{0}"을 골라요. 처음이면 [새 재생목록]으로 이 이름 그대로 만들어요.', { 0: list })
+        : t('재생목록은 위의 [재생목록 묶음]에서 고르면 이름을 알려 드려요.'),
+      t('공개 범위에서 [예약]을 골라 저녁 {0}(한국 시간)으로 정해요. 하루 한 편, 매일 같은 시각이에요.', { 0: SHORTS_PUBLISH_TIME }),
+      t('공개된 뒤 고정 댓글을 달고, 영상 주소를 아래에 남겨요.'),
     ]
     case 'INSTAGRAM': return [
       t('[영상 받기]로 MP4를 받아요. 휴대폰이면 [앱으로 보내기]를 눌러 Instagram을 골라요.'),
@@ -377,6 +415,7 @@ function uploadSteps(platform: Platform): string[] {
       t('캡션에 아래 문구를 붙여 넣어요. 캡션 링크는 누를 수 없으니 프로필 링크에 블로그 주소를 걸어 두면 좋아요.'),
       t('[커버 수정]에서 맨 처음 화면(제목이 크게 보이는 장면)을 커버로 골라요. 프로필 격자에 이 화면이 보여요.'),
       t('AI 음성을 썼다면 고급 설정에서 AI 정보 표시를 켜요.'),
+      t('고급 설정의 [이 게시물 예약]으로 YouTube와 같은 저녁 {0}(한국 시간)에 맞춰요. 예약은 프로페셔널 계정에서만 보여요.', { 0: SHORTS_PUBLISH_TIME }),
       t('첫 문장을 시험해 보고 싶으면 공유 전에 체험용 릴스(Trial Reels)를 켜요. 팔로워가 아닌 사람에게 먼저 보여 줘요. 반응이 좋아도 저절로 팔로워에게 가지 않으니, 결과를 보고 직접 전체 공개를 누르거나 만들 때 자동 공유를 켜 두세요.'),
       t('공유한 뒤 고정 댓글을 달고, 릴스 주소(공유 → 링크 복사)를 아래에 남겨요.'),
     ]

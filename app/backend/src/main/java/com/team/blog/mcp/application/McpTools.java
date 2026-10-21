@@ -284,7 +284,7 @@ public class McpTools {
                     {"type":"object","properties":{
                       "shorts_id":{"type":"integer"},
                       "title":{"type":"string","description":"쇼츠 제목 (60자까지)"},
-                    """ + ShortsTools.CHARACTER_SCHEMA + ShortsTools.SCENES_SCHEMA + """
+                    """ + ShortsTools.PLAYLIST_SCHEMA + ShortsTools.CHARACTER_SCHEMA + ShortsTools.SCENES_SCHEMA + """
                     },
                      "required":["shorts_id"]}""", Gate.SHORTS, false),
             new Tool("list_shorts", "내 쇼츠 보기",

@@ -147,7 +147,7 @@ cd app/frontend && npm install && npm run dev            # http://localhost:5173
 ### 创作与记录
 
 - **短视频工作室**：按场景（字幕、朗读文本、代码、说明图）修改你的 AI 通过 MCP 写的短视频脚本。点击［制作视频］后，你自己电脑上的渲染程序会把它做成由角色表演的 9:16 MP4 并上传。制作前用量产检查拦下与其他脚本重复或照搬文章的脚本，首画面颜色（风格）按短视频标签页一行每三个视频归为同一色系（从韩国时间 2026-10-21 15:00 之后渲染完成的视频开始，已上传的视频保持不变），转场、镜头、背景音乐以及脚本结构和开头钩子则与最近 5 个不同。也可以把一篇文章拆成多个小主题。第一个场景从第一帧起就显示大标题和角色，直接当作封面，建议长度为 30~45 秒。
-- **发布指南**：为 YouTube Shorts、Instagram Reels、TikTok 分别给出带复制按钮的标题、说明和置顶评论，并说明发布步骤。没有自动发布，发布后记录视频网址，短视频就会以 9:16 卡片显示在博客的［短视频］标签页和原文章下方。也可以把 YouTube、Instagram、TikTok 频道连接到博客。标题和说明第一行末尾会加上系列名“에러로그 30초”（错误日志 30 秒）。
+- **发布指南**：为 YouTube Shorts、Instagram Reels、TikTok 分别给出带复制按钮的标题、说明和置顶评论，并说明发布步骤。没有自动发布，发布后记录视频网址，短视频就会以 9:16 卡片显示在博客的［短视频］标签页和原文章下方。也可以把 YouTube、Instagram、TikTok 频道连接到博客。文章短视频的标题和说明第一行开头会加上“[백엔드 면접]”（后端面试），YouTube 说明第一行是原文章链接。为每条短视频选择播放列表分组（部署、DB、安全、性能、AI 协作）后会显示要放入的播放列表名称，步骤中会安排每天晚上 8 点（韩国时间）定时公开。
 - **我的仪表盘**：按 7、30、90 天查看自己文章的浏览量、点赞和收到的评论，并与上一个周期比较。阅读最多的文章和短视频情况也集中在一个页面。
 - **交易日志**：交易机器人通过 MCP 记录的股票、加密货币现货和期货成交，按币种显示每日盈亏，实盘与模拟分开显示。每笔成交附带机器人留下的决策痕迹（形态、止损、止盈、平仓原因、R 倍数），并按策略版本和形态统计胜率与平均 R 来复盘。用当天的笔记生成摘要草稿和短视频脚本，用选中的成交生成交易回放短视频。devlog 不会下真实订单。
 - **博客积分与商店**：通过签到（奖励随连续天数增加）、连续签到徽章和发布文章积累积分，在黑铁到王者 9 个段位中购买主题色、头像边框和博客封面来装饰博客。
@@ -166,7 +166,7 @@ flowchart LR
     T[Telegram] -->|Bot API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>多个 Pod]
     I -->|/blog-images| M[(MinIO / S3<br/>图片 · 附件)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V58)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V59)]
     A --> R[(Redis<br/>会话 · 限流 · 浏览数 · 缓存)]
     A --> M
     A -.可选.-> G[Google Gemini]
@@ -262,7 +262,7 @@ sequenceDiagram
 
 | 路径 | 说明 |
 | --- | --- |
-| [app/backend](app/backend) | 后端：Spring Boot 4.1、Java 21。功能模块、Flyway 迁移（V1~V58）、测试 |
+| [app/backend](app/backend) | 后端：Spring Boot 4.1、Java 21。功能模块、Flyway 迁移（V1~V59）、测试 |
 | [app/frontend](app/frontend) | 前端：React 19 SPA、TypeScript、Vite。界面、自动保存（IndexedDB）、深色模式 |
 | [deploy](deploy) | 部署：Dockerfile、Kubernetes 清单（base、selfhosted、nhn、local），部署、回滚、密钥检查脚本 |
 | [app/render-worker](app/render-worker) | 短视频渲染程序：Python 3.10、ffmpeg、Remotion（Node）。在你自己的电脑上把队列中的脚本做成 9:16 的 MP4 并上传 |
@@ -343,7 +343,7 @@ npm run dev        # http://localhost:5173
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub、Google、Kakao、Naver、Facebook 登录，会话，CSRF，按路径的权限 |
 | Spring Data JPA (Hibernate) | Boot 4.1 | 所有领域 | 保存会员、文章、评论等领域数据 |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | 会话、限流、浏览数、缓存 | 多个 Pod 共享同一会话，并发请求也由一个 Redis 脚本判定 |
-| Flyway | Boot 4.1 | 数据库 | 用 V1~V58 迁移管理模式，启动时自动应用 |
+| Flyway | Boot 4.1 | 数据库 | 用 V1~V59 迁移管理模式，启动时自动应用 |
 | commonmark-java (+ GFM 扩展) | 0.30.0 | 正文渲染 | Markdown → HTML。表格、删除线、任务清单、自动链接、标题锚点 |
 | OWASP Java HTML Sanitizer | 20260924.2 | 正文净化 | 按白名单净化渲染后的 HTML，防止 XSS |
 | AWS SDK for Java (S3) | 2.55.12 | media | 把图片和附件上传到 MinIO、S3 |
