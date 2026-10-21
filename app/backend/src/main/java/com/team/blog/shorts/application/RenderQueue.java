@@ -44,19 +44,27 @@ public class RenderQueue {
     static final int RECENT_LOOKS = 5;
     /** 워커가 알려 주는 연출 이름(룩:배경음). 모양이 다르면 적지 않는다 */
     private static final java.util.regex.Pattern LOOK = java.util.regex.Pattern.compile("[a-z]{1,16}:[0-9]{1,2}");
+    /** 작업 받기를 줄 세우는 트랜잭션 잠금 번호(pg_advisory_xact_lock). 받기는 몇 분에 한 번이라 한 줄로 세워도 느려지지 않는다 */
+    static final long CLAIM_LOCK = 0x5348_4f52_5453L;
     private static final TypeReference<List<Scene>> SCENES = new TypeReference<>() {};
     private static final DateTimeFormatter MONTH = DateTimeFormatter.ofPattern("yyyy/MM").withZone(ZoneOffset.UTC);
-    /** 가장 먼저 대기한 일 하나를 잠가 RENDERING으로 바꾸고 워커에게 줄 칸을 돌려준다 */
+    /**
+     * 가장 먼저 대기한 일 하나를 잠가 RENDERING으로 바꾸고 워커에게 줄 칸을 돌려준다.
+     * 글 쇼츠는 회원마다 한 번에 하나만 그린다: 그리기를 마친 순서가 받은 순서와 같아야 색 묶음(color_slot)이 쇼츠 탭 줄과 맞는다
+     */
     private static final String CLAIM_SQL = """
             WITH next AS (
-                SELECT id FROM shorts WHERE status = 'QUEUED' ORDER BY queued_at, id LIMIT 1 FOR UPDATE SKIP LOCKED
+                SELECT q.id FROM shorts q WHERE q.status = 'QUEUED'
+                    AND (q.replay IS NOT NULL OR NOT EXISTS (SELECT 1 FROM shorts r
+                        WHERE r.member_id = q.member_id AND r.status = 'RENDERING' AND r.replay IS NULL))
+                ORDER BY q.queued_at, q.id LIMIT 1 FOR UPDATE SKIP LOCKED
             )
             UPDATE shorts s SET status = 'RENDERING', claim_token = ?, claimed_at = ?, attempts = s.attempts + 1, updated_at = ?
             FROM next WHERE s.id = next.id
             RETURNING s.id, s.attempts, s.title, s.scenes::text, s.post_id, s.replay::text AS replay, s.mascot, s.outro,
                       CASE WHEN s.rendered_at >= ? THEN s.look END AS own_look,
                       (SELECT count(*) FROM shorts WHERE member_id = s.member_id AND id <> s.id AND replay IS NULL
-                          AND (rendered_at >= ? OR (status = 'RENDERING' AND claimed_at >= ?))) AS color_slot,
+                          AND rendered_at >= ?) AS color_slot,
                       (SELECT handle FROM member WHERE id = s.member_id) AS handle,
                       (SELECT m.handle FROM post p JOIN member m ON m.id = p.author_id WHERE p.id = s.post_id AND p.deleted_at IS NULL) AS post_handle,
                       (SELECT %s FROM post p WHERE p.id = s.post_id AND p.deleted_at IS NULL) AS cover_key,
@@ -120,27 +128,30 @@ public class RenderQueue {
         markWorkerSeen();
         Instant now = Times.now(clock);
         String claim = UUID.randomUUID().toString();
-        return Optional.ofNullable(tx.execute(s -> jdbc.query(CLAIM_SQL, rs -> {
-            if (!rs.next()) return null;
-            long postId = rs.getLong("post_id");
-            String postHandle = rs.getString("post_handle");
-            String postUrl = rs.wasNull() || postHandle == null ? null : "/@" + postHandle + "/posts/" + postId;
-            List<Scene> scenes = json.readValue(rs.getString(4), SCENES);
-            String replay = rs.getString("replay");
-            return new Job(rs.getLong("id"), claim, rs.getInt("attempts"), rs.getString("title"),
-                    jobScenes(scenes), rs.getString("handle"), postUrl,
-                    postUrl == null ? null : imageUrls.urlOf(rs.getString("cover_key")), jobEffects(scenes),
-                    replay == null ? null : json.readValue(replay, TradeReplay.class), rs.getString("mascot"),
-                    rs.getBoolean("outro"), recentLooks(rs.getString("recent_looks")),
-                    replay == null && !now.isBefore(props.colorGroupsSince()) ? groupLook(rs.getString("own_look"), rs.getLong("color_slot")) : null);
-        }, claim, Timestamp.from(now), Timestamp.from(now), Timestamp.from(props.colorGroupsSince()), Timestamp.from(props.colorGroupsSince()),
-                Timestamp.from(props.colorGroupsSince()))));
+        return Optional.ofNullable(tx.execute(s -> {
+            // 받기를 줄 세운다: 앞 워커가 커밋한 RENDERING을 다음 워커가 보고 같은 회원의 다음 글 쇼츠를 건너뛴다
+            jdbc.query("SELECT pg_advisory_xact_lock(?)", rs -> null, CLAIM_LOCK);
+            return jdbc.query(CLAIM_SQL, rs -> {
+                if (!rs.next()) return null;
+                long postId = rs.getLong("post_id");
+                String postHandle = rs.getString("post_handle");
+                String postUrl = rs.wasNull() || postHandle == null ? null : "/@" + postHandle + "/posts/" + postId;
+                List<Scene> scenes = json.readValue(rs.getString(4), SCENES);
+                String replay = rs.getString("replay");
+                return new Job(rs.getLong("id"), claim, rs.getInt("attempts"), rs.getString("title"),
+                        jobScenes(scenes), rs.getString("handle"), postUrl,
+                        postUrl == null ? null : imageUrls.urlOf(rs.getString("cover_key")), jobEffects(scenes),
+                        replay == null ? null : json.readValue(replay, TradeReplay.class), rs.getString("mascot"),
+                        rs.getBoolean("outro"), recentLooks(rs.getString("recent_looks")),
+                        replay == null && !now.isBefore(props.colorGroupsSince()) ? groupLook(rs.getString("own_look"), rs.getLong("color_slot")) : null);
+            }, claim, Timestamp.from(now), Timestamp.from(now), Timestamp.from(props.colorGroupsSince()), Timestamp.from(props.colorGroupsSince()));
+        }));
     }
 
     /**
      * 묶음을 센 뒤 이미 그린 영상을 다시 그리면 그때 룩을 그대로 쓴다(격자 자리가 바뀌지 않게). 아니면 몇 번째 영상인지로 정한다.
-     * slot은 같은 회원이 기준 시각 뒤에 다 그렸거나 지금 그리는 중인 글 쇼츠 수다. 그리는 중인 것도 세서 워커 여럿이 동시에 받아도
-     * 같은 자리를 겹쳐 받지 않는다(받기는 SKIP LOCKED로 하나씩 커밋된다). 실패해 대기로 돌아간 작업은 다시 받을 때 센다
+     * slot은 같은 회원이 기준 시각 뒤에 다 그린 글 쇼츠 수다. 회원마다 한 번에 하나만 그리고 받기를 잠금으로 줄 세우므로
+     * 워커가 여럿이어도 같은 자리를 겹쳐 받지 않고, 다 그린 순서(올리는 순서)와 자리 순서가 같다
      */
     static String groupLook(String ownLook, long slot) {
         if (ownLook != null) {
