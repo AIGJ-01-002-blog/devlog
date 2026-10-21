@@ -529,6 +529,18 @@ class ShortsTest extends IntegrationTest {
         assertThat(fixed.path("content").get(0).path("text").asString()).contains("100점", "영상으로 만들 수 있어요");
         assertThat(rpc(token, "tools/call", Map.of("name", "list_shorts", "arguments", Map.of())).path("content").get(0).path("text").asString())
                 .contains(id + " · 배포하면 로그아웃 · 대본");
+        // 재생목록만 고르면 대본은 그대로다
+        jdbc.update("UPDATE shorts SET status = 'READY', video_key = 'shorts/2026/10/mcp.mp4', duration_ms = 33000 WHERE id = ?", id);
+        int before = jdbc.queryForObject("SELECT version FROM shorts WHERE id = ?", Integer.class, id);
+        JsonNode playlist = rpc(token, "tools/call", Map.of("name", "update_shorts_script", "arguments", Map.of("shorts_id", id, "playlist", "DEPLOY")));
+        assertThat(playlist.path("content").get(0).path("text").asString()).contains("'배포'", "그대로");
+        assertThat(jdbc.queryForObject("SELECT version FROM shorts WHERE id = ?", Integer.class, id)).isEqualTo(before);
+        assertThat(jdbc.queryForMap("SELECT status, video_key, duration_ms FROM shorts WHERE id = ?", id))
+                .containsEntry("status", "READY").containsEntry("video_key", "shorts/2026/10/mcp.mp4").containsEntry("duration_ms", 33000);
+        assertThat(rpc(token, "tools/call", Map.of("name", "list_shorts", "arguments", Map.of())).path("content").get(0).path("text").asString())
+                .contains("재생목록 배포");
+        assertThat(rpc(token, "tools/call", Map.of("name", "update_shorts_script", "arguments", Map.of("shorts_id", id, "playlist", "게임")))
+                .path("isError").asBoolean()).isTrue();
         // 남의 쇼츠는 없는 것과 같다
         Session other = signup(uniqueLogin("shmcp2"));
         String otherToken = read(other.http().perform(asJson(post("/api/me/tokens"), Map.of("name", "Codex", "scope", "WRITE")))

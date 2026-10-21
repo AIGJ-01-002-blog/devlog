@@ -147,7 +147,7 @@ If you have agreed to AI use, the AI adds a title and tidies up the text; otherw
 ### Creating and recording
 
 - **Shorts studio**: polish a shorts script your AI wrote over MCP scene by scene (caption, narration, code, explainer diagram). Press [Make video] and the render worker on your own computer turns it into a 9:16 MP4 with an animated character and uploads it. Before rendering, a mass-production check blocks scripts that overlap other scripts or copy the post as is, the first-frame color (look) is grouped in threes to match a Shorts-tab row (videos finished after 2026-10-21 15:00 KST; already uploaded videos stay as they are), and transitions, camera, background music, script pattern and hook differ from the last five. One post can also be split into several small topics. The first scene shows a large title and the character from the very first frame so it doubles as the cover, and the recommended length is 30 to 45 seconds.
-- **Upload guide**: titles, descriptions and pinned comments with copy buttons for YouTube Shorts, Instagram Reels and TikTok, plus the upload steps. There is no automatic upload; once you record the video URL after posting, the short appears as a 9:16 card in the blog's [Shorts] tab and under its source post. You can also link your YouTube, Instagram and TikTok channels to your blog. Titles and the first caption line end with the series name "에러로그 30초" (Error Log in 30 Seconds).
+- **Upload guide**: titles, descriptions and pinned comments with copy buttons for YouTube Shorts, Instagram Reels and TikTok, plus the upload steps. There is no automatic upload; once you record the video URL after posting, the short appears as a 9:16 card in the blog's [Shorts] tab and under its source post. You can also link your YouTube, Instagram and TikTok channels to your blog. Post shorts get "[백엔드 면접]" (Backend Interview) in front of the title and the first caption line, and the YouTube description starts with the source post link. Pick a playlist bundle per short (deploy, DB, security, performance, AI collaboration) to see which playlist to add it to; the steps schedule each video for 8 pm Korea time, one a day.
 - **My dashboard**: views, likes and received comments on your posts over 7, 30 or 90 days, compared with the previous period, with your most-read posts and shorts on one screen.
 - **Trade journal**: stock and crypto spot and futures fills that a trading bot records over MCP, shown as daily profit and loss per currency, with live and paper trades kept apart. Each fill carries the bot's decision trace (setup, stop loss, take profit, exit reason, R multiple), and a table of win rate and average R per strategy version and setup helps you review. A note for the day turns into a summary draft and a shorts script, and selected fills turn into a trade replay short. devlog never places real orders.
 - **Blog points and shop**: earn credits from check-ins (the reward grows with your streak), streak badges and publishing posts, then buy theme colors, profile rings and blog covers across nine tiers from Iron to Challenger to decorate your blog.
@@ -166,7 +166,7 @@ flowchart LR
     T[Telegram] -->|Bot API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>multiple pods]
     I -->|/blog-images| M[(MinIO / S3<br/>images · attachments)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V58)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V59)]
     A --> R[(Redis<br/>sessions · rate limits · views · cache)]
     A --> M
     A -.optional.-> G[Google Gemini]
@@ -262,7 +262,7 @@ Code lives in this repository; design documents live in the documentation reposi
 
 | Path | Description |
 | --- | --- |
-| [app/backend](app/backend) | Backend: Spring Boot 4.1, Java 21. Feature modules, Flyway migrations (V1~V58), tests |
+| [app/backend](app/backend) | Backend: Spring Boot 4.1, Java 21. Feature modules, Flyway migrations (V1~V59), tests |
 | [app/frontend](app/frontend) | Frontend: React 19 SPA, TypeScript, Vite. Screens, autosave (IndexedDB), dark mode |
 | [deploy](deploy) | Deployment: Dockerfile, Kubernetes manifests (base, selfhosted, nhn, local), deploy, rollback and secret-check scripts |
 | [app/render-worker](app/render-worker) | Shorts render worker: Python 3.10, ffmpeg, Remotion (Node). Runs on your computer and turns queued scripts into 9:16 MP4s |
@@ -343,7 +343,7 @@ To try it on Kubernetes, run `kubectl apply -k deploy/k8s/overlays/local` on kin
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub, Google, Kakao, Naver and Facebook login, sessions, CSRF, per-path authorization |
 | Spring Data JPA (Hibernate) | Boot 4.1 | All domains | Storing members, posts, comments and other domain data |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | Sessions, rate limits, views, cache | Lets multiple pods share sessions, and decides concurrent requests with a single Redis script |
-| Flyway | Boot 4.1 | Database | Manages the schema as migrations V1~V58, applied at startup |
+| Flyway | Boot 4.1 | Database | Manages the schema as migrations V1~V59, applied at startup |
 | commonmark-java (+ GFM extensions) | 0.30.0 | Body rendering | Markdown → HTML: tables, strikethrough, task lists, autolinks, heading anchors |
 | OWASP Java HTML Sanitizer | 20260924.2 | Body sanitizing | Sanitizes rendered HTML against an allow list to prevent XSS |
 | AWS SDK for Java (S3) | 2.55.12 | media | Uploads images and attachments to MinIO and S3 |
@@ -391,6 +391,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v2.12.0 | 2026-10-21 | Shorts "one a day for seven weeks": "[백엔드 면접]" (Backend Interview) in front of post short titles, the YouTube description starts with the source post link, steps schedule each video for 8 pm, and each short gets a playlist bundle (deploy, DB, security, performance, AI collaboration) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.12.0) |
 | v2.11.0 | 2026-10-21 | One color family per Shorts-tab row: the first frame color is grouped in threes, alternating light and dark families (mint → night → sunset → ocean → grape → mono → paper); one member's post shorts render one at a time so rows stay aligned | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.11.0) |
 | v2.10.0 | 2026-10-20 | Shorts tuned from view analytics: the first frame works as the cover (big title, stage layout), recommended length 30–45 s, 11 techniques from 13 developer shorts channels (3-second cuts, symptom first, loop ending, pinned-comment question and more), fixed series name "에러로그 30초" | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.10.0) |
 | v2.9.0 | 2026-10-20 | Following similar blogs that passed AdSense: the ad script loads only on post pages, list pages such as home, blogs and tags carry only the ownership meta tag, and the sitemap drops blog home pages to list post bodies only | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.9.0) |
