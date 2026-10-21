@@ -198,15 +198,18 @@ class ShortsTools {
         if (title == null && scenes == null && character == null && playlist == null) {
             return McpTools.Result.fail("바꿀 제목(title)·장면(scenes)·캐릭터(character)·재생목록(playlist)을 주세요.");
         }
+        // 재생목록 값은 대본을 고치기 전에 확인한다. 대본 검사가 막히면 재생목록도 바꾸지 않게 대본을 먼저 저장한다
+        if (playlist != null && !playlist.isBlank() && ShortsService.Playlist.parse(playlist).isEmpty()) {
+            return McpTools.Result.fail("재생목록(playlist)은 DEPLOY·DB·SECURITY·PERFORMANCE·AI 가운데 하나를 주세요.");
+        }
         try {
-            if (playlist != null) {
+            if (title == null && scenes == null && character == null) {
                 ShortsService.Item item = shorts.setPlaylist(caller.memberId(), id, new ShortsService.PlaylistBody(playlist));
-                if (title == null && scenes == null && character == null) {
-                    return McpTools.Result.ok("쇼츠 " + id + "번 재생목록을 " + (item.playlist() == null ? "비웠어요" : "'" + item.playlist().label + "'(으)로 정했어요")
-                            + ". 대본과 만든 영상은 그대로예요.");
-                }
+                return McpTools.Result.ok("쇼츠 " + id + "번 재생목록을 " + (item.playlist() == null ? "비웠어요" : "'" + item.playlist().label + "'(으)로 정했어요")
+                        + ". 대본과 만든 영상은 그대로예요.");
             }
             ShortsService.Item item = shorts.update(caller.memberId(), id, new ShortsService.Edit(title, scenes, null, character));
+            if (playlist != null) shorts.setPlaylist(caller.memberId(), id, new ShortsService.PlaylistBody(playlist));
             return McpTools.Result.ok("쇼츠 " + id + "번 대본을 고쳤어요 (예상 " + Math.round(item.estimatedSeconds()) + "초). 만들어 둔 영상이 있었다면 지워졌어요.\n"
                     + lengthHint(item.estimatedSeconds()) + report(shorts.check(caller.memberId(), id)) + "\n확인 화면: " + studioUrl(id));
         } catch (ApiException e) {
