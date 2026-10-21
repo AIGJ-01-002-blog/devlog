@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { AdminNav } from '../components/AdminNav'
 import { BarChart, type BarPoint } from '../components/BarChart'
-import { ago, change, consoleApi, count, PERIODS, workerHealth, workerLabel, type Dashboard, type Period, type Sums, type WorkerStatus } from '../lib/admin'
+import { ago, change, consoleApi, count, PERIODS, workerHealth, workerLabel, type Dashboard, type IndexReport, type Period, type Sums, type WorkerStatus } from '../lib/admin'
 import { Link, navigate, useLocation } from '../lib/router'
 import { decode, GROUP_LABEL, pageLabel, sourceGroup, sourceLabel, type SourceGroup } from '../lib/visitSources'
 
@@ -287,6 +287,8 @@ export function AdminDashboardPage() {
 
           {data.worker && <WorkerCard w={data.worker} />}
 
+          <IndexCard />
+
           <section className="admin-card">
             <h2>전체 현황</h2>
             <dl className="totals">
@@ -306,5 +308,59 @@ export function AdminDashboardPage() {
         </>
       )}
     </main>
+  )
+}
+
+/**
+ * 검색 수집 현황 (spec 107): 사이트맵·검색 엔진에 나가는 글과 빠지는 글의 수, 검수를 기다리는 외부 회원 글.
+ * 외부 회원 글은 [수집 허락]을 눌러야 검색 엔진에 나간다. 운영진 글은 수집 기준(일기 아님·본문 1,000자 이상)만 본다.
+ */
+function IndexCard() {
+  const [report, setReport] = useState<IndexReport | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState<number | null>(null)
+  const load = () => consoleApi.indexReport().then((r) => { setReport(r); setError(null) }, () => setError('검색 수집 현황을 불러오지 못했어요.'))
+  useEffect(() => { void load() }, [])
+  const approve = async (id: number) => {
+    setBusy(id)
+    try {
+      await consoleApi.setIndexApproval(id, true)
+      await load()
+    } catch {
+      setError('수집을 허락하지 못했어요. 잠시 후 다시 해 주세요.')
+    } finally {
+      setBusy(null)
+    }
+  }
+  return (
+    <section className="admin-card" aria-labelledby="index-card-title">
+      <h2 id="index-card-title" data-tip="공개 글 가운데 검색 엔진·사이트맵에 내보내는 글과 빼는 글이에요. 글은 모두 독자에게 그대로 보여요">검색 수집</h2>
+      {error && <p className="error" role="alert">{error}</p>}
+      {report && (
+        <>
+          <dl className="totals">
+            <div><dt data-tip="사이트맵에 들어가고 검색 엔진이 색인하는 글">수집하는 글</dt><dd>{count(report.indexed)}편</dd></div>
+            <div><dt data-tip="noindex, follow: 검색 결과에는 안 나오고, 글 안의 링크는 검색 엔진이 따라가요">빼는 글</dt>
+              <dd>{count(report.aiDiary + report.shortPost + report.unreviewed)}편</dd>
+              <dd className="muted small">AI 일기 {count(report.aiDiary)} · 짧은 글 {count(report.shortPost)} · 검수 전 외부 글 {count(report.unreviewed)}</dd></div>
+          </dl>
+          {report.pending.length > 0 && (
+            <>
+              <h3 className="small">검수를 기다리는 외부 회원 글</h3>
+              <ol className="rank-list">
+                {report.pending.map((p) => (
+                  <li key={p.id}>
+                    <a href={p.url} className="rank-title">{p.title}</a>
+                    <span className="muted small">@{p.authorHandle} · 본문 {count(p.bodyChars)}자</span>
+                    <button type="button" className="btn btn-text" disabled={busy === p.id} onClick={() => void approve(p.id)}
+                            data-tip="읽어 보고 괜찮으면 검색 엔진·사이트맵에 내보내요">수집 허락</button>
+                  </li>
+                ))}
+              </ol>
+            </>
+          )}
+        </>
+      )}
+    </section>
   )
 }

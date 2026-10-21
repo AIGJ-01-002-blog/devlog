@@ -59,15 +59,15 @@ class PolicyPageTest extends IntegrationTest {
     }
 
     @Test
-    void 글이_하나뿐인_태그_화면은_검색_수집에서_빼고_둘부터_연다() throws Exception {
-        Session s = signup(uniqueLogin("thin"));
+    void 태그_화면은_글이_늘어도_수집하지_않고_정규_주소만_알린다() throws Exception {
+        Session s = staff(signup(uniqueLogin("thin")));
         String tag = "thin" + System.nanoTime() % 1_000_000;
         publish(s, "첫 글", tag);
         assertThat(mvc.perform(get("/tags/" + tag)).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8))
-                .contains("noindex").doesNotContain("adsbygoogle");
+                .contains("noindex, follow").doesNotContain("adsbygoogle");
         publish(s, "둘째 글", tag);
         assertThat(mvc.perform(get("/tags/" + tag)).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8))
-                .doesNotContain("noindex").contains("<link rel=\"canonical\"");
+                .contains("noindex, follow").contains("<link rel=\"canonical\"");
     }
 
     @Test

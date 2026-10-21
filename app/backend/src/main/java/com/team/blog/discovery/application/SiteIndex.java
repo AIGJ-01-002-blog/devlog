@@ -20,9 +20,13 @@ import com.team.blog.shared.text.TextCleaner;
 public class SiteIndex {
     /** 사이트맵 한 파일의 한도(50,000)에서 첫 화면·고정 화면 몫을 남긴다. 넘으면 사이트맵 색인으로 나눈다 */
     static final int MAX_POSTS = 40_000;
-    /** 로그인해야 보이거나 검색 결과에 나올 이유가 없는 화면 */
+    /**
+     * 로그인해야 보이거나 검색 결과에 나올 이유가 없는 화면. 쇼츠 스튜디오·자동매매·모의투자·포인트처럼 운영자나 회원 본인만 쓰는 화면도
+     * 막는다(spec 107, 전에는 비로그인 404에만 기댔다). 공개 글·목록·소개·태그·검색 결과는 열어 두고 noindex 메타로 수집만 고른다.
+     */
     private static final List<String> DISALLOW = List.of("/api/", "/write", "/settings", "/manage/", "/admin",
-            "/notifications", "/feed", "/lists/", "/login", "/signup", "/forgot-password", "/reset-password", "/verify-email");
+            "/notifications", "/feed", "/lists/", "/login", "/signup", "/forgot-password", "/reset-password", "/verify-email",
+            "/studio", "/trade", "/trades", "/paper", "/points", "/shop", "/dashboard", "/account/", "/agreements", "/oauth/", "/withdrawn");
 
     private final PostCardQuery posts;
     private final BlogProperties.Site site;
