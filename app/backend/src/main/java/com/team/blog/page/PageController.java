@@ -72,6 +72,13 @@ public class PageController {
     private static final String PROFILE = "profile";
     private static final String LINK_LI_END = "</a></li>";
     /** AI 보조 작성 표기 (spec 107). 화면(PostPage)과 같은 문장이다 */
+    /** 소개 화면의 "글 쓰는 방식과 AI 사용 범위" (spec 107 FR-017). 화면(AboutPage)과 같은 문장이다 */
+    static final List<String> AI_SCOPE = List.of(
+            "주제, 글의 결론, 글에 넣는 숫자는 글쓴이가 정하고 확인해요. 측정값은 실제로 실행한 결과에서 가져오고, 근거가 되는 PR·커밋을 글 끝에 붙여요.",
+            "AI 도구(devlog MCP)로 초안을 만들거나 고친 글은 글 끝에 \"AI 보조 작성\"이라고 표시해요.",
+            "AI 도구가 만든 글은 기본으로 임시글이에요. 글쓴이가 설정에서 AI 발행을 허용했을 때만 AI 도구가 발행할 수 있어요.",
+            "개발 일기는 작업 메모를 AI가 하루 한 편으로 묶은 기록이에요. 검색 엔진 수집 대상에서 빼요.",
+            "매주 일요일 그 주의 일기로 주간 회고 초안을 만들어요. 도입과 배운 점을 사람이 직접 써야 발행할 수 있어요.");
     static final String AI_ASSISTED_NOTE = "AI 보조 작성 · 이 글은 AI 도구(devlog MCP)로 초안을 만들거나 고쳤어요."
             + " <a href=\"/about#ai\">글 쓰는 방식</a>";
 
@@ -93,6 +100,7 @@ public class PageController {
     private final BlogShorts blogShorts;
     private final SiteOwner owner;
     private final PolicyDocuments policies;
+    private final SitePortfolio sitePortfolio;
 
     public PageController(SpaShell shell, BlogProperties props, PostPageSources posts, TagPageSources tagPages,
                           BlogPageSources blogPages, SitePageSources sitePages) {
@@ -113,6 +121,7 @@ public class PageController {
         this.blogShorts = blogPages.shorts();
         this.owner = sitePages.owner();
         this.policies = sitePages.policies();
+        this.sitePortfolio = sitePages.portfolio();
         this.releaseNotes = sitePages.releaseNotes();
     }
 
@@ -232,30 +241,75 @@ public class PageController {
     }
 
     /**
-     * 사이트 소개 (077): 무엇을 하는 곳인지, 누가 운영하는지, 어디로 연락하는지. 애드센스 심사처럼 사람이 아닌 읽기 도구도
-     * 내용을 보도록 서버가 본문을 그리고, React가 같은 내용을 다시 그린다.
+     * 사이트 소개 (077, spec 107): 무엇을 하는 곳인지, 누가 운영하는지, 글을 어떻게 쓰고 AI를 어디까지 쓰는지(#ai), 어디로 연락하는지.
+     * 애드센스 심사처럼 사람이 아닌 읽기 도구도 내용을 보도록 서버가 본문을 그리고, React가 같은 내용을 다시 그린다.
      */
     @GetMapping(ABOUT_PATH)
     public ResponseEntity<String> siteAbout() {
         String ownerHandle = owner.handle().orElse(null);
         StringBuilder body = new StringBuilder("<main><h1>devlog 소개</h1><p>").append(SpaShell.esc(SLOGAN)).append("</p>")
-                .append("<p>devlog는 개발자가 개발 일지와 기술 글을 쓰고 읽는 블로그예요. Claude 같은 AI 도구에 devlog를 연결하면 ")
-                .append("그날 작업한 내용을 정리해 개발 일지 임시글로 올려 주고, 발행은 글쓴이가 직접 정해요.</p>")
+                .append("<h2>무엇을 하는 곳인가요</h2><p>devlog는 개발자가 직접 겪은 문제와 해결 과정을 기술 글로 남기는 블로그예요.")
+                .append(" 운영자는 이 서비스를 만들고 운영하면서 나온 설계 결정, 장애 원인, 보안 점검을 글로 정리해요.")
+                .append(" Claude 같은 AI 도구에 devlog를 연결하면 그날 작업한 내용을 정리해 개발 일지 임시글로 올려 줘요.</p>")
                 .append("<h2>누가 운영하나요</h2><p>학교 팀 프로젝트로 시작했고, 지금은 운영자 한 명이 서버와 서비스를 맡고 있어요.");
         if (ownerHandle != null) {
             body.append(" 운영자 블로그: <a href=\"/@").append(SpaShell.esc(ownerHandle)).append("\">@").append(SpaShell.esc(ownerHandle)).append("</a>");
         }
-        body.append("</p><h2>연락하기</h2><p><a href=\"/support\">문의·신고</a>에서 질문, 버그, 권리 침해 신고를 받아요. 답변을 알림으로 드리려고 로그인한 뒤 남기도록 했어요.</p>");
+        body.append(" 운영자가 풀어 온 문제는 <a href=\"/portfolio\">포트폴리오</a>에 모았어요.</p>")
+                .append("<h2 id=\"ai\">글 쓰는 방식과 AI 사용 범위</h2><ul>");
+        AI_SCOPE.forEach(line -> body.append("<li>").append(line).append(LI_END));
+        body.append(UL_END).append("<h2>연락하기</h2><p><a href=\"/contact\">연락처</a>에서 메일과 공개 문의 창구를 볼 수 있어요.")
+                .append(" 로그인했다면 <a href=\"/support\">문의·신고</a>에 남겨 주세요. 답변을 알림으로 드려요.</p>");
         appendGuestContact(body);
         body.append("<p><a href=\"/terms\">이용약관</a> · <a href=\"/privacy\">개인정보 처리방침</a></p></main>");
-        HeadMeta meta = HeadMeta.site("소개 - " + site.name(), SLOGAN + " devlog가 어떤 곳이고 누가 운영하는지 알려 드려요.",
+        HeadMeta meta = HeadMeta.site("소개 - " + site.name(), SLOGAN + " devlog가 어떤 곳이고 누가 운영하는지, 글을 어떻게 쓰고 AI를 어디까지 쓰는지 알려 드려요.",
                 absolute(ABOUT_PATH), absolute(site.defaultOgImage()));
+        return html(HttpStatus.OK, shell.render(meta, body.toString(), siteAboutData("about", ownerHandle)), CacheControl.noCache());
+    }
+
+    /** 연락처 (spec 107 FR-016): 로그인 없이 운영자에게 닿는 방법을 한 화면에 모은다. 소개 화면과 같은 설정값을 쓴다 */
+    @GetMapping("/contact")
+    public ResponseEntity<String> contact() {
+        String email = site.contactEmailOrNull();
+        String url = site.contactUrlOrNull();
+        StringBuilder body = new StringBuilder("<main><h1>연락처</h1><p>devlog 운영자에게 연락하는 방법이에요.</p><ul>");
+        if (email != null) {
+            body.append("<li>메일: <a href=\"mailto:").append(SpaShell.esc(email)).append("\">").append(SpaShell.esc(email)).append("</a></li>");
+        }
+        if (url != null) {
+            body.append("<li><a href=\"").append(SpaShell.esc(url)).append("\" rel=\"noopener\">공개 문의 창구</a>: 버그와 제안은 누구나 볼 수 있는 곳에 남겨요.</li>");
+        }
+        body.append("<li>로그인했다면 <a href=\"/support\">문의·신고</a>: 답변을 알림으로 받아요.</li></ul>")
+                .append("<p>개인 정보가 담긴 내용은 공개 문의 창구 대신 메일로 보내 주세요. 권리 침해 신고는 글 주소를 함께 적어 주세요.</p>")
+                .append("<p><a href=\"/about\">devlog 소개</a> · <a href=\"/privacy\">개인정보 처리방침</a></p></main>");
+        HeadMeta meta = HeadMeta.site("연락처 - " + site.name(), "devlog 운영자에게 메일이나 공개 문의 창구로 연락하는 방법이에요.",
+                absolute("/contact"), absolute(site.defaultOgImage()));
+        return html(HttpStatus.OK, shell.render(meta, body.toString(), siteAboutData("contact", owner.handle().orElse(null))), CacheControl.noCache());
+    }
+
+    /**
+     * 사이트 포트폴리오 (spec 107 FR-015): 운영자 한 줄 소개, 사례 5개(문제 → 결정 → 결과 숫자, 근거 글), 기술 한 줄.
+     * 블로그별 포트폴리오(/@handle/portfolio)와는 다른, 채용 담당자가 한 장으로 읽는 화면이다. 문안은 site/portfolio.html.
+     */
+    @GetMapping("/portfolio")
+    public ResponseEntity<String> sitePortfolio() {
+        String body = "<main class=\"site-portfolio\"><h1>포트폴리오</h1>" + sitePortfolio.html() + MAIN_END;
+        HeadMeta meta = HeadMeta.site("포트폴리오 - " + site.name(), "devlog 운영자가 풀어 온 문제 5가지: 문제, 결정, 결과 숫자와 근거 글.",
+                absolute("/portfolio"), absolute(site.defaultOgImage()));
+        var data = new HashMap<String, Object>();
+        data.put("page", "site-portfolio");
+        data.put("ownerHandle", owner.handle().orElse(null));
+        data.put("html", sitePortfolio.html());
+        return html(HttpStatus.OK, shell.render(meta, body, data), CacheControl.noCache());
+    }
+
+    private Map<String, Object> siteAboutData(String page, String ownerHandle) {
         var data = new HashMap<String, Object>(); // 운영자 주소가 비면 null이라 Map.of를 못 쓴다
-        data.put("page", "about");
+        data.put("page", page);
         data.put("ownerHandle", ownerHandle);
         data.put("contactEmail", site.contactEmailOrNull());
         data.put("contactUrl", site.contactUrlOrNull());
-        return html(HttpStatus.OK, shell.render(meta, body.toString(), data), CacheControl.noCache());
+        return data;
     }
 
     /**

@@ -7,7 +7,9 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
@@ -36,8 +38,9 @@ public class SpaShell {
      * 수집하는 화면의 서버 HTML 끝에 붙이는 사이트 바닥글 (spec 104 FR-005). 스크립트를 돌리지 않는 심사 도구·검색 로봇도
      * 소개·약관·처리방침·문의로 갈 수 있게 한다. React가 뜨면 루트를 다시 그리고 SiteFooter가 같은 링크를 보여 준다.
      */
-    static final String SITE_FOOTER = "<footer><nav aria-label=\"사이트 정보\"><a href=\"/about\">소개</a> · <a href=\"/terms\">이용약관</a> · "
-            + "<a href=\"/privacy\">개인정보 처리방침</a> · <a href=\"/support\">문의</a> · <a href=\"/releases\">릴리스 노트</a></nav></footer>";
+    static final String SITE_FOOTER = "<footer><nav aria-label=\"사이트 정보\"><a href=\"/about\">소개</a> · <a href=\"/portfolio\">포트폴리오</a> · "
+            + "<a href=\"/contact\">연락처</a> · <a href=\"/terms\">이용약관</a> · <a href=\"/privacy\">개인정보 처리방침</a> · "
+            + "<a href=\"/support\">문의</a> · <a href=\"/releases\">릴리스 노트</a></nav></footer>";
     private static final String FALLBACK = """
             <!doctype html>
             <html lang="ko">
@@ -57,11 +60,16 @@ public class SpaShell {
     private final String template;
     private static final String ARTICLE = "article";
     private final AdSense adSense;
+    /** 글 정규 주소: 블로그 주소(…/@handle) + /posts/번호 */
+    private static final Pattern POST_URL = Pattern.compile("(https?://[^/]+/@[A-Za-z0-9_-]+)/posts/\\d+");
+    /** 검색 엔진 소유 확인 메타 (spec 107). 시험용 생성자는 비워 둔다 */
+    private String verificationMeta = "";
     private final JsonMapper json = JsonMapper.builder().build();
 
     @org.springframework.beans.factory.annotation.Autowired
-    public SpaShell(AdSense adSense) {
+    public SpaShell(AdSense adSense, SiteVerification verification) {
         this(adSense, load());
+        this.verificationMeta = verification.meta();
     }
 
     SpaShell(AdSense adSense, String template) {
@@ -101,6 +109,7 @@ public class SpaShell {
                     .replace("<link rel=\"modulepreload\"", "<link rel=\"modulepreload\" nonce=\"" + nonce + "\"");
             head.append(adSense.scriptTag(nonce));
         }
+        head.append(verificationMeta);
         head.append("<title>").append(esc(meta.title())).append("</title>\n");
         if (meta.description() != null && !meta.description().isBlank()) {
             head.append("<meta name=\"description\" content=\"").append(esc(meta.description())).append(TAG_END);
@@ -164,8 +173,53 @@ public class SpaShell {
             Map<String, Object> author = new LinkedHashMap<>(); // Map.of는 순서가 실행마다 달라 출력이 흔들린다
             author.put("@type", "Person");
             author.put("name", meta.author());
+            String blog = blogUrl(meta.canonical());
+            if (blog != null) author.put("url", blog);
             ld.put("author", author);
         }
+        return jsonLd(ld) + breadcrumbJsonLd(meta);
+    }
+
+    /**
+     * 글 화면의 이동 경로(schema.org BreadcrumbList, spec 107 FR-019): 홈 → 블로그 → 글. 블로그 주소는 글 정규 주소(/@handle/posts/id)에서 읽는다.
+     * 정규 주소가 그 꼴이 아니면 넣지 않는다.
+     */
+    private String breadcrumbJsonLd(HeadMeta meta) {
+        String blog = blogUrl(meta.canonical());
+        if (blog == null) return "";
+        String home = blog.substring(0, blog.indexOf("/@")) + "/";
+        Map<String, Object> ld = new LinkedHashMap<>();
+        ld.put("@context", "https://schema.org");
+        ld.put("@type", "BreadcrumbList");
+        ld.put("itemListElement", List.of(crumb(1, "devlog", home),
+                crumb(2, meta.author() != null ? meta.author() : blog.substring(blog.indexOf("/@") + 1), blog),
+                crumb(3, postName(meta), meta.canonical())));
+        return jsonLd(ld);
+    }
+
+    /** 글 화면 제목은 "글 제목 - 작성자"라서 이동 경로에는 글 제목만 쓴다 */
+    private static String postName(HeadMeta meta) {
+        String suffix = meta.author() == null ? null : " - " + meta.author();
+        return suffix != null && meta.title().endsWith(suffix) ? meta.title().substring(0, meta.title().length() - suffix.length()) : meta.title();
+    }
+
+    private static Map<String, Object> crumb(int position, String name, String url) {
+        Map<String, Object> item = new LinkedHashMap<>();
+        item.put("@type", "ListItem");
+        item.put("position", position);
+        item.put("name", name);
+        item.put("item", url);
+        return item;
+    }
+
+    /** 글 정규 주소에서 블로그 주소(…/@handle)를 꺼낸다. 글 주소 꼴이 아니면 null */
+    private static String blogUrl(String canonical) {
+        if (canonical == null) return null;
+        var m = POST_URL.matcher(canonical);
+        return m.matches() ? m.group(1) : null;
+    }
+
+    private String jsonLd(Map<String, Object> ld) {
         String data = json.writeValueAsString(ld).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026");
         return "<script type=\"application/ld+json\">" + data + "</script>\n";
     }

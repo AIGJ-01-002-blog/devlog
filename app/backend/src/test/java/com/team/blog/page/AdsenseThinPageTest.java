@@ -97,12 +97,12 @@ class AdsenseThinPageTest extends IntegrationTest {
         long shortPost = publish(s, "짧은 글", tag, padded);
         String shortPage = page("/@" + s.handle() + "/posts/" + shortPost);
         assertThat(shortPage).contains("noindex").doesNotContain("adsbygoogle").contains("짧은 소개");
-        assertThat(page("/sitemap.xml")).doesNotContain("/posts/" + shortPost + "<");
+        assertThat(page("/sitemaps/posts.xml")).doesNotContain("/posts/" + shortPost + "<");
         assertThat(page("/@" + s.handle())).contains("noindex"); // 짧은 글만 있는 블로그도 얇은 화면
 
         long longPost = publish(s, "긴 글", tag);
         assertThat(page("/@" + s.handle() + "/posts/" + longPost)).doesNotContain("noindex").contains("<link rel=\"canonical\"");
-        assertThat(page("/sitemap.xml")).contains("/posts/" + longPost + "<");
+        assertThat(page("/sitemaps/posts.xml")).contains("/posts/" + longPost + "<");
         assertThat(page("/@" + s.handle())).doesNotContain("noindex");
         assertThat(ids("/api/posts")).contains(shortPost, longPost); // 홈 목록에는 그대로 보인다
     }

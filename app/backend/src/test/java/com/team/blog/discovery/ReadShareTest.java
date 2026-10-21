@@ -67,7 +67,11 @@ class ReadShareTest extends IntegrationTest {
                 .contains("<meta name=\"twitter:card\" content=\"summary_large_image\">")
                 .contains("<script type=\"application/ld+json\">{\"@context\":\"https://schema.org\",\"@type\":\"BlogPosting\"")
                 .contains("\"headline\":\"제목 \\u003cscript\\u003e - ")
-                .contains("\"author\":{\"@type\":\"Person\",\"name\":");
+                .contains("\"author\":{\"@type\":\"Person\",\"name\":")
+                .contains("\"url\":\"http://localhost:8080/@" + s.handle() + "\"}")
+                // spec 107: 이동 경로 홈 → 블로그 → 글. 글 이름에는 "- 작성자"를 붙이지 않는다
+                .contains("{\"@context\":\"https://schema.org\",\"@type\":\"BreadcrumbList\",\"itemListElement\":[{\"@type\":\"ListItem\",\"position\":1,\"name\":\"devlog\",\"item\":\"http://localhost:8080/\"}")
+                .contains("\"position\":3,\"name\":\"제목 \\u003cscript\\u003e\",\"item\":\"http://localhost:8080/@" + s.handle() + "/posts/" + id + "\"}]}");
         mvc.perform(get("/api/posts/" + id)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.title").value("제목 <script>"))
                 .andExpect(jsonPath("$.author.handle").value(s.handle()))
