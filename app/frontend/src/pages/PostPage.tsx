@@ -1,3 +1,4 @@
+import { AdSlot } from '../components/AdSlot'
 import { ReportButton } from '../components/ReportButton'
 import { reasonLabel } from '../lib/moderation'
 import { useEffect, useRef, useState } from 'react'
@@ -206,6 +207,7 @@ export function PostPage({ handle, id }: { handle: string; id: string }) {
             {t('AI 보조 작성 · 이 글은 AI 도구(devlog MCP)로 초안을 만들거나 고쳤어요.')} <Link to="/about#ai">{t('글 쓰는 방식')}</Link>
           </p>
         )}
+        {post.status === 'PUBLISHED' && post.visibility === 'PUBLIC' && <AdSlot />}
         {branch && <BranchBox nav={branch} postId={post.id} />}
         <PostShorts postId={post.id} enabled={!!me?.features?.shorts && post.status === 'PUBLISHED' && post.visibility === 'PUBLIC'} />
         {post.status === 'PUBLISHED' && <SimilarPosts key={`similar-${post.id}`} postId={post.id} />}

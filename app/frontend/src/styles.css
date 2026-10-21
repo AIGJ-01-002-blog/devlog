@@ -797,6 +797,10 @@ input[type="checkbox"], input[type="radio"] { width: auto; flex-shrink: 0; margi
 .agreement-changes ul { margin: 0; padding-left: 20px; }
 .agreement-changes a { color: var(--color-brand); text-decoration: underline; text-underline-offset: 2px; }
 /* 사이트 맨 아래 링크 (077) */
+/* 글 아래 광고 자리 (spec 107): 광고가 늦게 와도 밀리지 않게 높이를 먼저 잡는다(CLS 0). 광고를 끈 기본 상태에서는 그리지 않는다 */
+.ad-slot { min-height: 280px; margin: 32px 0; contain: layout; }
+@media (min-width: 768px) { .ad-slot { min-height: 250px; } }
+@media print { .ad-slot { display: none; } }
 /* 사이트 포트폴리오 (spec 107): 사례마다 문제 → 결정 → 결과 세 줄과 근거 글. 인쇄하면 머리·바닥·탭을 빼고 A4 한 장에 맞춘다 */
 .site-portfolio-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .site-portfolio .portfolio-intro { font-size: 1.0625rem; font-weight: 600; }

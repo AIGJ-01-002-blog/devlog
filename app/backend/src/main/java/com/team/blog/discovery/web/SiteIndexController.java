@@ -47,10 +47,13 @@ public class SiteIndexController {
         return ResponseEntity.notFound().build();
     }
 
-    /** 애드센스를 끄면 404: 빈 ads.txt는 "누구도 광고를 팔 수 없음"으로 읽힐 수 있다 */
+    /**
+     * 게시자 ID가 없으면 404: 빈 ads.txt는 "누구도 광고를 팔 수 없음"으로 읽힐 수 있다.
+     * 광고 스위치가 none이어도 게시자 ID가 있으면 둔다(spec 107, 재신청 준비)
+     */
     @GetMapping("/ads.txt")
     public ResponseEntity<String> adsTxt() {
-        if (!adSense.enabled()) return ResponseEntity.notFound().build();
+        if (!adSense.configured()) return ResponseEntity.notFound().build();
         return ResponseEntity.ok().contentType(TEXT).cacheControl(CacheControl.maxAge(Duration.ofHours(1)).cachePublic()).body(adSense.adsTxt());
     }
 }

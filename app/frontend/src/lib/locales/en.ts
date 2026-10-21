@@ -2261,4 +2261,5 @@ export const en: Record<string, string> = {
   "AI 도구가 만든 글은 기본으로 임시글이에요. 글쓴이가 설정에서 AI 발행을 허용했을 때만 AI 도구가 발행할 수 있어요.": "Posts made by AI tools are drafts by default. An AI tool can publish only when the author allows AI publishing in settings.",
   "개발 일기는 작업 메모를 AI가 하루 한 편으로 묶은 기록이에요. 검색 엔진 수집 대상에서 빼요.": "Dev diaries are work notes that AI bundles into one entry per day. They are excluded from search engine indexing.",
   "매주 일요일 그 주의 일기로 주간 회고 초안을 만들어요. 도입과 배운 점을 사람이 직접 써야 발행할 수 있어요.": "Every Sunday the week's diaries become a weekly retro draft. It can be published only after a person writes the intro and lessons learned.",
+  "광고": "Advertisement",
 }
