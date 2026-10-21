@@ -168,12 +168,15 @@ class ShortsTest extends IntegrationTest {
         JsonNode job = claim();
         assertThat(job.path("id").asLong()).isEqualTo(next);
         assertThat(job.path("recentLooks").valueStream().map(JsonNode::asString).toList()).containsExactly("ocean:0", "grape:2");
+        // 첫 화면 색은 세 편씩 같은 계열: 앞서 그린 세 편이 첫 묶음이라 네 번째는 다음 색이다
+        assertThat(job.path("look").asString()).isEqualTo("night");
         // 처음 쓰는 회원은 빈 목록
         Session other = signup(uniqueLogin("shlook"));
         long first = queue(other, writePost(other, POST_BODY));
         JsonNode firstJob = claim();
         assertThat(firstJob.path("id").asLong()).isEqualTo(first);
         assertThat(firstJob.path("recentLooks")).isEmpty();
+        assertThat(firstJob.path("look").asString()).isEqualTo("mint");
     }
 
     @Test

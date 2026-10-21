@@ -54,6 +54,9 @@ public class RenderQueue {
             UPDATE shorts s SET status = 'RENDERING', claim_token = ?, claimed_at = ?, attempts = s.attempts + 1, updated_at = ?
             FROM next WHERE s.id = next.id
             RETURNING s.id, s.attempts, s.title, s.scenes::text, s.post_id, s.replay::text AS replay, s.mascot, s.outro,
+                      CASE WHEN s.rendered_at >= ? THEN s.look END AS own_look,
+                      (SELECT count(*) FROM shorts WHERE member_id = s.member_id AND id <> s.id AND replay IS NULL
+                          AND rendered_at >= ?) AS color_slot,
                       (SELECT handle FROM member WHERE id = s.member_id) AS handle,
                       (SELECT m.handle FROM post p JOIN member m ON m.id = p.author_id WHERE p.id = s.post_id AND p.deleted_at IS NULL) AS post_handle,
                       (SELECT %s FROM post p WHERE p.id = s.post_id AND p.deleted_at IS NULL) AS cover_key,
@@ -68,10 +71,12 @@ public class RenderQueue {
      * coverImage는 원본 글 대표 사진(#277): 워커가 그림 없는 첫 장면의 가운데 카드로 쓴다. 장면마다 그림은 scenes[].image
      * replay가 있으면 매매 재현 영상(#265)이다: 워커가 그 구간의 공개 캔들을 받아 캔들과 체결 표시를 그린다.
      * character는 연기할 캐릭터(#304). 비면 워커 기본(로그냥). outro가 false면 영상 끝 3초 블로그 광고를 붙이지 않는다.
-     * recentLooks는 같은 회원의 최근 영상 연출(룩:배경음, 최근 것부터). 워커가 같은 조합을 되풀이하지 않게 피해 고른다
+     * recentLooks는 같은 회원의 최근 영상 연출(룩:배경음, 최근 것부터). 워커가 같은 조합을 되풀이하지 않게 피해 고른다.
+     * look은 세 편씩 같은 색 계열로 묶은 룩({@link ColorGroups}). 워커는 이 룩으로 그리고 배경음 등은 최근 조합을 피해 고른다.
+     * 매매 재현 영상과 묶음을 세기 시작하기 전에는 비운다(워커가 전처럼 고른다. 재현 영상은 늘 paper)
      */
     public record Job(long id, String claim, int attempt, String title, List<JobScene> scenes, String handle, String postUrl, String coverImage,
-                      List<JobEffect> effects, TradeReplay replay, String character, boolean outro, List<String> recentLooks) {}
+                      List<JobEffect> effects, TradeReplay replay, String character, boolean outro, List<String> recentLooks, String look) {}
 
     /** 워커가 읽는 장면. visual은 장면 연출 이름(#277), 비면 워커가 자막·내레이션·코드에서 고른다. diagram은 설명 도식(대본 그대로) */
     public record JobScene(String caption, String narration, String code, String image, String visual, java.util.Map<String, Object> diagram) {}
@@ -126,8 +131,18 @@ public class RenderQueue {
                     jobScenes(scenes), rs.getString("handle"), postUrl,
                     postUrl == null ? null : imageUrls.urlOf(rs.getString("cover_key")), jobEffects(scenes),
                     replay == null ? null : json.readValue(replay, TradeReplay.class), rs.getString("mascot"),
-                    rs.getBoolean("outro"), recentLooks(rs.getString("recent_looks")));
-        }, claim, Timestamp.from(now), Timestamp.from(now))));
+                    rs.getBoolean("outro"), recentLooks(rs.getString("recent_looks")),
+                    replay == null && !now.isBefore(props.colorGroupsSince()) ? groupLook(rs.getString("own_look"), rs.getLong("color_slot")) : null);
+        }, claim, Timestamp.from(now), Timestamp.from(now), Timestamp.from(props.colorGroupsSince()), Timestamp.from(props.colorGroupsSince()))));
+    }
+
+    /** 묶음을 센 뒤 이미 그린 영상을 다시 그리면 그때 룩을 그대로 쓴다(격자 자리가 바뀌지 않게). 아니면 몇 번째 영상인지로 정한다 */
+    static String groupLook(String ownLook, long slot) {
+        if (ownLook != null) {
+            String name = ownLook.split(":", 2)[0];
+            if (ColorGroups.ORDER.contains(name)) return name;
+        }
+        return ColorGroups.lookFor(slot);
     }
 
     static List<String> recentLooks(String joined) {
