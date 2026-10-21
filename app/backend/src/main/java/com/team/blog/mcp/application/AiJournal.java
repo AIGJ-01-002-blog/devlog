@@ -211,6 +211,7 @@ public class AiJournal {
             }
             long postId = commands.create(memberId, title, content).id();
             if (!tags.isEmpty()) hints.suggestTags(postId, tags);
+            hints.markAssisted(postId);
             jdbc.update("UPDATE ai_post_proposal SET post_id = ? WHERE id = ?", postId, id);
             return postId;
         });
@@ -367,6 +368,7 @@ public class AiJournal {
             List<Note> list = day.getValue();
             list.sort((a, b) -> a.at().compareTo(b.at()));
             long postId = commands.createAiDiary(memberId, diaryTitle(day.getKey()), diaryBody(list)).id();
+            hints.markAssisted(postId);
             Set<String> tags = new LinkedHashSet<>();
             for (Note n : list) for (String t : n.tags()) if (tags.size() < maxTags) tags.add(t);
             if (!tags.isEmpty()) hints.suggestTags(postId, List.copyOf(tags));

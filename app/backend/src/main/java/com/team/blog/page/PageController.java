@@ -71,6 +71,9 @@ public class PageController {
     private static final String ABOUT_PATH = "/about";
     private static final String PROFILE = "profile";
     private static final String LINK_LI_END = "</a></li>";
+    /** AI 보조 작성 표기 (spec 107). 화면(PostPage)과 같은 문장이다 */
+    static final String AI_ASSISTED_NOTE = "AI 보조 작성 · 이 글은 AI 도구(devlog MCP)로 초안을 만들거나 고쳤어요."
+            + " <a href=\"/about#ai\">글 쓰는 방식</a>";
 
     private final SpaShell shell;
     private final FeedQuery feed;
@@ -563,6 +566,7 @@ public class PageController {
             sb.append(UL_END);
         }
         sb.append("<div class=\"post-body\">").append(d.contentHtml()).append("</div>"); // 발행 때 정화한 HTML
+        if (d.aiAssisted()) sb.append("<p class=\"post-ai-note\">").append(AI_ASSISTED_NOTE).append("</p>"); // spec 107
         sb.append("</article></main>");
         return sb.toString();
     }

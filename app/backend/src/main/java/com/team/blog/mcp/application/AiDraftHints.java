@@ -35,6 +35,14 @@ public class AiDraftHints implements PublishExtension {
                 """, postId, String.join(",", tags));
     }
 
+    /**
+     * AI 도구(MCP)가 만들거나 고치거나 발행한 글로 표시한다 (spec 107). 글 아래에 "AI 보조 작성"이 보이고, 한 번 붙으면 떼지 않는다.
+     * 사람이 나중에 다 고쳐 써도 처음 초안을 AI가 쓴 사실은 그대로라서다.
+     */
+    public void markAssisted(long postId) {
+        jdbc.update("UPDATE post SET ai_assisted = true WHERE id = ? AND NOT ai_assisted", postId);
+    }
+
     public void requestPublish(long postId, Instant at) {
         jdbc.update("""
                 INSERT INTO post_ai_hint (post_id, publish_requested_at) VALUES (?, ?)

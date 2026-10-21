@@ -201,6 +201,11 @@ export function PostPage({ handle, id }: { handle: string; id: string }) {
         <div className="post-body markdown" ref={bodyRef} dangerouslySetInnerHTML={{ __html: post.contentHtml }} />
         <ImageZoom bodyRef={bodyRef} html={post.contentHtml} />
         <AttachmentList key={post.id} postId={post.id} />
+        {post.aiAssisted && (
+          <p className="post-ai-note muted small" data-tip={t('devlog에 연결한 AI 도구가 초안을 쓰거나 고친 글이에요')}>
+            {t('AI 보조 작성 · 이 글은 AI 도구(devlog MCP)로 초안을 만들거나 고쳤어요.')} <Link to="/about#ai">{t('글 쓰는 방식')}</Link>
+          </p>
+        )}
         {branch && <BranchBox nav={branch} postId={post.id} />}
         <PostShorts postId={post.id} enabled={!!me?.features?.shorts && post.status === 'PUBLISHED' && post.visibility === 'PUBLIC'} />
         {post.status === 'PUBLISHED' && <SimilarPosts key={`similar-${post.id}`} postId={post.id} />}
