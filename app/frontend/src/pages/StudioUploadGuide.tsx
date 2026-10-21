@@ -6,8 +6,8 @@ import { fieldErrors } from '../lib/fieldErrors'
 import { t } from '../lib/i18n'
 import { CHANNEL_KIND, socialHref, type SocialLinks } from '../lib/socialLinks'
 import {
-  canShareFiles, deleteUpload, PLATFORMS, recordUpload, setOnBlog, shareVideo, uploadGuide, videoFileName,
-  type Platform, type ShortsItem,
+  canShareFiles, deleteUpload, PLATFORMS, PLAYLISTS, recordUpload, setOnBlog, setPlaylist, shareVideo, uploadGuide, videoFileName,
+  type Platform, type ShortsItem, type ShortsPlaylist,
 } from '../lib/shorts'
 
 /**
@@ -46,6 +46,8 @@ export function StudioUploadGuide({ item, onChange }: { item: ShortsItem; onChan
             </li>
           ))}
         </ul>
+
+        {platform === 'YOUTUBE' && !item.replay && item.postId != null && <PlaylistPicker item={item} onChange={onChange} />}
 
         <ol className="studio-steps">
           {guide.steps.map((step) => <li key={step}>{step}</li>)}
@@ -136,6 +138,33 @@ function MyChannel({ platform, links }: { platform: Platform; links: SocialLinks
   return (
     <a className="btn btn-outline btn-small" href={socialHref(kind, value)} target="_blank" rel="noopener noreferrer"
       data-tip={t('블로그에 이은 내 채널을 새 탭에서 열어요')}>{t('내 채널 열기')}</a>
+  )
+}
+
+/** 넣을 재생목록 묶음 (2026-10-21 블로그 주인 결정). 고르면 올리는 순서에 재생목록 이름이 나온다. 대본·영상은 그대로다 */
+function PlaylistPicker({ item, onChange }: { item: ShortsItem; onChange: (item: ShortsItem) => void }) {
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(false)
+  const pick = async (value: string) => {
+    setSaving(true)
+    setError(false)
+    try {
+      onChange(await setPlaylist(item.id, (value || null) as ShortsPlaylist | null))
+    } catch {
+      setError(true)
+    } finally {
+      setSaving(false)
+    }
+  }
+  return (
+    <div className="field studio-playlist">
+      <label htmlFor="studio-playlist">{t('재생목록 묶음')}</label>
+      <select id="studio-playlist" value={item.playlist ?? ''} disabled={saving} onChange={(e) => void pick(e.target.value)}>
+        <option value="">{t('아직 안 골랐어요')}</option>
+        {PLAYLISTS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+      </select>
+      {error && <span className="error" role="alert">{t('잠시 후 다시 시도해 주세요.')}</span>}
+    </div>
   )
 }
 

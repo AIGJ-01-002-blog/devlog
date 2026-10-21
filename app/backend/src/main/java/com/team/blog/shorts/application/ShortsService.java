@@ -53,10 +53,11 @@ public class ShortsService {
                        int attempts, String videoUrl, Integer durationMs, Long videoBytes, String error, double estimatedSeconds,
                        Instant queuedAt, Instant renderedAt, Instant createdAt, Instant updatedAt, int version,
                        List<String> postTags, List<Upload> uploads, Long batchId, Integer topic, TradeReplay replay, String character,
-                       boolean outro, boolean onBlog) {
+                       boolean outro, boolean onBlog, Playlist playlist) {
         Item with(List<String> tags, List<Upload> ups) {
             return new Item(id, postId, postTitle, postUrl, title, scenes, status, attempts, videoUrl, durationMs, videoBytes, error,
-                    estimatedSeconds, queuedAt, renderedAt, createdAt, updatedAt, version, tags, ups, batchId, topic, replay, character, outro, onBlog);
+                    estimatedSeconds, queuedAt, renderedAt, createdAt, updatedAt, version, tags, ups, batchId, topic, replay, character, outro, onBlog,
+                    playlist);
         }
     }
 
@@ -312,6 +313,27 @@ public class ShortsService {
 
     public record BlogBody(Boolean visible) {}
 
+    /** 재생목록 묶음. label은 YouTube에 만들 재생목록 이름에 쓴다 */
+    public enum Playlist {
+        DEPLOY("배포"), DB("DB"), SECURITY("보안"), PERFORMANCE("성능"), AI("AI협업");
+
+        public final String label;
+
+        Playlist(String label) {
+            this.label = label;
+        }
+
+        /** 이름(DEPLOY)이나 한글 이름(배포) 모두 받는다. 대소문자는 가리지 않는다 */
+        public static Optional<Playlist> parse(String raw) {
+            if (raw == null) return Optional.empty();
+            String v = raw.strip();
+            for (Playlist p : values()) if (p.name().equalsIgnoreCase(v) || p.label.equalsIgnoreCase(v)) return Optional.of(p);
+            return Optional.empty();
+        }
+    }
+
+    public record PlaylistBody(String playlist) {}
+
     /**
      * 남긴 영상 주소를 블로그·글 화면에 보일지 (spec 103, #399). 기본은 보인다. 대본이 아니라서 버전을 올리지 않는다.
      */
@@ -323,6 +345,22 @@ public class ShortsService {
         tx.executeWithoutResult(s -> {
             lock(memberId, id);
             jdbc.update("UPDATE shorts SET on_blog = ? WHERE id = ?", body.visible(), id);
+        });
+        return get(memberId, id);
+    }
+
+    /**
+     * 쇼츠를 넣을 재생목록 묶음 (2026-10-21 블로그 주인 결정: 배포·DB·보안·성능·AI협업 재생목록으로 몰아보게).
+     * 재생목록은 회원이 YouTube에서 직접 만들고 넣는다. 대본이 아니라서 버전을 올리지 않고 만든 영상도 그대로 둔다. 빈 값이면 고른 것을 지운다.
+     */
+    public Item setPlaylist(long memberId, long id, PlaylistBody body) {
+        requireEnabled();
+        String raw = body == null || body.playlist() == null ? "" : body.playlist().strip();
+        Playlist playlist = raw.isEmpty() ? null : Playlist.parse(raw).orElseThrow(() -> ApiException.validation(List.of(
+                new FieldErrorItem("playlist", "INVALID", "재생목록은 배포·DB·보안·성능·AI협업 가운데 하나를 골라 주세요."))));
+        tx.executeWithoutResult(s -> {
+            lock(memberId, id);
+            jdbc.update("UPDATE shorts SET playlist = ? WHERE id = ?", playlist == null ? null : playlist.name(), id);
         });
         return get(memberId, id);
     }
@@ -516,7 +554,7 @@ public class ShortsService {
                 Math.round(ShortsScript.estimateSeconds(scenes) * 10) / 10.0,
                 instant(rs, "queued_at"), instant(rs, "rendered_at"), instant(rs, "created_at"), instant(rs, "updated_at"),
                 rs.getInt("version"), List.of(), List.of(), nullableLong(rs, "batch_id"), nullableInt(rs, "topic"), replay(rs.getString("replay")),
-                rs.getString("mascot"), rs.getBoolean("outro"), rs.getBoolean("on_blog"));
+                rs.getString("mascot"), rs.getBoolean("outro"), rs.getBoolean("on_blog"), Playlist.parse(rs.getString("playlist")).orElse(null));
     }
 
     private TradeReplay replay(String raw) {

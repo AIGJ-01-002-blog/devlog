@@ -70,6 +70,11 @@ public class ShortsController {
         return shorts.setOnBlog(me.id(), id, body);
     }
 
+    @PutMapping("/api/me/shorts/{id}/playlist")
+    public ShortsService.Item setPlaylist(@CurrentMember MemberPrincipal me, @PathVariable long id, @RequestBody ShortsService.PlaylistBody body) {
+        return shorts.setPlaylist(me.id(), id, body);
+    }
+
     @GetMapping("/api/me/shorts/{id}")
     public ResponseEntity<ShortsService.Item> get(@CurrentMember MemberPrincipal me, @PathVariable long id) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(shorts.get(me.id(), id));

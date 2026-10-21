@@ -47,8 +47,14 @@ class ShortsTools {
     static final String CHARACTER_SCHEMA =
             "\"character\":{\"type\":\"string\",\"enum\":[\"lognyang\",\"logduck\",\"dubu\",\"cat\"],\"description\":\"연기할 캐릭터 (선택). lognyang 후드 입은 고양이 로그냥(기본), logduck 스카프 맨 오리 로그덕, dubu 흰 강아지 두부, cat Noto 이모지 고양이. 사용자가 고른 캐릭터가 있을 때만 준다\"},";
 
+    static final String PLAYLIST = "playlist";
+    /** 묶음별 재생목록(2026-10-21 블로그 주인 결정). 이것만 주면 대본과 만든 영상은 그대로 둔다 */
+    static final String PLAYLIST_SCHEMA =
+            "\"playlist\":{\"type\":\"string\",\"enum\":[\"DEPLOY\",\"DB\",\"SECURITY\",\"PERFORMANCE\",\"AI\",\"\"],\"description\":\"넣을 재생목록 묶음 (선택). DEPLOY 배포·운영, DB 데이터·트랜잭션, SECURITY 보안·인증, PERFORMANCE 성능·장애 전파, AI AI협업. 빈 문자열이면 지운다. 이것만 주면 대본과 만든 영상은 그대로 둔다\"},";
+
     /**
-     * 대본 쓰기 안내 (#277). 길이는 30~45초(#431, 2026-10-20 블로그 주인 결정. 전에는 1분~1분 30초). 구조는 블로그 주인이 정한 "잘 되는 쇼츠" 틀(후킹 → 본론 → 반전·정리 → CTA)을
+     * 대본 쓰기 안내 (#277). 길이는 30~45초(#431, 2026-10-20 블로그 주인 결정. 전에는 1분~1분 30초).
+     * 제목은 "[백엔드 면접] 질문형"(2026-10-21 블로그 주인 결정 "하루 1개, 7주"). 그래서 제목만은 "~하는 이유"로 끝나도 된다. 구조는 블로그 주인이 정한 "잘 되는 쇼츠" 틀(후킹 → 본론 → 반전·정리 → CTA)을
      * 이 길이에 맞게 줄인 것이고, "AI 티" 줄이는 법(내 말투, 후킹 고르기, 상투어 빼기, 실제 경험·숫자)을 함께 둔다.
      * 후킹 종류와 본론 틀은 여러 가지 가운데 최근 영상과 다른 것을 고르게 한다(쇼츠 다양화 2026-10-17: 반복적인 영상은 수익화가 안 된다).
      */
@@ -62,7 +68,10 @@ class ShortsTools {
             + "첫 장면 요점 자막(caption)은 영상의 커버·썸네일이 된다: 15자 안팎으로, 글 속의 구체적인 대상(에러 이름·글자 하나·숫자·도구 이름)을 넣고 "
             + "\"~하는 이유\", \"~하는 법\"처럼 교과서 말로 끝내지 않는다(예: \"s 한 글자에 로그인이 막혔다\", \"ERROR 로그가 딱 1줄?\"). "
             + "첫 장면 visual은 후킹에 맞춘다: 질문이면 think, 결과 먼저면 celebrate나 idea, 숫자 한 방은 글에 전후 숫자가 둘 다 있을 때만 fast(전후 막대)이고 숫자가 하나뿐이면 shock, 경고면 panic, 반박이면 shock. "
-            + "제목(title)도 같은 규칙으로 구체적인 대상을 앞에 두고 40자 안으로 쓰며, \"~하는 이유\"로 끝내지 않는다. 시리즈 이름(에러로그 30초)은 올리기 안내가 제목 끝에 붙이니 제목에 넣지 않는다. "
+            + "제목(title)은 백엔드 면접에서 나올 법한 질문형으로, 구체적인 대상(에러 이름·어노테이션·숫자·도구 이름)을 앞에 두고 40자 안으로 쓴다"
+            + "(예: \"@Transactional 붙였는데 롤백이 안 되는 이유\", \"로그인 토큰, 로컬 스토리지에 두면 왜 위험할까\"). "
+            + "앞머리 [백엔드 면접]은 올리기 안내가 제목 앞에 붙이니 제목에 넣지 않는다. "
+            + "대본을 저장한 뒤 update_shorts_script의 playlist로 재생목록 묶음(배포·DB·보안·성능·AI협업) 가운데 하나를 고른다. "
             + "② 본론(약 20~30초): 핵심은 1~2개만, 짧은 문장으로 빠르게. 내레이션은 한 문장에 생각 하나, 25자 안팎으로 끊고 \"자, 그럼\" 같은 이음말은 뺀다. 본론 틀은 글에 맞는 것 하나를 고른다: "
             + "문제→원인→해결, 오해→진실, 전후 비교, 숫자 반전(예상한 숫자와 실제 숫자), 단계별 따라하기, 실패담(시도→실패→깨달음). "
             + "원리 도식은 1개까지만 쓰고, 요청·데이터가 오가는 원리(로그인 리다이렉트, 소켓 연결 등)는 글 설명 대신 흐름 도식으로 보여 준다. "
@@ -184,8 +193,19 @@ class ShortsTools {
         // null·숫자를 빈 값으로 읽으면 캐릭터를 지우고 만든 영상까지 지우므로 고치기 전에 막는다
         if (badCharacter(a)) return McpTools.Result.fail(CHARACTER_TYPE);
         String character = a.has(CHARACTER) ? text(a, CHARACTER) : null;
-        if (title == null && scenes == null && character == null) return McpTools.Result.fail("바꿀 제목(title)·장면(scenes)·캐릭터(character)를 주세요.");
+        if (a.has(PLAYLIST) && !a.get(PLAYLIST).isString()) return McpTools.Result.fail("재생목록(playlist)은 DEPLOY·DB·SECURITY·PERFORMANCE·AI 가운데 하나를 문자열로 주세요.");
+        String playlist = a.has(PLAYLIST) ? text(a, PLAYLIST) : null;
+        if (title == null && scenes == null && character == null && playlist == null) {
+            return McpTools.Result.fail("바꿀 제목(title)·장면(scenes)·캐릭터(character)·재생목록(playlist)을 주세요.");
+        }
         try {
+            if (playlist != null) {
+                ShortsService.Item item = shorts.setPlaylist(caller.memberId(), id, new ShortsService.PlaylistBody(playlist));
+                if (title == null && scenes == null && character == null) {
+                    return McpTools.Result.ok("쇼츠 " + id + "번 재생목록을 " + (item.playlist() == null ? "비웠어요" : "'" + item.playlist().label + "'(으)로 정했어요")
+                            + ". 대본과 만든 영상은 그대로예요.");
+                }
+            }
             ShortsService.Item item = shorts.update(caller.memberId(), id, new ShortsService.Edit(title, scenes, null, character));
             return McpTools.Result.ok("쇼츠 " + id + "번 대본을 고쳤어요 (예상 " + Math.round(item.estimatedSeconds()) + "초). 만들어 둔 영상이 있었다면 지워졌어요.\n"
                     + lengthHint(item.estimatedSeconds()) + report(shorts.check(caller.memberId(), id)) + "\n확인 화면: " + studioUrl(id));
@@ -214,6 +234,7 @@ class ShortsTools {
             if (i.replay() != null) sb.append(" · 매매 재현(체결 ").append(i.replay().fills().size()).append("개)");
             if (!i.scenes().isEmpty()) sb.append(" · 첫 장면: ").append(clip(i.scenes().get(0).narration(), HOOK_PREVIEW));
             if (i.batchId() != null) sb.append(" · 묶음 ").append(i.batchId()).append("의 ").append(i.topic()).append("번 주제");
+            if (i.playlist() != null) sb.append(" · 재생목록 ").append(i.playlist().label);
             if (i.error() != null && i.status() != ShortsService.Status.READY) sb.append(" · 최근 오류: ").append(i.error());
             sb.append('\n');
         }

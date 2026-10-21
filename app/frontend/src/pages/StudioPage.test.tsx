@@ -16,7 +16,7 @@ describe('StudioPage', () => {
     scenes: [{ caption: '소켓', narration: '소켓 하나로 시작해요.', code: null }],
     status: 'QUEUED', attempts: 0, videoUrl: null, durationMs: null, videoBytes: null, error: null,
     estimatedSeconds: 5, queuedAt: null, renderedAt: null, createdAt: '', updatedAt: '', version: 1,
-    postTags: [], uploads: [], replay: null, batchId: null, topic: null, character: null, outro: true, onBlog: true,
+    postTags: [], uploads: [], replay: null, batchId: null, topic: null, character: null, outro: true, onBlog: true, playlist: null,
   }
 
   beforeEach(() => {

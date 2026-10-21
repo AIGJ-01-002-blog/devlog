@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ApiError } from './api'
-import { emptyScene, estimateSeconds, groupByBatch, hashtags, renderProblems, reportOf, shareVideo, uploadGuide, videoFileName, workerOnline, writtenTopics, type ShortsBatch, type ShortsItem } from './shorts'
+import { emptyScene, estimateSeconds, groupByBatch, hashtags, playlistName, renderProblems, reportOf, shareVideo, uploadGuide, videoFileName, workerOnline, writtenTopics, type ShortsBatch, type ShortsItem } from './shorts'
 
 const scene = (narration: string) => ({ caption: '자막', narration, code: null })
 
@@ -54,7 +54,7 @@ describe('shorts', () => {
     scenes: [scene('왜 배포만 하면 다 로그아웃될까요?'), scene('직렬화가 범인이었어요.'), scene('JSON으로 바꿨어요.')],
     status: 'READY', attempts: 1, videoUrl: '/media/shorts/2026/10/a.mp4', durationMs: 31500, videoBytes: 1000, error: null,
     estimatedSeconds: 30, queuedAt: null, renderedAt: null, createdAt: '', updatedAt: '', version: 1,
-    postTags: ['spring', 'spring-boot', 'c++', '세션', 'redis', 'docker', 'k8s'], uploads: [], batchId: null, topic: null, replay: null, character: null, outro: true, onBlog: true, ...over,
+    postTags: ['spring', 'spring-boot', 'c++', '세션', 'redis', 'docker', 'k8s'], uploads: [], batchId: null, topic: null, replay: null, character: null, outro: true, onBlog: true, playlist: null, ...over,
   })
 
   it('태그를 해시태그로 바꿀 때 못 쓰는 글자를 빼고 한도까지만 쓴다', () => {
@@ -65,28 +65,42 @@ describe('shorts', () => {
 
   it('YouTube는 제목 칸과 누를 수 있는 글 링크를 설명에 넣는다', () => {
     const g = uploadGuide(ready(), 'YOUTUBE', 'https://devlog.life')
-    expect(g.title).toBe('배포하면 왜 로그아웃될까 | 에러로그 30초')
-    expect(g.caption).toBe('왜 배포만 하면 다 로그아웃될까요?\n\n전체 글: https://devlog.life/@minseo/posts/7\n\n#spring #springboot #c')
+    expect(g.title).toBe('[백엔드 면접] 배포하면 왜 로그아웃될까')
+    // 설명 첫 줄은 원본 글 링크 (2026-10-21 블로그 주인 결정)
+    expect(g.caption).toBe('전체 글: https://devlog.life/@minseo/posts/7\n\n왜 배포만 하면 다 로그아웃될까요?\n\n#spring #springboot #c')
     expect(g.pinnedComment).toContain('https://devlog.life/@minseo/posts/7')
     expect(g.pinnedComment).toContain('이 문제 겪어 보셨나요?')
     expect(g.checks.every((c) => c.ok)).toBe(true)
     expect(g.steps.length).toBeGreaterThan(3)
+    expect(g.steps.some((x) => x.includes('[예약]') && x.includes('20:00'))).toBe(true)
+    expect(g.playlistName).toBeNull()
+  })
+
+  it('재생목록 묶음을 고르면 제목과 같은 앞머리의 재생목록 이름을 알려 준다', () => {
+    const g = uploadGuide(ready({ playlist: 'AI' }), 'YOUTUBE', 'https://devlog.life')
+    expect(g.playlistName).toBe('[백엔드 면접] AI협업')
+    expect(g.steps.some((x) => x.includes('"[백엔드 면접] AI협업"'))).toBe(true)
+    expect(playlistName('DB')).toBe('[백엔드 면접] DB')
+    expect(uploadGuide(ready({ playlist: 'DB', replay: {} as ShortsItem['replay'] }), 'YOUTUBE', 'https://devlog.life').playlistName).toBeNull()
   })
 
   it('Instagram·TikTok은 캡션 링크를 못 누르니 고정 댓글로 안내하고 해시태그는 5개까지', () => {
     for (const p of ['INSTAGRAM', 'TIKTOK'] as const) {
       const g = uploadGuide(ready(), p, 'https://devlog.life')
       expect(g.title).toBeNull()
-      expect(g.caption.startsWith('배포하면 왜 로그아웃될까 | 에러로그 30초\n\n')).toBe(true)
+      expect(g.caption.startsWith('[백엔드 면접] 배포하면 왜 로그아웃될까\n\n')).toBe(true)
       expect(g.caption).not.toContain('https://')
       expect(g.caption).toContain('고정 댓글')
       expect(g.tags).toHaveLength(5)
       expect(g.pinnedComment).toContain('https://devlog.life/@minseo/posts/7')
-      if (p === 'INSTAGRAM') expect(g.steps.some((x) => x.includes('Trial Reels'))).toBe(true)
+      if (p === 'INSTAGRAM') {
+        expect(g.steps.some((x) => x.includes('Trial Reels'))).toBe(true)
+        expect(g.steps.some((x) => x.includes('예약') && x.includes('20:00'))).toBe(true)
+      }
     }
   })
 
-  it('매매 재현 영상에는 시리즈 이름을 붙이지 않는다', () => {
+  it('매매 재현 영상에는 [백엔드 면접] 앞머리를 붙이지 않는다', () => {
     const g = uploadGuide(ready({ replay: {} as ShortsItem['replay'] }), 'YOUTUBE', 'https://devlog.life')
     expect(g.title).toBe('배포하면 왜 로그아웃될까')
   })
@@ -95,7 +109,7 @@ describe('shorts', () => {
     const g = uploadGuide(ready({ postUrl: null, postId: null, postTags: [], title: '가'.repeat(60) }), 'YOUTUBE', 'https://devlog.life')
     expect(g.pinnedComment).toContain('https://devlog.life/')
     expect(g.tags).toEqual([])
-    expect(g.title).not.toContain('에러로그 30초')
+    expect(g.title).not.toContain('[백엔드 면접]')
     const long = uploadGuide(ready({ durationMs: 200_000 }), 'YOUTUBE', 'https://devlog.life')
     expect(long.checks[0].ok).toBe(false)
   })
