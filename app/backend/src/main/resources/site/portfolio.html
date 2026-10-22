@@ -1,10 +1,42 @@
 <!-- /portfolio 본문 (spec 107 FR-015). 서버가 첫 화면에 그대로 넣고 React도 같은 HTML을 그린다.
-     숫자는 공개 글·PR·저장소에서 잰 값만 쓴다. 근거를 못 찾은 숫자는 비워 둔다. 인쇄하면 A4 한 장에 들어가야 한다. 사례 순서는 일반 백엔드 지원 기준(배포 → 쿼리 → 보안 → MCP → jpop.today → 버그)이다.
+     숫자는 공개 글·PR·저장소에서 잰 값만 쓴다. 근거를 못 찾은 숫자는 비워 둔다. 인쇄하면 A4 두 장(요약 1장 + 사례 1장)이다.
+     구성은 지원용 PDF와 같다: 머리 띠 → 01 숫자 4칸 → 02 프로젝트 2칸 → 03 기술 4칸 → 하단 띠 → 04 사례 6개. 이름·연락처는 넣지 않는다.
+     사례 순서는 일반 백엔드 지원 기준(배포 → 쿼리 → 보안 → MCP → jpop.today → 버그)이다.
      {{links}}는 GitHub·YouTube·jpop.today 링크 줄, {{owner}}는 운영자 블로그 주소로 바뀐다(SitePortfolio). -->
+<div class="pf-summary">
+<div class="pf-band">
+<p class="pf-label">DEVLOG · PORTFOLIO</p>
+<p class="pf-role">AI 기능을 <em>서비스로 연결하는</em> 백엔드 개발자</p>
 <p class="portfolio-intro">서비스 2개를 혼자 설계·배포·운영하며 배포·성능·보안 문제를 해결하고 글 120편 넘게 기록해요. AI 에이전트를 개발 도구로 쓰되 설계 결정·검증·운영 책임은 제가 져요. <a href="/about#ai">AI 사용 범위</a></p>
-<p class="portfolio-stack"><b>기술</b> Java 21 · Spring Boot 4.1 · PostgreSQL · Redis · k3s · Cloudflare Tunnel · GitHub Actions · Testcontainers</p>
-<p class="portfolio-stack"><b>LLM 연동</b> MCP 서버(JSON-RPC · OAuth 2.1 + PKCE) · 도구 권한·요청 제한·비밀값 검사 · 명세와 CI로 검증하는 AI 에이전트 개발</p>
 {{links}}
+</div>
+<p class="pf-label">01 · NUMBERS</p>
+<h2 class="pf-h">운영하며 잰 숫자</h2>
+<div class="pf-grid4">
+<div class="pf-num"><b>892건 중 0</b><span>무중단 배포 42초 동안 실패한 요청</span><small>devlog #17</small></div>
+<div class="pf-num"><b>60초</b><span>망가진 버전을 직전 버전으로 자동 롤백</span><small>devlog #50</small></div>
+<div class="pf-num pf-hot"><b>61 → 1</b><span>글 20개 목록 SQL · p95 16.75 → 3.93ms</span><small>PR #472 실측</small></div>
+<div class="pf-num"><b>24 중 17</b><span>MCP 도구 기본 노출, 발행·삭제는 회원이 켤 때만</span><small>devlog #44</small></div>
+</div>
+<p class="pf-label">02 · PROJECTS</p>
+<h2 class="pf-h">두 프로젝트</h2>
+<div class="pf-grid2">
+<div class="pf-card pf-proj"><img src="/release-assets/v2.17.0/portfolio-devlog.jpg" alt="devlog 첫 화면" width="640" height="320" loading="lazy"><p class="pf-pmeta"><b>devlog</b><small>2026.10 – 운영 중</small></p><p>AI 에이전트가 쓴 개발 일지를 검수해 발행하는 velog형 블로그. 혼자 설계·배포·운영하며 글 120편 넘게 기록해요.</p></div>
+<div class="pf-card pf-proj"><img src="/release-assets/v2.17.0/portfolio-mushmush.jpg" alt="MushMush 재배 관리 화면" width="640" height="320" loading="lazy"><p class="pf-pmeta"><b>MushMush</b><small>2026.07 – 09</small></p><p>버섯 재배 관리 서비스 · NHN Academy 9인 팀. 담당: 가상 센서(MQTT) · AI 서버 · Vision(YOLO11).</p></div>
+</div>
+<p class="pf-label">03 · SKILLS</p>
+<h2 class="pf-h">실제로 쓴 기술</h2>
+<div class="pf-grid2">
+<div class="pf-card pf-skill"><p class="pf-label">01 BACKEND</p><p class="pf-stitle">Java · Spring Boot · MQTT</p><ul><li>MQTT 가상 센서 Data Generator 구현</li><li>Feign 요청 계약 정리, Outbox 이벤트 발행</li></ul></div>
+<div class="pf-card pf-skill"><p class="pf-label">02 AI · DATA</p><p class="pf-stitle">FastAPI · YOLO11 · Spring AI</p><ul><li>품종 탐지·건강 분류 추론 API</li><li>LLM 일일 피드백, pgvector 하이브리드 검색</li></ul></div>
+<div class="pf-card pf-skill"><p class="pf-label">03 INFRA · DEVOPS</p><p class="pf-stitle">Docker · Kubernetes · Actions</p><ul><li>무중단 배포와 자동 롤백, Redis 세션</li><li>Cloudflare Tunnel로 devlog.life 운영</li></ul></div>
+<div class="pf-card pf-skill"><p class="pf-label">04 AI 협업 · TEST</p><p class="pf-stitle">Claude Code · Spec Kit · MCP</p><ul><li>명세를 먼저 쓰고 AI 에이전트 팀으로 구현</li><li>JUnit · Mockito · pytest · Testcontainers</li></ul></div>
+</div>
+<p class="pf-band pf-bottom">검증한 것만 서비스로 내보내고, <em>모르는 것은 모른다고</em> 표시해요</p>
+</div>
+<div class="pf-cases">
+<p class="pf-label">04 · CASES</p>
+<h2 class="pf-h">문제 → 결정 → 결과</h2>
 <section class="portfolio-case" id="deploy">
 <h2>1. 배포 중에도 끊기지 않는 서비스</h2>
 <ul>
@@ -59,3 +91,4 @@
 </ul>
 <p class="portfolio-source">근거: <a href="/@{{owner}}/posts/141">수량 × 가격이 long을 넘으면</a> (PR #349)</p>
 </section>
+</div>
