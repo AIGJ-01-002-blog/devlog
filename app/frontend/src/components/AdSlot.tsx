@@ -17,6 +17,8 @@ export function adSlotConfig(doc: Document = document): { client: string; slot: 
  * 글 아래 광고 자리 (spec 107). 광고 스위치(ADS_PROVIDER)가 none인 지금은 메타가 없어 아무것도 그리지 않는다.
  * 켜면 처음부터 높이를 잡아 두어 광고가 늦게 와도 본문 아래가 밀리지 않는다(CLS 0). 광고 코드는 인라인 스크립트 없이
  * 앱 번들에서 큐에 넣는다(CSP script-src 'self').
+ * 광고 코드는 서버가 글 화면 문서에만 nonce와 함께 싣는다(spec 106). 그래서 홈·목록에서 화면 안 이동으로 글에 들어오면
+ * 광고 코드가 없어 자리를 그리지 않는다. 검색에서 글로 바로 들어온 방문에만 광고가 뜨는 것은 의도한 동작이다.
  */
 export function AdSlot() {
   const config = adSlotConfig()
