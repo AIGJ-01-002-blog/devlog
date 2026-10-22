@@ -13,7 +13,7 @@
 
     <groupId>com.team</groupId>
     <artifactId>blog</artifactId>
-    <version>2.14.0</version>
+    <version>2.15.0</version>
     <name>blog</name>
     <description>velog형 개발 블로그 (모듈러 모놀리스)</description>
 
