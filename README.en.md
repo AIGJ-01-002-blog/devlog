@@ -426,6 +426,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v2.17.1 | 2026-10-22 | Portfolio print follow-up: the live page printed a blank first page (3 pages); everything outside the main area is now hidden in print | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.17.1) |
 | v2.17.0 | 2026-10-22 | Portfolio in the same design as the application PDF: prints as two A4 pages (page 1 summary with 4 numbers, 2 projects and 4 skill cards; page 2 the six cases), design tokens with Pretendard and JetBrains Mono | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.17.0) |
 | v2.16.0 | 2026-10-22 | Portfolio feedback: case 2 now measured (61 SQL statements → 1, p95 16.75 ms → 3.93 ms) with a measurement test, intro and stack line tidied, case 5 ledger 99 → 192 entries and confirmed songs 42 → 91, how the case 6 bug was found, YouTube link | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.16.0) |
 | v2.15.0 | 2026-10-22 | Six portfolio cases: an MCP server that lets AI write to the blog (17 of 24 tools visible by default, 60 calls/min and 30 writes/hour), an "LLM integration" stack line, intro now "records how LLMs are put into a service", still one A4 page | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.15.0) |
