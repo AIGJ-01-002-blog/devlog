@@ -379,10 +379,10 @@ npm run dev        # http://localhost:5173
 
 | 技术 | 使用位置 | 作用 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | 后端 | 单元与集成测试 883 个（截至 v2.12.0） |
+| JUnit 5 · Spring Boot Test · Spring Security Test | 后端 | 单元与集成测试 898 个（截至 v2.13.0） |
 | Testcontainers (PostgreSQL) | 后端 | 在真实的 PostgreSQL 上验证迁移、查询和并发 |
 | JaCoCo | 后端 | 在 CI 中检查 40% 行覆盖率的门槛 |
-| Vitest · Testing Library · jsdom | 前端 | 界面与逻辑测试 430 个（截至 v2.12.0） |
+| Vitest · Testing Library · jsdom | 前端 | 界面与逻辑测试 434 个（截至 v2.13.0） |
 | fake-indexeddb | 前端 | 离线自动保存的测试 |
 
 ## 版本发布
@@ -391,6 +391,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v2.13.0 | 2026-10-22 | 作品集博客与搜索索引整理: `/portfolio`(5 个案例，问题 → 决策 → 结果数字，打印为一页 A4)、`/contact`、关于页的 AI 使用范围；日记、未审核的外部会员文章、短文和标签页改为 `noindex, follow`；站点地图拆成三个文件；"AI 辅助写作"标记和每周日的周回顾草稿；广告开关默认关闭；短视频工作室台本队列 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.13.0) |
 | v2.12.0 | 2026-10-21 | 短视频"每天一条，七周"运营: 文章短视频标题开头加"[백엔드 면접]"(后端面试)，YouTube 说明第一行是原文章链接，步骤中安排每天晚上 8 点定时公开，每条短视频可选播放列表分组(部署、DB、安全、性能、AI 协作) | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.12.0) |
 | v2.11.0 | 2026-10-21 | 短视频标签页一行(三条)使用同一色系: 首画面颜色每三条一组，明暗色系交替(薄荷 → 夜 → 日落 → 海洋 → 葡萄 → 单色 → 纸)，同一成员的文章短视频依次逐条渲染以免错行 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.11.0) |
 | v2.10.0 | 2026-10-20 | 根据短视频播放分析调整: 第一帧作为封面(大标题、舞台布局)，建议长度 30~45 秒，从 13 个开发短视频频道借鉴的 11 项(3 秒剪辑、先讲症状、循环结尾、置顶评论提问等)，系列名固定为「에러로그 30초」 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.10.0) |
