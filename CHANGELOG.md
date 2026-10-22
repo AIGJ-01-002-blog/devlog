@@ -10,6 +10,31 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
+## [2.15.0] - 2026-10-22
+
+**목표: 포트폴리오 사례 6개, 백엔드 + LLM 연동** ([목표 이슈 #467](https://github.com/AIGJ-01-002-blog/devlog/issues/467))
+
+지원 방향(Java/Spring 백엔드, 차별점은 LLM 연동)에 맞춰 `/portfolio`에 MCP 서버 사례를 넣었다. 숫자는 근거 글 44 본문 값만 썼고, 인쇄하면 여전히 A4 한 장이다.
+
+### 화면
+| A4 인쇄 미리보기 |
+|---|
+| ![포트폴리오 사례 6개 A4 한 장](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.15.0/portfolio-print.webp) |
+
+### 추가
+- 포트폴리오 사례 4 "AI가 블로그에 글을 쓰게 하는 MCP 서버": 도구 24개 중 기본 17개, 회원당 1분 60번·쓰기 한 시간 30번, 토큰 SHA-256 해시 저장, 2026-10-11 ChatGPT 연결 확인 (#469)
+- "LLM 연동" 기술 줄 (#469)
+
+### 바꿈
+- 소개 첫 줄을 "Java/Spring 백엔드 개발자, LLM을 서비스에 붙이는 과정을 기록"으로, CWE-197 사례를 6번으로 옮겼다. README 4개 언어의 사례 4도 MCP 사례로 (#469)
+
+### 포함된 작업
+| 이슈 | 브랜치 | PR |
+|---|---|---|
+| #468 포트폴리오 MCP 서버 사례와 LLM 연동 기술 줄 | `claude/project-thread-ri23uk` | #469 |
+
+**비교:** [v2.14.0...v2.15.0](https://github.com/AIGJ-01-002-blog/devlog/compare/v2.14.0...v2.15.0)
+
 ## [2.14.0] - 2026-10-22
 
 **목표: 포트폴리오 한 장** ([목표 이슈 #462](https://github.com/AIGJ-01-002-blog/devlog/issues/462))

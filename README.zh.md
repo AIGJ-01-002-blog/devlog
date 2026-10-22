@@ -414,10 +414,10 @@ npm run dev        # http://localhost:5173
 
 | 技术 | 使用位置 | 作用 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | 后端 | 单元与集成测试 899 个（截至 v2.14.0） |
+| JUnit 5 · Spring Boot Test · Spring Security Test | 后端 | 单元与集成测试 899 个（截至 v2.15.0） |
 | Testcontainers (PostgreSQL) | 后端 | 在真实的 PostgreSQL 上验证迁移、查询和并发 |
 | JaCoCo | 后端 | 在 CI 中检查 40% 行覆盖率的门槛 |
-| Vitest · Testing Library · jsdom | 前端 | 界面与逻辑测试 434 个（截至 v2.14.0） |
+| Vitest · Testing Library · jsdom | 前端 | 界面与逻辑测试 434 个（截至 v2.15.0） |
 | fake-indexeddb | 前端 | 离线自动保存的测试 |
 
 ## 版本发布
@@ -426,6 +426,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v2.15.0 | 2026-10-22 | 作品集 6 个案例: 让 AI 给博客写文章的 MCP 服务器案例(24 个工具默认公开 17 个，每分钟 60 次、每小时写入 30 次)，"LLM 集成"技术行，简介改为"记录把 LLM 接入服务的过程"，仍为一页 A4 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.15.0) |
 | v2.14.0 | 2026-10-22 | 一页作品集: `/portfolio` 打印为一页 A4(链接旁显示网址，去掉背景和图标)，GitHub 与 jpop.today 链接行及 schema.org Person 结构化数据，案例 5 改为 jpop.today 索引策略，减少首屏布局偏移(CLS)，README 一页摘要(架构图、5 行运行命令、案例链接) | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.14.0) |
 | v2.13.0 | 2026-10-22 | 作品集博客与搜索索引整理: `/portfolio`(5 个案例，问题 → 决策 → 结果数字，打印为一页 A4)、`/contact`、关于页的 AI 使用范围；日记、未审核的外部会员文章、短文和标签页改为 `noindex, follow`；站点地图拆成三个文件；"AI 辅助写作"标记和每周日的周回顾草稿；广告开关默认关闭；短视频工作室台本队列 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.13.0) |
 | v2.12.0 | 2026-10-21 | 短视频"每天一条，七周"运营: 文章短视频标题开头加"[백엔드 면접]"(后端面试)，YouTube 说明第一行是原文章链接，步骤中安排每天晚上 8 点定时公开，每条短视频可选播放列表分组(部署、DB、安全、性能、AI 协作) | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.12.0) |
