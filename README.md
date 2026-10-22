@@ -412,10 +412,10 @@ npm run dev        # http://localhost:5173
 
 | 기술 | 쓰는 곳 | 역할 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | 백엔드 | 단위·통합 테스트 899건(v2.15.0 기준) |
+| JUnit 5 · Spring Boot Test · Spring Security Test | 백엔드 | 단위·통합 테스트 900건(v2.16.0 기준) |
 | Testcontainers (PostgreSQL) | 백엔드 | 실제 PostgreSQL로 마이그레이션·쿼리·동시성을 검증합니다 |
 | JaCoCo | 백엔드 | 줄 커버리지 40% 기준을 CI에서 확인합니다 |
-| Vitest · Testing Library · jsdom | 프론트엔드 | 화면과 로직 테스트 434건(v2.15.0 기준) |
+| Vitest · Testing Library · jsdom | 프론트엔드 | 화면과 로직 테스트 434건(v2.16.0 기준) |
 | fake-indexeddb | 프론트엔드 | 오프라인 자동 저장 테스트 |
 
 ## 릴리스
@@ -424,6 +424,7 @@ npm run dev        # http://localhost:5173
 
 | 버전 | 날짜 | 주요 내용 | 릴리스 노트 |
 | --- | --- | --- | --- |
+| v2.16.0 | 2026-10-22 | 포트폴리오 피드백 반영: 사례 2를 실측(SQL 61 → 1, p95 16.75ms → 3.93ms)과 측정 시험으로, 소개·기술 줄 정리, 사례 5 대조 기록 99 → 192건·확인곡 42 → 91, 사례 6 발견 경위, YouTube 링크 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.16.0) |
 | v2.15.0 | 2026-10-22 | 포트폴리오 사례 6개: AI가 블로그에 글을 쓰게 하는 MCP 서버 사례(도구 24개 중 기본 17개, 1분 60번·쓰기 한 시간 30번), "LLM 연동" 기술 줄, 소개 첫 줄 "LLM을 서비스에 붙이는 과정을 기록", A4 한 장 유지 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.15.0) |
 | v2.14.0 | 2026-10-22 | 포트폴리오 한 장: `/portfolio`를 A4 한 장으로 인쇄(링크 옆 주소, 배경·아이콘 빼기), GitHub·jpop.today 링크 줄과 schema.org Person 구조화 데이터, 사례 5를 jpop.today 색인 정책으로, 첫 화면 깜빡임(CLS) 줄이기, README 한 장 요약(구조도·실행 5줄·사례 링크) | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.14.0) |
 | v2.13.0 | 2026-10-22 | 포트폴리오 블로그와 검색 색인 정리: `/portfolio`(문제 → 결정 → 결과 숫자 5가지, A4 한 장)·`/contact`·소개의 AI 사용 범위, 일기·미검수 외부 회원 글·짧은 글·태그는 `noindex, follow`, 사이트맵 세 파일로, AI 보조 작성 표기와 일요일 주간 회고 초안, 광고 스위치 기본 끔, 쇼츠 스튜디오 대본 큐 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.13.0) |
