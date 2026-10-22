@@ -867,6 +867,9 @@ input[type="checkbox"], input[type="radio"] { width: auto; flex-shrink: 0; margi
   @page portfolio { size: A4; margin: 0; }
   body:has(.site-portfolio) { background: var(--pf-bg); padding: 0; }
   body:has(.site-portfolio) .site-header, body:has(.site-portfolio) .site-footer, body:has(.site-portfolio) .mobile-nav,
+  /* 본문 자리(#main-content) 앞의 건너뛰기 링크·알림 줄·빈 배너 자리가 기본 쪽에 남으면, 이름 붙은 쪽(portfolio)으로
+     넘어가며 빈 첫 장이 생긴다. 인쇄할 때는 본문 자리 말고 모두 숨긴다 */
+  body:has(.site-portfolio) :has(> #main-content) > :not(#main-content),
   .site-portfolio-head, .site-portfolio .muted { display: none !important; }
   .site-portfolio { page: portfolio; max-width: none; width: 210mm; margin: 0; padding: 0; border-radius: 0; font-size: 8.4pt; line-height: 1.45;
     -webkit-print-color-adjust: exact; print-color-adjust: exact; }
