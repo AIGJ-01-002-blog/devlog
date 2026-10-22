@@ -414,10 +414,10 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | 技術 | 使う場所 | 役割 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | バックエンド | 単体・結合テスト 899 件（v2.15.0 時点） |
+| JUnit 5 · Spring Boot Test · Spring Security Test | バックエンド | 単体・結合テスト 900 件（v2.16.0 時点） |
 | Testcontainers (PostgreSQL) | バックエンド | 本物の PostgreSQL でマイグレーション・クエリ・並行処理を検証します |
 | JaCoCo | バックエンド | 行カバレッジ 40% の基準を CI で確認します |
-| Vitest · Testing Library · jsdom | フロントエンド | 画面とロジックのテスト 434 件（v2.15.0 時点） |
+| Vitest · Testing Library · jsdom | フロントエンド | 画面とロジックのテスト 434 件（v2.16.0 時点） |
 | fake-indexeddb | フロントエンド | オフライン自動保存のテスト |
 
 ## リリース
@@ -426,6 +426,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | バージョン | 日付 | 主な内容 | リリースノート |
 | --- | --- | --- | --- |
+| v2.16.0 | 2026-10-22 | ポートフォリオのフィードバック反映: 事例2を実測(SQL 61回 → 1回、p95 16.75ms → 3.93ms)と測定テストに、紹介文・技術行の整理、事例5の照合記録 99 → 192件・確認曲 42 → 91、事例6の発見経緯、YouTube リンク | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.16.0) |
 | v2.15.0 | 2026-10-22 | ポートフォリオ事例6件: AI がブログに記事を書ける MCP サーバー事例(ツール24個のうち既定17個、1分60回・書き込み1時間30回)、「LLM 連携」技術行、紹介文を「LLM をサービスに組み込む過程を記録」に、A4 1枚を維持 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.15.0) |
 | v2.14.0 | 2026-10-22 | ポートフォリオ1枚: `/portfolio` を A4 1枚で印刷(リンク横に URL、背景・アイコンなし)、GitHub・jpop.today のリンク行と schema.org Person 構造化データ、事例5を jpop.today のインデックス方針に、初回表示のずれ(CLS)を軽減、README の1枚要約(構成図・実行5行・事例リンク) | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.14.0) |
 | v2.13.0 | 2026-10-22 | ポートフォリオブログと検索インデックスの整理: `/portfolio`(課題 → 判断 → 結果の数値を5件、A4 1枚)・`/contact`・紹介ページの AI 利用範囲、日記・未審査の外部会員記事・短い記事・タグは `noindex, follow`、サイトマップを3ファイルに分割、「AI 補助作成」表示と日曜の週次振り返り下書き、広告スイッチは既定でオフ、ショートスタジオの台本キュー | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.13.0) |
