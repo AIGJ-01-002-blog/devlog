@@ -16,6 +16,8 @@ import { match, navigate, useLocation } from './lib/router'
 import { BlogPage } from './pages/BlogPage'
 import { SeriesPage } from './pages/SeriesPage'
 import { PortfolioPage } from './pages/PortfolioPage'
+// 사이트 포트폴리오는 작은 화면이라 처음부터 같이 받는다. lazy면 서버 본문을 지운 뒤 다시 그려 첫 화면이 밀렸다(CLS 1.08, v2.13.0 보고)
+import { SitePortfolioPage } from './pages/SitePortfolioPage'
 import { LikedPage, RecentReadsPage } from './pages/LikedPage'
 import { FeedPage } from './pages/FeedPage'
 import { FollowsPage } from './pages/FollowsPage'
@@ -66,7 +68,6 @@ const RssGuidePage = lazyPage(() => import('./pages/RssGuidePage'), 'RssGuidePag
 const AdminInquiryPage = lazyPage(() => import('./pages/AdminInquiryPage'), 'AdminInquiryPage')
 const AboutPage = lazyPage(() => import('./pages/AboutPage'), 'AboutPage')
 const ContactPage = lazyPage(() => import('./pages/ContactPage'), 'ContactPage')
-const SitePortfolioPage = lazyPage(() => import('./pages/SitePortfolioPage'), 'SitePortfolioPage')
 const StudioPage = lazyPage(() => import('./pages/StudioPage'), 'StudioPage')
 const DashboardPage = lazyPage(() => import('./pages/DashboardPage'), 'DashboardPage')
 const TradesPage = lazyPage(() => import('./pages/TradesPage'), 'TradesPage')

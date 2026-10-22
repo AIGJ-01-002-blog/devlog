@@ -17,7 +17,7 @@
 [![Release](https://img.shields.io/github/v/release/AIGJ-01-002-blog/devlog?color=10b981&label=release)](https://github.com/AIGJ-01-002-blog/devlog/releases/latest)
 [![Backend CI](https://github.com/AIGJ-01-002-blog/devlog/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/AIGJ-01-002-blog/devlog/actions/workflows/backend-ci.yml)
 [![Frontend CI](https://github.com/AIGJ-01-002-blog/devlog/actions/workflows/frontend-ci.yml/badge.svg)](https://github.com/AIGJ-01-002-blog/devlog/actions/workflows/frontend-ci.yml)
-[![Domain](https://img.shields.io/badge/domain-devlog.life%20(準備中)-0ea5e9.svg)](#デプロイ)
+[![Domain](https://img.shields.io/badge/domain-devlog.life-0ea5e9.svg)](https://devlog.life)
 [![Stack](https://img.shields.io/badge/Java%2021%20·%20Spring%20Boot%204.1%20·%20React%2019-f97316.svg)](#技術スタック)
 
 [自分で動かす](#自分で動かす) · [変更履歴](CHANGELOG.md)（韓国語） · [リリース](https://github.com/AIGJ-01-002-blog/devlog/releases) · [設計ドキュメント](https://github.com/AIGJ-01-002-blog/docs)（韓国語） · [機能仕様](specs/)（韓国語）
@@ -28,12 +28,47 @@
   <img src="assets/images/home.webp" alt="devlog のホーム画面。最新・トレンドのタブと記事カード" width="860" />
 </p>
 
-名前は **development log（開発記録）** から取りました。正式なアドレスとして [devlog.life](https://devlog.life) を取得済みで、本番サーバーの準備ができしだいこのアドレスで公開します。
+名前は **development log（開発記録）** から取りました。[devlog.life](https://devlog.life) で運営しています。
 
 > サービスの画面と設計ドキュメントは韓国語です。下のスクリーンショットも韓国語の画面です。
 
+## 1枚まとめ
+
+**AI エージェントが書いた開発日誌を人が確認してから公開する velog 風の開発ブログを、一人で企画・運営しています。** 問題 → 決定 → 結果の数字でまとめた画面は [devlog.life/portfolio](https://devlog.life/portfolio)（韓国語）で、印刷すると A4 1枚です。
+
+```mermaid
+flowchart LR
+    U[ブラウザ · AI ツール · MCP] -->|HTTPS| CF[Cloudflare Tunnel]
+    CF --> I[ingress-nginx]
+    I --> A[blog-app<br/>Spring Boot 4.1 · React<br/>Pod 2つ、ローリングデプロイ]
+    A --> P[(PostgreSQL 17<br/>pgvector)]
+    A --> R[(Redis<br/>セッション · レート制限)]
+    A --> M[(MinIO<br/>画像 · 動画)]
+    GH[GitHub Actions] -->|イメージ · rollout.sh 自動ロールバック| A
+```
+
+手元で動かす（Docker、JDK 21、Node.js 22）:
+
+```bash
+docker compose -f app/compose.yaml up -d
+cd app/backend && DEV_LOGIN_ENABLED=true SITE_BASE_URL=http://localhost:5173 ./mvnw spring-boot:run &
+cd app/frontend && npm install
+npm run dev   # http://localhost:5173
+# 開発用ログインで登録 → 執筆 → 公開まで試せます
+```
+
+| 事例 | 結果の数字 | 根拠の記事（韓国語） |
+| --- | --- | --- |
+| 1. デプロイ中も止まらないサービス | 42秒の再起動中にリクエスト892件、失敗0件。壊れたバージョンは60秒後に自動ロールバック | [無停止デプロイ・自動ロールバック・トンネル](https://devlog.life/@kim755030/posts/17) · [無停止デプロイとロールバック](https://devlog.life/@kim755030/posts/50) |
+| 2. 一覧画面の N+1 クエリをなくす | 記事20件の一覧でクエリ61回 → 1回（計算値） | [DB 性能 — インデックス、実行計画、N+1](https://devlog.life/@kim755030/posts/60) |
+| 3. 黙って抜けていたデフォルト値を探す | セキュリティ点検1次で7項目、DB 接続待ち30秒 → 3秒 | [セキュリティ点検1次で直した7つ](https://devlog.life/@kim755030/posts/140) (PR #358) · [鍵はコマンドラインに置かない](https://devlog.life/@kim755030/posts/149) |
+| 4. 掛け算ひとつでコインがほぼ無料になったバグ | 84クレジットに切り詰められていた注文を400で拒否、ホットフィックス v2.2.1 | [数量 × 価格が long を超えると](https://devlog.life/@kim755030/posts/141) (PR #349) |
+
+要件・優先順位・設計の決定とレビューは運営者が担い、コードは AI エージェントが仕様（[specs/](specs/)）に沿って書き、テストと CI で確認します。
+
 ## 目次
 
+- [1枚まとめ](#1枚まとめ)
 - [なぜ devlog か](#なぜ-devlog-か)
 - [クイックスタート](#クイックスタート)
 - [主な機能](#主な機能)
@@ -59,9 +94,9 @@
 
 ## クイックスタート
 
-### サービスとして使う（準備中）
+### サービスとして使う
 
-本番サーバーの準備ができると https://devlog.life で公開します。それまでは下の手順で手元のマシンで動かせます。
+https://devlog.life でそのまま使えます。手元のマシンで動かすには下の手順に従います。
 
 1. GitHub・Google・カカオ・NAVER・Facebook アカウントまたはメールで登録し、ブログアドレス（`/@your-id`）とニックネームを決めます。
 2. **新規投稿** で Markdown で書きます。左側に書くと右側にすぐプレビューが出て、書いている間は自動で保存されます。
@@ -254,7 +289,7 @@ sequenceDiagram
 
 GitHub Actions でテストし、イメージを作って GHCR に上げたあと、kustomize のオーバーレイで Kubernetes にデプロイします。`deploy/scripts/rollout.sh` は新しい Pod がすべて準備完了（`/actuator/health/readiness`）になるのを待ち、時間内にならなければ直前のバージョンに自動でロールバックします。新しい Pod の準備ができるまで古い Pod を止めない（`maxUnavailable: 0`）ので、デプロイ中もロールバック中もサービスは止まりません。
 
-現在の本番の基準は `overlays/selfhosted` です。PostgreSQL 17・Redis 7.4・MinIO を同じクラスター内に永続ボリューム付きで動かし、テストクラスター（k3s）で登録 → 画像入りの記事の公開 → 未ログインでの閲覧まで確認しました。学校の共用インフラ（`overlays/nhn`）は学内ネットワークからしか届かないため移行を保留しています。本番サーバーと [devlog.life](https://devlog.life) の接続は準備中です。詳しくは [deploy/README.md](deploy/README.md)（韓国語）にあります。
+現在の本番の基準は `overlays/selfhosted` です。PostgreSQL 17・Redis 7.4・MinIO を同じクラスター内に永続ボリューム付きで動かし、テストクラスター（k3s）で登録 → 画像入りの記事の公開 → 未ログインでの閲覧まで確認しました。学校の共用インフラ（`overlays/nhn`）は学内ネットワークからしか届かないため移行を保留しています。現在はこの構成で [devlog.life](https://devlog.life) を運営し、外部からのリクエストは Cloudflare Tunnel 経由で入ります（[デプロイの記事](https://devlog.life/@kim755030/posts/17)、韓国語）。詳しくは [deploy/README.md](deploy/README.md)（韓国語）にあります。
 
 ## リポジトリ構成
 

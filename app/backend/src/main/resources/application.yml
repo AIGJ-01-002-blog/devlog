@@ -143,6 +143,11 @@ blog:
     # 로그인 없이 연락하는 방법 (spec 104, 107). 기본은 블로그 운영 메일. 비우면 소개·연락처 화면에 보이지 않는다
     contact-email: ${SITE_CONTACT_EMAIL:devlogauth@gmail.com}
     contact-url: ${SITE_CONTACT_URL:https://github.com/AIGJ-01-002-blog/devlog/issues}
+    # /portfolio 링크 줄과 schema.org Person의 sameAs (공개 주소, 비밀값 아님). 비우면 그 링크를 뺀다
+    portfolio:
+      github-url: ${SITE_GITHUB_URL:https://github.com/kim75503}
+      youtube-url: ${SITE_YOUTUBE_URL:}
+      jpop-url: ${SITE_JPOP_URL:https://jpop.today}
   web:
     # 로드 밸런서(신뢰 프록시) 내부 대역. 이 대역에서 온 요청만 X-Forwarded-For를 믿는다 (docs/02 §5 H4)
     trusted-proxies: ${TRUSTED_PROXIES:}
