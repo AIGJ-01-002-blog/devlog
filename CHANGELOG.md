@@ -10,6 +10,33 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
+## [2.16.0] - 2026-10-22
+
+**목표: 포트폴리오 피드백 반영** ([목표 이슈 #473](https://github.com/AIGJ-01-002-blog/devlog/issues/473))
+
+포트폴리오 검토 피드백을 반영했다. 사례 2의 계산값을 실제 PostgreSQL에서 잰 값으로 바꾸고, 그 측정을 시험으로 남겨 CI가 매번 다시 센다. 인쇄하면 여전히 A4 한 장이다.
+
+### 화면
+| A4 인쇄 미리보기 |
+|---|
+| ![포트폴리오 피드백 반영 A4 한 장](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.16.0/portfolio-print.webp) |
+
+### 추가
+- 목록 쿼리 수 측정 시험 `PostListQueryCountTest`: 글 20개 목록을 카드 쿼리(1문장)와 N+1 재현(61문장)으로 읽어 문장 수를 검사하고, 500회씩 p50·p95를 출력한다 (#472)
+
+### 바꿈
+- 포트폴리오 사례 2 결과를 "SQL 61번 → 1번, p95 16.75ms → 3.93ms(실측)"로, README 4개 언어의 사례 2도 같이 (#472)
+- 소개를 "서비스 2개를 혼자 설계·배포·운영…, 설계 결정·검증·운영 책임은 제가"로, 기술 줄에서 사례에 나오지 않는 React·MinIO·pgvector를 빼고 Testcontainers를 넣었다 (#472)
+- 사례 5: 대조 기록 99 → 192건으로 확인곡 42 → 91곡. 사례 6: 발견 경위(PR #347 자동 코드 리뷰)와 더한 시험 (#472)
+- YouTube 채널 링크 기본값(`SITE_YOUTUBE_URL`) (#472)
+
+### 포함된 작업
+| 이슈 | 브랜치 | PR |
+|---|---|---|
+| #473 포트폴리오 피드백 반영 | `claude/project-thread-ri23uk` | #472 |
+
+**비교:** [v2.15.0...v2.16.0](https://github.com/AIGJ-01-002-blog/devlog/compare/v2.15.0...v2.16.0)
+
 ## [2.15.0] - 2026-10-22
 
 **목표: 포트폴리오 사례 6개, 백엔드 + LLM 연동** ([목표 이슈 #467](https://github.com/AIGJ-01-002-blog/devlog/issues/467))
