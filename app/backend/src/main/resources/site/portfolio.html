@@ -44,8 +44,8 @@
 <h2>5. 근거 없는 노래방 번호는 검색에 내보내지 않기 (jpop.today)</h2>
 <ul>
 <li><b>문제</b> JPOP 3,317곡의 TJ·금영 번호는 대부분 공식 확인 전 관측값이라, 틀린 번호가 담긴 곡 화면까지 검색 엔진에 색인될 수 있었어요.</li>
-<li><b>결정</b> 색인 규칙을 contracts/publication.mjs 한 파일의 함수로 두고, 제공사 조회 근거가 있고 충돌이 없는 공식 확인 곡만 index, 나머지와 미리보기 빌드는 모두 noindex로 정했어요.</li>
-<li><b>결과</b> 운영 빌드(2026-10-22, 커밋 a68df00) 곡 화면 3,317개 중 색인 91개, noindex 3,226개. 사이트맵에는 곡 91개와 고정·가수·가이드 화면 45개만 들어가요.</li>
+<li><b>결정</b> 색인 규칙을 contracts/publication.mjs 한 파일의 함수로 두고, 제공사 조회 근거가 있고 충돌이 없는 공식 확인 곡만 검색에 내보내고, 나머지와 미리보기 빌드는 모두 검색에서 빼기로 정했어요.</li>
+<li><b>결과</b> 운영 빌드(2026-10-22, 커밋 a68df00) 곡 화면 3,317개 중 색인 91개, 색인 제외 3,226개. 사이트맵에는 곡 91개와 고정·가수·가이드 화면 45개만 들어가요.</li>
 </ul>
 <p class="portfolio-source">근거: <a href="https://github.com/jpop-today/jpoptoday/blob/main/contracts/publication.mjs">publication.mjs</a> · <a href="https://jpop.today/coverage/">jpop.today 수록 범위</a></p>
 </section>
