@@ -1,3 +1,4 @@
+import { draftQueue, StudioQueue } from './StudioQueue'
 import { useCallback, useEffect, useState } from 'react'
 import { ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
@@ -32,6 +33,7 @@ export function StudioPage() {
   // 매매 재현 영상(#265)은 매매 일지가 켜져 있을 때만. /studio?replay=2026-10-14로 오면 그날 체결을 고르는 화면을 연다
   const trades = me?.features?.trades ?? false
   const selectedBatch = Number(search.get('batch')) || null
+  const queueOpen = search.has('queue')
   const [data, setData] = useState<ShortsOverview | null>(null)
   const [batches, setBatches] = useState<ShortsBatch[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -81,6 +83,10 @@ export function StudioPage() {
         <aside className="studio-list" aria-label={t('내 쇼츠 대본')}>
           <button type="button" className="btn btn-primary btn-block" onClick={() => { setPicking(false); setCreating(true) }}
             data-tip={t('글 하나를 골라 새 대본 만들기')}>{t('새 대본')}</button>
+          <Link to="/studio?queue=1" onClick={closeForms} className={`btn btn-outline btn-block studio-queue-btn${queueOpen ? ' active' : ''}`}
+            aria-current={queueOpen ? 'true' : undefined} data-tip={t('영상으로 만들 차례인 대본을 먼저 쓴 순서대로 봐요')}>
+            {t('대본 큐 {0}편', { 0: data ? draftQueue(data.items).length : 0 })}
+          </Link>
           {trades && (
             <button type="button" className="btn btn-outline btn-block studio-replay-btn" onClick={() => { setCreating(false); setPicking(true) }}
               data-tip={t('매매 일지의 체결을 골라 차트가 흘러가는 재현 영상 만들기')}>{t('매매 재현 영상')}</button>
@@ -114,6 +120,8 @@ export function StudioPage() {
                 setData((d) => d && { ...d, items: [it, ...d.items] })
                 navigate(`/studio?id=${it.id}`)
               }} />
+            : queueOpen && data
+              ? <StudioQueue items={data.items} batches={batches} onOpen={closeForms} />
             : batch
               ? <BatchPanel key={`${batch.id}:${batch.updatedAt}`} batch={batch} onReload={load}
                   onDeleted={() => { navigate('/studio', { replace: true }); void load() }} />
