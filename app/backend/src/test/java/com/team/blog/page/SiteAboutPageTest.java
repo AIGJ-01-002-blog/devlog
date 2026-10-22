@@ -94,6 +94,9 @@ class SiteAboutPageTest extends IntegrationTest {
                 .contains("<script type=\"application/ld+json\">{\"@context\":\"https://schema.org\",\"@type\":\"Person\",\"name\":\"kim\","
                         + "\"jobTitle\":\"백엔드 개발자\",\"url\":\"https://devlog.life/@kim\",\"sameAs\":[\"https://github.com/kim\",\"https://jpop.today\"]}</script>");
         assertThat(html.split("class=\"portfolio-case\"", -1)).hasSize(5 + 1);
+        // http·https 절대 주소가 아닌 값은 링크와 sameAs에서 뺀다
+        String bad = new SitePortfolio(new SiteOwner("kim"), "", "youtube.com/@kim", "javascript:alert(1)", "https://jpop.today").html();
+        assertThat(bad).doesNotContain("youtube.com/@kim").doesNotContain("javascript:").contains("\"sameAs\":[\"https://jpop.today\"]");
     }
 
     @Test

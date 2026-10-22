@@ -69,7 +69,8 @@ public class SitePortfolio {
         private List<String[]> present() {
             List<String[]> out = new ArrayList<>();
             for (String[] l : new String[][] {{"GitHub", github}, {"YouTube", youtube}, {"jpop.today", jpop}}) {
-                if (l[1] != null && !l[1].isBlank()) out.add(new String[] {l[0], l[1].strip()});
+                // 운영 설정 값이라도 http·https 절대 주소만 싣는다(스킴 없는 값은 상대 경로가 되고, javascript: 등은 막는다)
+                if (l[1] != null && l[1].strip().matches("(?i)https?://\\S+")) out.add(new String[] {l[0], l[1].strip()});
             }
             return out;
         }
