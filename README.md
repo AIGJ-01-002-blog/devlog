@@ -58,7 +58,7 @@ npm run dev   # http://localhost:5173
 | 사례 | 결과 숫자 | 근거 글 |
 | --- | --- | --- |
 | 1. 배포 중에도 끊기지 않는 서비스 | 재시작 42초 동안 요청 892건 중 실패 0건, 망가뜨린 버전은 60초 뒤 자동 롤백 | [무중단 배포·자동 롤백·터널](https://devlog.life/@kim755030/posts/17) · [무중단 배포와 롤백](https://devlog.life/@kim755030/posts/50) |
-| 2. 목록 화면의 N+1 쿼리 없애기 | 글 20개 목록 쿼리 61번 → 1번(계산값) | [DB 성능 — 인덱스, 실행 계획, N+1](https://devlog.life/@kim755030/posts/60) |
+| 2. 목록 화면의 N+1 쿼리 없애기 | 글 20개 목록 SQL 61번 → 1번, p95 16.75ms → 3.93ms(실측) | [DB 성능 — 인덱스, 실행 계획, N+1](https://devlog.life/@kim755030/posts/60) · [측정 시험](https://github.com/AIGJ-01-002-blog/devlog/blob/main/app/backend/src/test/java/com/team/blog/post/PostListQueryCountTest.java) |
 | 3. 기본값이 조용히 빠진 곳 찾기 | 보안 점검 1차 7가지, DB 연결 대기 30초 → 3초 | [보안 점검 1차에서 고친 일곱 가지](https://devlog.life/@kim755030/posts/140) (PR #358) · [열쇠는 명령줄에 두지 않는다](https://devlog.life/@kim755030/posts/149) |
 | 4. AI가 블로그에 글을 쓰게 하는 MCP 서버 | 도구 24개 중 기본 17개만 노출, 회원당 1분 60번·쓰기 한 시간 30번 제한, 토큰은 SHA-256 해시로만 저장 | [MCP 활용과 구현 — AI에게 내 서비스를 도구로 건네기](https://devlog.life/@kim755030/posts/44) |
 
