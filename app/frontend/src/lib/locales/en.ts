@@ -2241,7 +2241,7 @@ export const en: Record<string, string> = {
   "운영자는 이 서비스를 만들고 운영하면서 나온 설계 결정, 장애 원인, 보안 점검을 글로 정리해요.": "The operator writes up the design decisions, incident causes, and security reviews that came out of building and running this service.",
   "Claude 같은 AI 도구에 devlog를 연결하면 그날 작업한 내용을 정리해 개발 일지 임시글로 올려 줘요. {0}": "Connect devlog to an AI tool like Claude and it will summarize the day's work into a draft dev log. {0}",
   "운영자가 풀어 온 문제는 {0}에 모았어요.": "Problems the operator has solved are collected in the {0}.",
-  "문제 → 결정 → 결과 숫자, 사례 5개": "Problem → decision → result in numbers, 5 cases",
+  "문제 → 결정 → 결과 숫자, 사례 6개": "Problem → decision → result in numbers, 6 cases",
   "글 쓰는 방식과 AI 사용 범위": "How posts are written and where AI is used",
   "{0}에서 메일과 공개 문의 창구를 볼 수 있어요.": "See {0} for email and the public help desk.",
   "로그인했다면 {0}에 남겨 주세요. 답변을 알림으로 드려요.": "If you are signed in, leave it in {0}. We reply with a notification.",

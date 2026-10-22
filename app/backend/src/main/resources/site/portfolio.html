@@ -1,8 +1,9 @@
 <!-- /portfolio 본문 (spec 107 FR-015). 서버가 첫 화면에 그대로 넣고 React도 같은 HTML을 그린다.
-     숫자는 공개 글·PR·저장소에서 잰 값만 쓴다. 근거를 못 찾은 숫자는 비워 둔다. 인쇄하면 A4 한 장에 들어가야 한다.
+     숫자는 공개 글·PR·저장소에서 잰 값만 쓴다. 근거를 못 찾은 숫자는 비워 둔다. 인쇄하면 A4 한 장에 들어가야 한다. 사례 순서는 일반 백엔드 지원 기준(배포 → 쿼리 → 보안 → MCP → jpop.today → 버그)이다.
      {{links}}는 GitHub·YouTube·jpop.today 링크 줄, {{owner}}는 운영자 블로그 주소로 바뀐다(SitePortfolio). -->
-<p class="portfolio-intro">devlog.life를 혼자 기획하고 운영하는 백엔드 개발자예요. 요구사항·우선순위·설계 결정과 검수는 제가 맡고, 코드는 AI 에이전트가 명세(Spec Kit)를 따라 쓰고 제가 시험 결과로 확인해요. <a href="/about#ai">글 쓰는 방식과 AI 사용 범위</a></p>
+<p class="portfolio-intro">Java/Spring 백엔드 개발자예요. LLM을 서비스에 붙이는 과정을 devlog.life에 기록해요. 요구사항·설계 결정과 검수는 제가 맡고, 코드는 AI 에이전트가 명세(Spec Kit)를 따라 쓰고 제가 시험 결과로 확인해요. <a href="/about#ai">글 쓰는 방식과 AI 사용 범위</a></p>
 <p class="portfolio-stack"><b>기술</b> Java 21 · Spring Boot 4.1 · PostgreSQL(pgvector) · Redis · MinIO · React(Vite) · k3s · Cloudflare Tunnel · GitHub Actions</p>
+<p class="portfolio-stack"><b>LLM 연동</b> MCP 서버(JSON-RPC · OAuth 2.1 + PKCE) · 도구 권한·요청 제한·비밀값 검사 · 명세와 CI로 검증하는 AI 에이전트 개발</p>
 {{links}}
 <section class="portfolio-case" id="deploy">
 <h2>1. 배포 중에도 끊기지 않는 서비스</h2>
@@ -31,14 +32,14 @@
 </ul>
 <p class="portfolio-source">근거: <a href="/@{{owner}}/posts/140">보안 점검 1차에서 고친 일곱 가지</a> (PR #358) · <a href="/@{{owner}}/posts/149">열쇠는 명령줄에 두지 않는다</a></p>
 </section>
-<section class="portfolio-case" id="overflow">
-<h2>4. 곱셈 한 번에 코인이 공짜가 되던 버그 (CWE-197)</h2>
+<section class="portfolio-case" id="mcp">
+<h2>4. AI가 블로그에 글을 쓰게 하는 MCP 서버</h2>
 <ul>
-<li><b>문제</b> 모의투자에서 수량 × 가격이 long 범위를 넘으면 잘려서, 100개 × 184,467,440,737,095,517 크레딧 주문이 84 크레딧으로 계산됐어요.</li>
-<li><b>결정</b> 곱셈 결과를 검사하는 한 겹 대신, 주문 금액 상한(1조 크레딧)과 수량 상한을 함께 두는 두 겹으로 막았어요.</li>
-<li><b>결과</b> 핫픽스 v2.2.1로 배포했고, 84가 되던 주문을 그대로 보내 400으로 거절되는지 확인하는 시험을 남겼어요.</li>
+<li><b>문제</b> AI 에이전트가 글을 쓰고 올리게 하려는데, 웹과 다른 길을 열면 공개 범위·검증 규칙이 갈라지고 AI가 확인 없이 발행·삭제하거나 비밀값을 글에 붙일 수 있었어요.</li>
+<li><b>결정</b> 웹과 같은 서비스를 부르는 MCP 서버(/api/mcp)를 두고, 토큰은 SHA-256 해시로만 저장, 기본 권한은 임시글까지, 발행·삭제는 회원이 웹에서 켤 때만, 토큰·키 모양이 보이면 거절하게 했어요.</li>
+<li><b>결과</b> 도구 24개 중 기본 17개만 보이고, 회원당 1분 60번·쓰기 한 시간 30번으로 막아요. 2026-10-11 ChatGPT에서 OAuth 연결 → 임시글 저장 → 발행 → 삭제까지 확인했어요.</li>
 </ul>
-<p class="portfolio-source">근거: <a href="/@{{owner}}/posts/141">수량 × 가격이 long을 넘으면</a> (PR #349)</p>
+<p class="portfolio-source">근거: <a href="/@{{owner}}/posts/44">MCP 활용과 구현 — AI에게 내 서비스를 도구로 건네기</a></p>
 </section>
 <section class="portfolio-case" id="jpop">
 <h2>5. 근거 없는 노래방 번호는 검색에 내보내지 않기 (jpop.today)</h2>
@@ -48,4 +49,13 @@
 <li><b>결과</b> 운영 빌드(2026-10-22, 커밋 a68df00) 곡 화면 3,317개 중 색인 91개, 색인 제외 3,226개. 사이트맵에는 곡 91개와 고정·가수·가이드 화면 45개만 들어가요.</li>
 </ul>
 <p class="portfolio-source">근거: <a href="https://github.com/jpop-today/jpoptoday/blob/main/contracts/publication.mjs">publication.mjs</a> · <a href="https://jpop.today/coverage/">jpop.today 수록 범위</a></p>
+</section>
+<section class="portfolio-case" id="overflow">
+<h2>6. 곱셈 한 번에 코인이 공짜가 되던 버그 (CWE-197)</h2>
+<ul>
+<li><b>문제</b> 모의투자에서 수량 × 가격이 long 범위를 넘으면 잘려서, 100개 × 184,467,440,737,095,517 크레딧 주문이 84 크레딧으로 계산됐어요.</li>
+<li><b>결정</b> 곱셈 결과를 검사하는 한 겹 대신, 주문 금액 상한(1조 크레딧)과 수량 상한을 함께 두는 두 겹으로 막았어요.</li>
+<li><b>결과</b> 핫픽스 v2.2.1로 배포했고, 84가 되던 주문을 그대로 보내 400으로 거절되는지 확인하는 시험을 남겼어요.</li>
+</ul>
+<p class="portfolio-source">근거: <a href="/@{{owner}}/posts/141">수량 × 가격이 long을 넘으면</a> (PR #349)</p>
 </section>

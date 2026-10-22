@@ -34,7 +34,7 @@ export function AboutPage() {
       <p>
         {t('학교 팀 프로젝트로 시작했고, 지금은 운영자 한 명이 서버와 서비스를 맡고 있어요.')}
         {owner && <> {tNodes('운영자 블로그: {0}', { 0: <Link to={`/@${owner}`}>@{owner}</Link> })}</>}{' '}
-        {tNodes('운영자가 풀어 온 문제는 {0}에 모았어요.', { 0: <Link to="/portfolio" data-tip={t('문제 → 결정 → 결과 숫자, 사례 5개')}>{t('포트폴리오')}</Link> })}
+        {tNodes('운영자가 풀어 온 문제는 {0}에 모았어요.', { 0: <Link to="/portfolio" data-tip={t('문제 → 결정 → 결과 숫자, 사례 6개')}>{t('포트폴리오')}</Link> })}
       </p>
       <h2 id="ai">{t('글 쓰는 방식과 AI 사용 범위')}</h2>
       <ul>
