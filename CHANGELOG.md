@@ -10,6 +10,30 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
+## [2.17.0] - 2026-10-22
+
+**목표: 포트폴리오 요약 1장 + 사례, 지원용 PDF와 같은 디자인** ([목표 이슈 #477](https://github.com/AIGJ-01-002-blog/devlog/issues/477))
+
+`/portfolio`를 지원용 PDF·발표 슬라이드와 같은 구조와 디자인 토큰으로 바꿨다. 인쇄하면 A4 두 장이다. 1장은 요약(숫자 4칸·프로젝트 2칸·기술 4칸), 2장은 기존 사례 6개다. 이름·연락처는 사이트에 넣지 않았다.
+
+### 화면
+| A4 인쇄 미리보기 (1장 요약 · 2장 사례) |
+|---|
+| ![포트폴리오 요약과 사례 A4 두 장](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.17.0/portfolio-print.webp) |
+
+### 바꿈
+- 포트폴리오 1장 요약: 검정 머리 띠 한 줄 소개 "AI 기능을 서비스로 연결하는 백엔드 개발자", 숫자 4칸(892건 중 0 · 60초 · 61 → 1 · 24 중 17, 61 → 1만 주황), 프로젝트 2칸(devlog·MushMush 화면 썸네일), 기술 4칸(BACKEND · AI·DATA · INFRA·DEVOPS · AI 협업·TEST), 하단 띠 (#476)
+- 사례 6개를 같은 섹션 라벨(`04 · CASES`)·흰 카드로. 사례 내용은 그대로 (#476)
+- 디자인 토큰 `--pf-*`(배경 #F7F5F0, 띠 #141414, 포인트 #FF4F1F, 본문 #555)과 Pretendard·JetBrains Mono 글꼴을 화면 번들에 포함. 모바일(720px 이하)은 숫자 2열, 프로젝트·기술 1열 (#476)
+- 인쇄 버튼 툴팁을 "A4 두 장(요약 + 사례)으로 인쇄하거나 PDF로 저장해요"로, 4개 언어 (#476)
+
+### 포함된 작업
+| 이슈 | 브랜치 | PR |
+|---|---|---|
+| #477 포트폴리오 요약 1장 + 사례 | `claude/project-thread-ri23uk` | #476 |
+
+**비교:** [v2.16.0...v2.17.0](https://github.com/AIGJ-01-002-blog/devlog/compare/v2.16.0...v2.17.0)
+
 ## [2.16.0] - 2026-10-22
 
 **목표: 포트폴리오 피드백 반영** ([목표 이슈 #473](https://github.com/AIGJ-01-002-blog/devlog/issues/473))
