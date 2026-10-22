@@ -10,11 +10,12 @@ import com.team.blog.post.domain.PostStatus;
  *
  * @param owner   작성자에게만 채운다. 독자에게는 null
  * @param aiDiary AI 일기로 만든 글이면 true. 화면은 같고 검색 수집만 거부한다 (spec 088)
+ * @param aiAssisted AI 도구(MCP)로 만들거나 고치거나 발행한 글. 글 아래에 "AI 보조 작성"을 보여 준다 (spec 107)
  */
 public record PostView(long id, String url, String title, String contentHtml, String excerpt, String thumbnailUrl,
                        PostStatus status, Visibility visibility, Instant publishedAt, Instant firstPublicAt,
                        Instant editedAt, long viewCount, int likeCount, int commentCount, Writer author,
-                       boolean mine, OwnerInfo owner, boolean aiDiary) {
+                       boolean mine, OwnerInfo owner, boolean aiDiary, boolean aiAssisted) {
     public record Writer(long id, String handle, String nickname, String bio, String profileImageUrl) {}
 
     /** @param hiddenReason 숨긴 글이면 숨김 사유 코드 (019 FR-021) */

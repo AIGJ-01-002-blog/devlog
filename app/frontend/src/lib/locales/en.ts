@@ -2229,4 +2229,7 @@ export const en: Record<string, string> = {
   "로그인하지 않았다면 메일 {0}이나 {1}로 연락해 주세요.": "If you are not logged in, email {0} or use the {1}.",
   "로그인하지 않았다면 메일 {0}로 연락해 주세요.": "If you are not logged in, email {0}.",
   "로그인하지 않았다면 {0}로 연락해 주세요.": "If you are not logged in, use the {0}.",
+  "devlog에 연결한 AI 도구가 초안을 쓰거나 고친 글이에요": "An AI tool connected to devlog drafted or edited this post",
+  "AI 보조 작성 · 이 글은 AI 도구(devlog MCP)로 초안을 만들거나 고쳤어요.": "AI-assisted · This post was drafted or edited with an AI tool (devlog MCP).",
+  "글 쓰는 방식": "How posts are written",
 }

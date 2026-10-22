@@ -587,6 +587,7 @@ select { width: auto; }
 .post-owner-actions .visibility-picker select:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; box-shadow: none; }
 .visibility-picker option { background: var(--color-surface); color: var(--color-text); }
 .visibility-chevron { position: absolute; right: 10px; pointer-events: none; }
+.post-ai-note { margin-top: 32px; padding: 10px 14px; border-left: 3px solid var(--color-border); background: var(--color-surface-2); border-radius: var(--radius-sm, 6px); }
 .post-stats { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 48px; color: var(--color-text-muted); font-size: 0.875rem; }
 .post-byline { color: var(--color-text-2); }
 .post-body { margin-top: 32px; }

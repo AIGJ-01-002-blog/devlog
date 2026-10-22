@@ -46,11 +46,13 @@ public class PostDetailQuery {
     /**
      * @param owner   작성자에게만 채운다. 독자에게는 null
      * @param aiDiary AI 일기로 만든 글. 독자에게는 같게 보이고 검색 수집·광고만 뺀다 (spec 088)
+     * @param aiAssisted AI 도구로 만들거나 고친 글 (spec 107). 글 아래에 표기한다
      */
     public record Detail(long id, String url, String title, String contentHtml, String excerpt, String thumbnailUrl,
                          PostStatus status, Visibility visibility, Instant publishedAt, Instant firstPublicAt,
                          Instant editedAt, long viewCount, int likeCount, int commentCount, Author author,
-                         boolean mine, PostView.OwnerInfo owner, List<String> tags, boolean liked, boolean aiDiary) {
+                         boolean mine, PostView.OwnerInfo owner, List<String> tags, boolean liked, boolean aiDiary,
+                         boolean aiAssisted) {
         /** 독자에게 보이는 날짜: 공개 글은 처음 공개된 날, 비공개 글은 최초 발행일 (spec 003 FR-005). */
         public Instant displayDate() {
             return firstPublicAt != null ? firstPublicAt : publishedAt;
@@ -71,7 +73,7 @@ public class PostDetailQuery {
                             reader && follows.isFollowing(viewer.memberId(), w.id()), socialLinks.of(w.id())),
                     p.mine(), p.owner(),
                     p.status() == PostStatus.PUBLISHED ? tags.tagsOf(p.id()) : List.of(),
-                    reader && likes.likedBy(viewer.memberId(), p.id()), p.aiDiary());
+                    reader && likes.likedBy(viewer.memberId(), p.id()), p.aiDiary(), p.aiAssisted());
         });
     }
 }
