@@ -6,7 +6,9 @@ MVP(로그인·글쓰기·글 읽기 + 화면)를 실제로 쓸 수 있을 때 1
 
 main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/release.yml`이 태그(`v버전`)와 GitHub Release를 만든다.
 
-2026-10-12부터 목표 단위로 릴리스한다([CONTRIBUTING.md](CONTRIBUTING.md)). develop에 머지한 작업은 `## [Unreleased]
+2026-10-12부터 목표 단위로 릴리스한다([CONTRIBUTING.md](CONTRIBUTING.md)). develop에 머지한 작업은 `## [Unreleased]`에 모으고, 마일스톤을 다 채운 릴리스 PR에서 버전 머리말로 바꾼다.
+
+## [Unreleased]
 
 ## [2.13.0] - 2026-10-22
 
@@ -24,10 +26,6 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 | ![포트폴리오](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.13.0/portfolio.webp) | ![포트폴리오 어두운 화면](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.13.0/portfolio-dark.webp) | ![연락처](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.13.0/contact.webp) |
 
 사진은 375px 휴대폰 화면이다. 쇼츠 스튜디오 대본 큐는 로그인한 운영자만 보는 화면이라 사진을 넣지 않았다.
-
-에 모으고, 마일스톤을 다 채운 릴리스 PR에서 버전 머리말로 바꾼다.
-
-## [Unreleased]
 
 ### 바꿈
 - 광고 스위치 `ADS_PROVIDER`(none|adsense)를 더하고 기본값을 none으로 두었다. 애드센스 재신청 전까지 어느 화면에도 광고 코드를 넣지 않고, ads.txt와 소유 확인 메타만 남긴다. 켰을 때 쓸 글 아래 광고 자리는 높이를 먼저 잡아 레이아웃이 밀리지 않는다 (#457)
