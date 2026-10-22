@@ -414,10 +414,10 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | 技術 | 使う場所 | 役割 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | バックエンド | 単体・結合テスト 898 件（v2.13.0 時点） |
+| JUnit 5 · Spring Boot Test · Spring Security Test | バックエンド | 単体・結合テスト 899 件（v2.14.0 時点） |
 | Testcontainers (PostgreSQL) | バックエンド | 本物の PostgreSQL でマイグレーション・クエリ・並行処理を検証します |
 | JaCoCo | バックエンド | 行カバレッジ 40% の基準を CI で確認します |
-| Vitest · Testing Library · jsdom | フロントエンド | 画面とロジックのテスト 434 件（v2.13.0 時点） |
+| Vitest · Testing Library · jsdom | フロントエンド | 画面とロジックのテスト 434 件（v2.14.0 時点） |
 | fake-indexeddb | フロントエンド | オフライン自動保存のテスト |
 
 ## リリース
@@ -426,6 +426,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | バージョン | 日付 | 主な内容 | リリースノート |
 | --- | --- | --- | --- |
+| v2.14.0 | 2026-10-22 | ポートフォリオ1枚: `/portfolio` を A4 1枚で印刷(リンク横に URL、背景・アイコンなし)、GitHub・jpop.today のリンク行と schema.org Person 構造化データ、事例5を jpop.today のインデックス方針に、初回表示のずれ(CLS)を軽減、README の1枚要約(構成図・実行5行・事例リンク) | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.14.0) |
 | v2.13.0 | 2026-10-22 | ポートフォリオブログと検索インデックスの整理: `/portfolio`(課題 → 判断 → 結果の数値を5件、A4 1枚)・`/contact`・紹介ページの AI 利用範囲、日記・未審査の外部会員記事・短い記事・タグは `noindex, follow`、サイトマップを3ファイルに分割、「AI 補助作成」表示と日曜の週次振り返り下書き、広告スイッチは既定でオフ、ショートスタジオの台本キュー | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.13.0) |
 | v2.12.0 | 2026-10-21 | ショート「1日1本、7週間」運用: 記事ショートのタイトル先頭に「[백엔드 면접]」(バックエンド面接)、YouTube の説明1行目は元記事リンク、毎日夜8時の予約公開を案内、ショートごとに再生リストの分類(デプロイ・DB・セキュリティ・性能・AI協業)を選択 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.12.0) |
 | v2.11.0 | 2026-10-21 | ショートタブの1行(3本)を同じ色系統に: 最初の画面の色を3本ずつまとめ、明るい系統と暗い系統を交互に切り替え(ミント → ナイト → サンセット → オーシャン → グレープ → モノ → ペーパー)、行がずれないよう1人の記事ショートは1本ずつ順に描画 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.11.0) |

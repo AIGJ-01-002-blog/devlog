@@ -10,6 +10,34 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
+## [2.14.0] - 2026-10-22
+
+**목표: 포트폴리오 한 장** ([목표 이슈 #462](https://github.com/AIGJ-01-002-blog/devlog/issues/462))
+
+`/portfolio`를 A4 한 장으로 인쇄해 PDF로 낼 수 있게 했다. 사례마다 문제·결정·결과 세 줄과 근거 글 링크를 두고, 숫자는 근거 글 본문에 있는 것만 썼다. 새 기능·의존성·인프라 없이 기존 화면과 README만 고쳤다.
+
+### 화면
+| A4 인쇄 미리보기 |
+|---|
+| ![포트폴리오 A4 한 장 인쇄](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.14.0/portfolio-print.webp) |
+
+인쇄하면 배경·아이콘이 빠지고 바깥 링크 옆에 주소가 함께 찍힌다. 사이트 안 링크는 인쇄물에서도 읽히게 절대 주소로 바꾼다.
+
+### 추가
+- `/portfolio` 링크 줄(GitHub·jpop.today, YouTube는 주소를 정하면 `SITE_YOUTUBE_URL`로 켬)과 같은 링크를 `sameAs`로 담은 schema.org Person 구조화 데이터. 설정 값은 http·https 주소만 싣는다 (#464)
+- README 4개 언어에 "한 장 요약": 한 줄 소개, 구조도(mermaid), 실행 5줄, 사례 1~4 근거 링크 (#464)
+
+### 바꿈
+- 포트폴리오 사례 5를 쇼츠 렌더러에서 jpop.today의 색인 정책(공식 확인 곡만 검색에 내보내기, 곡 화면 3,317개 중 색인 91개)으로 바꿨다 (#464)
+- 포트폴리오 화면을 지연 로딩에서 빼서, 서버가 그린 본문을 지웠다 다시 그리던 깜빡임(v2.13.0 측정 CLS 1.08)을 없앴다 (#464)
+
+### 포함된 작업
+| 이슈 | 브랜치 | PR |
+|---|---|---|
+| #463 포트폴리오 한 장: A4 인쇄, 링크 줄과 Person 구조화 데이터, README 요약 | `feature/portfolio-one-page` | #464 |
+
+**비교:** [v2.13.0...v2.14.0](https://github.com/AIGJ-01-002-blog/devlog/compare/v2.13.0...v2.14.0)
+
 ## [2.13.0] - 2026-10-22
 
 **목표: 포트폴리오 블로그와 검색 색인 정리** ([목표 이슈 #443](https://github.com/AIGJ-01-002-blog/devlog/issues/443))
