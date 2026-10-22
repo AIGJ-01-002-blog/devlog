@@ -426,6 +426,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v2.17.0 | 2026-10-22 | 作品集改为与求职 PDF 相同的设计: 打印为两页 A4(第 1 页摘要: 4 个数字、2 个项目、4 个技术；第 2 页 6 个案例)，设计令牌与 Pretendard、JetBrains Mono 字体 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.17.0) |
 | v2.16.0 | 2026-10-22 | 作品集反馈: 案例 2 改为实测(SQL 61 次 → 1 次，p95 16.75ms → 3.93ms)并加测量测试，整理简介与技术行，案例 5 核对记录 99 → 192 条、确认歌曲 42 → 91，案例 6 发现经过，YouTube 链接 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.16.0) |
 | v2.15.0 | 2026-10-22 | 作品集 6 个案例: 让 AI 给博客写文章的 MCP 服务器案例(24 个工具默认公开 17 个，每分钟 60 次、每小时写入 30 次)，"LLM 集成"技术行，简介改为"记录把 LLM 接入服务的过程"，仍为一页 A4 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.15.0) |
 | v2.14.0 | 2026-10-22 | 一页作品集: `/portfolio` 打印为一页 A4(链接旁显示网址，去掉背景和图标)，GitHub 与 jpop.today 链接行及 schema.org Person 结构化数据，案例 5 改为 jpop.today 索引策略，减少首屏布局偏移(CLS)，README 一页摘要(架构图、5 行运行命令、案例链接) | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.14.0) |
