@@ -377,10 +377,10 @@ npm run dev        # http://localhost:5173
 
 | 기술 | 쓰는 곳 | 역할 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | 백엔드 | 단위·통합 테스트 883건(v2.12.0 기준) |
+| JUnit 5 · Spring Boot Test · Spring Security Test | 백엔드 | 단위·통합 테스트 898건(v2.13.0 기준) |
 | Testcontainers (PostgreSQL) | 백엔드 | 실제 PostgreSQL로 마이그레이션·쿼리·동시성을 검증합니다 |
 | JaCoCo | 백엔드 | 줄 커버리지 40% 기준을 CI에서 확인합니다 |
-| Vitest · Testing Library · jsdom | 프론트엔드 | 화면과 로직 테스트 430건(v2.12.0 기준) |
+| Vitest · Testing Library · jsdom | 프론트엔드 | 화면과 로직 테스트 434건(v2.13.0 기준) |
 | fake-indexeddb | 프론트엔드 | 오프라인 자동 저장 테스트 |
 
 ## 릴리스
@@ -389,6 +389,7 @@ npm run dev        # http://localhost:5173
 
 | 버전 | 날짜 | 주요 내용 | 릴리스 노트 |
 | --- | --- | --- | --- |
+| v2.13.0 | 2026-10-22 | 포트폴리오 블로그와 검색 색인 정리: `/portfolio`(문제 → 결정 → 결과 숫자 5가지, A4 한 장)·`/contact`·소개의 AI 사용 범위, 일기·미검수 외부 회원 글·짧은 글·태그는 `noindex, follow`, 사이트맵 세 파일로, AI 보조 작성 표기와 일요일 주간 회고 초안, 광고 스위치 기본 끔, 쇼츠 스튜디오 대본 큐 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.13.0) |
 | v2.12.0 | 2026-10-21 | 쇼츠 "하루 1개, 7주" 운영: 글 쇼츠 제목 앞에 "[백엔드 면접]", YouTube 설명 첫 줄은 원본 글 링크, 매일 저녁 8시 예약 공개 안내, 쇼츠마다 재생목록 묶음(배포·DB·보안·성능·AI협업) 고르기 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.12.0) |
 | v2.11.0 | 2026-10-21 | 쇼츠 탭 한 줄(세 편)을 같은 색 계열로: 세 편마다 첫 화면 색을 묶고 밝은·어두운 계열을 번갈아 넘김(초록 → 남색 → 주황 → 바다 → 보라 → 검정 → 흰색), 줄이 어긋나지 않게 한 사람의 글 쇼츠는 한 편씩 차례로 그림 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.11.0) |
 | v2.10.0 | 2026-10-20 | 쇼츠 조회수 분석 반영: 첫 프레임을 커버로(큰 제목·무대 배치), 권장 길이 30~45초, 개발 쇼츠 채널 13곳에서 가져온 11가지(3초 컷·증상 먼저·루프 엔딩·고정 댓글 질문 등), 시리즈 이름 "에러로그 30초" | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.10.0) |
