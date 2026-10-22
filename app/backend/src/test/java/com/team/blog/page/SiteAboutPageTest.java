@@ -64,14 +64,14 @@ class SiteAboutPageTest extends IntegrationTest {
     }
 
     @Test
-    void 포트폴리오는_사례_다섯_개와_근거_글을_서버_HTML로_보여_준다() throws Exception {
+    void 포트폴리오는_사례_여섯_개와_근거_글을_서버_HTML로_보여_준다() throws Exception {
         String page = mvc.perform(get("/portfolio")).andExpect(status().isOk()).andReturn().getResponse()
                 .getContentAsString(StandardCharsets.UTF_8);
         assertThat(page).contains("<h1>포트폴리오</h1>").contains("<link rel=\"canonical\" href=\"http://localhost:8080/portfolio\">")
                 .contains("\"page\":\"site-portfolio\"").doesNotContain("noindex").doesNotContain("{{owner}}")
                 .doesNotContain("숫자는 공개 글·PR에 적힌 값만"); // 맨 앞 안내 주석은 화면에 내지 않는다
-        // 사례 5개 (초기 데이터 안의 같은 HTML은 따옴표가 이스케이프돼 세지 않는다)
-        assertThat(page.split("class=\"portfolio-case\"", -1)).hasSize(5 + 1);
+        // 사례 6개 (초기 데이터 안의 같은 HTML은 따옴표가 이스케이프돼 세지 않는다)
+        assertThat(page.split("class=\"portfolio-case\"", -1)).hasSize(6 + 1);
         mvc.perform(get("/api/site/portfolio")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.html").value(org.hamcrest.Matchers.containsString("문제")));
     }
@@ -93,7 +93,7 @@ class SiteAboutPageTest extends IntegrationTest {
                 .contains("href=\"https://devlog.life/@kim/posts/17\"").doesNotContain("href=\"/")
                 .contains("<script type=\"application/ld+json\">{\"@context\":\"https://schema.org\",\"@type\":\"Person\",\"name\":\"kim\","
                         + "\"jobTitle\":\"백엔드 개발자\",\"url\":\"https://devlog.life/@kim\",\"sameAs\":[\"https://github.com/kim\",\"https://jpop.today\"]}</script>");
-        assertThat(html.split("class=\"portfolio-case\"", -1)).hasSize(5 + 1);
+        assertThat(html.split("class=\"portfolio-case\"", -1)).hasSize(6 + 1);
         // http·https 절대 주소가 아닌 값은 링크와 sameAs에서 뺀다
         String bad = new SitePortfolio(new SiteOwner("kim"), "", "youtube.com/@kim", "javascript:alert(1)", "https://jpop.today").html();
         assertThat(bad).doesNotContain("youtube.com/@kim").doesNotContain("javascript:").contains("\"sameAs\":[\"https://jpop.today\"]");

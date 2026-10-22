@@ -5,7 +5,7 @@ import { getLocale, t } from '../lib/i18n'
 interface SitePortfolio { ownerHandle: string | null; html: string }
 
 /**
- * 사이트 포트폴리오 (spec 107 FR-015). 운영자 한 줄 소개, 사례 5개(문제 → 결정 → 결과 숫자, 근거 글), 기술 한 줄.
+ * 사이트 포트폴리오 (spec 107 FR-015). 운영자 한 줄 소개, 사례 6개(문제 → 결정 → 결과 숫자, 근거 글), 기술 두 줄.
  * 문안은 서버의 site/portfolio.html 한 곳에 있고, 서버가 같은 본문을 첫 화면에 그려 둔다. 저장소에 든 문안이라 그대로 넣는다.
  * 블로그별 포트폴리오(/@handle/portfolio, PortfolioPage)와는 다른 화면이다. 인쇄하면 A4 한 장에 들어간다(styles.css @media print).
  */

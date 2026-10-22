@@ -62,7 +62,7 @@ npm run dev   # http://localhost:5173
 | 1. A service that stays up during deploys | 892 requests, 0 failures during a 42-second restart; a broken version rolled back after 60 seconds | [Zero-downtime deploy · auto rollback · tunnel](https://devlog.life/@kim755030/posts/17) · [Zero-downtime deploys and rollback](https://devlog.life/@kim755030/posts/50) |
 | 2. Removing N+1 queries from list pages | List of 20 posts: 61 queries → 1 (calculated) | [DB performance — indexes, plans, N+1](https://devlog.life/@kim755030/posts/60) |
 | 3. Finding defaults that silently dropped out | 7 fixes in the first security review, DB connection wait 30 s → 3 s | [Seven fixes from the first security review](https://devlog.life/@kim755030/posts/140) (PR #358) · [Keep keys off the command line](https://devlog.life/@kim755030/posts/149) |
-| 4. A multiplication that made coins nearly free | The order truncated to 84 credits is now rejected with 400, hotfix v2.2.1 | [When quantity × price overflows long](https://devlog.life/@kim755030/posts/141) (PR #349) |
+| 4. An MCP server that lets AI write to the blog | 17 of 24 tools visible by default, 60 calls/min and 30 writes/hour per member, tokens stored only as SHA-256 hashes | [MCP in practice — handing my service to AI as a tool](https://devlog.life/@kim755030/posts/44) |
 
 The operator owns requirements, priorities, design decisions and review; AI agents write the code from specs ([specs/](specs/)), checked by tests and CI.
 
