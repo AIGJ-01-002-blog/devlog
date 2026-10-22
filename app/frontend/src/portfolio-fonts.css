@@ -1,0 +1,5 @@
+/* 사이트 포트폴리오(/portfolio) 전용 글꼴: 지원용 PDF와 같은 Pretendard·JetBrains Mono.
+   글꼴 파일은 이 글꼴을 쓰는 화면에서만 내려받는다. Pretendard는 KS X 1001 부분 글꼴(굵기 3개)만 싣는다 */
+@font-face { font-family: "Pretendard"; font-weight: 400; font-display: swap; src: url("../node_modules/pretendard/dist/web/static/woff2-subset/Pretendard-Regular.subset.woff2") format("woff2"); }
+@font-face { font-family: "Pretendard"; font-weight: 700; font-display: swap; src: url("../node_modules/pretendard/dist/web/static/woff2-subset/Pretendard-Bold.subset.woff2") format("woff2"); }
+@font-face { font-family: "Pretendard"; font-weight: 800; font-display: swap; src: url("../node_modules/pretendard/dist/web/static/woff2-subset/Pretendard-ExtraBold.subset.woff2") format("woff2"); }

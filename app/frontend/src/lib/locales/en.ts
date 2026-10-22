@@ -2253,7 +2253,7 @@ export const en: Record<string, string> = {
   "로그인했다면 {0}: 답변을 알림으로 받아요.": "If you are signed in, {0}: you get the reply as a notification.",
   "개인 정보가 담긴 내용은 공개 문의 창구 대신 메일로 보내 주세요. 권리 침해 신고는 글 주소를 함께 적어 주세요.": "Send anything containing personal information by email instead of the public help desk. For rights-infringement reports, include the post URL.",
   "포트폴리오 - devlog": "Portfolio - devlog",
-  "A4 한 장으로 인쇄하거나 PDF로 저장해요": "Print on one A4 page or save as PDF",
+  "A4 두 장(요약 + 사례)으로 인쇄하거나 PDF로 저장해요": "Print as two A4 pages (summary + cases) or save as PDF",
   "인쇄": "Print",
   "이 화면은 한국어 원문만 있어요.": "This page is available in Korean only.",
   "주제, 글의 결론, 글에 넣는 숫자는 글쓴이가 정하고 확인해요. 측정값은 실제로 실행한 결과에서 가져오고, 근거가 되는 PR·커밋을 글 끝에 붙여요.": "The author decides and checks the topic, the conclusion, and every number in a post. Measurements come from real runs, and the supporting PRs and commits are linked at the end.",
