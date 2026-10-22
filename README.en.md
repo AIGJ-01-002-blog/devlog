@@ -162,7 +162,7 @@ If you have agreed to AI use, the AI adds a title and tidies up the text; otherw
 - **Post page**: table of contents, reading time, series, previous/next post, author bio and social links, share button, link previews (Open Graph).
 - **Tags and search**: browse posts by tag, hybrid search over title, tag and body keywords plus meaning (by relevance or newest), and search for people.
 - **RSS**: per-blog `/@your-id/rss` and site-wide `/rss`.
-- **Search engines**: `/sitemap.xml` lists every public post and `/robots.txt` points crawlers to it, so Google and Naver pick up new posts. Posts with under 1,000 characters of body text (excluding code blocks, images and link URLs) stay public but are left out of indexing, the sitemap and ads, and ad code loads only on post pages.
+- **Search engines**: `/sitemap.xml` lists every public post and `/robots.txt` points crawlers to it, so Google and Naver pick up new posts. Posts with under 1,000 characters of body text (excluding code blocks, images and link URLs) and AI diary entries stay public but are left out of indexing and the sitemap, and other members' posts reach search engines only after an operator presses [수집 허락] (Allow indexing) in the admin dashboard. Ads are turned on with the `ADS_PROVIDER` switch and are off by default.
 
 ### Reactions and relationships
 
@@ -181,14 +181,14 @@ If you have agreed to AI use, the AI adds a title and tidies up the text; otherw
 
 ### Creating and recording
 
-- **Shorts studio**: polish a shorts script your AI wrote over MCP scene by scene (caption, narration, code, explainer diagram). Press [Make video] and the render worker on your own computer turns it into a 9:16 MP4 with an animated character and uploads it. Before rendering, a mass-production check blocks scripts that overlap other scripts or copy the post as is, the first-frame color (look) is grouped in threes to match a Shorts-tab row (videos finished after 2026-10-21 15:00 KST; already uploaded videos stay as they are), and transitions, camera, background music, script pattern and hook differ from the last five. One post can also be split into several small topics. The first scene shows a large title and the character from the very first frame so it doubles as the cover, and the recommended length is 30 to 45 seconds.
+- **Shorts studio**: polish a shorts script your AI wrote over MCP scene by scene (caption, narration, code, explainer diagram). Press [Make video] and the render worker on your own computer turns it into a 9:16 MP4 with an animated character and uploads it. Before rendering, a mass-production check blocks scripts that overlap other scripts or copy the post as is, the first-frame color (look) is grouped in threes to match a Shorts-tab row (videos finished after 2026-10-21 15:00 KST; already uploaded videos stay as they are), and transitions, camera, background music, script pattern and hook differ from the last five. One post can also be split into several small topics. The first scene shows a large title and the character from the very first frame so it doubles as the cover, and the recommended length is 30 to 45 seconds. The [Script queue] lists scripts not yet made into videos, oldest first.
 - **Upload guide**: titles, descriptions and pinned comments with copy buttons for YouTube Shorts, Instagram Reels and TikTok, plus the upload steps. There is no automatic upload; once you record the video URL after posting, the short appears as a 9:16 card in the blog's [Shorts] tab and under its source post. You can also link your YouTube, Instagram and TikTok channels to your blog. Post shorts get "[백엔드 면접]" (Backend Interview) in front of the title and the first caption line, and the YouTube description starts with the source post link. Pick a playlist bundle per short (deploy, DB, security, performance, AI collaboration) to see which playlist to add it to; the steps schedule each video for 8 pm Korea time, one a day.
 - **My dashboard**: views, likes and received comments on your posts over 7, 30 or 90 days, compared with the previous period, with your most-read posts and shorts on one screen.
 - **Trade journal**: stock and crypto spot and futures fills that a trading bot records over MCP, shown as daily profit and loss per currency, with live and paper trades kept apart. Each fill carries the bot's decision trace (setup, stop loss, take profit, exit reason, R multiple), and a table of win rate and average R per strategy version and setup helps you review. A note for the day turns into a summary draft and a shorts script, and selected fills turn into a trade replay short. devlog never places real orders.
 - **Blog points and shop**: earn credits from check-ins (the reward grows with your streak), streak badges and publishing posts, then buy theme colors, profile rings and blog covers across nine tiers from Iron to Challenger to decorate your blog.
 - **Paper trading with credits**: use the base credits you get at sign-up to buy and sell five coins, including Bitcoin, with market and limit orders on an exchange-style chart (moving averages, volume, 1-second to 1-week candles, break-even line), and cancel open limit orders from the order history. Profits from sales become credits you can spend in the shop.
 - **Auto-trading paper screen**: on `/trade`, press [Turn on paper bot] and the server runs paper trades with a moving-average rule on KRW, Binance spot and Binance 3x futures accounts, showing the account, holdings, recent fills and why each was made. Each member picks the coins, candle interval, stop loss, take profit and order size under [Paper bot settings] on the same screen.
-- **Evidence links for AI records**: when your AI adds commit, PR and issue URLs to a devlog post or diary note, they appear as links under `## 근거` (Evidence) at the end of the post and under the diary paragraph.
+- **Evidence links for AI records**: when your AI adds commit, PR and issue URLs to a devlog post or diary note, they appear as links under `## 근거` (Evidence) at the end of the post and under the diary paragraph. Posts created, edited or published over MCP and AI diary entries show "AI 보조 작성" (AI-assisted) under the post, and every Sunday at 22:00 KST a weekly retrospective draft bundles that week's diary entries. It can be published only after a person writes at least 100 characters in the intro and lessons.
 - **Move to a home computer**: backup and restore scripts (`deploy/home/`) that download the database and file storage into one folder and bring the same blog back up with Docker on Windows or macOS.
 
 ## Architecture
@@ -302,7 +302,7 @@ Code lives in this repository; design documents live in the documentation reposi
 | [deploy](deploy) | Deployment: Dockerfile, Kubernetes manifests (base, selfhosted, nhn, local), deploy, rollback and secret-check scripts |
 | [app/render-worker](app/render-worker) | Shorts render worker: Python 3.10, ffmpeg, Remotion (Node). Runs on your computer and turns queued scripts into 9:16 MP4s |
 | [.github](.github) | CI/CD: backend and frontend tests, image build and deploy, releases, Discord and Telegram notifications |
-| [specs](specs) | Feature specs: spec, plan and tasks per feature (001~106) following the [GitHub Spec Kit](https://github.com/github/spec-kit) flow |
+| [specs](specs) | Feature specs: spec, plan and tasks per feature (001~107) following the [GitHub Spec Kit](https://github.com/github/spec-kit) flow |
 | [docs](https://github.com/AIGJ-01-002-blog/docs) | Design documents: common requirements, architecture, unified ERD, per-feature designs, permission matrix |
 | [erd](erd) · [scripts](scripts) | Baseline schema and its tests, design-check scripts and reports |
 
@@ -414,10 +414,10 @@ To try it on Kubernetes, run `kubectl apply -k deploy/k8s/overlays/local` on kin
 
 | Technology | Where | Role |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | Backend | 900 unit and integration tests (as of v2.16.0) |
+| JUnit 5 · Spring Boot Test · Spring Security Test | Backend | 900 unit and integration tests (as of v2.17.1) |
 | Testcontainers (PostgreSQL) | Backend | Verifies migrations, queries and concurrency against a real PostgreSQL |
 | JaCoCo | Backend | Enforces a 40% line-coverage threshold in CI |
-| Vitest · Testing Library · jsdom | Frontend | 434 UI and logic tests (as of v2.16.0) |
+| Vitest · Testing Library · jsdom | Frontend | 434 UI and logic tests (as of v2.17.1) |
 | fake-indexeddb | Frontend | Tests for offline autosave |
 
 ## Releases
