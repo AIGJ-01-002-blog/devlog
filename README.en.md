@@ -17,7 +17,7 @@ Write → autosave → publish → read → react: a velog-style blogging platfo
 [![Release](https://img.shields.io/github/v/release/AIGJ-01-002-blog/devlog?color=10b981&label=release)](https://github.com/AIGJ-01-002-blog/devlog/releases/latest)
 [![Backend CI](https://github.com/AIGJ-01-002-blog/devlog/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/AIGJ-01-002-blog/devlog/actions/workflows/backend-ci.yml)
 [![Frontend CI](https://github.com/AIGJ-01-002-blog/devlog/actions/workflows/frontend-ci.yml/badge.svg)](https://github.com/AIGJ-01-002-blog/devlog/actions/workflows/frontend-ci.yml)
-[![Domain](https://img.shields.io/badge/domain-devlog.life%20(coming%20soon)-0ea5e9.svg)](#deployment)
+[![Domain](https://img.shields.io/badge/domain-devlog.life-0ea5e9.svg)](https://devlog.life)
 [![Stack](https://img.shields.io/badge/Java%2021%20·%20Spring%20Boot%204.1%20·%20React%2019-f97316.svg)](#tech-stack)
 
 [Run it yourself](#run-it-yourself) · [Changelog](CHANGELOG.md) (Korean) · [Releases](https://github.com/AIGJ-01-002-blog/devlog/releases) · [Design docs](https://github.com/AIGJ-01-002-blog/docs) (Korean) · [Feature specs](specs/) (Korean)
@@ -28,12 +28,47 @@ Write → autosave → publish → read → react: a velog-style blogging platfo
   <img src="assets/images/home.webp" alt="devlog home page with Latest and Trending tabs and post cards" width="860" />
 </p>
 
-The name comes from **development log**. We have registered [devlog.life](https://devlog.life) as the official address and will open the service there once the production server is up.
+The name comes from **development log**. It runs at [devlog.life](https://devlog.life).
 
 > The service UI and the design documents are in Korean. Screenshots below show the Korean UI.
 
+## One-page summary
+
+**A velog-style developer blog where AI agents draft dev logs and a person reviews them before publishing, planned and run by one person.** The problem → decision → result summary is at [devlog.life/portfolio](https://devlog.life/portfolio) (Korean), and it prints on one A4 page.
+
+```mermaid
+flowchart LR
+    U[Browser · AI tools · MCP] -->|HTTPS| CF[Cloudflare Tunnel]
+    CF --> I[ingress-nginx]
+    I --> A[blog-app<br/>Spring Boot 4.1 · React<br/>2 pods, rolling deploy]
+    A --> P[(PostgreSQL 17<br/>pgvector)]
+    A --> R[(Redis<br/>sessions · rate limits)]
+    A --> M[(MinIO<br/>images · video)]
+    GH[GitHub Actions] -->|image · rollout.sh auto rollback| A
+```
+
+Run it locally (Docker, JDK 21, Node.js 22):
+
+```bash
+docker compose -f app/compose.yaml up -d
+cd app/backend && DEV_LOGIN_ENABLED=true SITE_BASE_URL=http://localhost:5173 ./mvnw spring-boot:run &
+cd app/frontend && npm install
+npm run dev   # http://localhost:5173
+# Use the dev login to sign up → write → publish
+```
+
+| Case | Result | Evidence (Korean) |
+| --- | --- | --- |
+| 1. A service that stays up during deploys | 892 requests, 0 failures during a 42-second restart; a broken version rolled back after 60 seconds | [Zero-downtime deploy · auto rollback · tunnel](https://devlog.life/@kim755030/posts/17) · [Zero-downtime deploys and rollback](https://devlog.life/@kim755030/posts/50) |
+| 2. Removing N+1 queries from list pages | List of 20 posts: 61 queries → 1 (calculated) | [DB performance — indexes, plans, N+1](https://devlog.life/@kim755030/posts/60) |
+| 3. Finding defaults that silently dropped out | 7 fixes in the first security review, DB connection wait 30 s → 3 s | [Seven fixes from the first security review](https://devlog.life/@kim755030/posts/140) (PR #358) · [Keep keys off the command line](https://devlog.life/@kim755030/posts/149) |
+| 4. A multiplication that made coins nearly free | The order truncated to 84 credits is now rejected with 400, hotfix v2.2.1 | [When quantity × price overflows long](https://devlog.life/@kim755030/posts/141) (PR #349) |
+
+The operator owns requirements, priorities, design decisions and review; AI agents write the code from specs ([specs/](specs/)), checked by tests and CI.
+
 ## Contents
 
+- [One-page summary](#one-page-summary)
 - [Why devlog](#why-devlog)
 - [Quick start](#quick-start)
 - [Features](#features)
@@ -59,9 +94,9 @@ The name comes from **development log**. We have registered [devlog.life](https:
 
 ## Quick start
 
-### Use the service (coming soon)
+### Use the service
 
-Once the production server is up, the service opens at https://devlog.life. Until then you can run it on your own machine as shown below.
+Use it directly at https://devlog.life. To run it on your own machine, follow the steps below.
 
 1. Sign up with a GitHub, Google, Kakao, Naver or Facebook account, or with email, then choose your blog address (`/@your-id`) and nickname.
 2. Write in Markdown under **New post**. The preview updates on the right as you type, and your draft is saved automatically.
@@ -254,7 +289,7 @@ sequenceDiagram
 
 GitHub Actions runs the tests, builds the image and pushes it to GHCR, then deploys to Kubernetes with kustomize overlays. `deploy/scripts/rollout.sh` waits for every new pod to become ready (`/actuator/health/readiness`) and automatically rolls back to the previous version if that doesn't happen in time. Old pods are not taken down until new ones are ready (`maxUnavailable: 0`), so the service stays up during both deploys and rollbacks.
 
-The current production baseline is `overlays/selfhosted`. It runs PostgreSQL 17, Redis 7.4 and MinIO in the same cluster with persistent volumes. On a test cluster (k3s) we verified the path from sign-up → publishing a post with images → reading it as a guest. We put the switch to the school's shared infrastructure (`overlays/nhn`) on hold because it is reachable only from the school network. The production server and the [devlog.life](https://devlog.life) connection are being prepared. Details are in [deploy/README.md](deploy/README.md) (Korean).
+The current production baseline is `overlays/selfhosted`. It runs PostgreSQL 17, Redis 7.4 and MinIO in the same cluster with persistent volumes. On a test cluster (k3s) we verified the path from sign-up → publishing a post with images → reading it as a guest. We put the switch to the school's shared infrastructure (`overlays/nhn`) on hold because it is reachable only from the school network. This setup now runs [devlog.life](https://devlog.life), with outside traffic coming in through Cloudflare Tunnel ([deployment post](https://devlog.life/@kim755030/posts/17), Korean). Details are in [deploy/README.md](deploy/README.md) (Korean).
 
 ## Repository layout
 
@@ -379,10 +414,10 @@ To try it on Kubernetes, run `kubectl apply -k deploy/k8s/overlays/local` on kin
 
 | Technology | Where | Role |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | Backend | 898 unit and integration tests (as of v2.13.0) |
+| JUnit 5 · Spring Boot Test · Spring Security Test | Backend | 899 unit and integration tests (as of v2.14.0) |
 | Testcontainers (PostgreSQL) | Backend | Verifies migrations, queries and concurrency against a real PostgreSQL |
 | JaCoCo | Backend | Enforces a 40% line-coverage threshold in CI |
-| Vitest · Testing Library · jsdom | Frontend | 434 UI and logic tests (as of v2.13.0) |
+| Vitest · Testing Library · jsdom | Frontend | 434 UI and logic tests (as of v2.14.0) |
 | fake-indexeddb | Frontend | Tests for offline autosave |
 
 ## Releases
@@ -391,6 +426,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v2.14.0 | 2026-10-22 | One-page portfolio: `/portfolio` prints as one A4 page (URLs next to links, no backgrounds or icons), a GitHub and jpop.today link line with schema.org Person structured data, case 5 now covers the jpop.today indexing policy, less first-paint layout shift (CLS), README one-page summary (diagram, 5-line run, case links) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.14.0) |
 | v2.13.0 | 2026-10-22 | Portfolio blog and search indexing: `/portfolio` (5 cases as problem → decision → numbers, one A4 page), `/contact`, and the AI scope on About; diaries, unreviewed member posts, short posts and tags are `noindex, follow`; sitemap split into three files; "AI-assisted" label and a Sunday weekly retro draft; ads off by default; Shorts studio script queue | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.13.0) |
 | v2.12.0 | 2026-10-21 | Shorts "one a day for seven weeks": "[백엔드 면접]" (Backend Interview) in front of post short titles, the YouTube description starts with the source post link, steps schedule each video for 8 pm, and each short gets a playlist bundle (deploy, DB, security, performance, AI collaboration) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.12.0) |
 | v2.11.0 | 2026-10-21 | One color family per Shorts-tab row: the first frame color is grouped in threes, alternating light and dark families (mint → night → sunset → ocean → grape → mono → paper); one member's post shorts render one at a time so rows stay aligned | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.11.0) |

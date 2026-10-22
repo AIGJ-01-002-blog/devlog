@@ -17,7 +17,7 @@
 [![Release](https://img.shields.io/github/v/release/AIGJ-01-002-blog/devlog?color=10b981&label=release)](https://github.com/AIGJ-01-002-blog/devlog/releases/latest)
 [![Backend CI](https://github.com/AIGJ-01-002-blog/devlog/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/AIGJ-01-002-blog/devlog/actions/workflows/backend-ci.yml)
 [![Frontend CI](https://github.com/AIGJ-01-002-blog/devlog/actions/workflows/frontend-ci.yml/badge.svg)](https://github.com/AIGJ-01-002-blog/devlog/actions/workflows/frontend-ci.yml)
-[![Domain](https://img.shields.io/badge/domain-devlog.life%20(筹备中)-0ea5e9.svg)](#部署)
+[![Domain](https://img.shields.io/badge/domain-devlog.life-0ea5e9.svg)](https://devlog.life)
 [![Stack](https://img.shields.io/badge/Java%2021%20·%20Spring%20Boot%204.1%20·%20React%2019-f97316.svg)](#技术栈)
 
 [自己运行](#自己运行) · [更新日志](CHANGELOG.md)（韩语） · [版本发布](https://github.com/AIGJ-01-002-blog/devlog/releases) · [设计文档](https://github.com/AIGJ-01-002-blog/docs)（韩语） · [功能规格](specs/)（韩语）
@@ -28,12 +28,47 @@
   <img src="assets/images/home.webp" alt="devlog 首页，带有最新、热门标签页和文章卡片" width="860" />
 </p>
 
-名字取自 **development log（开发记录）**。我们已经注册了正式域名 [devlog.life](https://devlog.life)，生产服务器准备就绪后会在这个地址上线。
+名字取自 **development log（开发记录）**。目前在 [devlog.life](https://devlog.life) 运营。
 
 > 服务界面和设计文档使用韩语。下面的截图也是韩语界面。
 
+## 一页摘要
+
+**一个由 AI 智能体起草开发日志、经人工审核后发布的 velog 风格开发者博客，由一人策划和运营。** 按问题 → 决策 → 结果数字整理的页面在 [devlog.life/portfolio](https://devlog.life/portfolio)（韩语），打印正好一页 A4。
+
+```mermaid
+flowchart LR
+    U[浏览器 · AI 工具 · MCP] -->|HTTPS| CF[Cloudflare Tunnel]
+    CF --> I[ingress-nginx]
+    I --> A[blog-app<br/>Spring Boot 4.1 · React<br/>2 个 Pod，滚动部署]
+    A --> P[(PostgreSQL 17<br/>pgvector)]
+    A --> R[(Redis<br/>会话 · 限流)]
+    A --> M[(MinIO<br/>图片 · 视频)]
+    GH[GitHub Actions] -->|镜像 · rollout.sh 自动回滚| A
+```
+
+在本地运行（Docker、JDK 21、Node.js 22）：
+
+```bash
+docker compose -f app/compose.yaml up -d
+cd app/backend && DEV_LOGIN_ENABLED=true SITE_BASE_URL=http://localhost:5173 ./mvnw spring-boot:run &
+cd app/frontend && npm install
+npm run dev   # http://localhost:5173
+# 可用开发登录完成注册 → 写作 → 发布
+```
+
+| 案例 | 结果数字 | 依据文章（韩语） |
+| --- | --- | --- |
+| 1. 部署期间也不中断的服务 | 42 秒重启期间 892 个请求、0 失败；故意弄坏的版本 60 秒后自动回滚 | [无停机部署·自动回滚·隧道](https://devlog.life/@kim755030/posts/17) · [无停机部署与回滚](https://devlog.life/@kim755030/posts/50) |
+| 2. 消除列表页的 N+1 查询 | 20 篇文章列表的查询 61 次 → 1 次（计算值） | [数据库性能 — 索引、执行计划、N+1](https://devlog.life/@kim755030/posts/60) |
+| 3. 找出悄悄失效的默认值 | 第一轮安全检查修复 7 项，数据库连接等待 30 秒 → 3 秒 | [第一轮安全检查修复的七项](https://devlog.life/@kim755030/posts/140) (PR #358) · [密钥不放在命令行](https://devlog.life/@kim755030/posts/149) |
+| 4. 一次乘法让币几乎免费的漏洞 | 被截断为 84 积分的订单现以 400 拒绝，热修复 v2.2.1 | [数量 × 价格超出 long 时](https://devlog.life/@kim755030/posts/141) (PR #349) |
+
+需求、优先级、设计决策和审核由运营者负责，代码由 AI 智能体按规格（[specs/](specs/)）编写，并经测试和 CI 验证。
+
 ## 目录
 
+- [一页摘要](#一页摘要)
 - [为什么选择 devlog](#为什么选择-devlog)
 - [快速开始](#快速开始)
 - [主要功能](#主要功能)
@@ -59,9 +94,9 @@
 
 ## 快速开始
 
-### 作为服务使用（筹备中）
+### 作为服务使用
 
-生产服务器准备就绪后将在 https://devlog.life 上线。在那之前，可以按下面的步骤在自己的电脑上运行。
+可直接在 https://devlog.life 使用。如需在自己的电脑上运行，请按下面的步骤操作。
 
 1. 用 GitHub、Google、Kakao、Naver、Facebook 账号或邮箱注册，设定博客地址（`/@your-id`）和昵称。
 2. 点击 **写文章**，用 Markdown 写作。左边输入，右边立即显示预览，写作过程中会自动保存。
@@ -254,7 +289,7 @@ sequenceDiagram
 
 通过 GitHub Actions 测试并构建镜像、推送到 GHCR，再用 kustomize 的 overlay 部署到 Kubernetes。`deploy/scripts/rollout.sh` 会等待新 Pod 全部就绪（`/actuator/health/readiness`），超时未就绪则自动回滚到上一个版本。新 Pod 就绪之前不会停止旧 Pod（`maxUnavailable: 0`），所以部署和回滚期间服务都不会中断。
 
-目前生产环境的基准是 `overlays/selfhosted`。PostgreSQL 17、Redis 7.4、MinIO 运行在同一个集群中并挂载持久卷，已在测试集群（k3s）中验证了注册 → 发布带图片的文章 → 未登录状态下阅读的全过程。学校的共用基础设施（`overlays/nhn`）只能从校内网络访问，因此迁移暂缓。生产服务器以及与 [devlog.life](https://devlog.life) 的对接正在筹备中。详情见 [deploy/README.md](deploy/README.md)（韩语）。
+目前生产环境的基准是 `overlays/selfhosted`。PostgreSQL 17、Redis 7.4、MinIO 运行在同一个集群中并挂载持久卷，已在测试集群（k3s）中验证了注册 → 发布带图片的文章 → 未登录状态下阅读的全过程。学校的共用基础设施（`overlays/nhn`）只能从校内网络访问，因此迁移暂缓。目前用这套配置运营 [devlog.life](https://devlog.life)，外部请求经 Cloudflare Tunnel 进入（[部署文章](https://devlog.life/@kim755030/posts/17)，韩语）。详情见 [deploy/README.md](deploy/README.md)（韩语）。
 
 ## 仓库结构
 
@@ -379,10 +414,10 @@ npm run dev        # http://localhost:5173
 
 | 技术 | 使用位置 | 作用 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | 后端 | 单元与集成测试 898 个（截至 v2.13.0） |
+| JUnit 5 · Spring Boot Test · Spring Security Test | 后端 | 单元与集成测试 899 个（截至 v2.14.0） |
 | Testcontainers (PostgreSQL) | 后端 | 在真实的 PostgreSQL 上验证迁移、查询和并发 |
 | JaCoCo | 后端 | 在 CI 中检查 40% 行覆盖率的门槛 |
-| Vitest · Testing Library · jsdom | 前端 | 界面与逻辑测试 434 个（截至 v2.13.0） |
+| Vitest · Testing Library · jsdom | 前端 | 界面与逻辑测试 434 个（截至 v2.14.0） |
 | fake-indexeddb | 前端 | 离线自动保存的测试 |
 
 ## 版本发布
@@ -391,6 +426,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v2.14.0 | 2026-10-22 | 一页作品集: `/portfolio` 打印为一页 A4(链接旁显示网址，去掉背景和图标)，GitHub 与 jpop.today 链接行及 schema.org Person 结构化数据，案例 5 改为 jpop.today 索引策略，减少首屏布局偏移(CLS)，README 一页摘要(架构图、5 行运行命令、案例链接) | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.14.0) |
 | v2.13.0 | 2026-10-22 | 作品集博客与搜索索引整理: `/portfolio`(5 个案例，问题 → 决策 → 结果数字，打印为一页 A4)、`/contact`、关于页的 AI 使用范围；日记、未审核的外部会员文章、短文和标签页改为 `noindex, follow`；站点地图拆成三个文件；"AI 辅助写作"标记和每周日的周回顾草稿；广告开关默认关闭；短视频工作室台本队列 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.13.0) |
 | v2.12.0 | 2026-10-21 | 短视频"每天一条，七周"运营: 文章短视频标题开头加"[백엔드 면접]"(后端面试)，YouTube 说明第一行是原文章链接，步骤中安排每天晚上 8 点定时公开，每条短视频可选播放列表分组(部署、DB、安全、性能、AI 协作) | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.12.0) |
 | v2.11.0 | 2026-10-21 | 短视频标签页一行(三条)使用同一色系: 首画面颜色每三条一组，明暗色系交替(薄荷 → 夜 → 日落 → 海洋 → 葡萄 → 单色 → 纸)，同一成员的文章短视频依次逐条渲染以免错行 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.11.0) |
