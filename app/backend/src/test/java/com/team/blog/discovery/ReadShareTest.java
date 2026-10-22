@@ -50,7 +50,7 @@ class ReadShareTest extends IntegrationTest {
 
     @Test
     void 공개_글은_비회원도_읽고_링크_미리보기_정보가_들어_있다() throws Exception {
-        Session s = signup(uniqueLogin("detail"));
+        Session s = staff(signup(uniqueLogin("detail")));
         long id = publish(s, "제목 <script>", "첫 문단 \"요약\"\n\n## 소제목\n\n" + ARTICLE_BODY, "PUBLIC");
         MvcResult r = mvc.perform(get("/@" + s.handle() + "/posts/" + id + "?utm_source=x"))
                 .andExpect(status().isOk())
@@ -67,7 +67,11 @@ class ReadShareTest extends IntegrationTest {
                 .contains("<meta name=\"twitter:card\" content=\"summary_large_image\">")
                 .contains("<script type=\"application/ld+json\">{\"@context\":\"https://schema.org\",\"@type\":\"BlogPosting\"")
                 .contains("\"headline\":\"제목 \\u003cscript\\u003e - ")
-                .contains("\"author\":{\"@type\":\"Person\",\"name\":");
+                .contains("\"author\":{\"@type\":\"Person\",\"name\":")
+                .contains("\"url\":\"http://localhost:8080/@" + s.handle() + "\"}")
+                // spec 107: 이동 경로 홈 → 블로그 → 글. 글 이름에는 "- 작성자"를 붙이지 않는다
+                .contains("{\"@context\":\"https://schema.org\",\"@type\":\"BreadcrumbList\",\"itemListElement\":[{\"@type\":\"ListItem\",\"position\":1,\"name\":\"devlog\",\"item\":\"http://localhost:8080/\"}")
+                .contains("\"position\":3,\"name\":\"제목 \\u003cscript\\u003e\",\"item\":\"http://localhost:8080/@" + s.handle() + "/posts/" + id + "\"}]}");
         mvc.perform(get("/api/posts/" + id)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.title").value("제목 <script>"))
                 .andExpect(jsonPath("$.author.handle").value(s.handle()))

@@ -44,7 +44,7 @@ class RssTest extends IntegrationTest {
 
     @Test
     void 블로그_RSS에는_공개_글만_최신순으로_나온다() throws Exception {
-        Session s = signup(uniqueLogin("rss"));
+        Session s = staff(signup(uniqueLogin("rss")));
         long old = publish(s, "처음 & <끝>", "PUBLIC");
         long friends = publish(s, "친구만", "FRIENDS");
         long priv = publish(s, "비밀", "PRIVATE");

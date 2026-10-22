@@ -40,7 +40,7 @@ class AdsenseThinPageTest extends IntegrationTest {
 
     @Test
     void 글이_없거나_AI_일기만_있는_블로그는_수집하지_않고_글이_생기면_연다() throws Exception {
-        Session s = signup(uniqueLogin("thinblog"));
+        Session s = staff(signup(uniqueLogin("thinblog")));
         assertThat(page("/@" + s.handle())).contains("noindex").doesNotContain("adsbygoogle");
         String tag = "diary" + System.nanoTime() % 1_000_000;
         markDiary(publish(s, "오늘의 일기", tag));
@@ -50,15 +50,17 @@ class AdsenseThinPageTest extends IntegrationTest {
     }
 
     @Test
-    void AI_일기로만_두_편을_채운_태그는_수집하지_않는다() throws Exception {
-        Session s = signup(uniqueLogin("diarytag"));
+    void 태그_화면은_글_수와_상관없이_수집하지_않고_링크는_따라가게_한다() throws Exception {
+        Session s = staff(signup(uniqueLogin("diarytag")));
         String tag = "dtag" + System.nanoTime() % 1_000_000;
         markDiary(publish(s, "일기 하나", tag));
         markDiary(publish(s, "일기 둘", tag));
-        assertThat(page("/tags/" + tag)).contains("noindex").contains("공개 글 2");
+        assertThat(page("/tags/" + tag)).contains("noindex, follow").contains("공개 글 2");
         publish(s, "글 하나", tag);
         publish(s, "글 둘", tag);
-        assertThat(page("/tags/" + tag)).doesNotContain("noindex");
+        // 전에는 글 2편부터 수집했다(spec 085). 이제 태그 화면은 늘 noindex, follow (spec 107)
+        assertThat(page("/tags/" + tag)).contains("<meta name=\"robots\" content=\"noindex, follow\">").doesNotContain("adsbygoogle")
+                .contains(SpaShell.SITE_FOOTER);
     }
 
     @Test
@@ -86,7 +88,7 @@ class AdsenseThinPageTest extends IntegrationTest {
 
     @Test
     void 본문이_짧은_글은_독자에게_보이되_수집_광고_사이트맵에서_빠진다() throws Exception {
-        Session s = signup(uniqueLogin("shortpost"));
+        Session s = staff(signup(uniqueLogin("shortpost")));
         String tag = "sp" + System.nanoTime() % 1_000_000;
         // 코드 블록·그림·링크 주소는 글자 수에 넣지 않는다
         String padded = "짧은 소개\n\n```java\n" + "x".repeat(2000) + "\n```\n\n~~~\n" + "y".repeat(2000) + "\n~~~\n\n````md\n```\n"
@@ -95,12 +97,12 @@ class AdsenseThinPageTest extends IntegrationTest {
         long shortPost = publish(s, "짧은 글", tag, padded);
         String shortPage = page("/@" + s.handle() + "/posts/" + shortPost);
         assertThat(shortPage).contains("noindex").doesNotContain("adsbygoogle").contains("짧은 소개");
-        assertThat(page("/sitemap.xml")).doesNotContain("/posts/" + shortPost + "<");
+        assertThat(page("/sitemaps/posts.xml")).doesNotContain("/posts/" + shortPost + "<");
         assertThat(page("/@" + s.handle())).contains("noindex"); // 짧은 글만 있는 블로그도 얇은 화면
 
         long longPost = publish(s, "긴 글", tag);
         assertThat(page("/@" + s.handle() + "/posts/" + longPost)).doesNotContain("noindex").contains("<link rel=\"canonical\"");
-        assertThat(page("/sitemap.xml")).contains("/posts/" + longPost + "<");
+        assertThat(page("/sitemaps/posts.xml")).contains("/posts/" + longPost + "<");
         assertThat(page("/@" + s.handle())).doesNotContain("noindex");
         assertThat(ids("/api/posts")).contains(shortPost, longPost); // 홈 목록에는 그대로 보인다
     }

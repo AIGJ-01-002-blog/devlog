@@ -6,9 +6,56 @@ MVP(로그인·글쓰기·글 읽기 + 화면)를 실제로 쓸 수 있을 때 1
 
 main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/release.yml`이 태그(`v버전`)와 GitHub Release를 만든다.
 
-2026-10-12부터 목표 단위로 릴리스한다([CONTRIBUTING.md](CONTRIBUTING.md)). develop에 머지한 작업은 `## [Unreleased]`에 모으고, 마일스톤을 다 채운 릴리스 PR에서 버전 머리말로 바꾼다.
+2026-10-12부터 목표 단위로 릴리스한다([CONTRIBUTING.md](CONTRIBUTING.md)). develop에 머지한 작업은 `## [Unreleased]
+
+## [2.13.0] - 2026-10-22
+
+**목표: 포트폴리오 블로그와 검색 색인 정리** ([목표 이슈 #443](https://github.com/AIGJ-01-002-blog/devlog/issues/443))
+
+채용 담당자가 읽을 포트폴리오 화면과, 검색 엔진이 색인할 글만 색인하는 사이트를 만들었다. 애드센스는 1회 반려 뒤 2~3개월 재신청하지 않기로 해서 광고는 꺼 두고, 그동안 글 품질과 신뢰 페이지를 갖춘다. 새 모듈·의존성·인프라 없이, 기존 주소는 그대로 두었다.
+
+### 화면
+| 전 | 후 |
+|---|---|
+| ![소개 전](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.13.0/about-before.webp) | ![소개 후: 무엇을 하는 곳인가요, AI 사용 범위](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.13.0/about-after.webp) |
+
+| 포트폴리오 (새 화면) | 포트폴리오 어두운 화면 | 연락처 (새 화면) |
+|---|---|---|
+| ![포트폴리오](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.13.0/portfolio.webp) | ![포트폴리오 어두운 화면](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.13.0/portfolio-dark.webp) | ![연락처](https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/assets/releases/v2.13.0/contact.webp) |
+
+사진은 375px 휴대폰 화면이다. 쇼츠 스튜디오 대본 큐는 로그인한 운영자만 보는 화면이라 사진을 넣지 않았다.
+
+에 모으고, 마일스톤을 다 채운 릴리스 PR에서 버전 머리말로 바꾼다.
 
 ## [Unreleased]
+
+### 바꿈
+- 광고 스위치 `ADS_PROVIDER`(none|adsense)를 더하고 기본값을 none으로 두었다. 애드센스 재신청 전까지 어느 화면에도 광고 코드를 넣지 않고, ads.txt와 소유 확인 메타만 남긴다. 켰을 때 쓸 글 아래 광고 자리는 높이를 먼저 잡아 레이아웃이 밀리지 않는다 (#457)
+- 검색 수집 규칙을 넓혔다. 외부 회원 글은 운영진이 검수해 [수집 허락]을 눌러야 검색 엔진·사이트맵에 나가고, 태그 화면은 글 수와 상관없이 수집하지 않는다. 일기·짧은 글·태그·검색 결과처럼 독자가 읽는 noindex 화면은 `noindex, follow`로 바꿔 글 안의 링크는 검색 엔진이 따라가게 했다. robots.txt에 쇼츠 스튜디오·자동매매·모의투자·포인트 같은 로그인 전용 화면을 더 막았다 (#451)
+
+### 추가
+- 쇼츠 스튜디오에 [대본 큐]: 아직 영상으로 만들지 않은 대본을 먼저 쓴 순서대로 줄 세워 보여 준다. 만들고 올릴 차례를 한눈에 본다 (#458)
+- 소개(`/about`)에 "글 쓰는 방식과 AI 사용 범위"를 더하고, 개인정보 처리방침에 광고가 지금 꺼져 있음과 쓰는 쿠키·방문 통계를 밝혔다. 바닥글에 포트폴리오·연락처를 더했다 (#456)
+- 주간 회고 초안: 매주 일요일 22시(KST)에 그 주 AI 일기를 묶은 "주간 회고" 임시글을 만든다. 도입·배운 점에 사람이 100자 이상 써야 발행되고, AI 도구(MCP)로는 고치거나 발행할 수 없다. 일기는 지금처럼 자동 발행·noindex 그대로다 (#455)
+- AI 보조 작성 표기: MCP로 만들거나 고치거나 발행한 글, AI 일기에 남기고 글 아래에 "AI 보조 작성"을 보여 준다. MCP 발행은 전부터 기본이 임시글이고 `publish_post`를 불러야만 공개된다 (#455)
+- `/portfolio`: 운영자가 풀어 온 문제 5가지를 문제 → 결정 → 결과 숫자와 근거 글로 한 장에 모았다. 인쇄하면 A4 한 장이다 (#456)
+- `/contact`: 메일과 공개 문의 창구를 한 화면에 모았다. 메일 기본값은 블로그 운영 메일이다 (#456)
+- 글 화면에 이동 경로 구조화 데이터(BreadcrumbList)를 넣고, 사이트맵을 글·시리즈·고정 화면 세 파일로 나눴다(`/sitemap.xml` 주소는 그대로). 검색 엔진 소유 확인 메타를 설정값(`GOOGLE_SITE_VERIFICATION`·`NAVER_SITE_VERIFICATION`)으로 넣는다 (#456)
+- 관리자 대시보드에 [검색 수집] 칸: 수집하는 글·빼는 글 수와 검수를 기다리는 외부 회원 글. 앱이 뜰 때 같은 숫자를 로그에 남긴다 (#451)
+
+### 고침
+- 시험용 설정에서 Spring 컨텍스트마다 쉬는 DB 연결을 1개만 남겨, 시험 클래스가 늘어도 CI의 Postgres 연결 수(100)를 넘지 않게 했다 (#457)
+
+### 포함된 작업
+| 이슈 | 브랜치 | PR |
+|---|---|---|
+| #444 검색 봇 차단 경로 정리와 조건부 색인 규칙 확장 | `feature/107-index-rules` | #451 |
+| #445 AI 보조 작성 표기와 주간 회고 초안 | `feature/108-ai-assisted-retro` | #455 |
+| #446 /portfolio 사례 페이지와 신뢰 페이지, 글 SEO 메타 | `feature/109-portfolio-trust-pages` | #456 |
+| #447 광고 스위치 ADS_PROVIDER와 높이를 예약하는 광고 자리 | `feature/110-ads-provider` | #457 |
+| #448 스튜디오 대본 큐 | `feature/111-studio-script-queue` | #458 |
+
+**비교:** [v2.12.0...v2.13.0](https://github.com/AIGJ-01-002-blog/devlog/compare/v2.12.0...v2.13.0)
 
 ## [2.12.0] - 2026-10-21
 

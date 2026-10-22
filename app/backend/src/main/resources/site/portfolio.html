@@ -1,0 +1,49 @@
+<!-- /portfolio 본문 (spec 107 FR-015). 서버가 첫 화면에 그대로 넣고 React도 같은 HTML을 그린다.
+     숫자는 공개 글·PR에 적힌 값만 쓴다. 근거를 못 찾은 숫자는 비워 둔다. 인쇄하면 A4 한 장에 들어가야 한다. -->
+<p class="portfolio-intro">devlog.life를 혼자 기획하고 운영하는 백엔드 개발자예요. 요구사항·우선순위·설계 결정과 검수는 제가 맡고, 코드는 AI 에이전트가 명세(Spec Kit)를 따라 쓰고 제가 시험 결과로 확인해요. <a href="/about#ai">글 쓰는 방식과 AI 사용 범위</a></p>
+<p class="portfolio-stack"><b>기술</b> Java 21 · Spring Boot 4.1 · PostgreSQL(pgvector) · Redis · MinIO · React(Vite) · k3s · Cloudflare Tunnel · GitHub Actions</p>
+<section class="portfolio-case" id="deploy">
+<h2>1. 배포 중에도 끊기지 않는 서비스</h2>
+<ul>
+<li><b>문제</b> 서버 한 대에 kubectl apply만 하면 새 버전이 안 뜰 때 되돌릴 사람이 없고, 배포 중 요청이 끊길 수 있었어요.</li>
+<li><b>결정</b> 롤링 배포 + 준비 검사(readiness) + 정해진 시간 안에 준비되지 않으면 직전 버전으로 되돌리는 배포 스크립트로 정했어요.</li>
+<li><b>결과</b> 0.1초마다 요청을 보내며 재시작하니 42초 동안 파드 2개가 바뀌었고 요청 892건 중 실패 0건. 일부러 망가뜨린 버전은 60초 뒤 이전 버전으로 돌아왔어요.</li>
+</ul>
+<p class="portfolio-source">근거: <a href="/@{{owner}}/posts/17">무중단 배포·자동 롤백·터널</a> · <a href="/@{{owner}}/posts/50">무중단 배포와 롤백</a></p>
+</section>
+<section class="portfolio-case" id="query">
+<h2>2. 목록 화면의 N+1 쿼리 없애기</h2>
+<ul>
+<li><b>문제</b> 글 20개 목록에서 작성자·태그·댓글 수를 글마다 따로 읽으면 쿼리가 1 + 20 × 3 = 61번 나가요.</li>
+<li><b>결정</b> "목록당 쿼리 1번"을 규칙으로 두고, 태그는 ARRAY 하위 쿼리, 수는 집계 뷰 조인으로 한 문장에 담았어요.</li>
+<li><b>결과</b> 글 20개 목록 기준 61번 → 1번(계산값). 홈·블로그·태그·검색 목록이 모두 같은 카드 쿼리 하나를 써요.</li>
+</ul>
+<p class="portfolio-source">근거: <a href="/@{{owner}}/posts/60">DB 성능 — 인덱스, 실행 계획, N+1</a></p>
+</section>
+<section class="portfolio-case" id="security">
+<h2>3. 기본값이 조용히 빠진 곳 찾기 (보안 점검)</h2>
+<ul>
+<li><b>문제</b> 프레임워크 기본값이 프록시·터널 뒤에서는 빠져, 큰 취약점 대신 조용한 빈틈이 여러 곳 생겼어요.</li>
+<li><b>결정</b> 한 번에 고치지 않고 점검 이슈 하나에 항목을 모아 우선순위대로 한 PR씩 고쳤어요.</li>
+<li><b>결과</b> 1차에서 7가지를 고쳤어요(HSTS, CSRF 쿠키 속성, DB 연결 대기 30초 → 3초, 외부 API 시간 제한 등). 이어서 명령줄 인자로 비밀 키가 보이던 백업 스크립트도 고쳤어요.</li>
+</ul>
+<p class="portfolio-source">근거: <a href="/@{{owner}}/posts/140">보안 점검 1차에서 고친 일곱 가지</a> (PR #358) · <a href="/@{{owner}}/posts/149">열쇠는 명령줄에 두지 않는다</a></p>
+</section>
+<section class="portfolio-case" id="overflow">
+<h2>4. 곱셈 한 번에 코인이 공짜가 되던 버그 (CWE-197)</h2>
+<ul>
+<li><b>문제</b> 모의투자에서 수량 × 가격이 long 범위를 넘으면 잘려서, 100개 × 184,467,440,737,095,517 크레딧 주문이 84 크레딧으로 계산됐어요.</li>
+<li><b>결정</b> 곱셈 결과를 검사하는 한 겹 대신, 주문 금액 상한(1조 크레딧)과 수량 상한을 함께 두는 두 겹으로 막았어요.</li>
+<li><b>결과</b> 핫픽스 v2.2.1로 배포했고, 84가 되던 주문을 그대로 보내 400으로 거절되는지 확인하는 시험을 남겼어요.</li>
+</ul>
+<p class="portfolio-source">근거: <a href="/@{{owner}}/posts/141">수량 × 가격이 long을 넘으면</a> (PR #349)</p>
+</section>
+<section class="portfolio-case" id="shorts">
+<h2>5. 자동으로 만든 영상이 똑같아 보이지 않게</h2>
+<ul>
+<li><b>문제</b> 글을 쇼츠로 바꾸는 렌더러가 매번 비슷한 화면을 만들어, 채널이 같은 영상의 반복처럼 보였어요.</li>
+<li><b>결정</b> 대본에서 씨앗을 뽑아 연출을 고르고(같은 대본은 같은 영상), 최근 5편의 분위기는 피하고, 6초 넘게 멈춘 화면을 검사해요.</li>
+<li><b>결과</b> 분위기 7가지 · 음악 4곡 · 장면 전환 14가지 · 카메라 7가지 조합. 움직이는 배경 때문에 2배로 늘던 렌더 시간을 254초(기존 237초)로 되돌렸어요.</li>
+</ul>
+<p class="portfolio-source">근거: <a href="/@{{owner}}/posts/148">씨앗으로 고르는 연출, 최근 5편 피하기, 정지 화면 검사</a> (PR #389, #391, #392)</p>
+</section>

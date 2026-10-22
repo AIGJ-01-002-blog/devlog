@@ -358,6 +358,7 @@ public class McpTools {
     private final PostDetailQuery details;
     private final TagQuery tags;
     private final AiDraftHints hints;
+    private final WeeklyRetro retros;
     private final PostTrashService trash;
     private final McpImages images;
     private final InquiryService inquiries;
@@ -375,7 +376,7 @@ public class McpTools {
 
     public McpTools(PostCommandService commands, PostEditorQuery editor, MyPostsQuery myPosts, SearchQuery search,
                     PostDetailQuery details, TagQuery tags, AiDraftHints hints, PostTrashService trash, InquiryService inquiries,
-                    McpImages images, AiJournal journal, SeriesService series, SeriesProjects projects, TopicSuggester topics, ShortsTools shorts, TradeTools trades, RateLimiter rateLimiter,
+                    McpImages images, AiJournal journal, WeeklyRetro retros, SeriesService series, SeriesProjects projects, TopicSuggester topics, ShortsTools shorts, TradeTools trades, RateLimiter rateLimiter,
                     JdbcTemplate jdbc, Clock clock, BlogProperties props) {
         this.commands = commands;
         this.editor = editor;
@@ -384,6 +385,7 @@ public class McpTools {
         this.details = details;
         this.tags = tags;
         this.hints = hints;
+        this.retros = retros;
         this.trash = trash;
         this.images = images;
         this.inquiries = inquiries;
@@ -526,6 +528,7 @@ public class McpTools {
             id = commands.create(caller.memberId(), title, content).id();
             if (!suggested.isEmpty()) hints.suggestTags(id, suggested);
         }
+        hints.markAssisted(id);
         return Result.ok("devlog에 임시글을 만들었어요 (글 번호 " + id + ").\n"
                 + "아직 공개되지 않았어요. 사용자에게 이 링크에서 읽어 보고 발행하라고 알려 주세요: " + editUrl(id)
                 + (suggested.isEmpty() ? "" : "\n제안한 태그: " + String.join(", ", suggested))
@@ -557,9 +560,11 @@ public class McpTools {
         long id = postId(a);
         if (!a.has(TITLE) && !a.has(CONTENT_MD)) return Result.fail("바꿀 제목(title)이나 본문(content_md)을 주세요.");
         PostEditorQuery.EditorView view = editor.open(caller.memberId(), caller.handle(), id);
+        if (retros.isRetro(id)) return Result.fail(WeeklyRetro.HUMAN_ONLY + " 회고 화면: " + editUrl(id));
         String title = a.has(TITLE) ? text(a, TITLE) : view.title();
         String content = a.has(CONTENT_MD) ? text(a, CONTENT_MD) : view.contentMd();
         commands.save(caller.memberId(), id, title, content, view.version());
+        hints.markAssisted(id);
         if (view.status() == PostStatus.DRAFT) return Result.ok("임시글 " + id + "번을 고쳤어요. 확인 링크: " + editUrl(id) + secretNotice(title, content));
         return Result.ok("발행한 글 " + id + "번의 고친 내용을 저장했어요. 아직 독자에게는 이전 내용이 보여요.\n"
                 + "사용자가 이 화면에서 확인하고 [다시 발행]을 눌러야 공개돼요: " + editUrl(id)
@@ -591,6 +596,7 @@ public class McpTools {
     private Result publishPost(AccessTokens.Caller caller, JsonNode a) {
         long id = postId(a);
         PostEditorQuery.EditorView view = editor.open(caller.memberId(), caller.handle(), id);
+        if (retros.isRetro(id)) return Result.fail(WeeklyRetro.HUMAN_ONLY + " 회고 화면: " + editUrl(id));
         boolean republish = view.status() != PostStatus.DRAFT;
         if (republish && !view.editing()) {
             return Result.fail("이미 발행한 글이고 고친 내용이 없어요. 고치려면 update_draft로 먼저 고친 뒤 다시 발행해 주세요: " + baseUrl + view.url());
@@ -618,6 +624,7 @@ public class McpTools {
         }
         PostCommandService.PublishResult r = commands.publish(new PublishCommand(id, caller.memberId(), view.title(), view.contentMd(),
                 summary, visibility, tagList, view.version(), view.thumbnailUrl(), view.thumbnailHidden()), caller.handle(), null);
+        hints.markAssisted(id);
         List<String> saved = editor.open(caller.memberId(), caller.handle(), id).tags();
         return Result.ok("'" + view.title() + "'을(를) " + visibilityLabel(r.visibility()) + (republish ? "로 다시 발행했어요: " : "로 발행했어요: ")
                 + baseUrl + r.url()

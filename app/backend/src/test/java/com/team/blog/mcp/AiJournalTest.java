@@ -344,7 +344,7 @@ class AiJournalTest extends IntegrationTest {
         String page = mvc.perform(get("/@" + me.handle() + "/posts/" + diary)).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
         assertThat(page).contains("일기는 검색 수집에서 빼기로 했다").contains("noindex").doesNotContain("adsbygoogle");
-        String sitemap = mvc.perform(get("/sitemap.xml")).andExpect(status().isOk())
+        String sitemap = mvc.perform(get("/sitemaps/posts.xml")).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
         assertThat(sitemap).doesNotContain("/posts/" + diary + "<");
         // 블로그 목록에는 그대로 보인다

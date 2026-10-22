@@ -137,6 +137,8 @@ export interface PostDetail {
   owner: { editing: boolean; editingSavedAt: string | null; hidden: boolean; hiddenReason: string | null } | null
   /** 입력한 순서 (010) */
   tags: string[]
+  /** AI 도구(MCP)로 만들거나 고친 글이면 글 아래에 "AI 보조 작성"을 보여 준다 (spec 107) */
+  aiAssisted?: boolean
 }
 
 export interface EditorView {

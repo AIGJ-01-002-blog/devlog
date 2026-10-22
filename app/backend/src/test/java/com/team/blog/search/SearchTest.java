@@ -275,7 +275,7 @@ class SearchTest extends IntegrationTest {
 
     @Test
     void 검색_화면은_수집을_거부하고_저장하지_않는다() throws Exception {
-        Session a = signup(uniqueLogin("sri"));
+        Session a = staff(signup(uniqueLogin("sri")));
         publish(a, "화면검사어휘 글", "본문 <b>굵게</b>\n\n" + ARTICLE_BODY);
         var res = browser().perform(uri("/search?q=" + enc("화면검사어휘"))).andExpect(status().isOk()).andReturn().getResponse();
         String html = res.getContentAsString();

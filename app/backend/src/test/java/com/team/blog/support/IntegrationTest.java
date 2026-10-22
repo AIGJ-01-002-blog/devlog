@@ -94,6 +94,15 @@ public abstract class IntegrationTest {
         return base + "x" + SEQ.incrementAndGet();
     }
 
+    /**
+     * 운영진(매니저) 계정으로 올린다. 외부 회원 글은 검수 전에는 검색 수집·사이트맵에서 빠지므로(spec 107),
+     * 수집되는 글을 보는 시험은 운영진 글로 쓴다.
+     */
+    protected Session staff(Session s) {
+        jdbc.update("UPDATE member SET role = 'MANAGER' WHERE id = ?", s.memberId());
+        return s;
+    }
+
     protected Browser browser() {
         return new Browser(mvc);
     }

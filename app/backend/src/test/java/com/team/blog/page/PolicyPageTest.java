@@ -26,6 +26,9 @@ class PolicyPageTest extends IntegrationTest {
                 .contains("<link rel=\"canonical\" href=\"http://localhost:8080/privacy\">")
                 .contains("<h1>개인정보 처리방침</h1>")
                 .contains("<h2 id=\"ads\">7. 광고와 쿠키</h2>").contains("https://adssettings.google.com")
+                // spec 107: 광고는 지금 꺼져 있고, 쓰는 쿠키·방문 통계를 이름까지 밝힌다
+                .contains("지금은 광고를 싣지 않으며").contains("<h2 id=\"cookies\">").contains("<b>BLOGSESSION</b>")
+                .contains("<b>XSRF-TOKEN</b>").contains("<b>vid</b>").contains("<h2 id=\"analytics\">9. 방문 통계</h2>")
                 .contains("href=\"/terms\"")
                 .contains("\"page\":\"policy\"")
                 .doesNotContain("noindex").doesNotContain("<!--");
@@ -59,15 +62,15 @@ class PolicyPageTest extends IntegrationTest {
     }
 
     @Test
-    void 글이_하나뿐인_태그_화면은_검색_수집에서_빼고_둘부터_연다() throws Exception {
-        Session s = signup(uniqueLogin("thin"));
+    void 태그_화면은_글이_늘어도_수집하지_않고_정규_주소만_알린다() throws Exception {
+        Session s = staff(signup(uniqueLogin("thin")));
         String tag = "thin" + System.nanoTime() % 1_000_000;
         publish(s, "첫 글", tag);
         assertThat(mvc.perform(get("/tags/" + tag)).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8))
-                .contains("noindex").doesNotContain("adsbygoogle");
+                .contains("noindex, follow").doesNotContain("adsbygoogle");
         publish(s, "둘째 글", tag);
         assertThat(mvc.perform(get("/tags/" + tag)).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8))
-                .doesNotContain("noindex").contains("<link rel=\"canonical\"");
+                .contains("noindex, follow").contains("<link rel=\"canonical\"");
     }
 
     @Test

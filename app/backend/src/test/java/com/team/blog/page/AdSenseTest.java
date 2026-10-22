@@ -16,17 +16,22 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import com.team.blog.support.IntegrationTest;
 
-/** 구글 애드센스 (spec 076): 글 화면에 광고 코드(spec 106), 같은 nonce의 엄격한 CSP, 사이트 루트 ads.txt */
+/**
+ * 구글 애드센스 (spec 076): 글 화면에 광고 코드(spec 106), 같은 nonce의 엄격한 CSP, 사이트 루트 ads.txt.
+ * 광고 스위치를 켠 상태(ADS_PROVIDER=adsense)를 시험한다. 기본값(none)은 AdsOffTest.
+ */
+@TestPropertySource(properties = "blog.ads.provider=adsense")
 class AdSenseTest extends IntegrationTest {
     private static final String CLIENT = "ca-pub-5861067712842534";
 
     String publishArticle() throws Exception {
-        Session s = signup(uniqueLogin("adpost"));
+        Session s = staff(signup(uniqueLogin("adpost")));
         long id = read(s.http().perform(asJson(post("/api/posts"), Map.of("title", "광고 글", "contentMd", "")))
                 .andExpect(status().isCreated()).andReturn()).path("id").asLong();
         s.http().perform(asJson(post("/api/posts/" + id + "/publish"), Map.of("title", "광고 글", "contentMd", ARTICLE_BODY,
@@ -107,6 +112,24 @@ class AdSenseTest extends IntegrationTest {
         } finally {
             RequestContextHolder.resetRequestAttributes();
         }
+    }
+
+    @Test
+    void 광고_자리_메타는_광고를_켜고_자리_ID를_정했을_때만_낸다() {
+        assertThat(new AdSense(CLIENT, "adsense", "1234567890").slotMeta())
+                .isEqualTo("<meta name=\"devlog-ad-slot\" content=\"" + CLIENT + "/1234567890\">\n");
+        assertThat(new AdSense(CLIENT, "none", "1234567890").slotMeta()).isEmpty();
+        assertThat(new AdSense(CLIENT, "adsense", "").slotMeta()).isEmpty();
+        assertThat(new AdSense(CLIENT, "adsense", "1\"><x").slotMeta()).isEmpty();
+    }
+
+    @Test
+    void 광고_스위치가_none이면_게시자_ID가_있어도_광고_코드를_싣지_않는다() {
+        AdSense off = new AdSense(CLIENT, "none", "");
+        assertThat(off.enabled()).isFalse();
+        assertThat(off.configured()).isTrue();
+        assertThat(new AdSense(CLIENT, " AdSense ", "").enabled()).isTrue();
+        assertThat(new AdSense("", "adsense", "").enabled()).isFalse();
     }
 
     @Test

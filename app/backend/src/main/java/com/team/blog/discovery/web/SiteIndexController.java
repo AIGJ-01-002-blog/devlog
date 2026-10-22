@@ -6,6 +6,7 @@ import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.team.blog.discovery.application.SiteIndex;
@@ -35,10 +36,24 @@ public class SiteIndexController {
         return ResponseEntity.ok().contentType(XML).cacheControl(CacheControl.maxAge(Duration.ofMinutes(30)).cachePublic()).body(index.sitemap());
     }
 
-    /** 애드센스를 끄면 404: 빈 ads.txt는 "누구도 광고를 팔 수 없음"으로 읽힐 수 있다 */
+    /** 사이트맵 색인이 가리키는 글·시리즈·고정 화면 파일 (spec 107) */
+    @GetMapping("/sitemaps/{part}.xml")
+    public ResponseEntity<String> sitemapPart(@PathVariable String part) {
+        for (SiteIndex.Part p : SiteIndex.Part.values()) {
+            if (p.name().toLowerCase().equals(part)) {
+                return ResponseEntity.ok().contentType(XML).cacheControl(CacheControl.maxAge(Duration.ofMinutes(30)).cachePublic()).body(index.sitemap(p));
+            }
+        }
+        return ResponseEntity.notFound().build();
+    }
+
+    /**
+     * 게시자 ID가 없으면 404: 빈 ads.txt는 "누구도 광고를 팔 수 없음"으로 읽힐 수 있다.
+     * 광고 스위치가 none이어도 게시자 ID가 있으면 둔다(spec 107, 재신청 준비)
+     */
     @GetMapping("/ads.txt")
     public ResponseEntity<String> adsTxt() {
-        if (!adSense.enabled()) return ResponseEntity.notFound().build();
+        if (!adSense.configured()) return ResponseEntity.notFound().build();
         return ResponseEntity.ok().contentType(TEXT).cacheControl(CacheControl.maxAge(Duration.ofHours(1)).cachePublic()).body(adSense.adsTxt());
     }
 }

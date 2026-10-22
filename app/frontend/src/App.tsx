@@ -65,6 +65,8 @@ const AdminInquiriesPage = lazyPage(() => import('./pages/AdminInquiriesPage'), 
 const RssGuidePage = lazyPage(() => import('./pages/RssGuidePage'), 'RssGuidePage')
 const AdminInquiryPage = lazyPage(() => import('./pages/AdminInquiryPage'), 'AdminInquiryPage')
 const AboutPage = lazyPage(() => import('./pages/AboutPage'), 'AboutPage')
+const ContactPage = lazyPage(() => import('./pages/ContactPage'), 'ContactPage')
+const SitePortfolioPage = lazyPage(() => import('./pages/SitePortfolioPage'), 'SitePortfolioPage')
 const StudioPage = lazyPage(() => import('./pages/StudioPage'), 'StudioPage')
 const DashboardPage = lazyPage(() => import('./pages/DashboardPage'), 'DashboardPage')
 const TradesPage = lazyPage(() => import('./pages/TradesPage'), 'TradesPage')
@@ -154,6 +156,8 @@ function route(path: string): ReactNode {
   if (path === '/terms') return <TermsPage kind="terms" />
   if (path === '/privacy') return <TermsPage kind="privacy" />
   if (path === '/about') return <AboutPage />
+  if (path === '/contact') return <ContactPage />
+  if (path === '/portfolio') return <SitePortfolioPage />
   if (path === '/write') return <RequireLogin><NewPostPage /></RequireLogin>
   if ((p = match('/write/:id', path))) return <RequireLogin><WritePage key={p.id} id={p.id} /></RequireLogin>
   if (path === '/manage/posts') return <RequireLogin><ManagePage /></RequireLogin>

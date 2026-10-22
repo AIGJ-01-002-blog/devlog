@@ -1,4 +1,14 @@
+spring:
+  datasource:
+    # 시험 클래스마다 설정이 다르면 Spring 컨텍스트가 따로 캐시되고, 컨텍스트마다 Hikari 풀이 연결을 쥔다.
+    # 쉬는 연결을 1개만 남겨 컨텍스트가 늘어도 Postgres max_connections(100)를 넘지 않게 한다
+    hikari:
+      minimum-idle: 1
+      idle-timeout: 10000
 blog:
+  # 주간 회고 초안(spec 107)은 시험이 직접 부른다
+  mcp:
+    weekly-retro-cron: "-"
   # 쇼츠 스튜디오(099)는 시험에서 켠다. 꺼졌을 때는 ShortsDisabledTest가 본다. 응답 없는 렌더 되돌리기는 시험이 직접 부른다
   shorts:
     enabled: true
