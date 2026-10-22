@@ -6,6 +6,7 @@ import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.team.blog.discovery.application.SiteIndex;
@@ -33,6 +34,17 @@ public class SiteIndexController {
     @GetMapping("/sitemap.xml")
     public ResponseEntity<String> sitemap() {
         return ResponseEntity.ok().contentType(XML).cacheControl(CacheControl.maxAge(Duration.ofMinutes(30)).cachePublic()).body(index.sitemap());
+    }
+
+    /** 사이트맵 색인이 가리키는 글·시리즈·고정 화면 파일 (spec 107) */
+    @GetMapping("/sitemaps/{part}.xml")
+    public ResponseEntity<String> sitemapPart(@PathVariable String part) {
+        for (SiteIndex.Part p : SiteIndex.Part.values()) {
+            if (p.name().toLowerCase().equals(part)) {
+                return ResponseEntity.ok().contentType(XML).cacheControl(CacheControl.maxAge(Duration.ofMinutes(30)).cachePublic()).body(index.sitemap(p));
+            }
+        }
+        return ResponseEntity.notFound().build();
     }
 
     /** 애드센스를 끄면 404: 빈 ads.txt는 "누구도 광고를 팔 수 없음"으로 읽힐 수 있다 */

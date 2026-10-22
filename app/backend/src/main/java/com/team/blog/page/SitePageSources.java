@@ -4,7 +4,7 @@ import org.springframework.stereotype.Component;
 
 import com.team.blog.release.ReleaseNotes;
 
-/** 사이트 안내 화면(소개·약관·릴리스 노트)이 읽는 곳 (PageController) */
+/** 사이트 안내 화면(소개·포트폴리오·약관·릴리스 노트)이 읽는 곳 (PageController) */
 @Component
-record SitePageSources(SiteOwner owner, PolicyDocuments policies, ReleaseNotes releaseNotes) {
+record SitePageSources(SiteOwner owner, PolicyDocuments policies, ReleaseNotes releaseNotes, SitePortfolio portfolio) {
 }

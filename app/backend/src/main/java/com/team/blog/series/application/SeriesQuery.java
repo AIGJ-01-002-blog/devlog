@@ -178,6 +178,17 @@ public class SeriesQuery {
                 """;
     }
 
+    /** 사이트맵의 시리즈 주소 (spec 107 FR-021). 검색 수집 대상 글이 하나라도 든 시리즈만, 그 글의 마지막 발행 시각과 함께 */
+    public record SitemapEntry(String handle, String slug, Instant lastmod) {}
+
+    public List<SitemapEntry> sitemapEntries(int limit) {
+        return jdbc.query("SELECT m.handle, s.slug, max(p.published_at) AS lastmod FROM series s"
+                + " JOIN series_post sp ON sp.series_id = s.id JOIN post p ON p.id = sp.post_id JOIN member m ON m.id = p.author_id"
+                + " WHERE s.member_id = p.author_id AND " + PostAccessPolicy.PUBLIC_LIST_CONDITION + " AND " + PostAccessPolicy.INDEXABLE_ARTICLE_CONDITION
+                + " GROUP BY m.handle, s.slug ORDER BY lastmod DESC LIMIT ?",
+                (rs, i) -> new SitemapEntry(rs.getString("handle"), rs.getString("slug"), rs.getTimestamp("lastmod").toInstant()), limit);
+    }
+
     /** 시리즈 페이지. 남에게는 읽을 수 있는 글이 없으면 없는 시리즈다. */
     public Optional<Detail> detail(String handle, String slug, Long viewerId) {
         return scope(handle, viewerId).flatMap(s -> jdbc.query(

@@ -127,12 +127,16 @@ blog:
   # 구글 애드센스 게시자 ID (076). 페이지 소스에 보이는 공개 값이다(비밀값 아님). ADSENSE_CLIENT를 비우면 광고 코드·ads.txt를 끈다
   adsense:
     client: ${ADSENSE_CLIENT:ca-pub-5861067712842534}
+  # 검색 엔진 소유 확인 값 (spec 107). 서치 콘솔·서치어드바이저가 주는 공개 값이다(비밀값 아님). 비우면 메타를 넣지 않는다
+  seo:
+    google-site-verification: ${GOOGLE_SITE_VERIFICATION:}
+    naver-site-verification: ${NAVER_SITE_VERIFICATION:9153d9806ad2cd0c40b392cd0afcfa866deb9a55}
   site:
     base-url: ${SITE_BASE_URL:http://localhost:8080}
     name: devlog
     default-og-image: /og-default.png
-    # 로그인 없이 연락하는 방법 (spec 104, 애드센스 심사). 비우면 소개 화면에 보이지 않는다
-    contact-email: ${SITE_CONTACT_EMAIL:}
+    # 로그인 없이 연락하는 방법 (spec 104, 107). 기본은 블로그 운영 메일. 비우면 소개·연락처 화면에 보이지 않는다
+    contact-email: ${SITE_CONTACT_EMAIL:devlogauth@gmail.com}
     contact-url: ${SITE_CONTACT_URL:https://github.com/AIGJ-01-002-blog/devlog/issues}
   web:
     # 로드 밸런서(신뢰 프록시) 내부 대역. 이 대역에서 온 요청만 X-Forwarded-For를 믿는다 (docs/02 §5 H4)

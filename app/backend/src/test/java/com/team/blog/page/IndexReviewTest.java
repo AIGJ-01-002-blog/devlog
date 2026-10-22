@@ -47,7 +47,7 @@ class IndexReviewTest extends IntegrationTest {
         String html = page(path);
         assertThat(html).contains("<meta name=\"robots\" content=\"noindex, follow\">").doesNotContain("adsbygoogle")
                 .contains("<link rel=\"canonical\"").contains(SpaShell.SITE_FOOTER);
-        assertThat(page("/sitemap.xml")).doesNotContain("/posts/" + id + "<");
+        assertThat(page("/sitemaps/posts.xml")).doesNotContain("/posts/" + id + "<");
         assertThat(page("/@" + outsider.handle())).contains("noindex, follow"); // 수집할 글이 없는 블로그
 
         Browser m = manager();
@@ -57,7 +57,7 @@ class IndexReviewTest extends IntegrationTest {
 
         m.perform(asJson(put("/api/admin/posts/" + id + "/index-approval"), Map.of("approved", true))).andExpect(status().isNoContent());
         assertThat(page(path)).doesNotContain("noindex");
-        assertThat(page("/sitemap.xml")).contains("/posts/" + id + "<");
+        assertThat(page("/sitemaps/posts.xml")).contains("/posts/" + id + "<");
 
         // 거두면 다시 빠진다
         m.perform(asJson(put("/api/admin/posts/" + id + "/index-approval"), Map.of("approved", false))).andExpect(status().isNoContent());
@@ -69,7 +69,7 @@ class IndexReviewTest extends IntegrationTest {
         Session operator = staff(signup(uniqueLogin("idxo")));
         long id = publish(operator, "운영자 글", ARTICLE_BODY);
         assertThat(page("/@" + operator.handle() + "/posts/" + id)).doesNotContain("noindex");
-        assertThat(page("/sitemap.xml")).contains("/posts/" + id + "<");
+        assertThat(page("/sitemaps/posts.xml")).contains("/posts/" + id + "<");
 
         Session user = signup(uniqueLogin("idxn"));
         user.http().perform(get("/api/admin/index-report")).andExpect(status().isNotFound());
@@ -87,7 +87,7 @@ class IndexReviewTest extends IntegrationTest {
         long shortPost = publish(s, "짧은 글", "짧은 본문");
         for (long id : new long[] {diary, shortPost}) {
             assertThat(page("/@" + s.handle() + "/posts/" + id)).contains("<meta name=\"robots\" content=\"noindex, follow\">");
-            assertThat(page("/sitemap.xml")).doesNotContain("/posts/" + id + "<");
+            assertThat(page("/sitemaps/posts.xml")).doesNotContain("/posts/" + id + "<");
         }
         // 로그인 화면 같은 개인 화면은 지금처럼 링크도 따라가지 않는다
         assertThat(page("/login")).contains("noindex, nofollow");

@@ -797,6 +797,30 @@ input[type="checkbox"], input[type="radio"] { width: auto; flex-shrink: 0; margi
 .agreement-changes ul { margin: 0; padding-left: 20px; }
 .agreement-changes a { color: var(--color-brand); text-decoration: underline; text-underline-offset: 2px; }
 /* 사이트 맨 아래 링크 (077) */
+/* 사이트 포트폴리오 (spec 107): 사례마다 문제 → 결정 → 결과 세 줄과 근거 글. 인쇄하면 머리·바닥·탭을 빼고 A4 한 장에 맞춘다 */
+.site-portfolio-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.site-portfolio .portfolio-intro { font-size: 1.0625rem; font-weight: 600; }
+.site-portfolio .portfolio-stack { color: var(--color-text-muted); }
+.site-portfolio .portfolio-case { margin-top: 24px; }
+.site-portfolio .portfolio-case h2 { margin-top: 0; }
+.site-portfolio .portfolio-case ul { padding-left: 20px; display: grid; gap: 4px; }
+.site-portfolio .portfolio-source { font-size: 0.875rem; color: var(--color-text-muted); }
+.site-portfolio .portfolio-source a, .site-portfolio .portfolio-intro a { color: var(--color-brand); text-decoration: underline; text-underline-offset: 2px; }
+@media print {
+  @page { size: A4; margin: 12mm 14mm; }
+  body:has(.site-portfolio) { background: white; color: black; padding: 0; } /* 종이에는 어두운 테마 색을 쓰지 않는다 */
+  body:has(.site-portfolio) .site-header, body:has(.site-portfolio) .site-footer, body:has(.site-portfolio) .mobile-nav,
+  .site-portfolio-print { display: none !important; }
+  .site-portfolio { max-width: none; padding: 0; margin: 0; font-size: 9.5pt; line-height: 1.4; }
+  .site-portfolio .page-title { font-size: 15pt; margin: 0 0 4px; }
+  .site-portfolio p { margin: 2px 0; }
+  .site-portfolio .portfolio-intro { font-size: 10pt; }
+  .site-portfolio .portfolio-case { margin-top: 7px; break-inside: avoid; }
+  .site-portfolio .portfolio-case h2 { font-size: 10.5pt; margin: 0 0 2px; }
+  .site-portfolio .portfolio-case ul { gap: 0; margin: 0; padding-left: 14px; }
+  .site-portfolio .portfolio-source { font-size: 8.5pt; }
+  .site-portfolio a { color: black; }
+}
 .site-footer { margin-top: 48px; border-top: 1px solid var(--color-border); }
 .site-footer-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px; padding-top: 16px; padding-bottom: 24px; font-size: 0.8125rem; }
 .site-footer-links a { color: var(--color-text-muted); display: inline-flex; align-items: center; min-height: 32px; white-space: nowrap; }
