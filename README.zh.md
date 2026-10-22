@@ -60,7 +60,7 @@ npm run dev   # http://localhost:5173
 | 案例 | 结果数字 | 依据文章（韩语） |
 | --- | --- | --- |
 | 1. 部署期间也不中断的服务 | 42 秒重启期间 892 个请求、0 失败；故意弄坏的版本 60 秒后自动回滚 | [无停机部署·自动回滚·隧道](https://devlog.life/@kim755030/posts/17) · [无停机部署与回滚](https://devlog.life/@kim755030/posts/50) |
-| 2. 消除列表页的 N+1 查询 | 20 篇文章列表的查询 61 次 → 1 次（计算值） | [数据库性能 — 索引、执行计划、N+1](https://devlog.life/@kim755030/posts/60) |
+| 2. 消除列表页的 N+1 查询 | 20 篇文章列表的 SQL 61 次 → 1 次，p95 16.75ms → 3.93ms（实测） | [数据库性能 — 索引、执行计划、N+1](https://devlog.life/@kim755030/posts/60) · [测量测试](https://github.com/AIGJ-01-002-blog/devlog/blob/main/app/backend/src/test/java/com/team/blog/post/PostListQueryCountTest.java) |
 | 3. 找出悄悄失效的默认值 | 第一轮安全检查修复 7 项，数据库连接等待 30 秒 → 3 秒 | [第一轮安全检查修复的七项](https://devlog.life/@kim755030/posts/140) (PR #358) · [密钥不放在命令行](https://devlog.life/@kim755030/posts/149) |
 | 4. 让 AI 给博客写文章的 MCP 服务器 | 24 个工具默认只公开 17 个，每位会员每分钟 60 次、每小时写入 30 次，令牌只存 SHA-256 哈希 | [MCP 的使用与实现 — 把自己的服务作为工具交给 AI](https://devlog.life/@kim755030/posts/44) |
 

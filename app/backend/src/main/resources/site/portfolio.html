@@ -1,8 +1,8 @@
 <!-- /portfolio 본문 (spec 107 FR-015). 서버가 첫 화면에 그대로 넣고 React도 같은 HTML을 그린다.
      숫자는 공개 글·PR·저장소에서 잰 값만 쓴다. 근거를 못 찾은 숫자는 비워 둔다. 인쇄하면 A4 한 장에 들어가야 한다. 사례 순서는 일반 백엔드 지원 기준(배포 → 쿼리 → 보안 → MCP → jpop.today → 버그)이다.
      {{links}}는 GitHub·YouTube·jpop.today 링크 줄, {{owner}}는 운영자 블로그 주소로 바뀐다(SitePortfolio). -->
-<p class="portfolio-intro">Java/Spring 백엔드 개발자예요. LLM을 서비스에 붙이는 과정을 devlog.life에 기록해요. 요구사항·설계 결정과 검수는 제가 맡고, 코드는 AI 에이전트가 명세(Spec Kit)를 따라 쓰고 제가 시험 결과로 확인해요. <a href="/about#ai">글 쓰는 방식과 AI 사용 범위</a></p>
-<p class="portfolio-stack"><b>기술</b> Java 21 · Spring Boot 4.1 · PostgreSQL(pgvector) · Redis · MinIO · React(Vite) · k3s · Cloudflare Tunnel · GitHub Actions</p>
+<p class="portfolio-intro">서비스 2개를 혼자 설계·배포·운영하며 배포·성능·보안 문제를 해결하고 글 120편 넘게 기록해요. AI 에이전트를 개발 도구로 쓰되 설계 결정·검증·운영 책임은 제가 져요. <a href="/about#ai">AI 사용 범위</a></p>
+<p class="portfolio-stack"><b>기술</b> Java 21 · Spring Boot 4.1 · PostgreSQL · Redis · k3s · Cloudflare Tunnel · GitHub Actions · Testcontainers</p>
 <p class="portfolio-stack"><b>LLM 연동</b> MCP 서버(JSON-RPC · OAuth 2.1 + PKCE) · 도구 권한·요청 제한·비밀값 검사 · 명세와 CI로 검증하는 AI 에이전트 개발</p>
 {{links}}
 <section class="portfolio-case" id="deploy">
@@ -19,16 +19,16 @@
 <ul>
 <li><b>문제</b> 글 20개 목록에서 작성자·태그·댓글 수를 글마다 따로 읽으면 쿼리가 1 + 20 × 3 = 61번 나가요.</li>
 <li><b>결정</b> "목록당 쿼리 1번"을 규칙으로 두고, 태그는 ARRAY 하위 쿼리, 수는 집계 뷰 조인으로 한 문장에 담았어요.</li>
-<li><b>결과</b> 글 20개 목록 기준 61번 → 1번(계산값). 홈·블로그·태그·검색 목록이 모두 같은 카드 쿼리 하나를 써요.</li>
+<li><b>결과</b> 글 20개 목록에서 SQL 61번 → 1번, p95 16.75ms → 3.93ms(실제 PostgreSQL에서 500회씩, 세 번 잰 중앙값). 이 수는 시험이 매번 다시 세서 규칙이 깨지면 CI가 실패해요.</li>
 </ul>
-<p class="portfolio-source">근거: <a href="/@{{owner}}/posts/60">DB 성능 — 인덱스, 실행 계획, N+1</a></p>
+<p class="portfolio-source">근거: <a href="/@{{owner}}/posts/60">DB 성능 — 인덱스, 실행 계획, N+1</a> · <a href="https://github.com/AIGJ-01-002-blog/devlog/blob/main/app/backend/src/test/java/com/team/blog/post/PostListQueryCountTest.java">측정 시험 코드</a></p>
 </section>
 <section class="portfolio-case" id="security">
 <h2>3. 기본값이 조용히 빠진 곳 찾기 (보안 점검)</h2>
 <ul>
 <li><b>문제</b> 프레임워크 기본값이 프록시·터널 뒤에서는 빠져, 큰 취약점 대신 조용한 빈틈이 여러 곳 생겼어요.</li>
 <li><b>결정</b> 한 번에 고치지 않고 점검 이슈 하나에 항목을 모아 우선순위대로 한 PR씩 고쳤어요.</li>
-<li><b>결과</b> 1차에서 7가지를 고쳤어요(HSTS, CSRF 쿠키 속성, DB 연결 대기 30초 → 3초, 외부 API 시간 제한 등). 이어서 명령줄 인자로 비밀 키가 보이던 백업 스크립트도 고쳤어요.</li>
+<li><b>결과</b> HSTS, CSRF 쿠키 속성, DB 연결 대기 30초 → 3초, 외부 API 시간 제한 등 1차에서 7가지를 고쳤어요. 이어서 명령줄 인자로 비밀 키가 보이던 백업 스크립트도 고쳤어요.</li>
 </ul>
 <p class="portfolio-source">근거: <a href="/@{{owner}}/posts/140">보안 점검 1차에서 고친 일곱 가지</a> (PR #358) · <a href="/@{{owner}}/posts/149">열쇠는 명령줄에 두지 않는다</a></p>
 </section>
@@ -46,16 +46,16 @@
 <ul>
 <li><b>문제</b> JPOP 3,317곡의 TJ·금영 번호는 대부분 공식 확인 전 관측값이라, 틀린 번호가 담긴 곡 화면까지 검색 엔진에 색인될 수 있었어요.</li>
 <li><b>결정</b> 색인 규칙을 contracts/publication.mjs 한 파일의 함수로 두고, 제공사 조회 근거가 있고 충돌이 없는 공식 확인 곡만 검색에 내보내고, 나머지와 미리보기 빌드는 모두 검색에서 빼기로 정했어요.</li>
-<li><b>결과</b> 운영 빌드(2026-10-22, 커밋 a68df00) 곡 화면 3,317개 중 색인 91개, 색인 제외 3,226개. 사이트맵에는 곡 91개와 고정·가수·가이드 화면 45개만 들어가요.</li>
+<li><b>결과</b> 제공사 조회 응답을 남기는 대조 기록(ledger)을 99건 → 192건으로 늘려 검색에 내보내는 확인곡이 42곡 → 91곡이 됐고, 근거 없는 3,226곡은 검색에서 빼서(색인 제외) 품질을 지켜요(2026-10-22 운영 빌드 a68df00).</li>
 </ul>
 <p class="portfolio-source">근거: <a href="https://github.com/jpop-today/jpoptoday/blob/main/contracts/publication.mjs">publication.mjs</a> · <a href="https://jpop.today/coverage/">jpop.today 수록 범위</a></p>
 </section>
 <section class="portfolio-case" id="overflow">
 <h2>6. 곱셈 한 번에 코인이 공짜가 되던 버그 (CWE-197)</h2>
 <ul>
-<li><b>문제</b> 모의투자에서 수량 × 가격이 long 범위를 넘으면 잘려서, 100개 × 184,467,440,737,095,517 크레딧 주문이 84 크레딧으로 계산됐어요.</li>
+<li><b>문제</b> 모의투자에서 수량 × 가격이 long 범위를 넘으면 잘려서, 100개 × 184,467,440,737,095,517 크레딧 주문이 84 크레딧으로 계산됐어요. PR #347의 자동 코드 리뷰(CodeRabbit)가 짚어 알았어요.</li>
 <li><b>결정</b> 곱셈 결과를 검사하는 한 겹 대신, 주문 금액 상한(1조 크레딧)과 수량 상한을 함께 두는 두 겹으로 막았어요.</li>
-<li><b>결과</b> 핫픽스 v2.2.1로 배포했고, 84가 되던 주문을 그대로 보내 400으로 거절되는지 확인하는 시험을 남겼어요.</li>
+<li><b>결과</b> 같은 날 핫픽스 v2.2.1로 배포했어요. 거절 시험에 넘침 주문 2건(84가 되던 주문, 수량 상한 초과)과 주문이 하나도 남지 않는지 확인하는 검사 1개를 더했어요.</li>
 </ul>
 <p class="portfolio-source">근거: <a href="/@{{owner}}/posts/141">수량 × 가격이 long을 넘으면</a> (PR #349)</p>
 </section>

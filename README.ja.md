@@ -60,7 +60,7 @@ npm run dev   # http://localhost:5173
 | 事例 | 結果の数字 | 根拠の記事（韓国語） |
 | --- | --- | --- |
 | 1. デプロイ中も止まらないサービス | 42秒の再起動中にリクエスト892件、失敗0件。壊れたバージョンは60秒後に自動ロールバック | [無停止デプロイ・自動ロールバック・トンネル](https://devlog.life/@kim755030/posts/17) · [無停止デプロイとロールバック](https://devlog.life/@kim755030/posts/50) |
-| 2. 一覧画面の N+1 クエリをなくす | 記事20件の一覧でクエリ61回 → 1回（計算値） | [DB 性能 — インデックス、実行計画、N+1](https://devlog.life/@kim755030/posts/60) |
+| 2. 一覧画面の N+1 クエリをなくす | 記事20件の一覧で SQL 61回 → 1回、p95 16.75ms → 3.93ms（実測） | [DB 性能 — インデックス、実行計画、N+1](https://devlog.life/@kim755030/posts/60) · [測定テスト](https://github.com/AIGJ-01-002-blog/devlog/blob/main/app/backend/src/test/java/com/team/blog/post/PostListQueryCountTest.java) |
 | 3. 黙って抜けていたデフォルト値を探す | セキュリティ点検1次で7項目、DB 接続待ち30秒 → 3秒 | [セキュリティ点検1次で直した7つ](https://devlog.life/@kim755030/posts/140) (PR #358) · [鍵はコマンドラインに置かない](https://devlog.life/@kim755030/posts/149) |
 | 4. AI がブログに記事を書ける MCP サーバー | ツール24個のうち既定で17個だけ公開、会員ごとに1分60回・書き込み1時間30回まで、トークンは SHA-256 ハッシュのみ保存 | [MCP の活用と実装 — 自分のサービスを AI の道具として渡す](https://devlog.life/@kim755030/posts/44) |
 
