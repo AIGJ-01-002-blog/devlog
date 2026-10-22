@@ -60,7 +60,7 @@ npm run dev   # http://localhost:5173
 | 事例 | 結果の数字 | 根拠の記事（韓国語） |
 | --- | --- | --- |
 | 1. デプロイ中も止まらないサービス | 42秒の再起動中にリクエスト892件、失敗0件。壊れたバージョンは60秒後に自動ロールバック | [無停止デプロイ・自動ロールバック・トンネル](https://devlog.life/@kim755030/posts/17) · [無停止デプロイとロールバック](https://devlog.life/@kim755030/posts/50) |
-| 2. 一覧画面の N+1 クエリをなくす | 記事20件の一覧でクエリ61回 → 1回（計算値） | [DB 性能 — インデックス、実行計画、N+1](https://devlog.life/@kim755030/posts/60) |
+| 2. 一覧画面の N+1 クエリをなくす | 記事20件の一覧で SQL 61回 → 1回、p95 16.75ms → 3.93ms（実測） | [DB 性能 — インデックス、実行計画、N+1](https://devlog.life/@kim755030/posts/60) · [測定テスト](https://github.com/AIGJ-01-002-blog/devlog/blob/main/app/backend/src/test/java/com/team/blog/post/PostListQueryCountTest.java) |
 | 3. 黙って抜けていたデフォルト値を探す | セキュリティ点検1次で7項目、DB 接続待ち30秒 → 3秒 | [セキュリティ点検1次で直した7つ](https://devlog.life/@kim755030/posts/140) (PR #358) · [鍵はコマンドラインに置かない](https://devlog.life/@kim755030/posts/149) |
 | 4. AI がブログに記事を書ける MCP サーバー | ツール24個のうち既定で17個だけ公開、会員ごとに1分60回・書き込み1時間30回まで、トークンは SHA-256 ハッシュのみ保存 | [MCP の活用と実装 — 自分のサービスを AI の道具として渡す](https://devlog.life/@kim755030/posts/44) |
 
@@ -414,10 +414,10 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | 技術 | 使う場所 | 役割 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | バックエンド | 単体・結合テスト 899 件（v2.15.0 時点） |
+| JUnit 5 · Spring Boot Test · Spring Security Test | バックエンド | 単体・結合テスト 900 件（v2.16.0 時点） |
 | Testcontainers (PostgreSQL) | バックエンド | 本物の PostgreSQL でマイグレーション・クエリ・並行処理を検証します |
 | JaCoCo | バックエンド | 行カバレッジ 40% の基準を CI で確認します |
-| Vitest · Testing Library · jsdom | フロントエンド | 画面とロジックのテスト 434 件（v2.15.0 時点） |
+| Vitest · Testing Library · jsdom | フロントエンド | 画面とロジックのテスト 434 件（v2.16.0 時点） |
 | fake-indexeddb | フロントエンド | オフライン自動保存のテスト |
 
 ## リリース
@@ -426,6 +426,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | バージョン | 日付 | 主な内容 | リリースノート |
 | --- | --- | --- | --- |
+| v2.16.0 | 2026-10-22 | ポートフォリオのフィードバック反映: 事例2を実測(SQL 61回 → 1回、p95 16.75ms → 3.93ms)と測定テストに、紹介文・技術行の整理、事例5の照合記録 99 → 192件・確認曲 42 → 91、事例6の発見経緯、YouTube リンク | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.16.0) |
 | v2.15.0 | 2026-10-22 | ポートフォリオ事例6件: AI がブログに記事を書ける MCP サーバー事例(ツール24個のうち既定17個、1分60回・書き込み1時間30回)、「LLM 連携」技術行、紹介文を「LLM をサービスに組み込む過程を記録」に、A4 1枚を維持 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.15.0) |
 | v2.14.0 | 2026-10-22 | ポートフォリオ1枚: `/portfolio` を A4 1枚で印刷(リンク横に URL、背景・アイコンなし)、GitHub・jpop.today のリンク行と schema.org Person 構造化データ、事例5を jpop.today のインデックス方針に、初回表示のずれ(CLS)を軽減、README の1枚要約(構成図・実行5行・事例リンク) | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.14.0) |
 | v2.13.0 | 2026-10-22 | ポートフォリオブログと検索インデックスの整理: `/portfolio`(課題 → 判断 → 結果の数値を5件、A4 1枚)・`/contact`・紹介ページの AI 利用範囲、日記・未審査の外部会員記事・短い記事・タグは `noindex, follow`、サイトマップを3ファイルに分割、「AI 補助作成」表示と日曜の週次振り返り下書き、広告スイッチは既定でオフ、ショートスタジオの台本キュー | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.13.0) |

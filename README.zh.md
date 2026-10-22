@@ -60,7 +60,7 @@ npm run dev   # http://localhost:5173
 | 案例 | 结果数字 | 依据文章（韩语） |
 | --- | --- | --- |
 | 1. 部署期间也不中断的服务 | 42 秒重启期间 892 个请求、0 失败；故意弄坏的版本 60 秒后自动回滚 | [无停机部署·自动回滚·隧道](https://devlog.life/@kim755030/posts/17) · [无停机部署与回滚](https://devlog.life/@kim755030/posts/50) |
-| 2. 消除列表页的 N+1 查询 | 20 篇文章列表的查询 61 次 → 1 次（计算值） | [数据库性能 — 索引、执行计划、N+1](https://devlog.life/@kim755030/posts/60) |
+| 2. 消除列表页的 N+1 查询 | 20 篇文章列表的 SQL 61 次 → 1 次，p95 16.75ms → 3.93ms（实测） | [数据库性能 — 索引、执行计划、N+1](https://devlog.life/@kim755030/posts/60) · [测量测试](https://github.com/AIGJ-01-002-blog/devlog/blob/main/app/backend/src/test/java/com/team/blog/post/PostListQueryCountTest.java) |
 | 3. 找出悄悄失效的默认值 | 第一轮安全检查修复 7 项，数据库连接等待 30 秒 → 3 秒 | [第一轮安全检查修复的七项](https://devlog.life/@kim755030/posts/140) (PR #358) · [密钥不放在命令行](https://devlog.life/@kim755030/posts/149) |
 | 4. 让 AI 给博客写文章的 MCP 服务器 | 24 个工具默认只公开 17 个，每位会员每分钟 60 次、每小时写入 30 次，令牌只存 SHA-256 哈希 | [MCP 的使用与实现 — 把自己的服务作为工具交给 AI](https://devlog.life/@kim755030/posts/44) |
 
@@ -414,10 +414,10 @@ npm run dev        # http://localhost:5173
 
 | 技术 | 使用位置 | 作用 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | 后端 | 单元与集成测试 899 个（截至 v2.15.0） |
+| JUnit 5 · Spring Boot Test · Spring Security Test | 后端 | 单元与集成测试 900 个（截至 v2.16.0） |
 | Testcontainers (PostgreSQL) | 后端 | 在真实的 PostgreSQL 上验证迁移、查询和并发 |
 | JaCoCo | 后端 | 在 CI 中检查 40% 行覆盖率的门槛 |
-| Vitest · Testing Library · jsdom | 前端 | 界面与逻辑测试 434 个（截至 v2.15.0） |
+| Vitest · Testing Library · jsdom | 前端 | 界面与逻辑测试 434 个（截至 v2.16.0） |
 | fake-indexeddb | 前端 | 离线自动保存的测试 |
 
 ## 版本发布
@@ -426,6 +426,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v2.16.0 | 2026-10-22 | 作品集反馈: 案例 2 改为实测(SQL 61 次 → 1 次，p95 16.75ms → 3.93ms)并加测量测试，整理简介与技术行，案例 5 核对记录 99 → 192 条、确认歌曲 42 → 91，案例 6 发现经过，YouTube 链接 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.16.0) |
 | v2.15.0 | 2026-10-22 | 作品集 6 个案例: 让 AI 给博客写文章的 MCP 服务器案例(24 个工具默认公开 17 个，每分钟 60 次、每小时写入 30 次)，"LLM 集成"技术行，简介改为"记录把 LLM 接入服务的过程"，仍为一页 A4 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.15.0) |
 | v2.14.0 | 2026-10-22 | 一页作品集: `/portfolio` 打印为一页 A4(链接旁显示网址，去掉背景和图标)，GitHub 与 jpop.today 链接行及 schema.org Person 结构化数据，案例 5 改为 jpop.today 索引策略，减少首屏布局偏移(CLS)，README 一页摘要(架构图、5 行运行命令、案例链接) | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.14.0) |
 | v2.13.0 | 2026-10-22 | 作品集博客与搜索索引整理: `/portfolio`(5 个案例，问题 → 决策 → 结果数字，打印为一页 A4)、`/contact`、关于页的 AI 使用范围；日记、未审核的外部会员文章、短文和标签页改为 `noindex, follow`；站点地图拆成三个文件；"AI 辅助写作"标记和每周日的周回顾草稿；广告开关默认关闭；短视频工作室台本队列 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.13.0) |

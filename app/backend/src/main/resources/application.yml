@@ -146,7 +146,7 @@ blog:
     # /portfolio 링크 줄과 schema.org Person의 sameAs (공개 주소, 비밀값 아님). 비우면 그 링크를 뺀다
     portfolio:
       github-url: ${SITE_GITHUB_URL:https://github.com/kim75503}
-      youtube-url: ${SITE_YOUTUBE_URL:}
+      youtube-url: ${SITE_YOUTUBE_URL:https://www.youtube.com/@devlog-k7h}
       jpop-url: ${SITE_JPOP_URL:https://jpop.today}
   web:
     # 로드 밸런서(신뢰 프록시) 내부 대역. 이 대역에서 온 요청만 X-Forwarded-For를 믿는다 (docs/02 §5 H4)
