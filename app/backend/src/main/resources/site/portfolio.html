@@ -1,7 +1,9 @@
 <!-- /portfolio 본문 (spec 107 FR-015). 서버가 첫 화면에 그대로 넣고 React도 같은 HTML을 그린다.
-     숫자는 공개 글·PR에 적힌 값만 쓴다. 근거를 못 찾은 숫자는 비워 둔다. 인쇄하면 A4 한 장에 들어가야 한다. -->
+     숫자는 공개 글·PR·저장소에서 잰 값만 쓴다. 근거를 못 찾은 숫자는 비워 둔다. 인쇄하면 A4 한 장에 들어가야 한다.
+     {{links}}는 GitHub·YouTube·jpop.today 링크 줄, {{owner}}는 운영자 블로그 주소로 바뀐다(SitePortfolio). -->
 <p class="portfolio-intro">devlog.life를 혼자 기획하고 운영하는 백엔드 개발자예요. 요구사항·우선순위·설계 결정과 검수는 제가 맡고, 코드는 AI 에이전트가 명세(Spec Kit)를 따라 쓰고 제가 시험 결과로 확인해요. <a href="/about#ai">글 쓰는 방식과 AI 사용 범위</a></p>
 <p class="portfolio-stack"><b>기술</b> Java 21 · Spring Boot 4.1 · PostgreSQL(pgvector) · Redis · MinIO · React(Vite) · k3s · Cloudflare Tunnel · GitHub Actions</p>
+{{links}}
 <section class="portfolio-case" id="deploy">
 <h2>1. 배포 중에도 끊기지 않는 서비스</h2>
 <ul>
@@ -38,12 +40,12 @@
 </ul>
 <p class="portfolio-source">근거: <a href="/@{{owner}}/posts/141">수량 × 가격이 long을 넘으면</a> (PR #349)</p>
 </section>
-<section class="portfolio-case" id="shorts">
-<h2>5. 자동으로 만든 영상이 똑같아 보이지 않게</h2>
+<section class="portfolio-case" id="jpop">
+<h2>5. 근거 없는 노래방 번호는 검색에 내보내지 않기 (jpop.today)</h2>
 <ul>
-<li><b>문제</b> 글을 쇼츠로 바꾸는 렌더러가 매번 비슷한 화면을 만들어, 채널이 같은 영상의 반복처럼 보였어요.</li>
-<li><b>결정</b> 대본에서 씨앗을 뽑아 연출을 고르고(같은 대본은 같은 영상), 최근 5편의 분위기는 피하고, 6초 넘게 멈춘 화면을 검사해요.</li>
-<li><b>결과</b> 분위기 7가지 · 음악 4곡 · 장면 전환 14가지 · 카메라 7가지 조합. 움직이는 배경 때문에 2배로 늘던 렌더 시간을 254초(기존 237초)로 되돌렸어요.</li>
+<li><b>문제</b> JPOP 3,317곡의 TJ·금영 번호는 대부분 공식 확인 전 관측값이라, 틀린 번호가 담긴 곡 화면까지 검색 엔진에 색인될 수 있었어요.</li>
+<li><b>결정</b> 색인 규칙을 contracts/publication.mjs 한 파일의 함수로 두고, 제공사 조회 근거가 있고 충돌이 없는 공식 확인 곡만 index, 나머지와 미리보기 빌드는 모두 noindex로 정했어요.</li>
+<li><b>결과</b> 운영 빌드(2026-10-22, 커밋 9703e04) 곡 화면 3,317개 중 색인 91개, noindex 3,226개. 사이트맵에는 곡 91개와 고정·가이드 화면 15개만 들어가요.</li>
 </ul>
-<p class="portfolio-source">근거: <a href="/@{{owner}}/posts/148">씨앗으로 고르는 연출, 최근 5편 피하기, 정지 화면 검사</a> (PR #389, #391, #392)</p>
+<p class="portfolio-source">근거: <a href="https://github.com/jpop-today/jpoptoday/blob/main/contracts/publication.mjs">publication.mjs</a> · <a href="https://jpop.today/coverage/">jpop.today 수록 범위</a></p>
 </section>

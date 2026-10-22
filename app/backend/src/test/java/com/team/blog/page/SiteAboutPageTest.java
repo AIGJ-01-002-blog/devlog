@@ -84,6 +84,19 @@ class SiteAboutPageTest extends IntegrationTest {
     }
 
     @Test
+    void 포트폴리오는_링크_줄과_Person_구조화_데이터를_싣고_인쇄용으로_절대_주소를_쓴다() {
+        String html = new SitePortfolio(new SiteOwner("kim"), "https://devlog.life/", "https://github.com/kim", "", "https://jpop.today").html();
+        // 비어 있는 YouTube는 링크 줄과 sameAs에서 모두 빠진다
+        assertThat(html).contains("<p class=\"portfolio-links\"><b>링크</b> <a href=\"https://github.com/kim\" rel=\"me noopener\">GitHub</a>"
+                        + " · <a href=\"https://jpop.today\" rel=\"me noopener\">jpop.today</a></p>")
+                .doesNotContain("YouTube").doesNotContain("{{links}}")
+                .contains("href=\"https://devlog.life/@kim/posts/17\"").doesNotContain("href=\"/")
+                .contains("<script type=\"application/ld+json\">{\"@context\":\"https://schema.org\",\"@type\":\"Person\",\"name\":\"kim\","
+                        + "\"jobTitle\":\"백엔드 개발자\",\"url\":\"https://devlog.life/@kim\",\"sameAs\":[\"https://github.com/kim\",\"https://jpop.today\"]}</script>");
+        assertThat(html.split("class=\"portfolio-case\"", -1)).hasSize(5 + 1);
+    }
+
+    @Test
     void 문의_화면도_로그인_없는_연락_방법을_서버_HTML로_보여_주고_수집은_거부한다() throws Exception {
         String page = mvc.perform(get("/support")).andExpect(status().isOk()).andReturn().getResponse()
                 .getContentAsString(StandardCharsets.UTF_8);
