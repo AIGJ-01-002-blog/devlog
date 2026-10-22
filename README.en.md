@@ -414,10 +414,10 @@ To try it on Kubernetes, run `kubectl apply -k deploy/k8s/overlays/local` on kin
 
 | Technology | Where | Role |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | Backend | 898 unit and integration tests (as of v2.13.0) |
+| JUnit 5 · Spring Boot Test · Spring Security Test | Backend | 899 unit and integration tests (as of v2.14.0) |
 | Testcontainers (PostgreSQL) | Backend | Verifies migrations, queries and concurrency against a real PostgreSQL |
 | JaCoCo | Backend | Enforces a 40% line-coverage threshold in CI |
-| Vitest · Testing Library · jsdom | Frontend | 434 UI and logic tests (as of v2.13.0) |
+| Vitest · Testing Library · jsdom | Frontend | 434 UI and logic tests (as of v2.14.0) |
 | fake-indexeddb | Frontend | Tests for offline autosave |
 
 ## Releases
@@ -426,6 +426,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v2.14.0 | 2026-10-22 | One-page portfolio: `/portfolio` prints as one A4 page (URLs next to links, no backgrounds or icons), a GitHub and jpop.today link line with schema.org Person structured data, case 5 now covers the jpop.today indexing policy, less first-paint layout shift (CLS), README one-page summary (diagram, 5-line run, case links) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.14.0) |
 | v2.13.0 | 2026-10-22 | Portfolio blog and search indexing: `/portfolio` (5 cases as problem → decision → numbers, one A4 page), `/contact`, and the AI scope on About; diaries, unreviewed member posts, short posts and tags are `noindex, follow`; sitemap split into three files; "AI-assisted" label and a Sunday weekly retro draft; ads off by default; Shorts studio script queue | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.13.0) |
 | v2.12.0 | 2026-10-21 | Shorts "one a day for seven weeks": "[백엔드 면접]" (Backend Interview) in front of post short titles, the YouTube description starts with the source post link, steps schedule each video for 8 pm, and each short gets a playlist bundle (deploy, DB, security, performance, AI collaboration) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.12.0) |
 | v2.11.0 | 2026-10-21 | One color family per Shorts-tab row: the first frame color is grouped in threes, alternating light and dark families (mint → night → sunset → ocean → grape → mono → paper); one member's post shorts render one at a time so rows stay aligned | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.11.0) |
