@@ -60,7 +60,7 @@ npm run dev   # http://localhost:5173
 | 1. 배포 중에도 끊기지 않는 서비스 | 재시작 42초 동안 요청 892건 중 실패 0건, 망가뜨린 버전은 60초 뒤 자동 롤백 | [무중단 배포·자동 롤백·터널](https://devlog.life/@kim755030/posts/17) · [무중단 배포와 롤백](https://devlog.life/@kim755030/posts/50) |
 | 2. 목록 화면의 N+1 쿼리 없애기 | 글 20개 목록 쿼리 61번 → 1번(계산값) | [DB 성능 — 인덱스, 실행 계획, N+1](https://devlog.life/@kim755030/posts/60) |
 | 3. 기본값이 조용히 빠진 곳 찾기 | 보안 점검 1차 7가지, DB 연결 대기 30초 → 3초 | [보안 점검 1차에서 고친 일곱 가지](https://devlog.life/@kim755030/posts/140) (PR #358) · [열쇠는 명령줄에 두지 않는다](https://devlog.life/@kim755030/posts/149) |
-| 4. 곱셈 한 번에 코인이 공짜가 되던 버그 | 84 크레딧으로 잘리던 주문을 400으로 거절, 핫픽스 v2.2.1 | [수량 × 가격이 long을 넘으면](https://devlog.life/@kim755030/posts/141) (PR #349) |
+| 4. AI가 블로그에 글을 쓰게 하는 MCP 서버 | 도구 24개 중 기본 17개만 노출, 회원당 1분 60번·쓰기 한 시간 30번 제한, 토큰은 SHA-256 해시로만 저장 | [MCP 활용과 구현 — AI에게 내 서비스를 도구로 건네기](https://devlog.life/@kim755030/posts/44) |
 
 요구사항·우선순위·설계 결정과 검수는 운영자가 맡고, 코드는 AI 에이전트가 명세([specs/](specs/))를 따라 쓰며 시험과 CI로 확인합니다.
 
@@ -412,10 +412,10 @@ npm run dev        # http://localhost:5173
 
 | 기술 | 쓰는 곳 | 역할 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | 백엔드 | 단위·통합 테스트 899건(v2.14.0 기준) |
+| JUnit 5 · Spring Boot Test · Spring Security Test | 백엔드 | 단위·통합 테스트 899건(v2.15.0 기준) |
 | Testcontainers (PostgreSQL) | 백엔드 | 실제 PostgreSQL로 마이그레이션·쿼리·동시성을 검증합니다 |
 | JaCoCo | 백엔드 | 줄 커버리지 40% 기준을 CI에서 확인합니다 |
-| Vitest · Testing Library · jsdom | 프론트엔드 | 화면과 로직 테스트 434건(v2.14.0 기준) |
+| Vitest · Testing Library · jsdom | 프론트엔드 | 화면과 로직 테스트 434건(v2.15.0 기준) |
 | fake-indexeddb | 프론트엔드 | 오프라인 자동 저장 테스트 |
 
 ## 릴리스
@@ -424,6 +424,7 @@ npm run dev        # http://localhost:5173
 
 | 버전 | 날짜 | 주요 내용 | 릴리스 노트 |
 | --- | --- | --- | --- |
+| v2.15.0 | 2026-10-22 | 포트폴리오 사례 6개: AI가 블로그에 글을 쓰게 하는 MCP 서버 사례(도구 24개 중 기본 17개, 1분 60번·쓰기 한 시간 30번), "LLM 연동" 기술 줄, 소개 첫 줄 "LLM을 서비스에 붙이는 과정을 기록", A4 한 장 유지 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.15.0) |
 | v2.14.0 | 2026-10-22 | 포트폴리오 한 장: `/portfolio`를 A4 한 장으로 인쇄(링크 옆 주소, 배경·아이콘 빼기), GitHub·jpop.today 링크 줄과 schema.org Person 구조화 데이터, 사례 5를 jpop.today 색인 정책으로, 첫 화면 깜빡임(CLS) 줄이기, README 한 장 요약(구조도·실행 5줄·사례 링크) | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.14.0) |
 | v2.13.0 | 2026-10-22 | 포트폴리오 블로그와 검색 색인 정리: `/portfolio`(문제 → 결정 → 결과 숫자 5가지, A4 한 장)·`/contact`·소개의 AI 사용 범위, 일기·미검수 외부 회원 글·짧은 글·태그는 `noindex, follow`, 사이트맵 세 파일로, AI 보조 작성 표기와 일요일 주간 회고 초안, 광고 스위치 기본 끔, 쇼츠 스튜디오 대본 큐 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.13.0) |
 | v2.12.0 | 2026-10-21 | 쇼츠 "하루 1개, 7주" 운영: 글 쇼츠 제목 앞에 "[백엔드 면접]", YouTube 설명 첫 줄은 원본 글 링크, 매일 저녁 8시 예약 공개 안내, 쇼츠마다 재생목록 묶음(배포·DB·보안·성능·AI협업) 고르기 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.12.0) |

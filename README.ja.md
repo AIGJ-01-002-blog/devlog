@@ -62,7 +62,7 @@ npm run dev   # http://localhost:5173
 | 1. デプロイ中も止まらないサービス | 42秒の再起動中にリクエスト892件、失敗0件。壊れたバージョンは60秒後に自動ロールバック | [無停止デプロイ・自動ロールバック・トンネル](https://devlog.life/@kim755030/posts/17) · [無停止デプロイとロールバック](https://devlog.life/@kim755030/posts/50) |
 | 2. 一覧画面の N+1 クエリをなくす | 記事20件の一覧でクエリ61回 → 1回（計算値） | [DB 性能 — インデックス、実行計画、N+1](https://devlog.life/@kim755030/posts/60) |
 | 3. 黙って抜けていたデフォルト値を探す | セキュリティ点検1次で7項目、DB 接続待ち30秒 → 3秒 | [セキュリティ点検1次で直した7つ](https://devlog.life/@kim755030/posts/140) (PR #358) · [鍵はコマンドラインに置かない](https://devlog.life/@kim755030/posts/149) |
-| 4. 掛け算ひとつでコインがほぼ無料になったバグ | 84クレジットに切り詰められていた注文を400で拒否、ホットフィックス v2.2.1 | [数量 × 価格が long を超えると](https://devlog.life/@kim755030/posts/141) (PR #349) |
+| 4. AI がブログに記事を書ける MCP サーバー | ツール24個のうち既定で17個だけ公開、会員ごとに1分60回・書き込み1時間30回まで、トークンは SHA-256 ハッシュのみ保存 | [MCP の活用と実装 — 自分のサービスを AI の道具として渡す](https://devlog.life/@kim755030/posts/44) |
 
 要件・優先順位・設計の決定とレビューは運営者が担い、コードは AI エージェントが仕様（[specs/](specs/)）に沿って書き、テストと CI で確認します。
 
@@ -414,10 +414,10 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | 技術 | 使う場所 | 役割 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | バックエンド | 単体・結合テスト 899 件（v2.14.0 時点） |
+| JUnit 5 · Spring Boot Test · Spring Security Test | バックエンド | 単体・結合テスト 899 件（v2.15.0 時点） |
 | Testcontainers (PostgreSQL) | バックエンド | 本物の PostgreSQL でマイグレーション・クエリ・並行処理を検証します |
 | JaCoCo | バックエンド | 行カバレッジ 40% の基準を CI で確認します |
-| Vitest · Testing Library · jsdom | フロントエンド | 画面とロジックのテスト 434 件（v2.14.0 時点） |
+| Vitest · Testing Library · jsdom | フロントエンド | 画面とロジックのテスト 434 件（v2.15.0 時点） |
 | fake-indexeddb | フロントエンド | オフライン自動保存のテスト |
 
 ## リリース
@@ -426,6 +426,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | バージョン | 日付 | 主な内容 | リリースノート |
 | --- | --- | --- | --- |
+| v2.15.0 | 2026-10-22 | ポートフォリオ事例6件: AI がブログに記事を書ける MCP サーバー事例(ツール24個のうち既定17個、1分60回・書き込み1時間30回)、「LLM 連携」技術行、紹介文を「LLM をサービスに組み込む過程を記録」に、A4 1枚を維持 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.15.0) |
 | v2.14.0 | 2026-10-22 | ポートフォリオ1枚: `/portfolio` を A4 1枚で印刷(リンク横に URL、背景・アイコンなし)、GitHub・jpop.today のリンク行と schema.org Person 構造化データ、事例5を jpop.today のインデックス方針に、初回表示のずれ(CLS)を軽減、README の1枚要約(構成図・実行5行・事例リンク) | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.14.0) |
 | v2.13.0 | 2026-10-22 | ポートフォリオブログと検索インデックスの整理: `/portfolio`(課題 → 判断 → 結果の数値を5件、A4 1枚)・`/contact`・紹介ページの AI 利用範囲、日記・未審査の外部会員記事・短い記事・タグは `noindex, follow`、サイトマップを3ファイルに分割、「AI 補助作成」表示と日曜の週次振り返り下書き、広告スイッチは既定でオフ、ショートスタジオの台本キュー | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.13.0) |
 | v2.12.0 | 2026-10-21 | ショート「1日1本、7週間」運用: 記事ショートのタイトル先頭に「[백엔드 면접]」(バックエンド面接)、YouTube の説明1行目は元記事リンク、毎日夜8時の予約公開を案内、ショートごとに再生リストの分類(デプロイ・DB・セキュリティ・性能・AI協業)を選択 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.12.0) |
