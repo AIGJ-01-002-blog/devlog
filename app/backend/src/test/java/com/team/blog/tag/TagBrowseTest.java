@@ -101,7 +101,7 @@ class TagBrowseTest extends IntegrationTest {
         String key = TagTest.unique("ssr");
         published(a, "PUBLIC", key);
         String html = browser().perform(get("/tags")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-        assertThat(html).contains("\"browse\"").doesNotContain("noindex");
+        assertThat(html).contains("\"browse\"").contains("noindex, follow"); // 태그 목록은 링크만 따라간다 (spec 107)
         String filtered = browser().perform(get("/tags").param("q", key)).andExpect(status().isOk()).andReturn().getResponse()
                 .getContentAsString();
         assertThat(filtered).contains("noindex").contains(key);

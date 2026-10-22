@@ -34,7 +34,7 @@ class SiteIndexTest extends IntegrationTest {
 
     @Test
     void 사이트맵에는_공개_글만_나온다() throws Exception {
-        Session s = signup(uniqueLogin("smap"));
+        Session s = staff(signup(uniqueLogin("smap")));
         long open = publish(s, "공개", "PUBLIC");
         long friends = publish(s, "친구만", "FRIENDS");
         long priv = publish(s, "비밀", "PRIVATE");
@@ -61,12 +61,14 @@ class SiteIndexTest extends IntegrationTest {
         String txt = body("/robots.txt", "text/plain");
         assertThat(txt).startsWith("User-agent: *").contains("Disallow: /api/").contains("Disallow: /admin")
                 .contains("Disallow: /write").contains("Sitemap: ").contains("/sitemap.xml")
+                // 운영자·회원 본인만 쓰는 화면도 막는다 (spec 107)
+                .contains("Disallow: /studio\n").contains("Disallow: /trade\n").contains("Disallow: /trades\n").contains("Disallow: /paper\n")
                 .doesNotContain("Disallow: /\n");
     }
 
     @Test
     void 사이트맵에는_robots가_막은_주소가_없다() throws Exception {
-        Session s = signup(uniqueLogin("smapr"));
+        Session s = staff(signup(uniqueLogin("smapr")));
         publish(s, "열린 글", "PUBLIC");
         java.util.List<String> disallow = body("/robots.txt", "text/plain").lines()
                 .filter(l -> l.startsWith("Disallow: ")).map(l -> l.substring("Disallow: ".length())).toList();

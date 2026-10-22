@@ -19,6 +19,7 @@ import com.team.blog.account.domain.MemberStatus;
 import com.team.blog.account.infra.MemberRepository;
 import com.team.blog.admin.application.AdminStats;
 import com.team.blog.moderation.application.ModerationService;
+import com.team.blog.post.query.IndexStats;
 import com.team.blog.shared.error.ApiException;
 import com.team.blog.shared.error.NotFoundException;
 import com.team.blog.shared.security.CurrentMember;
@@ -36,15 +37,19 @@ public class AdminConsoleController {
     private final ModerationService moderation;
     private final MemberRepository members;
     private final WithdrawalPurgeJob purgeJob;
+    private final IndexStats index;
 
     public AdminConsoleController(AdminStats stats, RoleService roles, ModerationService moderation, MemberRepository members,
-                                  WithdrawalPurgeJob purgeJob) {
+                                  WithdrawalPurgeJob purgeJob, IndexStats index) {
         this.stats = stats;
         this.roles = roles;
         this.moderation = moderation;
         this.members = members;
         this.purgeJob = purgeJob;
+        this.index = index;
     }
+
+    public record IndexApproval(boolean approved) {}
 
     public record RoleRequest(String role) {}
 
@@ -98,6 +103,21 @@ public class AdminConsoleController {
     public ResponseEntity<Void> unhide(@PathVariable long postId, @CurrentMember MemberPrincipal me) {
         staff(me);
         moderation.unhidePost(me.id(), postId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** 검색 수집 대상·제외 글 수와 검수를 기다리는 외부 회원 글 (spec 107) */
+    @GetMapping("/index-report")
+    public ResponseEntity<IndexStats.Report> indexReport(@CurrentMember MemberPrincipal me) {
+        staff(me);
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(index.report());
+    }
+
+    /** 외부 회원 글을 검수해 검색 수집을 허락하거나 거둔다 (spec 107). 운영진 글은 이 값과 상관없이 수집 기준만 본다 */
+    @PutMapping("/posts/{postId}/index-approval")
+    public ResponseEntity<Void> indexApproval(@PathVariable long postId, @RequestBody IndexApproval body, @CurrentMember MemberPrincipal me) {
+        staff(me);
+        index.approve(postId, body != null && body.approved());
         return ResponseEntity.noContent().build();
     }
 

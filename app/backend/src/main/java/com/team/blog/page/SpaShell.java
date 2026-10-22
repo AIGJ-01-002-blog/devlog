@@ -105,8 +105,10 @@ public class SpaShell {
         if (meta.description() != null && !meta.description().isBlank()) {
             head.append("<meta name=\"description\" content=\"").append(esc(meta.description())).append(TAG_END);
         }
-        if (!meta.indexable()) head.append("<meta name=\"robots\" content=\"noindex, nofollow\">\n");
-        if (meta.indexable() && meta.canonical() != null) appendShareMeta(head, meta, rssPath);
+        if (!meta.indexable()) head.append("<meta name=\"robots\" content=\"").append(meta.follow() ? "noindex, follow" : "noindex, nofollow").append(TAG_END);
+        // noindex, follow인 공개 화면(일기·짧은 글 등)도 정규 주소와 링크 미리보기는 둔다. RSS 알림은 수집하는 화면에만 (spec 107)
+        boolean readable = meta.indexable() || meta.follow();
+        if (readable && meta.canonical() != null) appendShareMeta(head, meta, meta.indexable() ? rssPath : null);
         if (initialData != null) {
             // </script> 탈출을 막기 위해 <, >, &를 유니코드 이스케이프로 바꾼다 (JSON 문자열 안에서만 나타나므로 의미는 같다)
             String data = json.writeValueAsString(initialData)
@@ -114,7 +116,7 @@ public class SpaShell {
             head.append("<script id=\"initial-data\" type=\"application/json\">").append(data).append("</script>\n");
         }
         String body = bodyHtml == null ? "" : bodyHtml;
-        if (meta.indexable()) body += SITE_FOOTER;
+        if (readable) body += SITE_FOOTER;
         return page.replace(HEAD_MARK, head.toString()).replace(BODY_MARK, body);
     }
 

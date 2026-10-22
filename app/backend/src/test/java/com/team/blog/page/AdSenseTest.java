@@ -26,7 +26,7 @@ class AdSenseTest extends IntegrationTest {
     private static final String CLIENT = "ca-pub-5861067712842534";
 
     String publishArticle() throws Exception {
-        Session s = signup(uniqueLogin("adpost"));
+        Session s = staff(signup(uniqueLogin("adpost")));
         long id = read(s.http().perform(asJson(post("/api/posts"), Map.of("title", "광고 글", "contentMd", "")))
                 .andExpect(status().isCreated()).andReturn()).path("id").asLong();
         s.http().perform(asJson(post("/api/posts/" + id + "/publish"), Map.of("title", "광고 글", "contentMd", ARTICLE_BODY,

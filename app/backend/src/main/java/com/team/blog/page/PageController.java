@@ -60,8 +60,6 @@ public class PageController {
     static final String HOME_INTRO = "<p>" + SLOGAN + "</p><p>devlog는 개발자가 직접 겪은 문제와 해결 과정을 기술 글로 남기는 블로그예요."
             + " 설계 결정, 장애 원인, 보안 점검처럼 실제 프로젝트에서 나온 이야기를 코드와 함께 정리해요."
             + " <a href=\"/about\">devlog 소개</a>에서 운영자와 연락 방법을 볼 수 있어요.</p>";
-    /** 이보다 글이 적은 태그 화면은 noindex (spec 085) */
-    static final int MIN_INDEXED_TAG_POSTS = 2;
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyy.MM.dd").withZone(ZoneId.of("Asia/Seoul"));
     private static final String LI_LINK = "<li><a href=\"";
     private static final String LI_END = "</li>";
@@ -134,9 +132,9 @@ public class PageController {
             body.append(UL_END);
         }
         body.append(MAIN_END);
-        HeadMeta meta = HeadMeta.site("태그 - " + site.name(), "공개 글에 쓰인 태그", absolute("/tags"), absolute(site.defaultOgImage()));
-        // 검색어로 거른 목록은 /tags의 일부라 따로 수집하지 않는다 (정렬만 바꾼 주소는 정규 주소가 /tags다)
-        if (q != null && !q.isBlank()) meta = HeadMeta.privatePage(site.name(), "태그");
+        // 태그 목록은 글 본문 없이 링크만 모은 화면이라 수집하지 않고 링크만 따라가게 한다 (spec 107). 검색어로 거른 목록도 같다
+        HeadMeta meta = HeadMeta.site("태그 - " + site.name(), "공개 글에 쓰인 태그", absolute("/tags"), absolute(site.defaultOgImage()))
+                .noindexFollow();
         return html(HttpStatus.OK, shell.render(meta, body.toString(), Map.of("page", "tags", "tags", top, "browse", browse)),
                 CacheControl.noCache());
     }
@@ -155,11 +153,10 @@ public class PageController {
         if (page.postCount() == null || page.postCount() < 1 || page.items().isEmpty()) return notFound();
         String body = "<main><h1>#" + SpaShell.esc(name) + "</h1><p>공개 글 " + page.postCount() + "</p>"
                 + cards(new PostCardPage(page.items(), page.nextCursor())) + MAIN_END;
+        // 태그 화면은 글 카드 목록이라 글 수와 상관없이 수집하지 않는다. 링크는 따라가게 해 글 본문이 발견되게 한다
+        // (spec 107, 전에는 글 2편 이상이면 수집했다: spec 085·104)
         HeadMeta meta = HeadMeta.site("#" + name + " - " + site.name(), "#" + name + " 태그가 달린 글", absolute(tagPath(name)),
-                absolute(site.defaultOgImage()));
-        // 글이 하나뿐인 태그 화면은 그 글과 내용이 겹치는 얇은 화면이라 검색 수집·광고에서 뺀다 (spec 085, 애드센스 "가치가 별로 없는 콘텐츠").
-        // AI 일기로만 채운 태그도 얇은 화면이라 일기는 세지 않는다 (spec 104)
-        if (tags.publicArticleCount(name) < MIN_INDEXED_TAG_POSTS) meta = HeadMeta.privatePage(site.name(), "#" + name);
+                absolute(site.defaultOgImage())).noindexFollow();
         return html(HttpStatus.OK, shell.render(meta, body, Map.of("page", "tag", "tag", page)), CacheControl.noCache());
     }
 
@@ -172,7 +169,7 @@ public class PageController {
                                          @RequestParam(required = false) String sort,
                                          @CurrentMember(required = false) MemberPrincipal me, HttpServletRequest request) {
         String title = q == null || q.isBlank() ? "검색" : "'" + truncate(q.strip(), 50) + "' 검색";
-        HeadMeta meta = HeadMeta.privatePage(site.name(), title);
+        HeadMeta meta = HeadMeta.privatePage(site.name(), title).noindexFollow(); // 검색 결과는 수집하지 않고 링크만 따라간다 (spec 107)
         if (q == null || q.isBlank() || "people".equals(tab) || (me == null && !searchLimit.tryAcquire(request))) {
             return html(HttpStatus.OK, shell.render(meta, "<main><h1>검색</h1></main>", Map.of("page", "search")), CacheControl.noStore());
         }
@@ -323,7 +320,7 @@ public class PageController {
         HeadMeta meta = new HeadMeta(p.nickname() + " (@" + p.handle() + ") - " + site.name(), description,
                 absolute("/@" + p.handle()), PROFILE, p.profileImageUrl() != null ? p.profileImageUrl() : absolute(site.defaultOgImage()),
                 // 블로그 안 검색 결과는 수집 거부 (014 FR-022). AI 일기 말고 글이 없는 블로그는 빈 화면이라 수집·광고에서 뺀다 (spec 104)
-                null, null, (q == null || q.isBlank()) && feed.indexableArticleCount(p.id()) > 0);
+                null, null, (q == null || q.isBlank()) && feed.indexableArticleCount(p.id()) > 0).followLinks();
         return html(HttpStatus.OK, shell.render(meta, body, filter == null
                         ? Map.of("page", "blog", PROFILE, p, "feed", first, "blogTags", blogTags)
                         : Map.of("page", "blog", PROFILE, p, "feed", first, "blogTags", blogTags, "tag", filter), "/@" + p.handle() + "/rss"),
@@ -371,7 +368,7 @@ public class PageController {
         body.append(UL_MAIN_END);
         HeadMeta meta = new HeadMeta(title + " - " + site.name(), p.nickname() + "의 블로그 시리즈", absolute("/@" + handle + "/series"),
                 "website", p.profileImageUrl() != null ? p.profileImageUrl() : absolute(site.defaultOgImage()), null, null,
-                !listing.get().items().isEmpty()); // 시리즈가 없으면 빈 화면이라 수집하지 않는다 (spec 104)
+                !listing.get().items().isEmpty()).followLinks(); // 시리즈가 없으면 빈 화면이라 수집하지 않는다 (spec 104)
         return html(HttpStatus.OK, shell.render(meta, body.toString(), Map.of("page", "series-list")),
                 listing.get().personal() ? CacheControl.noStore().cachePrivate() : CacheControl.noCache().cachePrivate());
     }
@@ -458,7 +455,7 @@ public class PageController {
         String image = d.posts().stream().map(PostCard::thumbnailUrl).filter(java.util.Objects::nonNull).findFirst()
                 .orElse(absolute(site.defaultOgImage()));
         HeadMeta meta = new HeadMeta(d.name() + " - " + ownerName, ownerName + "의 시리즈 · 글 " + d.posts().size() + "개",
-                absolute(seriesPath(handle, d.slug())), "website", image, null, d.updatedAt(), !d.posts().isEmpty());
+                absolute(seriesPath(handle, d.slug())), "website", image, null, d.updatedAt(), !d.posts().isEmpty()).followLinks();
         return html(HttpStatus.OK, shell.render(meta, body.toString(), Map.of("page", "series")),
                 d.personal() ? CacheControl.noStore().cachePrivate() : CacheControl.noCache().cachePrivate());
     }
@@ -487,7 +484,9 @@ public class PageController {
             String description = d.excerpt() == null ? "" : truncate(d.excerpt(), 160);
             meta = new HeadMeta(d.title() + " - " + d.author().nickname(), description, absolute(d.url()), "article",
                     d.thumbnailUrl() != null ? d.thumbnailUrl() : absolute(site.defaultOgImage()),
-                    d.firstPublicAt(), d.editedAt(), !d.aiDiary() && feed.indexableArticle(d.id()), d.author().nickname()); // AI 일기·짧은 글은 독자에게 보이되 수집·광고에서 뺀다 (spec 088, 105)
+                    d.firstPublicAt(), d.editedAt(), !d.aiDiary() && feed.indexableArticle(d.id()), d.author().nickname())
+                    // AI 일기·짧은 글·검수 전 외부 회원 글은 독자에게 보이되 수집·광고에서 뺀다. 본문 링크는 따라가게 한다 (spec 088, 105, 107)
+                    .followLinks();
         } else {
             meta = new HeadMeta(d.title() + " - " + site.name(), null, null, null, null, null, null, false);
         }

@@ -50,7 +50,7 @@ class ReadShareTest extends IntegrationTest {
 
     @Test
     void 공개_글은_비회원도_읽고_링크_미리보기_정보가_들어_있다() throws Exception {
-        Session s = signup(uniqueLogin("detail"));
+        Session s = staff(signup(uniqueLogin("detail")));
         long id = publish(s, "제목 <script>", "첫 문단 \"요약\"\n\n## 소제목\n\n" + ARTICLE_BODY, "PUBLIC");
         MvcResult r = mvc.perform(get("/@" + s.handle() + "/posts/" + id + "?utm_source=x"))
                 .andExpect(status().isOk())

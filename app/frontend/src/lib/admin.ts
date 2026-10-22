@@ -165,6 +165,20 @@ export const consoleApi = {
     api<Paged<PostLine>>(`/api/admin/posts${query({ q, filter: filter === 'all' ? null : filter, author, page })}`),
   hidePost: (id: number, reason: ReportReason) => api<void>(`/api/admin/posts/${id}/hide`, { method: 'POST', body: { reason } }),
   unhidePost: (id: number) => api<void>(`/api/admin/posts/${id}/unhide`, { method: 'POST' }),
+  /** 검색 수집 대상·제외 글 수와 검수를 기다리는 외부 회원 글 (spec 107) */
+  indexReport: () => api<IndexReport>('/api/admin/index-report'),
+  /** 외부 회원 글의 검색 수집을 허락하거나 거둔다 (spec 107) */
+  setIndexApproval: (id: number, approved: boolean) =>
+    api<void>(`/api/admin/posts/${id}/index-approval`, { method: 'PUT', body: { approved } }),
+}
+
+/** 검색 수집 현황 (spec 107). 제외 사유는 일기 → 짧은 글 → 검수 전 순서로 처음 걸린 하나로 센다 */
+export interface IndexReport {
+  indexed: number
+  aiDiary: number
+  shortPost: number
+  unreviewed: number
+  pending: { id: number; title: string; authorHandle: string; url: string; bodyChars: number }[]
 }
 
 /** 이전 기간 대비: "+12%", "-3%", 이전이 0이면 "새로" , 둘 다 0이면 "" */
