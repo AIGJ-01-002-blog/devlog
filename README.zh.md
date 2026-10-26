@@ -426,6 +426,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v2.18.0 | 2026-10-26 | 短视频语速提高到 1.05 倍，字幕和图示所依据的词时间对齐到实际第一个声音(样片中字幕提前 0.07~0.13 秒的问题已修正) | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.18.0) |
 | v2.17.1 | 2026-10-22 | 作品集打印后续: 线上页面打印时多出空白第一页(共 3 页)，打印时隐藏正文区域以外的元素 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.17.1) |
 | v2.17.0 | 2026-10-22 | 作品集改为与求职 PDF 相同的设计: 打印为两页 A4(第 1 页摘要: 4 个数字、2 个项目、4 个技术；第 2 页 6 个案例)，设计令牌与 Pretendard、JetBrains Mono 字体 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.17.0) |
 | v2.16.0 | 2026-10-22 | 作品集反馈: 案例 2 改为实测(SQL 61 次 → 1 次，p95 16.75ms → 3.93ms)并加测量测试，整理简介与技术行，案例 5 核对记录 99 → 192 条、确认歌曲 42 → 91，案例 6 发现经过，YouTube 链接 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.16.0) |
