@@ -25,7 +25,7 @@ class LayoutTest(unittest.TestCase):
 
     def test_estimate_has_floor(self):
         self.assertEqual(tts.estimate_seconds(""), 1.5)
-        self.assertAlmostEqual(tts.estimate_seconds("가" * 13), 2.0)
+        self.assertAlmostEqual(tts.estimate_seconds("가" * 13), 2.0 / tts.VOICE_SPEED)
 
 
 if __name__ == "__main__":

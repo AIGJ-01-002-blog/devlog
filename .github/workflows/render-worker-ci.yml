@@ -117,9 +117,13 @@ jobs:
           PYTHONUTF8: "1"
         run: |
           mkdir -p out
-          for f in samples/*.json; do python -m devlog_render render "$f" "out/$(basename "$f" .json).mp4"; done
+          for f in samples/*.json; do python -m devlog_render render "$f" "out/$(basename "$f" .json).mp4" 2>&1 | tee -a out/render.log; done
           # 인터넷 음성이 막혔을 때 나오는 컴퓨터 안 신경망 음성(supertonic) 견본
           python -m devlog_render --tts supertonic render samples/docker-volume.json out/docker-volume-offline-voice.mp4
+          # 로그는 PR 화면에서 바로 보이게 요약을 주석으로 남긴다: 음성 엔진이 내려갔는지, 단어 시각을 얼마나 옮겼는지(#484)
+          echo "::notice title=음성 엔진 내려감::$(grep -c '음성(' out/render.log || true)번"
+          echo "::notice title=단어 시각 옮김::$(grep -o '[+-][0-9.]*초 옮겨요' out/render.log | sort | uniq -c | tr '\n' ' ')"
+          for v in out/*.mp4; do echo "::notice title=$(basename "$v")::$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$v")초"; done
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: shorts-samples
