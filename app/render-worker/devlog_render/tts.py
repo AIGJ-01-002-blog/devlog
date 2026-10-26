@@ -13,27 +13,38 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import platform
 import shutil
 import subprocess
 import tempfile
+import wave
+from array import array
 from pathlib import Path
 
 from .captions import Word
+
+log = logging.getLogger("devlog_render")
 
 EDGE_VOICE = "ko-KR-SunHiNeural"
 #: 쇼츠는 조금 빠른 말이 덜 늘어진다
 EDGE_RATE = "+8%"
 SUPERTONIC_VOICE = "F1"
 SUPERTONIC_SPEED = 1.1
+#: 모든 엔진 빠르기에 한 번 더 곱하는 배수(민서님 2026-10-26: 1.05배). edge는 +8% → +13%, supertonic은 1.1 → 1.155
+VOICE_SPEED = 1.05
 CHARS_PER_SECOND = 6.5
+#: 단어 시각을 실제 소리에 맞출 때 옮기는 한도(초). 이보다 크게 어긋나면 잡음을 소리로 본 것이라 옮기지 않는다
+ALIGN_LIMIT = 0.3
+#: 첫 소리로 보는 크기(가장 큰 소리 대비)
+ONSET_LEVEL = 0.06
 #: 음성 엔진 한 번이 멈췄을 때 기다리는 한도 (문장 하나는 200자까지)
 TTS_TIMEOUT = 120
 
 
 def estimate_seconds(text: str) -> float:
-    return max(1.5, len(text.replace(" ", "")) / CHARS_PER_SECOND)
+    return max(1.5, len(text.replace(" ", "")) / (CHARS_PER_SECOND * VOICE_SPEED))
 
 
 def edge_available() -> bool:
@@ -80,7 +91,9 @@ def device() -> str:
 def synthesize(text: str, out_wav: Path, engine: str, ffmpeg: str = "ffmpeg", voice: str | None = None,
                faster: float = 1.0) -> list[Word] | None:
     """text를 읽은 음성을 out_wav(44.1kHz 스테레오)로 만든다. 엔진이 단어 시각을 주면 돌려준다.
-    faster: 기본 빠르기에 곱할 배수(빠른 견본 스타일은 1.25). 신경망 엔진은 말 빠르기로, 기기 음성은 소리를 빠르게 감아 맞춘다."""
+    faster: 기본 빠르기에 곱할 배수(빠른 견본 스타일은 1.25). 신경망 엔진은 말 빠르기로, 기기 음성은 소리를 빠르게 감아 맞춘다.
+    모든 엔진에 VOICE_SPEED를 한 번 더 곱한다. 단어 시각은 만든 소리의 첫 소리에 맞춰 옮겨 돌려준다(align)."""
+    faster *= VOICE_SPEED
     words = None
     with tempfile.TemporaryDirectory() as tmp:
         raw = Path(tmp) / "raw"
@@ -121,7 +134,39 @@ def synthesize(text: str, out_wav: Path, engine: str, ffmpeg: str = "ffmpeg", vo
             raise ValueError(f"모르는 음성 엔진이에요: {engine}")
         tempo = ["-filter:a", f"atempo={faster:g}"] if faster != 1.0 and engine not in ("edge", "supertonic") else []
         _run([ffmpeg, "-y", "-loglevel", "error", "-i", str(raw), *tempo, "-ar", "44100", "-ac", "2", str(out_wav)])
-    return words
+    return align(words, onset(out_wav)) if words else words
+
+
+def onset(wav_path: Path) -> float | None:
+    """16비트 wav에서 말소리가 처음 나는 시각(초). 10ms 구간 크기가 가장 큰 구간의 ONSET_LEVEL배를 처음 넘는 때"""
+    try:
+        with wave.open(str(wav_path)) as w:
+            if w.getsampwidth() != 2:
+                return None
+            rate, channels = w.getframerate(), w.getnchannels()
+            samples = array("h", w.readframes(w.getnframes()))
+    except (wave.Error, OSError, EOFError):
+        return None
+    step = rate // 100 * channels
+    levels = [max(abs(min(samples[i:i + step])), max(samples[i:i + step]))
+              for i in range(0, len(samples) - step + 1, step)]
+    peak = max(levels, default=0)
+    if peak == 0:
+        return None
+    first = next(k for k, v in enumerate(levels) if v >= peak * ONSET_LEVEL)
+    return first / 100
+
+
+def align(words: list[Word], sound_at: float | None) -> list[Word]:
+    """엔진이 준 단어 시각을 실제 소리에 맞춘다. mp3를 풀 때 앞에 붙는 지연이나 말 빠르기를 바꿨을 때 생기는 틈만큼
+    모든 단어를 같이 옮긴다(자막·입 모양·도식이 이 시각을 따른다). 한 프레임(1/30초)보다 작거나 ALIGN_LIMIT보다 크면 그대로 둔다."""
+    if not words or sound_at is None:
+        return words
+    shift = sound_at - words[0].start
+    if abs(shift) < 1 / 30 or abs(shift) > ALIGN_LIMIT:
+        return words
+    log.info("단어 시각을 첫 소리에 맞춰 %+.2f초 옮겨요", shift)
+    return [Word(max(0.0, w.start + shift), max(0.0, w.end + shift), w.text) for w in words]
 
 
 def _edge(text: str, out: Path, voice: str, faster: float = 1.0) -> list[Word]:
