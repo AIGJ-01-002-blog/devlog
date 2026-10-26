@@ -172,6 +172,67 @@ class VoiceFallbackTest(unittest.TestCase):
             self.assertEqual(tts.pick("auto"), "supertonic")
 
 
+class VoiceSpeedTest(unittest.TestCase):
+    """말 빠르기 1.05배와 자막 싱크(민서님 2026-10-26)"""
+
+    def _wav(self, path: Path, silence: float, sound: float) -> None:
+        import math
+        rate = 44100
+        frames = bytearray()
+        for k in range(int((silence + sound) * rate)):
+            v = 0 if k < silence * rate else int(8000 * math.sin(2 * math.pi * 220 * k / rate))
+            frames += v.to_bytes(2, "little", signed=True) * 2
+        with wave.open(str(path), "wb") as w:
+            w.setnchannels(2)
+            w.setsampwidth(2)
+            w.setframerate(rate)
+            w.writeframes(bytes(frames))
+
+    def test_every_engine_is_five_percent_faster(self):
+        self.assertEqual(tts.VOICE_SPEED, 1.05)
+        seen = {}
+
+        class FakeCommunicate:
+            def __init__(self, text, voice, rate, boundary, proxy):
+                seen["rate"] = rate
+
+            async def stream(self):
+                yield {"type": "audio", "data": b"x"}
+
+        fake = mock.MagicMock(Communicate=FakeCommunicate)
+        with TemporaryDirectory() as tmp, mock.patch.dict("sys.modules", {"edge_tts": fake}), mock.patch.dict("os.environ", {}, clear=False):
+            import os
+            os.environ.pop("DEVLOG_TTS_RATE", None)
+            tts._edge("가", Path(tmp) / "a.mp3", "v", faster=tts.VOICE_SPEED)
+            self.assertEqual(seen["rate"], "+13%")
+            tts._edge("가", Path(tmp) / "b.mp3", "v", faster=1.25 * tts.VOICE_SPEED)
+            self.assertEqual(seen["rate"], "+42%")
+
+    def test_device_voice_is_sped_up_with_atempo(self):
+        args = []
+        with TemporaryDirectory() as tmp, mock.patch.object(tts, "_run", side_effect=lambda a: args.append(a)):
+            tts.synthesize("가", Path(tmp) / "out.wav", "espeak")
+        self.assertIn("atempo=1.05", args[-1])
+
+    def test_onset_finds_first_sound(self):
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "a.wav"
+            self._wav(path, 0.25, 0.3)
+            self.assertAlmostEqual(tts.onset(path), 0.25, delta=0.011)
+            self._wav(path, 0.0, 0.0)
+            self.assertIsNone(tts.onset(path))
+
+    def test_align_moves_words_to_real_sound(self):
+        words = [Word(0.1, 0.4, "외부"), Word(0.5, 0.9, "API가")]
+        moved = tts.align(words, 0.16)
+        self.assertAlmostEqual(moved[0].start, 0.16)
+        self.assertAlmostEqual(moved[1].end, 0.96)
+        self.assertEqual(tts.align(words, 0.11), words)  # 한 프레임보다 작으면 그대로
+        self.assertEqual(tts.align(words, 0.9), words)  # 너무 크게 어긋나면 잡음으로 보고 그대로
+        self.assertEqual(tts.align(words, None), words)
+        self.assertAlmostEqual(tts.align([Word(0.2, 0.4, "가")], 0.05)[0].start, 0.05)
+
+
 class MusicTest(unittest.TestCase):
     def test_generated_once_and_reused(self):
         with TemporaryDirectory() as tmp, mock.patch.dict("os.environ", {"DEVLOG_RENDER_CACHE": tmp}):
