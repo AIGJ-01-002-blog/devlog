@@ -424,6 +424,7 @@ npm run dev        # http://localhost:5173
 
 | 버전 | 날짜 | 주요 내용 | 릴리스 노트 |
 | --- | --- | --- | --- |
+| v2.18.0 | 2026-10-26 | 쇼츠 목소리 1.05배, 자막·도식이 따르는 단어 시각을 실제 첫 소리에 맞춤(견본에서 0.07~0.13초 앞서던 자막 보정) | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.18.0) |
 | v2.17.1 | 2026-10-22 | 포트폴리오 인쇄 후속: 운영 화면에서 빈 첫 장이 생겨 3쪽이 되던 문제(본문 자리 밖 요소 숨김) | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.17.1) |
 | v2.17.0 | 2026-10-22 | 포트폴리오를 지원용 PDF와 같은 디자인으로: 인쇄 A4 두 장(1장 요약: 숫자 4칸·프로젝트 2칸·기술 4칸, 2장 사례 6개), 디자인 토큰과 Pretendard·JetBrains Mono | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.17.0) |
 | v2.16.0 | 2026-10-22 | 포트폴리오 피드백 반영: 사례 2를 실측(SQL 61 → 1, p95 16.75ms → 3.93ms)과 측정 시험으로, 소개·기술 줄 정리, 사례 5 대조 기록 99 → 192건·확인곡 42 → 91, 사례 6 발견 경위, YouTube 링크 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.16.0) |
