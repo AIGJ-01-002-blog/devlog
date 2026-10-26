@@ -214,6 +214,25 @@ class VoiceSpeedTest(unittest.TestCase):
             tts.synthesize("가", Path(tmp) / "out.wav", "espeak")
         self.assertIn("atempo=1.05", args[-1])
 
+    def test_neural_engines_get_voice_speed_and_aligned_words(self):
+        seen = {}
+
+        def fake_edge(text, out, voice, faster):
+            seen["edge"] = faster
+            out.write_bytes(b"x")
+            return [Word(0.1, 0.4, "가")]
+
+        def fake_supertonic(text, out, voice, faster):
+            seen["supertonic"] = faster
+
+        with TemporaryDirectory() as tmp, mock.patch.object(tts, "_edge", side_effect=fake_edge), \
+                mock.patch.object(tts, "_supertonic", side_effect=fake_supertonic), mock.patch.object(tts, "_run"), \
+                mock.patch.object(tts, "onset", return_value=0.2):
+            words = tts.synthesize("가", Path(tmp) / "edge.wav", "edge")
+            tts.synthesize("가", Path(tmp) / "supertonic.wav", "supertonic")
+        self.assertEqual(seen, {"edge": tts.VOICE_SPEED, "supertonic": tts.VOICE_SPEED})
+        self.assertAlmostEqual(words[0].start, 0.2)
+
     def test_onset_finds_first_sound(self):
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "a.wav"
