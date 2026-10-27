@@ -3,12 +3,29 @@ name: 블로그 배포
 # 운영 배포는 main에서만 한다. main 푸시는 백엔드·화면 테스트를 이 워크플로 안에서 다시 돌리고, 둘 다 통과해야 클러스터에 배포한다(CONTRIBUTING.md).
 # develop 푸시는 같은 테스트를 거쳐 시험 환경(네임스페이스 blog-dev, overlays/staging)에 배포한다. 저장소 변수 STAGING_ENABLED=true일 때만 (spec 092, #170).
 
+# ─── 전체 흐름 ───────────────────────────────────────────────
+# [PR]           validate(매니페스트·비밀값 검사) → image(빌드만 해 보고 올리지 않음)
+#                테스트는 backend-ci·화면 CI가 PR에서 따로 돈다
+# [develop push] backend-test + frontend-test + validate → image(GHCR에 :커밋SHA·:develop 태그로 올림)
+#                → deploy-staging(시험 환경 blog-dev, 변수 STAGING_ENABLED=true일 때만)
+# [main push]    backend-test + frontend-test + validate → image(:커밋SHA·:latest)
+#                → deploy(운영 blog, 변수 AUTO_DEPLOY=false가 아니면 자동)
+# [수동 실행]     Actions → 블로그 배포 → Run workflow. 아래 inputs로 배포 여부·대상·환경·롤백 시험을 고른다
+#
+# 운영 배포(deploy job) 안의 순서:
+#   비밀값 준비 → rollout.sh(새 이미지 적용, 파드 준비 실패 시 직전 버전으로 자동 롤백)
+#   → Cloudflare 터널(도메인 연결) → smoke.sh(바깥 주소 연기 시험, 실패 시 직전 버전으로 롤백) → 알림
+#
+# 주의: 아래 paths에 이 파일 자신이 들어 있어서, 이 파일만 고쳐도(주석 포함) develop·main push 때 이 흐름이 돈다
+# ────────────────────────────────────────────────────────────
 on:
+  # paths: 이 경로가 바뀐 경우에만 돈다. '!'로 시작하는 줄은 제외 규칙이라, 바뀐 파일이 전부 *.md이거나 server-setup.sh면 돌지 않는다
   pull_request:
     paths: ["deploy/**", "app/**", ".github/workflows/deploy.yml", "!**/*.md", "!deploy/scripts/server-setup.sh"]
   push:
     branches: [main, develop]
     paths: ["deploy/**", "app/**", ".github/workflows/deploy.yml", "!**/*.md", "!deploy/scripts/server-setup.sh"]
+  # 수동 실행할 때 화면에서 고르는 값들. push로 돌 때는 비어 있어 아래 기본값(|| 'selfhosted' 등)을 쓴다
   workflow_dispatch:
     inputs:
       deploy:
@@ -34,9 +51,11 @@ on:
         type: boolean
         default: false
 
+# 기본은 읽기만. 이미지 올리기처럼 더 필요한 job만 job 안에서 권한을 늘린다
 permissions:
   contents: read
 
+# 모든 job이 같이 쓰는 값. 도구 버전을 고정해 실행할 때마다 같은 결과가 나오게 한다
 env:
   # GHCR 이미지 이름은 소문자만 된다 (조직 이름 AIGJ-01-002-blog → aigj-01-002-blog)
   IMAGE_NAME: blog-app
@@ -47,26 +66,32 @@ jobs:
   # main에 합쳐진 결과(여러 PR이 잇따라 머지된 상태)를 배포 전에 한 번 더 테스트한다. PR에서는 backend-ci·화면 CI가 따로 돈다
   backend-test:
     name: 백엔드 테스트
+    # PR에서는 건너뛴다(PR은 backend-ci가 직접 돈다). 다른 워크플로 파일을 함수처럼 불러 쓰고, secrets: inherit로 Sonar 토큰 등을 넘긴다
     if: github.event_name != 'pull_request'
     uses: ./.github/workflows/backend-ci.yml
     secrets: inherit
 
   frontend-test:
     name: 화면 테스트
+    # PR에서는 건너뛴다(PR은 화면 CI가 직접 돈다)
     if: github.event_name != 'pull_request'
     uses: ./.github/workflows/frontend-ci.yml
 
+  # 매니페스트 검증: 클러스터에 올릴 설정이 올바른지 미리 본다. PR 포함 모든 경우에 돌고, 클러스터에는 접속하지 않는다
   validate:
     name: 매니페스트 검증
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      # kustomize(환경별 overlay를 합쳐 최종 YAML 생성)와 kubeconform(쿠버네티스 스키마 검사)을 받는다
       - name: 도구 설치
         run: |
           curl -sSL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin
           curl -sSL "https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" | sudo tar xz -C /usr/local/bin kubeconform
+      # secret.env·kubeconfig 같은 파일이나 비밀번호 패턴이 커밋에 섞였으면 실패
       - name: 비밀값이 커밋되지 않았는지 확인
         run: deploy/scripts/check-no-secrets.sh
+      # 운영·시험 설정(app.env)에 개발용 로그인이 켜져 있으면 실패
       - name: 바깥에 열리는 환경에서 개발용 로그인이 꺼져 있는지 확인
         run: |
           # 개발용 로그인은 비밀번호 없이 아무 계정으로 들어간다. 로컬(overlays/local) 말고는 켜지 않는다 (spec 092 FR-008)
@@ -74,6 +99,7 @@ jobs:
           if grep -niE '^DEV_LOGIN_ENABLED=(true|1|yes|on)' deploy/k8s/overlays/{nhn,selfhosted,staging}/app.env; then
             echo "::error::개발용 로그인(DEV_LOGIN_ENABLED)은 local overlay에서만 켤 수 있습니다"; exit 1
           fi
+      # local·nhn·selfhosted·staging 네 환경과 애드온(터널·대시보드)을 실제로 빌드해 쿠버네티스 1.33 스키마로 검사
       - name: kustomize 빌드 + 스키마 검사
         run: |
           # secret.env는 커밋하지 않으므로 예시 파일로 빌드만 확인한다
@@ -84,25 +110,33 @@ jobs:
           kustomize build deploy/k8s/addons/cloudflare-tunnel | kubeconform -strict -summary -kubernetes-version 1.33.0 -
           kustomize build deploy/k8s/addons/kubernetes-dashboard | kubeconform -strict -summary -kubernetes-version 1.33.0 -
 
+  # 이미지 빌드: validate가 통과해야 시작한다(needs). deploy/docker/Dockerfile로 앱 이미지 하나(백엔드 + 화면)를
+  # amd64·arm64 두 CPU용으로 만든다. PR에서는 빌드만 해 보고 올리지 않는다
   image:
     name: 이미지 빌드
     needs: validate
     runs-on: ubuntu-latest
+    # GHCR(GitHub 컨테이너 저장소)에 이미지를 올리려면 packages: write가 필요하다
     permissions:
       contents: read
       packages: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      # ghcr.io/<조직 이름 소문자>/blog-app 을 IMAGE 환경 변수로 정해 뒤 단계가 쓴다
       - name: 이미지 이름 정하기
         run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${IMAGE_NAME}" >> "$GITHUB_ENV"
+      # QEMU + Buildx: x86 러너에서 ARM64 이미지도 만들기 위한 준비
       - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      # push·수동 실행일 때만 GHCR에 로그인한다(PR은 올리지 않으니 로그인도 하지 않음)
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # 빌드하고 (PR이 아니면) 올린다. 태그는 커밋 SHA가 기본이라 어느 커밋이 배포됐는지 정확히 알 수 있고,
+      # 배포 단계(rollout.sh)도 이 SHA 태그로 이미지를 바꾼다. GitHub Actions 캐시로 다시 빌드할 때 빠르다
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
@@ -117,6 +151,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  # 운영 배포(blog 네임스페이스). 단계 번호는 실행 순서다
   deploy:
     name: 클러스터 배포
     # 이미지와 두 테스트가 모두 성공해야 배포한다
@@ -138,12 +173,16 @@ jobs:
       OVERLAY: ${{ inputs.overlay || 'selfhosted' }}
       TARGET: ${{ inputs.target || 'school' }}
     steps:
+      # 1) 코드 받기(매니페스트와 배포 스크립트가 필요하다)
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      # 2) image job과 같은 규칙으로 이미지 이름을 정한다
       - name: 이미지 이름 정하기
         run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${IMAGE_NAME}" >> "$GITHUB_ENV"
+      # 3) kustomize 설치(kubectl은 러너에 기본으로 있다)
       - name: 도구 설치
         run: |
           curl -sSL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin
+      # 4) 학교 서버 쿠버네티스 API는 바깥에 열려 있지 않아 SSH 터널로 러너에 잇는다(.github/actions/school-tunnel)
       - name: 학교 서버 SSH 터널 (target=school)
         if: env.TARGET == 'school'
         uses: ./.github/actions/school-tunnel
@@ -154,6 +193,8 @@ jobs:
           user: ${{ vars.SCHOOL_SSH_USER }}
           api-port: ${{ vars.SCHOOL_K8S_API_PORT }}
           password: ${{ secrets.SCHOOL_SSH_PASSWORD }}
+      # 5) GitHub Secret을 모아 secret.env를 러너에만 만든다. BLOG_SECRET_ENV가 바탕이고, 따로 등록한 Secret이 있으면
+      #    같은 이름 값을 덮어쓴다. kustomize가 이 파일을 쿠버네티스 Secret으로 바꾸고, 12) 정리 단계에서 지운다
       - name: 접속 정보 준비 (파일은 러너에만 존재)
         env:
           KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG }}
@@ -208,6 +249,8 @@ jobs:
             grep -v '^OLLAMA_BASE_URL=' "$f" > "$f.tmp" || true
             mv "$f.tmp" "$f"
           fi
+      # 6) 이미지가 비공개라 클러스터가 받을 수 있게 docker-registry Secret(ghcr-pull)을 만든다.
+      #    --dry-run | apply 방식이라 없으면 만들고 있으면 갱신한다
       - name: 이미지 받기 권한 (GHCR 비공개 이미지)
         env:
           # 클러스터가 나중에 파드를 다시 띄울 때도 받을 수 있게 만료 없는 토큰(read:packages)을 권장. 없으면 이번 실행 토큰으로 대신한다
@@ -222,16 +265,22 @@ jobs:
             --docker-username="$GHCR_PULL_USER" --docker-password="$(cat "$RUNNER_TEMP/ghcr-token")" \
             --dry-run=client -o yaml | kubectl apply -f -
           rm -f "$RUNNER_TEMP/ghcr-token"
+      # 7) (학교 서버만) 예전 대시보드의 넓은 권한을 지운다
       - name: 대시보드 옛 클러스터 전체 읽기 권한 지우기
         if: env.TARGET == 'school'
         # 읽기 계정은 이제 blog 네임스페이스 RoleBinding만 쓴다. apply는 옛 것을 지우지 않으므로 직접 지운다(#375).
         # 권한이 남으면 안 되므로 실패하면 배포를 실패로 두고, 뒤 단계(배포·도메인 연결)가 실패해도 이미 지워져 있게 배포보다 먼저 돈다
         run: kubectl delete clusterrolebinding devlog-viewer --ignore-not-found
+      # 8) 핵심 단계, deploy/scripts/rollout.sh:
+      #    지금 revision을 PREV_REVISION으로 적어 둠 → 이미지 태그를 이번 커밋 SHA로 바꿔 apply
+      #    → ROLLOUT_TIMEOUT(기본 300초) 안에 모든 파드의 readiness(/actuator/health/readiness)가 UP이 안 되면
+      #    kubectl rollout undo로 직전 revision에 되돌리고(자동 롤백) 이 단계를 실패로 끝낸다
       - name: 배포 (헬스 체크 실패 시 직전 버전으로 자동 롤백)
         env:
           ROLLBACK_TEST: ${{ inputs.rollback_test || 'false' }}
           ROLLOUT_TIMEOUT: ${{ vars.ROLLOUT_TIMEOUT_SECONDS || '300' }}
         run: deploy/scripts/rollout.sh
+      # 9) cloudflared를 띄워 devlog.life 바깥 주소를 클러스터에 잇는다. 서버에 들어오는 포트를 열지 않아도 된다
       - name: 도메인 연결 (Cloudflare Tunnel, Secret CLOUDFLARE_TUNNEL_TOKEN이 있을 때만)
         env:
           CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
@@ -255,6 +304,8 @@ jobs:
             kubectl -n blog logs -l app.kubernetes.io/name=cloudflared --tail=40 --prefix --all-containers || true
             exit 1
           fi
+      # 10) 연기 시험(smoke test, deploy/scripts/smoke.sh): 바깥 주소에서 첫 화면 200, /actuator/health UP,
+      #     맨 위 글 읽기를 확인한다(최대 6번 다시 시도). 실패하면 8)에서 적어 둔 PREV_REVISION으로 되돌리고 실패 처리
       - name: 공개 주소 연기 시험 (실패하면 직전 버전으로 되돌림)
         # 파드 준비(readiness)만으로는 Cloudflare·ingress를 거친 바깥 주소가 열리는지 모른다(#374). 변수 SMOKE_ENABLED=false면 건너뛴다
         if: vars.SMOKE_ENABLED != 'false'
@@ -287,6 +338,7 @@ jobs:
             echo "::warning::네트워크 정책·Cloudflare 터널을 확인하세요(deploy/README.md 기본 차단 급히 풀기)."
           fi
           exit 1
+      # 11) (학교 서버만) 운영 대시보드 갱신. continue-on-error라 실패해도 배포는 성공으로 둔다
       - name: 운영 대시보드 (학교 서버, 읽기 전용 로그인)
         if: env.TARGET == 'school'
         continue-on-error: true
@@ -295,11 +347,13 @@ jobs:
           kustomize build deploy/k8s/addons/kubernetes-dashboard | kubectl apply --server-side --force-conflicts -f -
           kubectl -n kubernetes-dashboard rollout status deploy/kubernetes-dashboard --timeout=180s \
             || echo "::warning::운영 대시보드가 아직 준비되지 않았습니다(블로그 배포에는 영향 없음)"
+      # 12) 성공·실패와 관계없이(always) 비밀값 파일·kubeconfig를 지우고 SSH 터널을 닫는다
       - name: 정리
         if: always()
         run: |
           rm -f "deploy/k8s/overlays/$OVERLAY/secret.env" "$RUNNER_TEMP/kubeconfig" "$RUNNER_TEMP/tunnel-token" "$RUNNER_TEMP/ghcr-token"
           pkill -f 'ssh .*-L 16443:' || true
+      # 13) 결과를 Discord·텔레그램으로 알린다(변수로 켰을 때만)
       - name: 알림 (Discord·텔레그램)
         if: always() && (vars.DISCORD_ENABLED == 'true' || vars.TELEGRAM_ENABLED == 'true')
         uses: ./.github/actions/notify
@@ -312,6 +366,8 @@ jobs:
           status: ${{ job.status == 'success' && 'success' || 'failure' }}
           url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
+  # 시험 환경 배포(blog-dev 네임스페이스). 운영과 같은 클러스터·같은 rollout.sh를 쓰지만 데이터와 비밀값은 따로 둔다.
+  # 도메인 연결과 공개 주소 연기 시험은 하지 않는다
   deploy-staging:
     name: 시험 환경 배포
     # develop에 머지되면 테스트와 이미지가 통과한 커밋을 시험 환경에 올린다. 운영(blog)과 데이터·비밀값을 나눈다
@@ -338,6 +394,7 @@ jobs:
       - name: 도구 설치
         run: |
           curl -sSL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin
+      # 운영 배포 4)와 같은 SSH 터널
       - name: 학교 서버 SSH 터널
         uses: ./.github/actions/school-tunnel
         with:
@@ -376,10 +433,12 @@ jobs:
           kubectl -n "$NAMESPACE" create secret docker-registry ghcr-pull --docker-server=ghcr.io \
             --docker-username="$GHCR_PULL_USER" --docker-password="$(cat "$RUNNER_TEMP/ghcr-token")" \
             --dry-run=client -o yaml | kubectl apply -f -
+      # 운영 배포 8)과 같은 rollout.sh(NAMESPACE=blog-dev). 파드 준비에 실패하면 직전 버전으로 자동 롤백
       - name: 배포 (헬스 체크 실패 시 직전 버전으로 자동 롤백)
         env:
           ROLLOUT_TIMEOUT: ${{ vars.ROLLOUT_TIMEOUT_SECONDS || '300' }}
         run: deploy/scripts/rollout.sh
+      # 비밀값 파일을 지우고 SSH 터널을 닫는다(always)
       - name: 정리
         if: always()
         run: |

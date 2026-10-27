@@ -2,6 +2,8 @@
 # 리눅스는 실제 ffmpeg로 영상을 만들어 확인하고, 맥·Windows는 ffmpeg가 없으면 영상 테스트를 건너뛴다.
 name: render-worker-ci
 
+# 언제 도나: PR에서 app/render-worker나 이 파일이 바뀌었을 때, develop에 push될 때(같은 경로). 블로그 배포와는 따로다
+# job 세 개가 동시에 돈다: test(세 운영체제 단위 테스트) · remotion(화면 렌더 확인) · samples(PR에서만, 견본 영상 만들기)
 on:
   pull_request:
     paths:
@@ -13,15 +15,18 @@ on:
       - "app/render-worker/**"
       - ".github/workflows/render-worker-ci.yml"
 
+# 최소 권한: 코드를 읽기만 한다
 permissions:
   contents: read
 
+# 같은 브랜치에 새 커밋이 오면 앞 실행을 취소한다
 concurrency:
   group: render-worker-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   test:
+    # matrix: 같은 job을 OS마다 하나씩 띄운다. fail-fast: false라 한 OS가 실패해도 나머지 OS 결과까지 끝까지 본다
     strategy:
       fail-fast: false
       matrix:

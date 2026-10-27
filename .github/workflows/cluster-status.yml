@@ -2,6 +2,7 @@
 # 배포가 기다리지 않는 파드(ollama-embed 등)를 확인할 때 쓴다. 수동 실행(Actions → 클러스터 상태).
 name: 클러스터 상태
 
+# 언제 도나: 수동 실행만. 클러스터를 바꾸지 않고 상태만 읽는다
 on:
   workflow_dispatch:
 
@@ -19,6 +20,7 @@ jobs:
       SSHPASS: ${{ secrets.SCHOOL_SSH_PASSWORD }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      # 등록된 SSH 키로 서버를 확인한 뒤 deploy/scripts/cluster-status.sh를 서버에서 실행한다
       - name: 클러스터 상태 보기
         env:
           KNOWN_HOSTS: ${{ vars.SCHOOL_SSH_KNOWN_HOSTS }}

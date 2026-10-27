@@ -1,12 +1,18 @@
 # CHANGELOG.md 맨 위 버전으로 태그와 GitHub Release를 만든다. 이미 있는 태그면 아무것도 하지 않는다.
 name: release
 
+# ─── 동작 요약 ───────────────────────────────────────────────
+# 언제 도나: main에 CHANGELOG.md가 바뀐 push(= develop→main 릴리스 PR 머지)가 오거나 손으로 실행할 때
+# 흐름: CHANGELOG 맨 위 버전·노트 읽기 → 이전 태그 이후 머지된 PR 표 붙이기 → 태그 vX.Y.Z와 GitHub Release 만들기 → 알림
+# 배포는 하지 않는다. 운영 배포는 같은 main push로 블로그 배포(deploy.yml)가 따로 한다
+# ────────────────────────────────────────────────────────────
 on:
   push:
     branches: [main]
     paths: [CHANGELOG.md]
   workflow_dispatch:
 
+# 태그와 릴리스를 만들어야 해서 contents: write
 permissions:
   contents: write
 
@@ -14,9 +20,11 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
+      # 1) 코드 받기. 이전 태그를 찾으려고 전체 이력(fetch-depth: 0)을 받는다
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
+      # 2) CHANGELOG.md 맨 위 '## [x.y.z]'에서 버전을 꺼내고, 다음 버전 제목 전까지를 release-notes.md로 잘라 낸다
       - name: 맨 위 버전과 노트 읽기
         id: notes
         run: |
@@ -28,6 +36,7 @@ jobs:
             on {print}
           ' CHANGELOG.md > release-notes.md
           echo "version=$version" >> "$GITHUB_OUTPUT"
+      # 3)
       # 093: 노트 끝에 이전 태그와의 비교 링크와, 그 사이 머지된 PR(번호·제목·브랜치)을 붙인다.
       # 사이트의 릴리스 노트 화면은 CHANGELOG만 읽으므로 이 자동 구획은 GitHub Release에만 들어간다.
       - name: 비교 링크와 머지된 PR 붙이기
@@ -61,6 +70,7 @@ jobs:
             fi
           } >> release-notes.md
           cat release-notes.md
+      # 4) 같은 태그가 이미 있으면 건너뛴다(다시 돌려도 안전). 0.x 버전은 시험판(prerelease)으로 표시한다
       - name: 태그와 릴리스 만들기
         id: release
         env:
@@ -75,6 +85,7 @@ jobs:
           case "$VERSION" in 0.*) prerelease="--prerelease" ;; esac
           gh release create "v$VERSION" --target "$GITHUB_SHA" --title "v$VERSION" --notes-file release-notes.md $prerelease
           echo "created=true" >> "$GITHUB_OUTPUT"
+      # 5) 이번 실행에서 릴리스를 새로 만들었을 때만 알린다
       - name: 알림 (Discord·텔레그램)
         if: steps.release.outputs.created == 'true' && (vars.DISCORD_ENABLED == 'true' || vars.TELEGRAM_ENABLED == 'true')
         uses: ./.github/actions/notify
