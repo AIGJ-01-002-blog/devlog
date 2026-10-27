@@ -2,6 +2,8 @@
 # 레포 변수 DISCORD_ENABLED·TELEGRAM_ENABLED 중 하나가 true일 때만 동작. 취소·건너뜀은 알리지 않는다.
 name: CI 결과 알림
 
+# 언제 도나: workflow_run = 다른 워크플로(backend-ci, 화면 CI)가 끝났다는 이벤트. 그 결과를 읽어 알림만 보내고,
+#           CI 결과 자체는 바꾸지 않는다
 on:
   workflow_run:
     workflows: [backend-ci, 화면 CI]
@@ -12,11 +14,13 @@ permissions:
 
 jobs:
   notify:
+    # 알림을 켰고(변수), 결과가 성공·실패·시간 초과일 때만 job을 돌린다
     if: >-
       (vars.DISCORD_ENABLED == 'true' || vars.TELEGRAM_ENABLED == 'true') &&
       contains(fromJSON('["success", "failure", "timed_out"]'), github.event.workflow_run.conclusion)
     runs-on: ubuntu-latest
     steps:
+      # 알림 보내는 composite action(.github/actions/notify)이 저장소 안에 있어서 먼저 코드를 받는다
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/notify
         with:

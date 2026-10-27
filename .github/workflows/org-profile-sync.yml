@@ -2,6 +2,7 @@
 # 레포 Secret ORG_PROFILE_TOKEN(.github 저장소 Contents 읽기·쓰기만 준 fine-grained 토큰)이 있을 때만 돈다. 없으면 안내만 남기고 넘어간다.
 name: 조직 프로필 동기화
 
+# 언제 도나: main에 프로필 관련 파일이 바뀐 push가 올 때, 또는 수동 실행
 on:
   push:
     branches: [main]
@@ -15,6 +16,8 @@ on:
 permissions:
   contents: read
 
+# 같은 그룹은 한 번에 하나만 실행해 동시 push를 막는다. 실행 중인 run은 취소하지 않지만, 기다리던 run은 더 새 run이 오면 취소될 수 있다
+# (각 run은 자기 커밋 기준으로 프로필을 만들고, 마지막으로 실행된 run의 결과가 남는다)
 concurrency:
   group: org-profile-sync
   cancel-in-progress: false
@@ -23,6 +26,7 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
+      # 1) 토큰이 없으면 skip=true를 남기고, 뒤 단계는 모두 if로 건너뛴다(실패로 처리하지 않음)
       - name: 토큰 확인
         id: token
         env:
@@ -34,15 +38,18 @@ jobs:
           fi
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         if: steps.token.outputs.skip != 'true'
+      # 2) 이 저장소 내용으로 조직 프로필 README를 만든다
       - name: 프로필 만들기
         if: steps.token.outputs.skip != 'true'
         run: python3 scripts/build-org-profile.py --stdout > "$RUNNER_TEMP/profile-README.md"
+      # 3) 조직 .github 저장소를 org-profile 폴더로 받는다
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         if: steps.token.outputs.skip != 'true'
         with:
           repository: AIGJ-01-002-blog/.github
           token: ${{ secrets.ORG_PROFILE_TOKEN }}
           path: org-profile
+      # 4) 내용이 달라졌을 때만 커밋하고 push한다
       - name: 바뀌었으면 올리기
         if: steps.token.outputs.skip != 'true'
         working-directory: org-profile

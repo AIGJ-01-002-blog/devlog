@@ -1,5 +1,11 @@
+# 블로그 화면(app/frontend, Vite·React·TypeScript) 검사.
 name: 화면 CI
 
+# ─── 동작 요약 ───────────────────────────────────────────────
+# 언제 도나: ① PR에서 app/frontend나 이 파일이 바뀌었을 때 ② develop에 push될 때(같은 경로)
+#           ③ 블로그 배포(deploy.yml)가 배포 전에 불러 쓸 때(workflow_call)
+# 흐름: 의존성 설치 → 타입 검사 → 테스트 → 배포용 빌드 → 첫 화면 무게 검사. 하나라도 실패하면 빨간불
+# ────────────────────────────────────────────────────────────
 on:
   pull_request:
     paths: ["app/frontend/**", ".github/workflows/frontend-ci.yml"]
@@ -9,25 +15,34 @@ on:
     paths: ["app/frontend/**", ".github/workflows/frontend-ci.yml"]
   workflow_call:
 
+# 최소 권한: 코드를 읽기만 한다
 permissions:
   contents: read
 
 jobs:
+  # job 하나(build). 단계가 차례로 돌고 하나라도 실패하면 뒤 단계는 건너뛴다
   build:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: app/frontend
     steps:
+      # 1) 코드 받기
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      # 2) Node 22 준비. package-lock.json 기준으로 npm 캐시를 써서 설치를 빠르게 한다
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: app/frontend/package-lock.json
+      # 3) lock 파일 그대로 설치. npm ci는 lock과 package.json이 어긋나면 실패해 '내 컴퓨터에선 됐는데'를 막는다
       - run: npm ci --no-audit --no-fund
+      # 4) TypeScript 타입 검사. 실행해 보기 전에 타입 오류를 잡는다
       - run: npm run typecheck
+      # 5) 화면 단위 테스트
       - run: npm test
+      # 6) 실제 배포용 정적 파일이 만들어지는지 확인
       - run: npx vite build
+      # 7) 첫 화면이 그려지기 전에 받는 JS·CSS(gzip) 합이 예산을 넘으면 실패(scripts/check-bundle.mjs). 첫 로딩이 느려지는 것을 막는다
       - name: 첫 화면 무게 검사
         run: node scripts/check-bundle.mjs
