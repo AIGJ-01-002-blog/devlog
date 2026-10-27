@@ -16,7 +16,8 @@ on:
 permissions:
   contents: read
 
-# 두 번 겹쳐 돌면 같은 저장소에 동시에 push하므로 차례로 돌린다(취소하지 않음)
+# 같은 그룹은 한 번에 하나만 실행해 동시 push를 막는다. 실행 중인 run은 취소하지 않지만, 기다리던 run은 더 새 run이 오면 취소될 수 있다
+# (각 run은 자기 커밋 기준으로 프로필을 만들고, 마지막으로 실행된 run의 결과가 남는다)
 concurrency:
   group: org-profile-sync
   cancel-in-progress: false

@@ -38,7 +38,7 @@ jobs:
         run: deploy/bench/run-light.sh
       - name: 지금 구성 (k3d)
         run: deploy/bench/run-k3d.sh
-      # 실패해도(always) 지금까지 잰 결과를 Summary와 아티팩트에 남긴다
+      # 실패해도(always) result.md가 있으면 지금까지 잰 결과를 Summary와 아티팩트에 남긴다(첫 단계에서 설치가 실패하면 파일이 없어 남지 않는다)
       - name: 결과
         if: always()
         run: cat "$OUT" >> "$GITHUB_STEP_SUMMARY"; cat "$OUT"
