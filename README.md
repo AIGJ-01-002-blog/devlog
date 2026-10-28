@@ -180,7 +180,7 @@ AI 사용에 동의했다면 AI가 제목을 붙이고 문장을 다듬고, 아�
 ### 만들고 남기기
 
 - **쇼츠 스튜디오** — 내 AI가 MCP로 쓴 쇼츠 대본을 장면(자막·읽을 문장·코드·설명 도식)별로 다듬고, [영상 만들기]를 누르면 내 컴퓨터의 렌더 워커가 캐릭터가 연기하는 9:16 MP4로 만들어 올립니다. 만들기 전에 양산형 검사로 다른 대본과 겹치거나 글을 그대로 옮긴 대본을 막고, 첫 화면 색(룩)은 쇼츠 탭 한 줄에 맞춰 세 편씩 같은 계열로 묶고(2026-10-21 15:00 한국 시간 뒤에 다 그린 영상부터, 이미 올린 영상은 그대로), 전환·카메라·배경음과 대본 틀·후킹은 최근 5편과 겹치지 않게 고릅니다. 글 하나를 작은 주제 여러 편으로 나눌 수도 있습니다. 첫 장면은 첫 프레임부터 큰 제목과 캐릭터를 보여 줘 그대로 커버가 되고, 권장 길이는 30~45초입니다. [대본 큐]에서 아직 영상으로 만들지 않은 대본을 먼저 쓴 순서대로 봅니다.
-- **올리기 안내** — YouTube Shorts·Instagram Reels·TikTok마다 제목·설명·고정 댓글을 복사 버튼과 함께 보여 주고 올리는 순서를 안내합니다. 자동 업로드는 없고, 올린 뒤 영상 주소를 남기면 블로그 [쇼츠] 탭과 바탕 글 아래에 9:16 카드로 보입니다. YouTube·Instagram·TikTok 채널도 블로그에 이을 수 있습니다. 글 쇼츠 제목과 캡션 첫 줄 앞에는 "[백엔드 면접]"을 붙이고, YouTube 설명 첫 줄은 원본 글 링크입니다. 쇼츠마다 재생목록 묶음(배포·DB·보안·성능·AI협업)을 고르면 넣을 재생목록 이름을, 순서에는 매일 저녁 8시(한국 시간) 예약 공개를 안내합니다.
+- **올리기 안내** — YouTube Shorts·Instagram Reels·TikTok마다 제목·설명·고정 댓글을 복사 버튼과 함께 보여 주고 올리는 순서를 안내합니다. 작업실에서 YouTube·Instagram 계정을 잇고 [시험 올리기]를 통과하면 자동 올리기가 켜집니다. 렌더가 끝난 쇼츠는 YouTube에 바로 비공개로만 올라가고(공개는 YouTube 스튜디오에서 직접), Instagram에는 하루 한 편씩 저녁 8시(KST)에 올라갑니다. 직접 올린 경우 영상 주소를 남기면 블로그 [쇼츠] 탭과 바탕 글 아래에 9:16 카드로 보입니다. YouTube·Instagram·TikTok 채널도 블로그에 이을 수 있습니다. 글 쇼츠 제목과 캡션 첫 줄 앞에는 "[백엔드 면접]"을 붙이고, YouTube 설명 첫 줄은 원본 글 링크입니다. 쇼츠마다 재생목록 묶음(배포·DB·보안·성능·AI협업)을 고르면 넣을 재생목록 이름을, 순서에는 매일 저녁 8시(한국 시간) 예약 공개를 안내합니다.
 - **내 대시보드** — 내 글의 조회수·좋아요·받은 댓글을 7·30·90일로 보고 이전 기간과 견줍니다. 많이 읽힌 글과 쇼츠 현황도 한 화면에 모읍니다.
 - **매매 일지** — 매매 봇이 MCP로 남긴 주식·코인 현물·선물 체결을 통화별 날짜 손익으로 보고, 실거래와 모의를 나눠 봅니다. 체결마다 봇이 남긴 판단 흔적(셋업·손절·익절·정리 이유·R배수)과 기법 버전·셋업별 승률·평균 R로 복기합니다. 그날 메모로 요약 임시글과 쇼츠 대본을, 고른 체결로 매매 재현 쇼츠를 만듭니다. devlog는 실제 주문을 내지 않습니다.
 - **블로그 포인트와 상점** — 출석(연속 출석일수만큼 커지는 보상)·연속 출석 휘장·글 발행으로 크레딧을 모아, 아이언~챌린저 9티어의 테마 색·프로필 테두리·블로그 표지를 사서 내 블로그를 꾸밉니다.
@@ -300,7 +300,7 @@ GitHub Actions로 테스트하고 이미지를 만들어 GHCR에 올린 뒤, kus
 | [deploy](deploy) | 배포 — Dockerfile, 쿠버네티스 매니페스트(base·selfhosted·nhn·local), 배포·롤백·비밀값 검사 스크립트 |
 | [app/render-worker](app/render-worker) | 쇼츠 렌더 워커 — Python 3.10, ffmpeg, Remotion(Node). 내 컴퓨터에서 대기열의 대본을 9:16 MP4로 만들어 올립니다 |
 | [.github](.github) | CI/CD — 백엔드·화면 테스트, 이미지 빌드·배포, 릴리스, Discord·텔레그램 알림 |
-| [specs](specs) | 기능 명세 — [GitHub Spec Kit](https://github.com/github/spec-kit) 흐름의 기능별 spec·plan·tasks(001~107) |
+| [specs](specs) | 기능 명세 — [GitHub Spec Kit](https://github.com/github/spec-kit) 흐름의 기능별 spec·plan·tasks(001~108) |
 | [docs](https://github.com/AIGJ-01-002-blog/docs) | 설계 문서 — 공통 요구사항, 아키텍처, 통합 ERD, 기능별 설계, 권한 표 |
 | [erd](erd) · [scripts](scripts) | 기준 스키마와 동작 테스트, 설계 검증 스크립트와 보고서 |
 
@@ -381,6 +381,7 @@ npm run dev        # http://localhost:5173
 | OWASP Java HTML Sanitizer | 20260924.2 | 본문 정화 | 렌더링한 HTML을 허용 목록으로 정화해 XSS를 막습니다 |
 | AWS SDK for Java (S3) | 2.55.12 | media | MinIO·S3에 사진과 첨부를 올립니다 |
 | Google Gemini · Ollama | gemini-2.5-flash-lite · qwen2.5:3b | ai | 태그 추천과 메모 다듬기. 한도에 걸리면 Ollama로 넘깁니다(둘 다 선택) |
+| YouTube Data API · Instagram Graph API | v3 · v24.0 | shorts | 렌더가 끝난 쇼츠 자동 올리기(YouTube는 비공개로만). SDK 없이 HTTP로 직접 부릅니다(선택) |
 
 ### 프론트엔드
 
@@ -412,10 +413,10 @@ npm run dev        # http://localhost:5173
 
 | 기술 | 쓰는 곳 | 역할 |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | 백엔드 | 단위·통합 테스트 900건(v2.17.1 기준) |
+| JUnit 5 · Spring Boot Test · Spring Security Test | 백엔드 | 단위·통합 테스트 946건(v2.23.0 기준) |
 | Testcontainers (PostgreSQL) | 백엔드 | 실제 PostgreSQL로 마이그레이션·쿼리·동시성을 검증합니다 |
 | JaCoCo | 백엔드 | 줄 커버리지 40% 기준을 CI에서 확인합니다 |
-| Vitest · Testing Library · jsdom | 프론트엔드 | 화면과 로직 테스트 434건(v2.17.1 기준) |
+| Vitest · Testing Library · jsdom | 프론트엔드 | 화면과 로직 테스트 445건(v2.23.0 기준) |
 | fake-indexeddb | 프론트엔드 | 오프라인 자동 저장 테스트 |
 
 ## 릴리스
