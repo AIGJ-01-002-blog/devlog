@@ -1581,6 +1581,7 @@ export const en: Record<string, string> = {
   "전체 코드와 과정은 프로필 링크의 블로그에 있어요.": "Full code and write-up are on the blog linked in my profile.",
   "구독하면 매일 저녁 {0}에 하나씩 받아 봐요.": "Subscribe for a new one every evening at {0}.",
   "팔로우하면 매일 저녁 {0}에 하나씩 받아 봐요.": "Follow for a new one every evening at {0}.",
+  "8시": "8 PM",
   "제목 {0}자 (최대 {1}자)": "Title {0} chars (max {1})",
   "제목과 설명에 아래 문구를 붙여 넣어요.": "Paste the text below into the title and description.",
   "캡션": "Caption",
