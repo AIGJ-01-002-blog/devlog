@@ -182,7 +182,7 @@ If you have agreed to AI use, the AI adds a title and tidies up the text; otherw
 ### Creating and recording
 
 - **Shorts studio**: polish a shorts script your AI wrote over MCP scene by scene (caption, narration, code, explainer diagram). Press [Make video] and the render worker on your own computer turns it into a 9:16 MP4 with an animated character and uploads it. Before rendering, a mass-production check blocks scripts that overlap other scripts or copy the post as is, the first-frame color (look) is grouped in threes to match a Shorts-tab row (videos finished after 2026-10-21 15:00 KST; already uploaded videos stay as they are), and transitions, camera, background music, script pattern and hook differ from the last five. One post can also be split into several small topics. The first scene shows a large title and the character from the very first frame so it doubles as the cover, and the recommended length is 30 to 45 seconds. The [Script queue] lists scripts not yet made into videos, oldest first.
-- **Upload guide**: titles, descriptions and pinned comments with copy buttons for YouTube Shorts, Instagram Reels and TikTok, plus the upload steps. There is no automatic upload; once you record the video URL after posting, the short appears as a 9:16 card in the blog's [Shorts] tab and under its source post. You can also link your YouTube, Instagram and TikTok channels to your blog. Post shorts get "[백엔드 면접]" (Backend Interview) in front of the title and the first caption line, and the YouTube description starts with the source post link. Pick a playlist bundle per short (deploy, DB, security, performance, AI collaboration) to see which playlist to add it to; the steps schedule each video for 8 pm Korea time, one a day.
+- **Upload guide**: titles, descriptions and pinned comments with copy buttons for YouTube Shorts, Instagram Reels and TikTok, plus the upload steps. After you connect YouTube and Instagram in the studio and pass [시험 올리기] (test upload), auto upload turns on: a rendered short goes to YouTube right away as private only (you publish it in YouTube Studio), and to Instagram one per day at 8 p.m. KST. For manual uploads, once you record the video URL, the short appears as a 9:16 card in the blog's [Shorts] tab and under its source post. You can also link your YouTube, Instagram and TikTok channels to your blog. Post shorts get "[백엔드 면접]" (Backend Interview) in front of the title and the first caption line, and the YouTube description starts with the source post link. Pick a playlist bundle per short (deploy, DB, security, performance, AI collaboration) to see which playlist to add it to; the steps schedule each video for 8 pm Korea time, one a day.
 - **My dashboard**: views, likes and received comments on your posts over 7, 30 or 90 days, compared with the previous period, with your most-read posts and shorts on one screen.
 - **Trade journal**: stock and crypto spot and futures fills that a trading bot records over MCP, shown as daily profit and loss per currency, with live and paper trades kept apart. Each fill carries the bot's decision trace (setup, stop loss, take profit, exit reason, R multiple), and a table of win rate and average R per strategy version and setup helps you review. A note for the day turns into a summary draft and a shorts script, and selected fills turn into a trade replay short. devlog never places real orders.
 - **Blog points and shop**: earn credits from check-ins (the reward grows with your streak), streak badges and publishing posts, then buy theme colors, profile rings and blog covers across nine tiers from Iron to Challenger to decorate your blog.
@@ -302,7 +302,7 @@ Code lives in this repository; design documents live in the documentation reposi
 | [deploy](deploy) | Deployment: Dockerfile, Kubernetes manifests (base, selfhosted, nhn, local), deploy, rollback and secret-check scripts |
 | [app/render-worker](app/render-worker) | Shorts render worker: Python 3.10, ffmpeg, Remotion (Node). Runs on your computer and turns queued scripts into 9:16 MP4s |
 | [.github](.github) | CI/CD: backend and frontend tests, image build and deploy, releases, Discord and Telegram notifications |
-| [specs](specs) | Feature specs: spec, plan and tasks per feature (001~107) following the [GitHub Spec Kit](https://github.com/github/spec-kit) flow |
+| [specs](specs) | Feature specs: spec, plan and tasks per feature (001~108) following the [GitHub Spec Kit](https://github.com/github/spec-kit) flow |
 | [docs](https://github.com/AIGJ-01-002-blog/docs) | Design documents: common requirements, architecture, unified ERD, per-feature designs, permission matrix |
 | [erd](erd) · [scripts](scripts) | Baseline schema and its tests, design-check scripts and reports |
 
@@ -383,6 +383,7 @@ To try it on Kubernetes, run `kubectl apply -k deploy/k8s/overlays/local` on kin
 | OWASP Java HTML Sanitizer | 20260924.2 | Body sanitizing | Sanitizes rendered HTML against an allow list to prevent XSS |
 | AWS SDK for Java (S3) | 2.55.12 | media | Uploads images and attachments to MinIO and S3 |
 | Google Gemini · Ollama | gemini-2.5-flash-lite · qwen2.5:3b | ai | Tag suggestions and note tidying. Falls back to Ollama when the quota is hit (both optional) |
+| YouTube Data API · Instagram Graph API | v3 · v24.0 | shorts | Auto upload of rendered shorts (YouTube as private only). Called directly over HTTP without an SDK (optional) |
 
 ### Frontend
 
@@ -414,10 +415,10 @@ To try it on Kubernetes, run `kubectl apply -k deploy/k8s/overlays/local` on kin
 
 | Technology | Where | Role |
 | --- | --- | --- |
-| JUnit 5 · Spring Boot Test · Spring Security Test | Backend | 900 unit and integration tests (as of v2.17.1) |
+| JUnit 5 · Spring Boot Test · Spring Security Test | Backend | 946 unit and integration tests (as of v2.23.0) |
 | Testcontainers (PostgreSQL) | Backend | Verifies migrations, queries and concurrency against a real PostgreSQL |
 | JaCoCo | Backend | Enforces a 40% line-coverage threshold in CI |
-| Vitest · Testing Library · jsdom | Frontend | 434 UI and logic tests (as of v2.17.1) |
+| Vitest · Testing Library · jsdom | Frontend | 445 UI and logic tests (as of v2.23.0) |
 | fake-indexeddb | Frontend | Tests for offline autosave |
 
 ## Releases
