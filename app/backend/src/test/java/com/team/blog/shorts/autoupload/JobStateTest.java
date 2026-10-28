@@ -40,6 +40,7 @@ class JobStateTest {
         assertThat(JobState.next(AutoPlatform.YOUTUBE, Status.UPLOADED, true, false, PUBLISH, PUBLISH, false)).isEqualTo(Action.NONE);
         // 설정을 바꾸기 전에 이미 공개 예약한 영상은 그대로 공개 시각을 기다린다
         assertThat(JobState.next(AutoPlatform.YOUTUBE, Status.SCHEDULED, true, false, PUBLISH, NOW, true)).isEqualTo(Action.NONE);
+        assertThat(JobState.next(AutoPlatform.YOUTUBE, Status.SCHEDULED, true, false, PUBLISH, PUBLISH, true)).isEqualTo(Action.MARK_PUBLISHED);
     }
 
     @Test
