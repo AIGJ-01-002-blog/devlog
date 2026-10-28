@@ -1,0 +1,98 @@
+{
+  "_comment": "쇼츠 올리기 문구 견본 (spec 108). 화면 uploadGuide()(shorts.test.ts)와 서버 ShortsCaption(ShortsCaptionParityTest)이 같은 결과를 내는지 둘 다 이 파일로 본다. 문구를 바꾸면 이 파일도 바꾼다.",
+  "origin": "https://devlog.life",
+  "samples": [
+    {
+      "name": "글 쇼츠: 공백만 있는 첫 내레이션은 건너뛰고 해시태그는 한도까지",
+      "input": {
+        "title": "배포하면 왜 로그아웃될까",
+        "postId": 7,
+        "postUrl": "/@minseo/posts/7",
+        "replay": false,
+        "narrations": [
+          "  ",
+          " 왜 배포만 하면 다 로그아웃될까요?  ",
+          "둘째 장면"
+        ],
+        "tags": [
+          "Spring Boot",
+          "spring",
+          "c++",
+          "Redis",
+          "세션",
+          "k8s"
+        ],
+        "playlist": "AI"
+      },
+      "expected": {
+        "YOUTUBE": {
+          "title": "[백엔드 면접] 배포하면 왜 로그아웃될까",
+          "caption": "전체 글: https://devlog.life/@minseo/posts/7\n\n왜 배포만 하면 다 로그아웃될까요?\n\n구독하면 매일 저녁 8시에 하나씩 받아 봐요.\n\n#SpringBoot #spring #c",
+          "playlistName": "[백엔드 면접] AI협업"
+        },
+        "INSTAGRAM": {
+          "title": null,
+          "caption": "[백엔드 면접] 배포하면 왜 로그아웃될까\n\n왜 배포만 하면 다 로그아웃될까요?\n\n전체 코드와 과정은 프로필 링크의 블로그에 있어요.\n\n팔로우하면 매일 저녁 8시에 하나씩 받아 봐요.\n\n#SpringBoot #spring #c #Redis #세션",
+          "playlistName": "[백엔드 면접] AI협업"
+        }
+      }
+    },
+    {
+      "name": "매매 재현: 앞머리·재생목록 없이 사이트 주소로",
+      "input": {
+        "title": "BTC 급등 매매 재현",
+        "postId": null,
+        "postUrl": null,
+        "replay": true,
+        "narrations": [
+          "매수 체결"
+        ],
+        "tags": [],
+        "playlist": "DB"
+      },
+      "expected": {
+        "YOUTUBE": {
+          "title": "BTC 급등 매매 재현",
+          "caption": "전체 글: https://devlog.life/\n\n매수 체결\n\n구독하면 매일 저녁 8시에 하나씩 받아 봐요.",
+          "playlistName": null
+        },
+        "INSTAGRAM": {
+          "title": null,
+          "caption": "BTC 급등 매매 재현\n\n매수 체결\n\n전체 코드와 과정은 프로필 링크의 블로그에 있어요.\n\n팔로우하면 매일 저녁 8시에 하나씩 받아 봐요.",
+          "playlistName": null
+        }
+      }
+    },
+    {
+      "name": "내레이션이 없고 태그가 겹치면 하나만",
+      "input": {
+        "title": "빈 훅",
+        "postId": 3,
+        "postUrl": "/@a/posts/3",
+        "replay": false,
+        "narrations": [
+          "",
+          ""
+        ],
+        "tags": [
+          "a.b",
+          "a-b",
+          "ab"
+        ],
+        "playlist": null
+      },
+      "expected": {
+        "YOUTUBE": {
+          "title": "[백엔드 면접] 빈 훅",
+          "caption": "전체 글: https://devlog.life/@a/posts/3\n\n구독하면 매일 저녁 8시에 하나씩 받아 봐요.\n\n#ab",
+          "playlistName": null
+        },
+        "INSTAGRAM": {
+          "title": null,
+          "caption": "[백엔드 면접] 빈 훅\n\n전체 코드와 과정은 프로필 링크의 블로그에 있어요.\n\n팔로우하면 매일 저녁 8시에 하나씩 받아 봐요.\n\n#ab",
+          "playlistName": null
+        }
+      }
+    }
+  ]
+}

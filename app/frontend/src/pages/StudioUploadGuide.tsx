@@ -4,6 +4,7 @@ import { CopyCode } from '../components/CopyCode'
 import { api } from '../lib/api'
 import { fieldErrors } from '../lib/fieldErrors'
 import { t } from '../lib/i18n'
+import { AutoUploadJobs } from './StudioAutoUpload'
 import { CHANNEL_KIND, socialHref, type SocialLinks } from '../lib/socialLinks'
 import {
   canShareFiles, deleteUpload, PLATFORMS, PLAYLISTS, recordUpload, setOnBlog, setPlaylist, shareVideo, uploadGuide, videoFileName,
@@ -12,7 +13,7 @@ import {
 
 /**
  * 직접 올리기 안내 (#238). 플랫폼을 고르면 그 플랫폼에 맞춘 제목·설명·고정 댓글과 올리는 순서를 보여 준다.
- * devlog는 SNS에 아무것도 보내지 않는다. 올린 뒤 영상 주소를 남기면 대시보드(#239)가 쓴다.
+ * 자동 올리기(spec 108)를 켠 플랫폼은 서버가 올리고 그 상태를 위에 보인다. 직접 올린 뒤 영상 주소를 남기면 대시보드(#239)가 쓴다.
  */
 export function StudioUploadGuide({ item, onChange }: { item: ShortsItem; onChange: (item: ShortsItem) => void }) {
   const [platform, setPlatform] = useState<Platform>('YOUTUBE')
@@ -23,7 +24,8 @@ export function StudioUploadGuide({ item, onChange }: { item: ShortsItem; onChan
   return (
     <section className="studio-guide" aria-labelledby="studio-guide-title">
       <h2 id="studio-guide-title">{t('올리기 안내')}</h2>
-      <p className="muted small">{t('devlog는 자동으로 올리지 않아요. 아래 문구를 복사해 내 계정에서 직접 올려요.')}</p>
+      <p className="muted small">{t('자동 올리기를 켜지 않았다면 아래 문구를 복사해 내 계정에서 직접 올려요.')}</p>
+      <AutoUploadJobs key={item.id} item={item} />
       <div className="studio-tabs" role="tablist" aria-label={t('올릴 플랫폼')}>
         {PLATFORMS.map((p) => {
           const done = item.uploads.some((u) => u.platform === p.id)
