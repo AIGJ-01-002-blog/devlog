@@ -10,6 +10,20 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
+## [2.23.0] - 2026-10-29
+
+**목표: 쇼츠 자동 올리기의 YouTube를 비공개로만 올리기** ([목표 이슈 #501](https://github.com/AIGJ-01-002-blog/devlog/issues/501))
+
+### 바뀜
+- 쇼츠 자동 올리기의 YouTube는 기본으로 공개 예약 없이 비공개로만 올린다. 렌더가 끝나는 대로 바로 올리고 작업은 새 상태 `UPLOADED`(비공개로 올림)로 끝나며, 공개는 블로그 주인이 YouTube 스튜디오에서 직접 한다. 비공개 영상 주소는 블로그에 보이는 올린 주소에 적지 않는다. 예전처럼 저녁 공개 예약을 하려면 `SHORTS_YOUTUBE_PRIVACY=SCHEDULED`. DB 상태 값에 `UPLOADED` 추가(V63) (#501)
+
+### 포함된 작업
+| 이슈 | 브랜치 | PR |
+|---|---|---|
+| #501 YouTube 자동 올리기를 비공개로만 | `feature/501-youtube-private-only` | #502 |
+
+**비교:** [v2.22.0...v2.23.0](https://github.com/AIGJ-01-002-blog/devlog/compare/v2.22.0...v2.23.0)
+
 ## [2.22.0] - 2026-10-29
 
 **목표: 렌더가 끝난 쇼츠를 YouTube·Instagram에 자동으로 올리기** ([목표 이슈 #498](https://github.com/AIGJ-01-002-blog/devlog/issues/498))

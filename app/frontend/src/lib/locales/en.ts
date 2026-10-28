@@ -2317,4 +2317,12 @@ export const en: Record<string, string> = {
   "AI가 쓴 대본을 다듬고 {0}를 누르면 내 컴퓨터의 렌더 워커가 9:16 영상으로 만들어요. {1}에는 {2}(한국 시간) 공개로 자동으로 올리고, {3}에는 내가 직접 올려요.": "Polish the script your AI wrote and press {0}; the render worker on your computer turns it into a 9:16 video. It is uploaded automatically to {1} to go public at {2} (Korea time), and you upload it to {3} yourself.",
   "자동 올리기 상태를 불러오지 못했어요.": "Couldn't load the auto upload status.",
   "자동 올리기를 쓸 수 없어요. 관리자 계정인지, 서버에 자동 올리기 설정이 있는지 확인해 주세요.": "Auto upload isn't available. Check that you're signed in as an admin and that the server has auto upload settings.",
+  "비공개로 올릴 차례를 기다려요": "Waiting its turn to upload as private",
+  "비공개로 올리는 중": "Uploading as private",
+  "{0}에 비공개로 올렸어요. 공개는 YouTube 스튜디오에서 해 주세요": "Uploaded as private on {0}. Make it public in YouTube Studio",
+  "처음부터 다시 비공개로 올려요": "Uploads it again as private from the start",
+  "켜 두면 영상 만들기가 끝난 쇼츠를 YouTube에는 바로 비공개로 올려요(공개는 YouTube 스튜디오에서 직접 해요). Instagram에는 하루 한 편씩 저녁 {0}(한국 시간)에 게시해요. 처음에는 꺼져 있고, 계정을 잇고 시험 올리기를 통과한 플랫폼만 켤 수 있어요.": "When on, finished shorts go to YouTube right away as private (you make them public yourself in YouTube Studio). Instagram gets one a day at {0} (Korea time). It starts off, and you can only turn it on for a platform after connecting the account and passing a test upload.",
+  "AI가 쓴 대본을 다듬고 {0}를 누르면 내 컴퓨터의 렌더 워커가 9:16 영상으로 만들어요. {1}에는 다 만들면 바로 자동으로 올리고(YouTube는 비공개, 공개는 직접), {2}에는 내가 직접 올려요.": "Polish the script the AI wrote and press {0}, and the render worker on your computer makes a 9:16 video. It goes to {1} automatically as soon as it's done (YouTube as private, you publish it yourself), and you upload to {2} yourself.",
+  "AI가 쓴 대본을 다듬고 {0}를 누르면 내 컴퓨터의 렌더 워커가 9:16 영상으로 만들어요. YouTube에는 다 만들면 바로 비공개로 올리고(공개는 직접), {1}에는 {2}(한국 시간) 공개로 자동으로 올리고, {3}에는 내가 직접 올려요.": "Polish the script the AI wrote and press {0}, and the render worker on your computer makes a 9:16 video. It goes to YouTube as private as soon as it's done (you publish it yourself), to {1} automatically at {2} (Korea time), and you upload to {3} yourself.",
+  "영상 만들기가 끝나면 YouTube에는 바로 비공개로, Instagram에는 {0}(한국 시간) 공개로 올려요": "When a video finishes rendering, it goes to YouTube right away as private, and to Instagram at {0} (Korea time)",
 }

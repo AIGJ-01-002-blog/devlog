@@ -269,6 +269,8 @@ blog:
       youtube:
         client-id: ${YOUTUBE_CLIENT_ID:}
         client-secret: ${YOUTUBE_CLIENT_SECRET:}
+        # PRIVATE(기본): 비공개로만 올리고 공개는 YouTube 스튜디오에서 직접 / SCHEDULED: 다음 빈 날 publish-time에 공개 예약 (#501)
+        privacy: ${SHORTS_YOUTUBE_PRIVACY:PRIVATE}
       instagram:
         app-id: ${INSTAGRAM_APP_ID:}
         app-secret: ${INSTAGRAM_APP_SECRET:}

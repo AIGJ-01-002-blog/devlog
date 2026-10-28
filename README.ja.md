@@ -201,7 +201,7 @@ flowchart LR
     T[Telegram] -->|Bot API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>複数 Pod]
     I -->|/blog-images| M[(MinIO / S3<br/>画像・添付)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V62)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V63)]
     A --> R[(Redis<br/>セッション・レート制限・閲覧数・キャッシュ)]
     A --> M
     A -.任意.-> G[Google Gemini]
@@ -297,7 +297,7 @@ GitHub Actions でテストし、イメージを作って GHCR に上げたあ�
 
 | パス | 説明 |
 | --- | --- |
-| [app/backend](app/backend) | バックエンド：Spring Boot 4.1、Java 21。機能モジュール、Flyway マイグレーション（V1~V62）、テスト |
+| [app/backend](app/backend) | バックエンド：Spring Boot 4.1、Java 21。機能モジュール、Flyway マイグレーション（V1~V63）、テスト |
 | [app/frontend](app/frontend) | フロントエンド：React 19 SPA、TypeScript、Vite。画面、自動保存（IndexedDB）、ダークモード |
 | [deploy](deploy) | デプロイ：Dockerfile、Kubernetes マニフェスト（base・selfhosted・nhn・local）、デプロイ・ロールバック・シークレット検査のスクリプト |
 | [app/render-worker](app/render-worker) | ショート動画のレンダーワーカー：Python 3.10、ffmpeg、Remotion（Node）。自分のパソコンで待ち行列の台本を 9:16 の MP4 にしてアップロードします |
@@ -378,7 +378,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub・Google・カカオ・NAVER・Facebook ログイン、セッション、CSRF、パスごとの権限 |
 | Spring Data JPA (Hibernate) | Boot 4.1 | ドメイン全体 | 会員・記事・コメントなどドメインデータの保存 |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | セッション、レート制限、閲覧数、キャッシュ | 複数の Pod が同じセッションを共有し、同時リクエストも Redis スクリプト 1 つで判定します |
-| Flyway | Boot 4.1 | DB | スキーマを V1~V62 のマイグレーションで管理し、起動時に適用します |
+| Flyway | Boot 4.1 | DB | スキーマを V1~V63 のマイグレーションで管理し、起動時に適用します |
 | commonmark-java (+ GFM 拡張) | 0.30.0 | 本文のレンダリング | Markdown → HTML。表・取り消し線・チェックリスト・自動リンク・見出しアンカー |
 | OWASP Java HTML Sanitizer | 20260924.2 | 本文のサニタイズ | レンダリングした HTML を許可リストでサニタイズし XSS を防ぎます |
 | AWS SDK for Java (S3) | 2.55.12 | media | MinIO・S3 に画像と添付をアップロードします |
@@ -426,6 +426,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | バージョン | 日付 | 主な内容 | リリースノート |
 | --- | --- | --- | --- |
+| v2.23.0 | 2026-10-29 | ショート自動投稿のYouTubeはレンダー完了後すぐ非公開でアップロードし、公開はYouTube Studioで自分で行う | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.23.0) |
 | v2.22.0 | 2026-10-29 | ショート自動投稿：スタジオでYouTube・Instagramを連携しテスト投稿に通ると、レンダー済みショートを毎日1本20時(KST)に公開（初期はオフ） | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.22.0) |
 | v2.21.0 | 2026-10-28 | ショート投稿ガイドのキャプションに「毎晩20時に1本」の登録・フォロー案内、Instagramはプロフィールリンクへ誘導 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.21.0) |
 | v2.20.0 | 2026-10-28 | ショートの冒頭と長さ: AI台本は50秒まで(30〜45秒推奨)、最初の場面は質問ではなく障害の場面、最後の3秒はフォローの呼びかけ | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.20.0) |

@@ -102,7 +102,13 @@ export function StudioPage() {
     <main className="container studio-page">
       <h1>{t('쇼츠 스튜디오')}</h1>
       <p className="muted studio-lead">
-        {autoStatus && autoNames.length > 0
+        {autoStatus && autoStatus.youtubePrivate && autoNames.includes('YouTube') && autoNames.length > 1
+          ? tNodes('AI가 쓴 대본을 다듬고 {0}를 누르면 내 컴퓨터의 렌더 워커가 9:16 영상으로 만들어요. YouTube에는 다 만들면 바로 비공개로 올리고(공개는 직접), {1}에는 {2}(한국 시간) 공개로 자동으로 올리고, {3}에는 내가 직접 올려요.', {
+            0: <b>{t('[영상 만들기]')}</b>, 1: autoNames.filter((n) => n !== 'YouTube').join('·'), 2: autoStatus.publishTime, 3: manualNames.join('·') })
+          : autoStatus && autoStatus.youtubePrivate && autoNames.includes('YouTube')
+          ? tNodes('AI가 쓴 대본을 다듬고 {0}를 누르면 내 컴퓨터의 렌더 워커가 9:16 영상으로 만들어요. {1}에는 다 만들면 바로 자동으로 올리고(YouTube는 비공개, 공개는 직접), {2}에는 내가 직접 올려요.', {
+            0: <b>{t('[영상 만들기]')}</b>, 1: autoNames.join('·'), 2: manualNames.join('·') })
+          : autoStatus && autoNames.length > 0
           ? tNodes('AI가 쓴 대본을 다듬고 {0}를 누르면 내 컴퓨터의 렌더 워커가 9:16 영상으로 만들어요. {1}에는 {2}(한국 시간) 공개로 자동으로 올리고, {3}에는 내가 직접 올려요.', {
             0: <b>{t('[영상 만들기]')}</b>, 1: autoNames.join('·'), 2: autoStatus.publishTime, 3: manualNames.join('·') })
           : tNodes('AI가 쓴 대본을 다듬고 {0}를 누르면 내 컴퓨터의 렌더 워커가 9:16 영상으로 만들어요. 유튜브·인스타그램·틱톡에는 내가 직접 올려요.', { 0: <b>{t('[영상 만들기]')}</b> })}
@@ -119,7 +125,9 @@ export function StudioPage() {
           </Link>
           {autoStatus && (
             <Link to="/studio?auto=1" onClick={closeForms} className={`btn btn-outline btn-block studio-queue-btn${autoOpen ? ' active' : ''}`}
-              aria-current={autoOpen ? 'true' : undefined} data-tip={t('영상 만들기가 끝나면 YouTube·Instagram에 {0}(한국 시간) 공개로 올려요', { 0: autoStatus.publishTime })}>
+              aria-current={autoOpen ? 'true' : undefined} data-tip={autoStatus.youtubePrivate
+                ? t('영상 만들기가 끝나면 YouTube에는 바로 비공개로, Instagram에는 {0}(한국 시간) 공개로 올려요', { 0: autoStatus.publishTime })
+                : t('영상 만들기가 끝나면 YouTube·Instagram에 {0}(한국 시간) 공개로 올려요', { 0: autoStatus.publishTime })}>
               {t('자동 올리기')}
             </Link>
           )}

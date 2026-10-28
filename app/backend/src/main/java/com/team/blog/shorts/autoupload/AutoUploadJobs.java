@@ -43,9 +43,12 @@ public class AutoUploadJobs {
     /** 아직 끝나지 않은 작업. 연결을 끊어 FAILED로 멈춘 작업을 진행 중이던 단계가 덮어쓰지 않게 갱신마다 이 조건을 단다 */
     private static final String OPEN = "status IN ('QUEUED', 'UPLOADING', 'SCHEDULED')";
 
-    /** 화면에 보이는 작업 */
+    /**
+     * 화면에 보이는 작업
+     * @param privateOnly 공개 예약 없이 비공개로만 올리는 작업(#501). publishAt은 공개 시각이 아니라 올릴 차례·올린 시각이다
+     */
     public record JobView(AutoPlatform platform, Status status, int attempts, Instant publishAt, String url, String error, String note,
-                          Instant updatedAt) {}
+                          Instant updatedAt, boolean privateOnly) {}
 
     record Job(long id, long shortsId, long memberId, AutoPlatform platform, Status status, int attempts, Instant publishAt,
                String externalId, String containerId, String url) {}
@@ -80,14 +83,20 @@ public class AutoUploadJobs {
                 SELECT platform, status, attempts, publish_at, url, error, note, updated_at FROM shorts_auto_upload
                 WHERE member_id = ? AND shorts_id = ? ORDER BY platform
                 """, (rs, i) -> new JobView(AutoPlatform.valueOf(rs.getString(1)), Status.valueOf(rs.getString(2)), rs.getInt(3),
-                rs.getTimestamp(4).toInstant(), rs.getString(5), rs.getString(6), rs.getString(7), rs.getTimestamp(8).toInstant()), memberId, shortsId);
+                rs.getTimestamp(4).toInstant(), rs.getString(5), rs.getString(6), rs.getString(7), rs.getTimestamp(8).toInstant(),
+                privateOnly(AutoPlatform.valueOf(rs.getString(1)))), memberId, shortsId);
+    }
+
+    /** YouTube를 공개 예약 없이 비공개로만 올리는지 (#501) */
+    boolean privateOnly(AutoPlatform platform) {
+        return platform == AutoPlatform.YOUTUBE && props.youtube().privateOnly();
     }
 
     /** 실패한 작업을 처음부터 다시. 공개 시각도 다시 고른다 */
     public void retry(long memberId, long shortsId, AutoPlatform platform) {
         Instant now = Times.now(clock);
         int n = withSlotLock(memberId, () -> {
-            Instant slot = slot(memberId, platform, now, null);
+            Instant slot = publishAt(memberId, platform, now);
             return jdbc.update("""
                     UPDATE shorts_auto_upload SET status = 'QUEUED', attempts = 0, error = NULL, note = NULL, external_id = NULL, container_id = NULL,
                         url = NULL, publish_at = ?, next_attempt_at = ?, updated_at = ?
@@ -121,7 +130,7 @@ public class AutoUploadJobs {
             for (long shortsId : ready) {
                 Instant now = Times.now(clock);
                 n += withSlotLock(c.memberId(), () -> {
-                    Instant slot = slot(c.memberId(), c.platform(), now, null);
+                    Instant slot = publishAt(c.memberId(), c.platform(), now);
                     return jdbc.update("""
                             INSERT INTO shorts_auto_upload (shorts_id, member_id, platform, status, publish_at, next_attempt_at, created_at, updated_at)
                             VALUES (?, ?, ?, 'QUEUED', ?, ?, ?, ?) ON CONFLICT (shorts_id, platform) DO NOTHING
@@ -160,11 +169,16 @@ public class AutoUploadJobs {
         });
     }
 
-    /** 다음 빈 날 공개 시각. exceptJob은 다시 고르는 작업 자신(그 날을 비운다) */
+    /** 새 작업의 publish_at: 비공개로만 올리면 지금(바로 올린다), 아니면 다음 빈 날 공개 시각 */
+    private Instant publishAt(long memberId, AutoPlatform platform, Instant now) {
+        return privateOnly(platform) ? now : slot(memberId, platform, now, null);
+    }
+
+    /** 다음 빈 날 공개 시각. exceptJob은 다시 고르는 작업 자신(그 날을 비운다). 비공개로만 올린 작업은 날을 차지하지 않는다 */
     Instant slot(long memberId, AutoPlatform platform, Instant now, Long exceptJob) {
         Set<LocalDate> taken = new HashSet<>();
         jdbc.query("""
-                SELECT publish_at FROM shorts_auto_upload WHERE member_id = ? AND platform = ? AND status <> 'FAILED' AND publish_at >= ?
+                SELECT publish_at FROM shorts_auto_upload WHERE member_id = ? AND platform = ? AND status NOT IN ('FAILED', 'UPLOADED') AND publish_at >= ?
                     AND id <> ?
                 """, (org.springframework.jdbc.core.RowCallbackHandler) rs -> taken.add(PublishSlots.dayOf(rs.getTimestamp(1).toInstant())),
                 memberId, platform.name(), Timestamp.from(now.minus(Duration.ofDays(1))), exceptJob == null ? -1L : exceptJob);
@@ -196,7 +210,8 @@ public class AutoUploadJobs {
     /** 작업 한 단계. @return 무언가 했으면 true */
     boolean step(Job job) {
         Instant now = Times.now(clock);
-        Action action = JobState.next(job.platform(), job.status(), job.externalId() != null, job.containerId() != null, job.publishAt(), now);
+        Action action = JobState.next(job.platform(), job.status(), job.externalId() != null, job.containerId() != null, job.publishAt(), now,
+                privateOnly(job.platform()));
         boolean uploaded = job.platform() == AutoPlatform.YOUTUBE && job.externalId() != null;
         if (action == Action.NONE) {
             // 잘못 깨운 작업(시각이 아직)은 제 시각으로 미룬다. 올린 뒤 실패해 QUEUED로 돌아온 YouTube 작업은 예약됨으로 되돌린다
@@ -207,6 +222,11 @@ public class AutoUploadJobs {
         }
         if (action == Action.MARK_PUBLISHED) {
             published(job, job.url(), now);
+            return true;
+        }
+        if (action == Action.MARK_UPLOADED) {
+            jdbc.update("UPDATE shorts_auto_upload SET status = 'UPLOADED', error = NULL, updated_at = ? WHERE id = ? AND " + OPEN,
+                    Timestamp.from(now), job.id());
             return true;
         }
         Optional<Connection> conn = connections.find(job.memberId(), job.platform()).filter(Connection::enabled);
@@ -240,8 +260,9 @@ public class AutoUploadJobs {
     }
 
     private void uploadYouTube(Job job, Connection conn, String videoKey, Instant now) {
-        Instant publishAt = job.publishAt();
-        if (publishAt.isBefore(now.plus(props.minLead()))) {
+        boolean privateOnly = privateOnly(job.platform());
+        Instant publishAt = privateOnly ? now : job.publishAt();
+        if (!privateOnly && publishAt.isBefore(now.plus(props.minLead()))) {
             // 다시 하느라 공개 시각을 지났다. 다음 빈 날로
             publishAt = reslot(job, now);
         }
@@ -251,25 +272,28 @@ public class AutoUploadJobs {
         byte[] bytes = videos.bytes(videoKey);
         if (!stillOpen(job)) return;
         String id = youtube.upload(token, bytes, new YouTubeApi.Video(ShortsCaption.limit(text.title(), 100),
-                ShortsCaption.limit(text.caption(), 5000), text.tags().stream().map(t -> t.substring(1)).toList(), publishAt));
+                ShortsCaption.limit(text.caption(), 5000), text.tags().stream().map(t -> t.substring(1)).toList(), privateOnly ? null : publishAt));
         String url = "https://youtube.com/shorts/" + id;
         // 올리자마자 영상 ID부터 적는다. 뒤(재생목록·상태 적기)에서 실패해 다시 해도 같은 영상을 또 올리지 않는다(JobState.next)
         jdbc.update("UPDATE shorts_auto_upload SET external_id = ?, url = ?, publish_at = ?, updated_at = ? WHERE id = ?",
                 id, url, Timestamp.from(publishAt), Timestamp.from(now), job.id());
         String note = null;
         if (text.playlistName() != null) note = addToPlaylist(token, text.playlistName(), id);
+        // 비공개로만 올리면 여기서 끝난다(UPLOADED). 공개 예약이면 공개 시각에 다시 깨운다(SCHEDULED)
         int n = jdbc.update("""
-                UPDATE shorts_auto_upload SET status = 'SCHEDULED', next_attempt_at = ?, error = NULL, note = ?, updated_at = ?
+                UPDATE shorts_auto_upload SET status = ?, next_attempt_at = ?, error = NULL, note = ?, updated_at = ?
                 WHERE id = ? AND status = 'UPLOADING'
-                """, Timestamp.from(publishAt), note, Timestamp.from(now), job.id());
+                """, privateOnly ? "UPLOADED" : "SCHEDULED", Timestamp.from(publishAt), note, Timestamp.from(now), job.id());
         if (n == 0) {
             // 올리는 사이에 연결을 끊었다. 작업은 멈춘 그대로 두고, 이미 예약된 영상이 있다고 알린다
-            jdbc.update("UPDATE shorts_auto_upload SET note = ? WHERE id = ?",
-                    "연결을 끊기 전에 올라간 영상이 YouTube에 공개 예약돼 있어요. 원하지 않으면 YouTube 스튜디오에서 지워 주세요.", job.id());
+            jdbc.update("UPDATE shorts_auto_upload SET note = ? WHERE id = ?", privateOnly
+                    ? "연결을 끊기 전에 올라간 영상이 YouTube에 비공개로 남아 있어요. 원하지 않으면 YouTube 스튜디오에서 지워 주세요."
+                    : "연결을 끊기 전에 올라간 영상이 YouTube에 공개 예약돼 있어요. 원하지 않으면 YouTube 스튜디오에서 지워 주세요.", job.id());
             log.info("쇼츠 {}를 올리는 사이 연결이 끊겼습니다. 올린 영상은 YouTube에 남습니다", job.shortsId());
             return;
         }
-        log.info("쇼츠 {}를 YouTube에 비공개로 올리고 {}에 공개 예약했습니다", job.shortsId(), publishAt);
+        if (privateOnly) log.info("쇼츠 {}를 YouTube에 비공개로 올렸습니다(공개 예약 없음)", job.shortsId());
+        else log.info("쇼츠 {}를 YouTube에 비공개로 올리고 {}에 공개 예약했습니다", job.shortsId(), publishAt);
     }
 
     /** 플랫폼에 보내기 직전에 다시 본다: 연결이 그대로 켜져 있고 작업을 아직 잡고 있는지(연결을 끊으면 stopPending이 FAILED로 바꾼다) */

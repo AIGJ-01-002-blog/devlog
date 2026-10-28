@@ -28,7 +28,7 @@ describe('StudioAutoUpload', () => {
     platform: 'YOUTUBE', configured: true, connected: true, accountName: 'devlog', enabled: false, testedAt: null, testUrl: null,
     testError: null, tokenExpiresAt: null, redirectUri: 'https://devlog.life/api/me/shorts/auto-upload/youtube/callback', ...over,
   })
-  const status = (p: AutoPlatformState): AutoUploadStatus => ({ platforms: [p], publishTime: '20:00' })
+  const status = (p: AutoPlatformState): AutoUploadStatus => ({ platforms: [p], publishTime: '20:00', youtubePrivate: false })
 
   beforeEach(() => {
     ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -62,7 +62,7 @@ describe('StudioAutoUpload', () => {
 
   it('작업을 못 읽으면 알리고, 다시 올리기는 한 번만 보낸다', async () => {
     const failed: AutoJob = { platform: 'YOUTUBE', status: 'FAILED', attempts: 3, publishAt: '2026-10-29T11:00:00Z', url: null, error: '실패',
-      note: null, updatedAt: '2026-10-28T02:00:00Z' }
+      note: null, updatedAt: '2026-10-28T02:00:00Z', privateOnly: false }
     vi.mocked(auto.autoJobs).mockRejectedValueOnce(new ApiError(500, 'ERROR', '서버 오류'))
     await act(async () => root.render(<AutoUploadJobs item={item} />))
     expect(host.querySelector('[role="alert"]')?.textContent).toBe('서버 오류')

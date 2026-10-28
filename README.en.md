@@ -201,7 +201,7 @@ flowchart LR
     T[Telegram] -->|Bot API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>multiple pods]
     I -->|/blog-images| M[(MinIO / S3<br/>images · attachments)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V62)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V63)]
     A --> R[(Redis<br/>sessions · rate limits · views · cache)]
     A --> M
     A -.optional.-> G[Google Gemini]
@@ -297,7 +297,7 @@ Code lives in this repository; design documents live in the documentation reposi
 
 | Path | Description |
 | --- | --- |
-| [app/backend](app/backend) | Backend: Spring Boot 4.1, Java 21. Feature modules, Flyway migrations (V1~V62), tests |
+| [app/backend](app/backend) | Backend: Spring Boot 4.1, Java 21. Feature modules, Flyway migrations (V1~V63), tests |
 | [app/frontend](app/frontend) | Frontend: React 19 SPA, TypeScript, Vite. Screens, autosave (IndexedDB), dark mode |
 | [deploy](deploy) | Deployment: Dockerfile, Kubernetes manifests (base, selfhosted, nhn, local), deploy, rollback and secret-check scripts |
 | [app/render-worker](app/render-worker) | Shorts render worker: Python 3.10, ffmpeg, Remotion (Node). Runs on your computer and turns queued scripts into 9:16 MP4s |
@@ -378,7 +378,7 @@ To try it on Kubernetes, run `kubectl apply -k deploy/k8s/overlays/local` on kin
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub, Google, Kakao, Naver and Facebook login, sessions, CSRF, per-path authorization |
 | Spring Data JPA (Hibernate) | Boot 4.1 | All domains | Storing members, posts, comments and other domain data |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | Sessions, rate limits, views, cache | Lets multiple pods share sessions, and decides concurrent requests with a single Redis script |
-| Flyway | Boot 4.1 | Database | Manages the schema as migrations V1~V62, applied at startup |
+| Flyway | Boot 4.1 | Database | Manages the schema as migrations V1~V63, applied at startup |
 | commonmark-java (+ GFM extensions) | 0.30.0 | Body rendering | Markdown → HTML: tables, strikethrough, task lists, autolinks, heading anchors |
 | OWASP Java HTML Sanitizer | 20260924.2 | Body sanitizing | Sanitizes rendered HTML against an allow list to prevent XSS |
 | AWS SDK for Java (S3) | 2.55.12 | media | Uploads images and attachments to MinIO and S3 |
@@ -426,6 +426,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v2.23.0 | 2026-10-29 | Shorts auto-upload now sends YouTube videos as private right after rendering; you publish them yourself in YouTube Studio | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.23.0) |
 | v2.22.0 | 2026-10-29 | Shorts auto-upload: connect YouTube and Instagram in Studio, pass a test upload, and rendered shorts go live one a day at 8 PM KST (off by default) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.22.0) |
 | v2.21.0 | 2026-10-28 | Shorts upload captions now ask viewers to subscribe/follow for one a day at 8 PM; Instagram captions point to the profile link | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.21.0) |
 | v2.20.0 | 2026-10-28 | Shorts opening and length: AI scripts capped at 50 s (30–45 s recommended), first scene shows the incident instead of a question, last 3 s ask viewers to follow | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.20.0) |
