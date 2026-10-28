@@ -426,6 +426,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v2.19.0 | 2026-10-28 | Search index cleanup: login and support links no longer carry per-page `?redirect=`/`?from=` in their href, cutting non-indexed URLs in Search Console | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.19.0) |
 | v2.18.0 | 2026-10-26 | Shorts voice 1.05x faster; word timings that captions and diagrams follow are aligned to the first real sound (captions ran 0.07–0.13 s early in samples) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.18.0) |
 | v2.17.1 | 2026-10-22 | Portfolio print follow-up: the live page printed a blank first page (3 pages); everything outside the main area is now hidden in print | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.17.1) |
 | v2.17.0 | 2026-10-22 | Portfolio in the same design as the application PDF: prints as two A4 pages (page 1 summary with 4 numbers, 2 projects and 4 skill cards; page 2 the six cases), design tokens with Pretendard and JetBrains Mono | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.17.0) |
