@@ -38,22 +38,37 @@ public record AutoUploadProperties(@DefaultValue("") String tokenKey,
 
     public enum Audience { ADMINS, MEMBERS }
 
+    /** YouTube에 올린 뒤 공개를 누가 하는지 (#501) */
+    public enum Privacy {
+        /** 비공개로만 올린다. 공개는 주인이 YouTube 스튜디오에서 직접 한다 */
+        PRIVATE,
+        /** 비공개로 올리고 다음 빈 날 publishTime에 공개 예약한다 */
+        SCHEDULED
+    }
+
     /**
      * @param clientId     YOUTUBE_CLIENT_ID. Google Cloud 콘솔의 OAuth 클라이언트(웹 애플리케이션)
      * @param clientSecret YOUTUBE_CLIENT_SECRET
+     * @param privacy      SHORTS_YOUTUBE_PRIVACY. 기본은 비공개로만 올리기
      */
     public record YouTube(@DefaultValue("") String clientId,
                           @DefaultValue("") String clientSecret,
                           @DefaultValue("https://accounts.google.com/o/oauth2/v2/auth") String authUrl,
                           @DefaultValue("https://oauth2.googleapis.com/token") String tokenUrl,
-                          @DefaultValue("https://www.googleapis.com") String apiUrl) {
+                          @DefaultValue("https://www.googleapis.com") String apiUrl,
+                          @DefaultValue("PRIVATE") Privacy privacy) {
         boolean configured() {
             return !clientId.isBlank() && !clientSecret.isBlank();
         }
 
+        /** 공개 예약 없이 비공개로만 올리는지 */
+        public boolean privateOnly() {
+            return privacy != Privacy.SCHEDULED;
+        }
+
         @Override
         public String toString() {
-            return "YouTube[configured=" + configured() + "]";
+            return "YouTube[configured=" + configured() + ", privacy=" + privacy + "]";
         }
     }
 

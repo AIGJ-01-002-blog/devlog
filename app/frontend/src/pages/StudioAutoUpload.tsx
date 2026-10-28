@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { CopyCode } from '../components/CopyCode'
 import { ApiError } from '../lib/api'
 import {
-  AUTO_PLATFORM_NAMES, autoJobs, autoUploadStatus, canEnable, connectResultMessage, connectUrl, disconnect, jobLabel, retryJob,
+  AUTO_PLATFORM_NAMES, autoJobs, autoUploadStatus, canEnable, connectResultMessage, connectUrl, disconnect, jobDone, jobLabel, retryJob,
   setAutoEnabled, testUpload, type AutoJob, type AutoPlatformState, type AutoUploadStatus,
 } from '../lib/autoUpload'
 import { relativeDate } from '../lib/format'
@@ -43,7 +43,9 @@ export function StudioAutoUpload({ items, result, resultPlatform, onStatus }: {
     <section className="studio-auto" aria-labelledby="studio-auto-title">
       <h2 id="studio-auto-title">{t('자동 올리기')}</h2>
       <p className="muted small">
-        {t('켜 두면 영상 만들기가 끝난 쇼츠를 하루 한 편씩 저녁 {0}(한국 시간)에 공개되게 올려요. 처음에는 꺼져 있고, 계정을 잇고 시험 올리기를 통과한 플랫폼만 켤 수 있어요.', { 0: status?.publishTime ?? '20:00' })}
+        {status?.youtubePrivate
+          ? t('켜 두면 영상 만들기가 끝난 쇼츠를 YouTube에는 바로 비공개로 올려요(공개는 YouTube 스튜디오에서 직접 해요). Instagram에는 하루 한 편씩 저녁 {0}(한국 시간)에 게시해요. 처음에는 꺼져 있고, 계정을 잇고 시험 올리기를 통과한 플랫폼만 켤 수 있어요.', { 0: status.publishTime })
+          : t('켜 두면 영상 만들기가 끝난 쇼츠를 하루 한 편씩 저녁 {0}(한국 시간)에 공개되게 올려요. 처음에는 꺼져 있고, 계정을 잇고 시험 올리기를 통과한 플랫폼만 켤 수 있어요.', { 0: status?.publishTime ?? '20:00' })}
       </p>
       {notice && <p className={notice.ok ? 'studio-auto-ok' : 'error'} role="status">{notice.text}</p>}
       {error && <p className="error" role="alert">{error}</p>}
@@ -164,7 +166,7 @@ export function AutoUploadJobs({ item }: { item: ShortsItem }) {
   const [tick, setTick] = useState(0)
   const [retrying, setRetrying] = useState(false)
   const inFlight = useRef(false)
-  const pending = jobs.some((j) => j.status !== 'PUBLISHED' && j.status !== 'FAILED')
+  const pending = jobs.some((j) => !jobDone(j))
   useEffect(() => {
     let alive = true
     if (item.status !== 'READY') return
@@ -208,7 +210,7 @@ export function AutoUploadJobs({ item }: { item: ShortsItem }) {
             {job.note && <span className="muted small"> {job.note}</span>}
             {job.status === 'FAILED' && (
               <button type="button" className="btn btn-text btn-small" disabled={retrying} onClick={() => void retry(job)}
-                data-tip={t('공개 시각을 다시 골라 처음부터 올려요')}>{t('다시 올리기')}</button>
+                data-tip={job.privateOnly ? t('처음부터 다시 비공개로 올려요') : t('공개 시각을 다시 골라 처음부터 올려요')}>{t('다시 올리기')}</button>
             )}
           </li>
         ))}

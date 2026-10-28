@@ -32,6 +32,17 @@ class JobStateTest {
     }
 
     @Test
+    void YouTube를_비공개로만_올리면_올린_뒤_공개_시각을_기다리지_않고_UPLOADED로_끝낸다() {
+        assertThat(JobState.next(AutoPlatform.YOUTUBE, Status.QUEUED, false, false, PUBLISH, NOW, true)).isEqualTo(Action.UPLOAD_VIDEO);
+        assertThat(JobState.next(AutoPlatform.YOUTUBE, Status.QUEUED, true, false, PUBLISH, NOW, true)).as("올린 뒤 실패").isEqualTo(Action.MARK_UPLOADED);
+        assertThat(JobState.next(AutoPlatform.YOUTUBE, Status.UPLOADING, true, false, PUBLISH, NOW, true)).isEqualTo(Action.MARK_UPLOADED);
+        assertThat(JobState.next(AutoPlatform.YOUTUBE, Status.UPLOADED, true, false, PUBLISH, PUBLISH, true)).isEqualTo(Action.NONE);
+        assertThat(JobState.next(AutoPlatform.YOUTUBE, Status.UPLOADED, true, false, PUBLISH, PUBLISH, false)).isEqualTo(Action.NONE);
+        // 설정을 바꾸기 전에 이미 공개 예약한 영상은 그대로 공개 시각을 기다린다
+        assertThat(JobState.next(AutoPlatform.YOUTUBE, Status.SCHEDULED, true, false, PUBLISH, NOW, true)).isEqualTo(Action.NONE);
+    }
+
+    @Test
     void Instagram은_공개_15분_전에_컨테이너를_만들고_처리를_본다() {
         Instant lead = PUBLISH.minus(JobState.CONTAINER_LEAD);
         assertThat(JobState.firstAttempt(AutoPlatform.INSTAGRAM, PUBLISH, NOW)).isEqualTo(lead);

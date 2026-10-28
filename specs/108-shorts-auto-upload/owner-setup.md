@@ -51,7 +51,7 @@ GitHub 저장소 **Settings → Secrets and variables → Actions**에 Secret으
 | `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET` | 2번 4단계 |
 | `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET` | 3번 2단계 |
 
-선택: `SHORTS_AUTO_UPLOAD_AUDIENCE`(기본 `ADMINS`, 관리자만), `INSTAGRAM_API_VERSION`(기본 `v24.0`).
+선택: `SHORTS_AUTO_UPLOAD_AUDIENCE`(기본 `ADMINS`, 관리자만), `SHORTS_YOUTUBE_PRIVACY`(기본 `PRIVATE`, 비공개로만 올림. `SCHEDULED`면 저녁 8시 공개 예약, #501), `INSTAGRAM_API_VERSION`(기본 `v24.0`).
 
 ## 5. 스튜디오에서 켜기
 
@@ -60,7 +60,7 @@ GitHub 저장소 **Settings → Secrets and variables → Actions**에 Secret으
 3. 다 만든 쇼츠 하나를 골라 **[시험 올리기]**를 눌러요.
    - YouTube: 공개 예약 없이 **비공개**로 올라가요. YouTube 스튜디오에서 확인한 뒤 지워도 돼요.
    - Instagram: 게시하지 않고 토큰과 영상 주소만 확인해요(비공개 게시가 없어서요).
-4. 시험이 통과하면 **"렌더가 끝나면 …에 자동으로 올리기"**를 켜요. 이때부터 영상 만들기가 끝난 쇼츠가 하루 한 편씩 저녁 8시(한국 시간)에 공개돼요. YouTube는 비공개로 미리 올라가 그 시각에 공개되고, Instagram은 서버가 그 시각에 게시해요.
+4. 시험이 통과하면 **"렌더가 끝나면 …에 자동으로 올리기"**를 켜요. 기본 설정(`SHORTS_YOUTUBE_PRIVACY=PRIVATE`)에서는 영상 만들기가 끝난 쇼츠가 바로 YouTube에 **비공개**로 올라가고, 공개는 YouTube 스튜디오에서 직접 해요(#501). `SCHEDULED`로 바꾸면 하루 한 편씩 저녁 8시(한국 시간)에 공개 예약돼요. Instagram은 서버가 저녁 8시에 게시해요.
 5. 쇼츠마다 올리기 안내 위에 상태(예약 시각·올린 주소·실패 이유)가 보여요. 실패하면 **[다시 올리기]**를 눌러요. 고정 댓글은 지금처럼 직접 달아요.
 
 ## 멈추고 싶을 때

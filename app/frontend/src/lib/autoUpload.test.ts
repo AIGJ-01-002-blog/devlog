@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canEnable, connectResultMessage, jobLabel, type AutoJob, type AutoPlatformState } from './autoUpload'
+import { canEnable, connectResultMessage, jobDone, jobLabel, type AutoJob, type AutoPlatformState } from './autoUpload'
 
 const state = (over: Partial<AutoPlatformState> = {}): AutoPlatformState => ({
   platform: 'YOUTUBE', configured: true, connected: true, accountName: 'devlog', enabled: false, testedAt: null, testUrl: null,
@@ -8,7 +8,7 @@ const state = (over: Partial<AutoPlatformState> = {}): AutoPlatformState => ({
 
 const job = (over: Partial<AutoJob> = {}): AutoJob => ({
   platform: 'YOUTUBE', status: 'QUEUED', attempts: 0, publishAt: '2026-10-29T11:00:00Z', url: null, error: null, note: null,
-  updatedAt: '2026-10-28T02:00:00Z', ...over,
+  updatedAt: '2026-10-28T02:00:00Z', privateOnly: false, ...over,
 })
 
 describe('autoUpload (spec 108)', () => {
@@ -25,6 +25,17 @@ describe('autoUpload (spec 108)', () => {
     expect(jobLabel(job({ attempts: 2 }))).toBe('다시 해 볼 차례예요 (2번 실패)')
     expect(jobLabel(job({ status: 'FAILED' }))).toBe('올리지 못했어요')
     expect(jobLabel(job({ status: 'PUBLISHED' }))).toMatch(/에 공개했어요$/)
+  })
+
+  it('비공개로만 올리는 작업은 공개 시각 대신 비공개로 올렸다고 알려 준다 (#501)', () => {
+    const p = (over: Partial<AutoJob>) => job({ privateOnly: true, ...over })
+    expect(jobLabel(p({}))).toBe('비공개로 올릴 차례를 기다려요')
+    expect(jobLabel(p({ attempts: 1 }))).toBe('다시 해 볼 차례예요 (1번 실패)')
+    expect(jobLabel(p({ status: 'UPLOADING' }))).toBe('비공개로 올리는 중')
+    expect(jobLabel(p({ status: 'UPLOADED' }))).toBe('10월 29일 20:00에 비공개로 올렸어요. 공개는 YouTube 스튜디오에서 해 주세요')
+    expect(jobLabel(p({ status: 'FAILED' }))).toBe('올리지 못했어요')
+    expect(jobDone(p({ status: 'UPLOADED' }))).toBe(true)
+    expect(jobDone(p({ status: 'QUEUED' }))).toBe(false)
   })
 
   it('연결 콜백 결과를 안내 문구로 바꾼다', () => {
