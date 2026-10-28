@@ -28,7 +28,7 @@ import com.team.blog.trade.application.TradeReplays;
 class ShortsTools {
     private static final Logger log = LoggerFactory.getLogger(ShortsTools.class);
     static final String SCENES_SCHEMA = """
-            "scenes":{"type":"array","maxItems":16,"description":"장면 5~7개로 30~45초(내레이션 약 180~270자)가 좋고 3~16개까지. 90초를 넘으면 영상으로 못 만들어요","items":{"type":"object","properties":{
+            "scenes":{"type":"array","maxItems":16,"description":"장면 5~7개로 30~45초(내레이션 약 180~270자)가 좋고 3~16개까지. AI가 쓰는 대본은 50초를 넘으면 저장되지 않아요","items":{"type":"object","properties":{
                 "caption":{"type":"string","description":"화면 큰 자막 (40자까지, 한 줄 요점)"},
                 "narration":{"type":"string","description":"읽을 문장 (200자까지, 말하듯이)"},
                 "code":{"type":"string","description":"화면에 보일 짧은 코드 (선택, 300자까지)"},
@@ -59,15 +59,15 @@ class ShortsTools {
      * 후킹 종류와 본론 틀은 여러 가지 가운데 최근 영상과 다른 것을 고르게 한다(쇼츠 다양화 2026-10-17: 반복적인 영상은 수익화가 안 된다).
      */
     static final String GUIDE = "길이는 30~45초(장면 5~7개)이고, 한 주제에서 질문 하나에만 답한다. "
-            + "두 번째 장면에서 후킹이 던진 질문의 답(결과·원인)을 먼저 말하고, 설명은 그 뒤에 붙인다"
+            + "두 번째 장면에서 첫 장면 사고의 원인을 바로 말하고, 설명은 그 뒤에 붙인다"
             + "(시청 지속 그래프에서 두 번째 장면이 시작하는 4~7초에 절반이 넘긴다). 구조: "
-            + "① 후킹(첫 장면, 3초 안): 후킹 종류 가운데 하나로 스크롤을 멈추게 한다. 질문(\"왜 ~일까요?\"), 결과 먼저(결론·결과 숫자부터), "
+            + "① 후킹(첫 장면, 3초 안): 후킹 종류 가운데 하나로 스크롤을 멈추게 한다. 첫 장면은 질문으로 시작하지 않는다(질문 카드로 시작한 영상은 피드에서 10명 중 9명이 바로 넘겼다, 2026-10-28 스튜디오 수치). 결과 먼저(결론·결과 숫자부터), "
             + "반박(\"다들 ~라는데 아니에요\"), 숫자 한 방(글에 있는 놀라운 숫자), 경고(\"이거 모르면 ~ 날려요\"), 고백(\"제가 ~를 날렸어요\", 글에 그런 일이 있을 때만). "
             + "첫 문장은 증상부터 보여 준다: 글에 나온 진짜 에러 문자열·상태 코드·숫자를 그대로 넣는다(예: \"401인데 토큰은 멀쩡해요\"). "
-            + "최근 5편 가운데 질문 후킹(\"왜 ~할까요?\")이 2편 이상이면 이번에는 질문 말고 다른 후킹을 쓴다(질문만 이어지면 피드에서 다 같은 영상으로 보인다). "
+            + "글에 있는 사고 장면(에러·털린 값·틀린 결과)을 첫 화면에 먼저 보여 주고, 글이 개선 사례라 사고가 없으면 결과 숫자를 먼저 보여 준다. 글에 없는 사고는 만들지 않고, 질문은 제목에만 둔다. "
             + "첫 장면 요점 자막(caption)은 영상의 커버·썸네일이 된다: 15자 안팎으로, 글 속의 구체적인 대상(에러 이름·글자 하나·숫자·도구 이름)을 넣고 "
             + "\"~하는 이유\", \"~하는 법\"처럼 교과서 말로 끝내지 않는다(예: \"s 한 글자에 로그인이 막혔다\", \"ERROR 로그가 딱 1줄?\"). "
-            + "첫 장면 visual은 후킹에 맞춘다: 질문이면 think, 결과 먼저면 celebrate나 idea, 숫자 한 방은 글에 전후 숫자가 둘 다 있을 때만 fast(전후 막대)이고 숫자가 하나뿐이면 shock, 경고면 panic, 반박이면 shock. "
+            + "첫 장면 visual은 후킹에 맞춘다: 결과 먼저면 shock나 celebrate, 숫자 한 방은 글에 전후 숫자가 둘 다 있을 때만 fast(전후 막대)이고 숫자가 하나뿐이면 shock, 경고면 panic, 반박이면 shock. "
             + "제목(title)은 백엔드 면접에서 나올 법한 질문형으로, 구체적인 대상(에러 이름·어노테이션·숫자·도구 이름)을 앞에 두고 40자 안으로 쓴다"
             + "(예: \"@Transactional 붙였는데 롤백이 안 되는 이유\", \"로그인 토큰, 로컬 스토리지에 두면 왜 위험할까\"). "
             + "앞머리 [백엔드 면접]은 올리기 안내가 제목 앞에 붙이니 제목에 넣지 않는다. "
@@ -108,12 +108,12 @@ class ShortsTools {
     static final String TOPICS_SCHEMA = """
             "topics":{"type":"array","minItems":2,"maxItems":5,"description":"작은 주제 2~5개. 한 편에 한 주제, 편끼리 겹치지 않게","items":{"type":"object","properties":{
                 "title":{"type":"string","description":"이 편의 제목 (60자까지)"},
-                "hook":{"type":"string","description":"첫 장면에서 던질 질문이나 문제 한 줄 (120자까지)"},
+                "hook":{"type":"string","description":"첫 장면에서 보여 줄 사고·결과 한 줄 (120자까지, 질문 말고 단정문)"},
                 "scope":{"type":"string","description":"이 편에서만 다룰 것: 원인·시도·결과 가운데 무엇을 (300자까지)"}},
               "required":["title","hook"]}}""";
 
     static final String PLAN_GUIDE = "근거 하나를 작은 주제로 나눌 때: 한 편은 질문 하나에 답하고 끝낸다(문제 → 원인 → 내가 한 것 → 결과 숫자). "
-            + "같은 설명을 두 편에 넣지 않고, 편마다 후킹 종류(질문·결과 먼저·반박·숫자·경고)를 다르게 잡는다. 근거에 없는 경험·수치는 주제로 만들지 않는다. 근거가 작으면 2편, 크면 5편까지.";
+            + "같은 설명을 두 편에 넣지 않고, 편마다 후킹 종류(결과 먼저·반박·숫자·경고·고백)를 다르게 잡고, 첫 장면은 질문이 아니라 사고 장면(에러·틀린 결과)으로 연다. 근거에 없는 경험·수치는 주제로 만들지 않는다. 근거가 작으면 2편, 크면 5편까지.";
 
     private final ShortsService shorts;
     private final ShortsBatches batches;
@@ -147,7 +147,7 @@ class ShortsTools {
                 sb.append('\n');
             }
             sb.append("이제 주제마다 create_shorts_script(batch_id ").append(b.id()).append(", topic 번호)로 대본을 한 편씩 써 주세요. ")
-                    .append("첫 장면은 그 주제의 첫 질문으로 시작하고, 범위 밖 이야기는 다른 편에 맡겨요. ")
+                    .append("첫 장면은 그 주제의 사고 장면(에러·틀린 결과)으로 열고, 범위 밖 이야기는 다른 편에 맡겨요. ")
                     .append("영상은 사용자가 스튜디오에서 확인하고 묶음째 [영상 만들기]를 눌러요: ").append(baseUrl).append("/studio?batch=").append(b.id());
             return McpTools.Result.ok(sb.toString());
         } catch (ApiException e) {
@@ -160,6 +160,8 @@ class ShortsTools {
         Long batchId = a.path("batch_id").canConvertToLong() ? a.path("batch_id").asLong() : null;
         Integer topic = a.path("topic").canConvertToInt() ? a.path("topic").asInt() : null;
         if (badCharacter(a)) return McpTools.Result.fail(CHARACTER_TYPE);
+        String tooLong = tooLong(scenes(a));
+        if (tooLong != null) return McpTools.Result.fail(tooLong);
         try {
             ShortsService.Item item = batchId != null
                     ? batches.create(caller.memberId(), batchId, topic, text(a, TITLE), scenes(a), character(a))
@@ -182,6 +184,18 @@ class ShortsTools {
         if (s < ShortsScript.SECONDS_TARGET_MIN) return "길이가 " + s + "초예요. " + target + ": 근거(숫자나 코드) 장면 하나를 더해 주세요.\n";
         if (s > ShortsScript.SECONDS_TARGET_MAX) return "길이가 " + s + "초예요. " + target + ": 설명 장면을 줄이고 질문 하나의 답에만 집중해 주세요.\n";
         return "";
+    }
+
+    /**
+     * AI 대본은 AI_SECONDS_MAX를 넘으면 저장하지 않는다(2026-10-28 블로그 주인 결정). 안내만으로는 길이가 지켜지지 않았다.
+     * 반올림한 초로 판단해 문구의 숫자와 어긋나지 않게 한다. 넘지 않으면 null
+     */
+    static String tooLong(List<ShortsScript.Scene> scenes) {
+        long s = Math.round(ShortsScript.estimateSeconds(scenes));
+        if (s <= ShortsScript.AI_SECONDS_MAX) return null;
+        return "예상 길이가 " + s + "초라 저장하지 않았어요. AI가 쓰는 대본은 " + ShortsScript.AI_SECONDS_MAX + "초까지예요("
+                + ShortsScript.SECONDS_TARGET_MIN + "~" + ShortsScript.SECONDS_TARGET_MAX + "초 권장, 장면 5~7개, 내레이션 약 180~270자). "
+                + "설명 장면을 줄이고 질문 하나의 답에만 집중해 다시 저장해 주세요.";
     }
 
     McpTools.Result update(AccessTokens.Caller caller, JsonNode a) {
@@ -208,6 +222,9 @@ class ShortsTools {
                 return McpTools.Result.ok("쇼츠 " + id + "번 재생목록을 " + (item.playlist() == null ? "비웠어요" : "'" + item.playlist().label + "'(으)로 정했어요")
                         + ". 대본과 만든 영상은 그대로예요.");
             }
+            // 매매 재현 대본은 서버가 짓는 60초 틀(AUTO_SECONDS_MAX)이라 AI 상한을 걸지 않는다
+            String tooLong = scenes == null ? null : tooLong(scenes);
+            if (tooLong != null && shorts.get(caller.memberId(), id).replay() == null) return McpTools.Result.fail(tooLong);
             ShortsService.Item item = shorts.update(caller.memberId(), id, new ShortsService.Edit(title, scenes, null, character));
             if (playlist != null) shorts.setPlaylist(caller.memberId(), id, new ShortsService.PlaylistBody(playlist));
             return McpTools.Result.ok("쇼츠 " + id + "번 대본을 고쳤어요 (예상 " + Math.round(item.estimatedSeconds()) + "초). 만들어 둔 영상이 있었다면 지워졌어요.\n"

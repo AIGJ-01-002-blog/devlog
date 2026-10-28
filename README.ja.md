@@ -426,6 +426,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | バージョン | 日付 | 主な内容 | リリースノート |
 | --- | --- | --- | --- |
+| v2.20.0 | 2026-10-28 | ショートの冒頭と長さ: AI台本は50秒まで(30〜45秒推奨)、最初の場面は質問ではなく障害の場面、最後の3秒はフォローの呼びかけ | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.20.0) |
 | v2.19.0 | 2026-10-28 | 検索インデックス整理: 画面ごとに生じていたログイン・問い合わせリンクの`?redirect=`・`?from=`をhrefから外し、Search Consoleの未登録URLを削減 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.19.0) |
 | v2.18.0 | 2026-10-26 | ショートの声を1.05倍速に、字幕・図が従う単語時刻を実際の最初の音に合わせる(見本で0.07〜0.13秒先行していた字幕を補正) | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.18.0) |
 | v2.17.1 | 2026-10-22 | ポートフォリオ印刷の後続: 運用画面で空白の1枚目が出て3枚になる問題(本文以外を印刷時に非表示) | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.17.1) |

@@ -426,6 +426,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v2.20.0 | 2026-10-28 | 短视频开头与时长: AI 脚本上限 50 秒(建议 30~45 秒)，第一个画面用事故场景代替提问，最后 3 秒改为关注引导 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.20.0) |
 | v2.19.0 | 2026-10-28 | 搜索索引整理: 登录和咨询链接的 href 不再带每页不同的 `?redirect=`/`?from=`，减少 Search Console 中未编入索引的网址 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.19.0) |
 | v2.18.0 | 2026-10-26 | 短视频语速提高到 1.05 倍，字幕和图示所依据的词时间对齐到实际第一个声音(样片中字幕提前 0.07~0.13 秒的问题已修正) | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.18.0) |
 | v2.17.1 | 2026-10-22 | 作品集打印后续: 线上页面打印时多出空白第一页(共 3 页)，打印时隐藏正文区域以外的元素 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.17.1) |

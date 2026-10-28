@@ -1,4 +1,5 @@
-// 모든 쇼츠 맨 끝 3초: devlog 블로그 광고. 문구와 바탕은 대본·룩과 상관없이 여기 고정한다(바꿀 때는 OUTRO만 고친다).
+// 모든 쇼츠 맨 끝 3초: 팔로우 권유와 devlog 주소. 2026-10-28 인스타 인사이트에서 1,175명이 보고 프로필 방문·팔로우가 0이라
+// 블로그 소개 대신 "매일 하나씩 올라온다"는 다음 행동을 먼저 보여 준다. 문구와 바탕은 대본·룩과 상관없이 여기 고정한다(바꿀 때는 OUTRO만 고친다).
 // 장면 틀(제목 칩·자막·주소) 없이 화면 전체를 쓰고, 아래 1600 밑은 쇼츠 앱 버튼에 가리므로 비운다.
 import React from 'react';
 import {AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
@@ -8,8 +9,8 @@ import {theme} from './theme';
 
 export const OUTRO = {
   name: 'devlog',
-  tagline: '개발하며 배운 걸 기록해요',
-  invite: '더 자세한 이야기는 블로그에서',
+  tagline: '매일 저녁 8시에 하나씩',
+  invite: '팔로우하고 내일 질문도 받아 보세요',
   url: 'devlog.life',
   color: '#7c3aed',
 } as const;

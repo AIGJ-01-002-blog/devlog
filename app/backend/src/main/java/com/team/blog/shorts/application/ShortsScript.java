@@ -25,6 +25,12 @@ public final class ShortsScript {
      */
     public static final int SECONDS_TARGET_MIN = 30;
     public static final int SECONDS_TARGET_MAX = 45;
+    /**
+     * AI가 MCP로 쓰는 대본의 상한(초). 권장 길이를 안내만 했더니 AI 대본이 모두 77~90초로 나왔고,
+     * 2026-10-28 스튜디오 수치(피드 계속 시청 7.8~9.8%, 평균 시청 0:20~0:22)를 보고 블로그 주인이 바로 줄이기로 했다.
+     * 사람이 스튜디오에서 쓰는 대본은 SECONDS_MAX까지 그대로 둔다.
+     */
+    public static final int AI_SECONDS_MAX = 50;
     /** 서버가 직접 짓는 대본(매매 재현·매매 일지)은 예전처럼 60초 안으로 줄인다 */
     public static final int AUTO_SECONDS_MAX = 60;
     /** 한국어 TTS는 초당 6~7자쯤 읽는다. 장면이 바뀔 때 숨 쉬는 틈을 더한다 */
