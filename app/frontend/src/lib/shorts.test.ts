@@ -67,7 +67,7 @@ describe('shorts', () => {
     const g = uploadGuide(ready(), 'YOUTUBE', 'https://devlog.life')
     expect(g.title).toBe('[백엔드 면접] 배포하면 왜 로그아웃될까')
     // 설명 첫 줄은 원본 글 링크 (2026-10-21 블로그 주인 결정)
-    expect(g.caption).toBe('전체 글: https://devlog.life/@minseo/posts/7\n\n왜 배포만 하면 다 로그아웃될까요?\n\n#spring #springboot #c')
+    expect(g.caption).toBe('전체 글: https://devlog.life/@minseo/posts/7\n\n왜 배포만 하면 다 로그아웃될까요?\n\n구독하면 매일 저녁 8시에 하나씩 받아 봐요.\n\n#spring #springboot #c')
     expect(g.pinnedComment).toContain('https://devlog.life/@minseo/posts/7')
     expect(g.pinnedComment).toContain('이 문제 겪어 보셨나요?')
     expect(g.checks.every((c) => c.ok)).toBe(true)
@@ -84,13 +84,15 @@ describe('shorts', () => {
     expect(uploadGuide(ready({ playlist: 'DB', replay: {} as ShortsItem['replay'] }), 'YOUTUBE', 'https://devlog.life').playlistName).toBeNull()
   })
 
-  it('Instagram·TikTok은 캡션 링크를 못 누르니 고정 댓글로 안내하고 해시태그는 5개까지', () => {
+  it('Instagram·TikTok은 캡션 링크를 못 누르니 프로필 링크·고정 댓글로 안내하고 해시태그는 5개까지', () => {
     for (const p of ['INSTAGRAM', 'TIKTOK'] as const) {
       const g = uploadGuide(ready(), p, 'https://devlog.life')
       expect(g.title).toBeNull()
       expect(g.caption.startsWith('[백엔드 면접] 배포하면 왜 로그아웃될까\n\n')).toBe(true)
       expect(g.caption).not.toContain('https://')
-      expect(g.caption).toContain('고정 댓글')
+      // 인스타는 프로필 링크(누를 수 있는 단 하나의 링크)로, TikTok은 고정 댓글로 보낸다
+      expect(g.caption).toContain(p === 'INSTAGRAM' ? '프로필 링크' : '고정 댓글')
+      expect(g.caption).toContain('팔로우하면 매일 저녁 8시에 하나씩')
       expect(g.tags).toHaveLength(5)
       expect(g.pinnedComment).toContain('https://devlog.life/@minseo/posts/7')
       if (p === 'INSTAGRAM') {

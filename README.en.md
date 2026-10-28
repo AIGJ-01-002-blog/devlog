@@ -426,6 +426,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v2.21.0 | 2026-10-28 | Shorts upload captions now ask viewers to subscribe/follow for one a day at 8 PM; Instagram captions point to the profile link | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.21.0) |
 | v2.20.0 | 2026-10-28 | Shorts opening and length: AI scripts capped at 50 s (30–45 s recommended), first scene shows the incident instead of a question, last 3 s ask viewers to follow | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.20.0) |
 | v2.19.0 | 2026-10-28 | Search index cleanup: login and support links no longer carry per-page `?redirect=`/`?from=` in their href, cutting non-indexed URLs in Search Console | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.19.0) |
 | v2.18.0 | 2026-10-26 | Shorts voice 1.05x faster; word timings that captions and diagrams follow are aligned to the first real sound (captions ran 0.07–0.13 s early in samples) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.18.0) |

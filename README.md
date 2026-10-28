@@ -424,6 +424,7 @@ npm run dev        # http://localhost:5173
 
 | 버전 | 날짜 | 주요 내용 | 릴리스 노트 |
 | --- | --- | --- | --- |
+| v2.21.0 | 2026-10-28 | 쇼츠 올리기 안내 캡션에 "매일 저녁 8시에 하나씩" 구독·팔로우 권유, 인스타 캡션은 프로필 링크로 안내 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.21.0) |
 | v2.20.0 | 2026-10-28 | 쇼츠 첫 화면·길이: AI 대본 50초 상한(30~45초 권장), 첫 장면은 질문 대신 사고 장면, 끝 3초는 팔로우 권유 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.20.0) |
 | v2.19.0 | 2026-10-28 | 검색 색인 정리: 화면마다 생기던 로그인·문의 링크 주소(`?redirect=`·`?from=`)를 링크에서 빼 서치 콘솔 비색인 주소를 줄임 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.19.0) |
 | v2.18.0 | 2026-10-26 | 쇼츠 목소리 1.05배, 자막·도식이 따르는 단어 시각을 실제 첫 소리에 맞춤(견본에서 0.07~0.13초 앞서던 자막 보정) | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.18.0) |

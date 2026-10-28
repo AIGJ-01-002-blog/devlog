@@ -371,9 +371,13 @@ export function uploadGuide(item: ShortsItem, platform: Platform, origin: string
   const link = new URL(item.postUrl ?? '/', origin).href
   const tags = hashtags(item.postTags, spec.hashtagMax)
   const tagLine = tags.join(' ')
-  const linkLine = spec.linksClickable ? t('전체 글: {0}', { 0: link }) : t('전체 글은 고정 댓글의 주소에서 볼 수 있어요.')
+  const linkLine = spec.linksClickable ? t('전체 글: {0}', { 0: link })
+    : platform === 'INSTAGRAM' ? t('전체 코드와 과정은 프로필 링크의 블로그에 있어요.')
+    : t('전체 글은 고정 댓글의 주소에서 볼 수 있어요.')
+  // 2026-10-28 인스타 릴스 한 편을 1,175명이 봤는데 프로필 방문·팔로우가 0이었다. 끝 3초 문구와 같은 약속으로 팔로우를 권한다. 시각도 언어마다 따로 번역한다
+  const followLine = t(platform === 'YOUTUBE' ? '구독하면 매일 저녁 {0}에 하나씩 받아 봐요.' : '팔로우하면 매일 저녁 {0}에 하나씩 받아 봐요.', { 0: t('8시') })
   // 설명 첫 줄은 원본 글 링크(같은 결정). 링크를 못 누르는 곳은 제목 칸이 없어 캡션 첫 줄이 제목이 된다
-  const parts = spec.titleMax === null ? [seriesTitle(item), hook(item), linkLine, tagLine] : [linkLine, hook(item), tagLine]
+  const parts = spec.titleMax === null ? [seriesTitle(item), hook(item), linkLine, followLine, tagLine] : [linkLine, hook(item), followLine, tagLine]
   const caption = parts.filter(Boolean).join('\n\n')
   const title = spec.titleMax === null ? null : seriesTitle(item)
   const list = fromPost(item) && item.playlist ? playlistName(item.playlist) : null
