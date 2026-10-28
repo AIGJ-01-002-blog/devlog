@@ -424,6 +424,7 @@ npm run dev        # http://localhost:5173
 
 | 버전 | 날짜 | 주요 내용 | 릴리스 노트 |
 | --- | --- | --- | --- |
+| v2.23.0 | 2026-10-29 | 쇼츠 자동 올리기의 YouTube는 렌더가 끝나는 대로 비공개로만 올리고, 공개는 YouTube 스튜디오에서 직접 함 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.23.0) |
 | v2.22.0 | 2026-10-29 | 쇼츠 자동 올리기: 스튜디오에서 YouTube·Instagram을 잇고 시험 올리기를 통과하면, 렌더가 끝난 쇼츠를 하루 한 편 저녁 8시에 공개되게 올림(처음엔 꺼짐) | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.22.0) |
 | v2.21.0 | 2026-10-28 | 쇼츠 올리기 안내 캡션에 "매일 저녁 8시에 하나씩" 구독·팔로우 권유, 인스타 캡션은 프로필 링크로 안내 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.21.0) |
 | v2.20.0 | 2026-10-28 | 쇼츠 첫 화면·길이: AI 대본 50초 상한(30~45초 권장), 첫 장면은 질문 대신 사고 장면, 끝 3초는 팔로우 권유 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.20.0) |
