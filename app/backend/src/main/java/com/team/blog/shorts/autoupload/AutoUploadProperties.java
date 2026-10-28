@@ -29,6 +29,13 @@ public record AutoUploadProperties(@DefaultValue("") String tokenKey,
                                    @DefaultValue YouTube youtube,
                                    @DefaultValue Instagram instagram) {
 
+    /** 잘못 적은 값은 시작할 때 막는다: 0번 시도는 바로 FAILED, 음수 기다림·여유는 지난 시각을 고른다 */
+    public AutoUploadProperties {
+        if (maxAttempts < 1) throw new IllegalArgumentException("blog.shorts.auto-upload.max-attempts는 1 이상이어야 합니다");
+        if (retryBackoff == null || retryBackoff.isNegative()) throw new IllegalArgumentException("blog.shorts.auto-upload.retry-backoff는 음수일 수 없습니다");
+        if (minLead == null || minLead.isNegative()) throw new IllegalArgumentException("blog.shorts.auto-upload.min-lead는 음수일 수 없습니다");
+    }
+
     public enum Audience { ADMINS, MEMBERS }
 
     /**

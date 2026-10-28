@@ -25,6 +25,10 @@ class JobStateTest {
         assertThat(JobState.next(AutoPlatform.YOUTUBE, Status.SCHEDULED, true, false, PUBLISH, PUBLISH)).isEqualTo(Action.MARK_PUBLISHED);
         assertThat(JobState.next(AutoPlatform.YOUTUBE, Status.PUBLISHED, true, false, PUBLISH, PUBLISH)).isEqualTo(Action.NONE);
         assertThat(JobState.next(AutoPlatform.YOUTUBE, Status.FAILED, false, false, PUBLISH, PUBLISH)).isEqualTo(Action.NONE);
+        // 올린 뒤(영상 ID를 적은 뒤) 실패해 QUEUED로 돌아와도 다시 올리지 않는다
+        assertThat(JobState.next(AutoPlatform.YOUTUBE, Status.QUEUED, true, false, PUBLISH, NOW)).isEqualTo(Action.NONE);
+        assertThat(JobState.next(AutoPlatform.YOUTUBE, Status.QUEUED, true, false, PUBLISH, PUBLISH)).isEqualTo(Action.MARK_PUBLISHED);
+        assertThat(JobState.next(AutoPlatform.YOUTUBE, Status.UPLOADING, true, false, PUBLISH, PUBLISH)).isEqualTo(Action.MARK_PUBLISHED);
     }
 
     @Test

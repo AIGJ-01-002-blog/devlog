@@ -31,7 +31,8 @@ public final class JobState {
             case PUBLISHED, FAILED -> Action.NONE;
             case SCHEDULED -> now.isBefore(publishAt) ? Action.NONE : Action.MARK_PUBLISHED;
             case QUEUED, UPLOADING -> switch (platform) {
-                case YOUTUBE -> hasExternalId ? Action.NONE : Action.UPLOAD_VIDEO;
+                // 영상 ID가 있으면 이미 올려 예약했다(그 뒤에 실패했다). 다시 올리지 않고 SCHEDULED처럼 공개 시각을 기다린다
+                case YOUTUBE -> !hasExternalId ? Action.UPLOAD_VIDEO : now.isBefore(publishAt) ? Action.NONE : Action.MARK_PUBLISHED;
                 case INSTAGRAM -> hasContainer ? Action.CHECK_CONTAINER
                         : now.isBefore(publishAt.minus(CONTAINER_LEAD)) ? Action.NONE : Action.CREATE_CONTAINER;
             };

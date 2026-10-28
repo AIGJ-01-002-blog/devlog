@@ -26,7 +26,9 @@ import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
 
 import com.team.blog.media.storage.ObjectStorage;
+import com.team.blog.shared.security.MemberPrincipal;
 import com.team.blog.shorts.autoupload.AutoUploadJobs;
+import com.team.blog.shorts.autoupload.AutoUploads;
 import com.team.blog.support.Browser;
 import com.team.blog.support.FakePlatforms;
 import com.team.blog.support.FakePlatforms.Reply;
@@ -61,6 +63,7 @@ class ShortsAutoUploadTest extends IntegrationTest {
             Map.of("caption", "결과", "narration", "JSON으로 바꾸니 재배포 뒤 다시 로그인하는 사람이 없어졌어요."));
 
     @Autowired AutoUploadJobs jobs;
+    @Autowired AutoUploads uploads;
     @Autowired ObjectStorage storage;
 
     @BeforeEach
@@ -135,6 +138,78 @@ class ShortsAutoUploadTest extends IntegrationTest {
         assertThat(r.getResponse().getHeader("Location")).endsWith("result=state");
         assertThat(FAKE.calls("POST /token")).isEmpty();
         assertThat(platform(b, "YOUTUBE").path("connected").asBoolean()).isFalse();
+    }
+
+    @Test
+    void 다른_회원이_시작한_state로는_잇지_않는다() throws Exception {
+        Session starter = signup(uniqueLogin("austart"));
+        Session other = signup(uniqueLogin("auother"));
+        jdbc.update("UPDATE member SET role = 'ADMIN' WHERE id IN (?, ?)", starter.memberId(), other.memberId());
+        MemberPrincipal me = new MemberPrincipal(other.memberId(), other.handle(), "ADMIN", "LOCAL", false, null);
+        AutoUploads.PendingState pending = new AutoUploads.PendingState(starter.memberId(), "s-1", Instant.now().plusSeconds(60));
+        assertThat(uploads.finishConnect(me, "youtube", "code-1", "s-1", null, pending)).isEqualTo(AutoUploads.ConnectResult.STATE);
+        assertThat(FAKE.calls("POST /token")).isEmpty();
+    }
+
+    /** 잇고 시험을 통과해 켠다 */
+    private void enable(Browser b, String platform) throws Exception {
+        connect(b, platform);
+        long sample = readyShorts(b, "시험 영상", null);
+        b.perform(asJson(post("/api/me/shorts/auto-upload/" + platform + "/test"), Map.of("shortsId", sample))).andExpect(status().isOk());
+        b.perform(asJson(put("/api/me/shorts/auto-upload/" + platform + "/enabled"), Map.of("enabled", true))).andExpect(status().isOk());
+        FAKE.reset();
+    }
+
+    @Test
+    void 관리자가_아니게_되면_예약_작업도_넣거나_올리지_않는다() throws Exception {
+        Session me = signup(uniqueLogin("audemote"));
+        Browser b = admin(me);
+        enable(b, "youtube");
+        long queued = readyShorts(b, "켜 둔 사이 만든 영상", null);
+        assertThat(jobs.enqueue()).isEqualTo(1);
+        jdbc.update("UPDATE member SET role = 'USER' WHERE id = ?", me.memberId());
+        readyShorts(b, "그 뒤에 만든 영상", null);
+        assertThat(jobs.enqueue()).isZero();
+        due();
+        jobs.runDue();
+        assertThat(FAKE.calls("POST /upload/youtube/v3/videos")).isEmpty();
+        assertThat(jdbc.queryForObject("SELECT status FROM shorts_auto_upload WHERE shorts_id = ?", String.class, queued)).isEqualTo("QUEUED");
+    }
+
+    @Test
+    void 올린_뒤_실패해_다시_해도_같은_영상을_또_올리지_않는다() throws Exception {
+        Session me = signup(uniqueLogin("auonce"));
+        Browser b = admin(me);
+        enable(b, "youtube");
+        long id = readyShorts(b, "한 번만 올릴 영상", null);
+        jobs.enqueue();
+        // 영상 ID를 적은 뒤 상태 적기 전에 실패해 QUEUED로 돌아온 작업
+        jdbc.update("UPDATE shorts_auto_upload SET status = 'QUEUED', external_id = 'vidSaved', url = 'https://youtube.com/shorts/vidSaved' WHERE shorts_id = ?", id);
+        due();
+        jobs.runDue();
+        assertThat(FAKE.calls("POST /upload/youtube/v3/videos")).isEmpty();
+        assertThat(jdbc.queryForObject("SELECT status FROM shorts_auto_upload WHERE shorts_id = ?", String.class, id)).isEqualTo("SCHEDULED");
+    }
+
+    @Test
+    void 인스타는_한_시간_넘게_늦은_컨테이너를_게시하지_않고_다음_빈_날로_미룬다() throws Exception {
+        Session me = signup(uniqueLogin("aulate"));
+        Browser b = admin(me);
+        enable(b, "instagram");
+        long id = readyShorts(b, "늦은 릴스", null);
+        jobs.enqueue();
+        jdbc.update("UPDATE shorts_auto_upload SET publish_at = now() - interval '1 minute' WHERE shorts_id = ?", id);
+        due();
+        jobs.runDue();
+        assertThat(FAKE.calls("POST /v24.0/" + FakePlatforms.IG_USER + "/media")).hasSize(1);
+        jdbc.update("UPDATE shorts_auto_upload SET publish_at = now() - interval '2 hours' WHERE shorts_id = ?", id);
+        due();
+        jobs.runDue();
+        assertThat(FAKE.calls("POST /v24.0/" + FakePlatforms.IG_USER + "/media_publish")).isEmpty();
+        Map<String, Object> row = jdbc.queryForMap("SELECT status, container_id, publish_at > now() AS later FROM shorts_auto_upload WHERE shorts_id = ?", id);
+        assertThat(row.get("status")).isEqualTo("QUEUED");
+        assertThat(row.get("container_id")).isNull();
+        assertThat(row.get("later")).isEqualTo(true);
     }
 
     @Test

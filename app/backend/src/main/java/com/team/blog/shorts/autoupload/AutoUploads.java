@@ -47,8 +47,8 @@ public class AutoUploads {
 
     public record TestResult(AutoPlatform platform, boolean passed, String url, String message) {}
 
-    /** 연결 시작 때 세션에 넣는 값: state와 만료 */
-    public record PendingState(String state, Instant expiresAt) implements java.io.Serializable {}
+    /** 연결 시작 때 세션에 넣는 값: 시작한 회원, state, 만료. 콜백의 회원이 다르면 맞지 않는 state로 본다 */
+    public record PendingState(long memberId, String state, Instant expiresAt) implements java.io.Serializable {}
 
     private final PlatformConnections connections;
     private final AutoUploadJobs jobs;
@@ -115,7 +115,7 @@ public class AutoUploads {
         byte[] bytes = new byte[32];
         random.nextBytes(bytes);
         String state = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-        keep.accept(new PendingState(state, Times.now(clock).plus(STATE_TTL)));
+        keep.accept(new PendingState(me.id(), state, Times.now(clock).plus(STATE_TTL)));
         return p == AutoPlatform.YOUTUBE ? youtube.authorizeUrl(redirectUri(p), state) : instagram.authorizeUrl(redirectUri(p), state);
     }
 
@@ -124,7 +124,7 @@ public class AutoUploads {
 
     public ConnectResult finishConnect(MemberPrincipal me, String raw, String code, String state, String error, PendingState pending) {
         AutoPlatform p = platform(me, raw);
-        if (pending == null || state == null || Times.now(clock).isAfter(pending.expiresAt())
+        if (pending == null || pending.memberId() != me.id() || state == null || Times.now(clock).isAfter(pending.expiresAt())
                 || !MessageDigest.isEqual(pending.state().getBytes(java.nio.charset.StandardCharsets.UTF_8), state.getBytes(java.nio.charset.StandardCharsets.UTF_8))) {
             return ConnectResult.STATE;
         }
@@ -194,7 +194,7 @@ public class AutoUploads {
     }
 
     private String testYouTube(Connection c, ShortsService.Item item, String key) {
-        ShortsCaption.Text text = ShortsCaption.build(ShortsCaption.Input.of(item), UploadLink.Platform.YOUTUBE, origin);
+        ShortsCaption.Text text = ShortsCaption.build(ShortsCaption.Input.of(item), UploadLink.Platform.YOUTUBE, origin, props.publishTime());
         String id = youtube.upload(connections.accessToken(c), videos.bytes(key), new YouTubeApi.Video(ShortsCaption.limit(text.title(), 100),
                 ShortsCaption.limit(text.caption(), 5000), text.tags().stream().map(t -> t.substring(1)).toList(), null));
         return "https://youtube.com/shorts/" + id;
@@ -206,7 +206,7 @@ public class AutoUploads {
         if (!a.userId().equals(c.accountId())) {
             throw new PlatformException(PlatformException.Kind.AUTH, "연결한 Instagram 계정이 바뀌었어요. 다시 연결해 주세요.");
         }
-        ShortsCaption.Text text = ShortsCaption.build(ShortsCaption.Input.of(item), UploadLink.Platform.INSTAGRAM, origin);
+        ShortsCaption.Text text = ShortsCaption.build(ShortsCaption.Input.of(item), UploadLink.Platform.INSTAGRAM, origin, props.publishTime());
         String container = instagram.createReel(token, c.accountId(), videos.publicUrl(key), ShortsCaption.limit(text.caption(), 2200));
         for (int i = 0; i < TEST_POLLS; i++) {
             InstagramApi.ContainerStatus s = instagram.status(token, container);

@@ -14,9 +14,11 @@ import { ReplayInfo, ReplayPicker } from './StudioReplay'
 import { StudioPostPicker } from './StudioPostPicker'
 import { StudioUploadGuide } from './StudioUploadGuide'
 import { StudioAutoUpload } from './StudioAutoUpload'
-import { autoUploadStatus } from '../lib/autoUpload'
+import { AUTO_PLATFORM_NAMES, autoUploadStatus, type AutoUploadStatus } from '../lib/autoUpload'
 
 const POLL_MS = 5000
+/** 자동 올리기 상태를 못 읽었을 때 한 번 더 해 보기 전 기다림 */
+const AUTO_RETRY_MS = 1000
 /** 장면 연출 이름 → 화면 이름 (번역 키) */
 const VISUAL_LABELS: Record<SceneVisual, string> = {
   explain: '설명하기', shock: '데이터가 사라짐', typing: '코드 고치기', panic: '요청 폭주', restore: '백업으로 복구', wait: '느린 로딩',
@@ -38,7 +40,10 @@ export function StudioPage() {
   const queueOpen = search.has('queue')
   // 자동 올리기(spec 108)는 쓸 수 있는 회원(기본은 블로그 주인)에게만 보인다
   const autoOpen = search.has('auto')
-  const [autoAvailable, setAutoAvailable] = useState(false)
+  // 자동 올리기 상태. null이면 이 회원은 쓸 수 없다(404)
+  const [autoStatus, setAutoStatus] = useState<AutoUploadStatus | null>(null)
+  const [autoError, setAutoError] = useState<string | null>(null)
+  const autoAvailable = autoStatus !== null
   const [data, setData] = useState<ShortsOverview | null>(null)
   const [batches, setBatches] = useState<ShortsBatch[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -60,7 +65,23 @@ export function StudioPage() {
 
   useEffect(() => { document.title = t('쇼츠 스튜디오 - devlog') }, [])
   useEffect(() => { void load() }, [load])
-  useEffect(() => { autoUploadStatus().then((st) => setAutoAvailable(st !== null)).catch(() => {}) }, [])
+  const loadAuto = useCallback(async () => {
+    // 404는 쓸 수 없음(null)이다. 그 밖의 실패는 한 번 더 해 보고, 그래도 안 되면 알린다(꺼진 기능처럼 조용히 숨기지 않는다)
+    for (let i = 0; i < 2; i++) {
+      try {
+        setAutoStatus(await autoUploadStatus())
+        setAutoError(null)
+        return
+      } catch (e) {
+        if (i === 0) await new Promise((r) => setTimeout(r, AUTO_RETRY_MS))
+        else setAutoError(e instanceof ApiError ? e.message : t('잠시 후 다시 시도해 주세요.'))
+      }
+    }
+  }, [])
+  useEffect(() => { void loadAuto() }, [loadAuto])
+  // 대본 안내 문구: 자동 올리기를 켠 플랫폼은 자동으로, 나머지는 직접 올린다
+  const autoNames = autoStatus?.platforms.filter((p) => p.enabled).map((p) => AUTO_PLATFORM_NAMES[p.platform]) ?? []
+  const manualNames = ['YouTube', 'Instagram', 'TikTok'].filter((n) => !autoNames.includes(n))
   const busy = data?.items.some((it) => isBusy(it.status)) ?? false
   useEffect(() => {
     if (!busy) return
@@ -81,7 +102,10 @@ export function StudioPage() {
     <main className="container studio-page">
       <h1>{t('쇼츠 스튜디오')}</h1>
       <p className="muted studio-lead">
-        {tNodes('AI가 쓴 대본을 다듬고 {0}를 누르면 내 컴퓨터의 렌더 워커가 9:16 영상으로 만들어요. 유튜브·인스타그램·틱톡에는 내가 직접 올려요.', { 0: <b>{t('[영상 만들기]')}</b> })}
+        {autoStatus && autoNames.length > 0
+          ? tNodes('AI가 쓴 대본을 다듬고 {0}를 누르면 내 컴퓨터의 렌더 워커가 9:16 영상으로 만들어요. {1}에는 {2}(한국 시간) 공개로 자동으로 올리고, {3}에는 내가 직접 올려요.', {
+            0: <b>{t('[영상 만들기]')}</b>, 1: autoNames.join('·'), 2: autoStatus.publishTime, 3: manualNames.join('·') })
+          : tNodes('AI가 쓴 대본을 다듬고 {0}를 누르면 내 컴퓨터의 렌더 워커가 9:16 영상으로 만들어요. 유튜브·인스타그램·틱톡에는 내가 직접 올려요.', { 0: <b>{t('[영상 만들기]')}</b> })}
       </p>
       {data && <WorkerStatus data={data} />}
       {error && <p className="error" role="alert">{error}</p>}
@@ -93,11 +117,17 @@ export function StudioPage() {
             aria-current={queueOpen ? 'true' : undefined} data-tip={t('영상으로 만들 차례인 대본을 먼저 쓴 순서대로 봐요')}>
             {t('대본 큐 {0}편', { 0: data ? draftQueue(data.items).length : 0 })}
           </Link>
-          {autoAvailable && (
+          {autoStatus && (
             <Link to="/studio?auto=1" onClick={closeForms} className={`btn btn-outline btn-block studio-queue-btn${autoOpen ? ' active' : ''}`}
-              aria-current={autoOpen ? 'true' : undefined} data-tip={t('영상 만들기가 끝나면 YouTube·Instagram에 저녁 8시 공개로 올려요')}>
+              aria-current={autoOpen ? 'true' : undefined} data-tip={t('영상 만들기가 끝나면 YouTube·Instagram에 {0}(한국 시간) 공개로 올려요', { 0: autoStatus.publishTime })}>
               {t('자동 올리기')}
             </Link>
+          )}
+          {autoError && (
+            <p className="error small" role="alert">
+              {t('자동 올리기 상태를 불러오지 못했어요.')}{' '}
+              <button type="button" className="btn btn-text btn-small" onClick={() => void loadAuto()}>{t('다시 시도')}</button>
+            </p>
           )}
           {trades && (
             <button type="button" className="btn btn-outline btn-block studio-replay-btn" onClick={() => { setCreating(false); setPicking(true) }}
@@ -133,7 +163,7 @@ export function StudioPage() {
                 navigate(`/studio?id=${it.id}`)
               }} />
             : autoOpen && autoAvailable
-              ? <StudioAutoUpload items={data?.items ?? []} result={search.get('result')} resultPlatform={search.get('platform')} />
+              ? <StudioAutoUpload items={data?.items ?? []} onStatus={setAutoStatus} result={search.get('result')} resultPlatform={search.get('platform')} />
             : queueOpen && data
               ? <StudioQueue items={data.items} batches={batches} onOpen={closeForms} />
             : batch

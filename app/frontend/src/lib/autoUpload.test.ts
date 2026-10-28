@@ -19,7 +19,9 @@ describe('autoUpload (spec 108)', () => {
   })
 
   it('작업 상태를 공개 시각과 함께 알려 준다', () => {
-    expect(jobLabel(job({ status: 'SCHEDULED' }))).toMatch(/^비공개로 올리고 10월 \d+일 \d\d:\d\d에 공개 예약했어요$/)
+    // 2026-10-29T11:00Z는 한국 시간 10월 29일 20:00. 브라우저 시간대와 상관없이 한국 시간으로 보인다
+    expect(jobLabel(job({ status: 'SCHEDULED' }))).toBe('비공개로 올리고 10월 29일 20:00에 공개 예약했어요')
+    expect(jobLabel(job({ status: 'SCHEDULED', publishAt: '2026-10-29T15:30:00Z' }))).toBe('비공개로 올리고 10월 30일 00:30에 공개 예약했어요')
     expect(jobLabel(job({ attempts: 2 }))).toBe('다시 해 볼 차례예요 (2번 실패)')
     expect(jobLabel(job({ status: 'FAILED' }))).toBe('올리지 못했어요')
     expect(jobLabel(job({ status: 'PUBLISHED' }))).toMatch(/에 공개했어요$/)

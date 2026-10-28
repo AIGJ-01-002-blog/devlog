@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CopyCode } from '../components/CopyCode'
 import { ApiError } from '../lib/api'
 import {
@@ -10,19 +10,31 @@ import { t } from '../lib/i18n'
 import type { ShortsItem } from '../lib/shorts'
 
 const errorText = (e: unknown) => (e instanceof ApiError ? e.message : t('잠시 후 다시 시도해 주세요.'))
+/** 끝나지 않은 작업이 있으면 이 간격으로 상태를 다시 읽는다 */
+const JOB_POLL_MS = 30_000
 
 /**
  * 스튜디오 [자동 올리기] 카드 (/studio?auto=1, spec 108). 플랫폼마다 계정 잇기 → 시험 올리기 → 켜기 순서로 한다.
- * 켜면 렌더가 끝난 영상을 하루 한 편씩 저녁 8시(한국 시간)에 공개되게 올린다.
+ * 켜면 렌더가 끝난 영상을 하루 한 편씩 서버 설정 시각(기본 저녁 8시, 한국 시간)에 공개되게 올린다.
  */
-export function StudioAutoUpload({ items, result, resultPlatform }: { items: ShortsItem[]; result: string | null; resultPlatform: string | null }) {
-  const [status, setStatus] = useState<AutoUploadStatus | null>(null)
+export function StudioAutoUpload({ items, result, resultPlatform, onStatus }: {
+  items: ShortsItem[]; result: string | null; resultPlatform: string | null
+  /** 켜고 끈 결과를 스튜디오 안내 문구에도 알린다 */
+  onStatus?: (s: AutoUploadStatus) => void
+}) {
+  const [status, setRawStatus] = useState<AutoUploadStatus | null>(null)
+  const setStatus = (s: AutoUploadStatus) => { setRawStatus(s); onStatus?.(s) }
   const [error, setError] = useState<string | null>(null)
   const notice = connectResultMessage(result, resultPlatform)
 
   useEffect(() => {
     let alive = true
-    autoUploadStatus().then((s) => { if (alive) setStatus(s) }).catch((e) => { if (alive) setError(errorText(e)) })
+    autoUploadStatus().then((s) => {
+      if (!alive) return
+      // 404(쓸 수 없음)면 null이다. 불러오는 중에 머물지 않고 까닭을 보여 준다
+      if (s) setRawStatus(s)
+      else setError(t('자동 올리기를 쓸 수 없어요. 관리자 계정인지, 서버에 자동 올리기 설정이 있는지 확인해 주세요.'))
+    }).catch((e) => { if (alive) setError(errorText(e)) })
     return () => { alive = false }
   }, [])
 
@@ -47,7 +59,9 @@ function PlatformCard({ state, ready, onChange }: { state: AutoPlatformState; re
   const name = AUTO_PLATFORM_NAMES[state.platform]
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
-  const [pick, setPick] = useState<number | ''>(ready[0]?.id ?? '')
+  // 고른 영상이 목록에서 빠지면(다시 렌더 중 등) 남은 첫 영상으로 돌아간다
+  const [picked, setPick] = useState<number | ''>('')
+  const pick = picked !== '' && ready.some((it) => it.id === picked) ? picked : ready.length > 0 ? ready[0].id : ''
   const reload = async () => {
     const s = await autoUploadStatus()
     if (s) onChange(s)
@@ -74,7 +88,8 @@ function PlatformCard({ state, ready, onChange }: { state: AutoPlatformState; re
     if (pick === '') return
     const r = await testUpload(state.platform, pick)
     setMessage({ ok: true, text: r.message })
-    await reload()
+    // 시험은 통과했다. 상태 새로고침이 실패해도 통과 안내를 실패로 덮지 않는다
+    await reload().catch(() => {})
   })
   const toggle = (enabled: boolean) => run(async () => { onChange(await setAutoEnabled(state.platform, enabled)) })
 
@@ -139,23 +154,46 @@ function PlatformCard({ state, ready, onChange }: { state: AutoPlatformState; re
   )
 }
 
-/** 올리기 안내 안의 쇼츠별 자동 올리기 상태. 쓸 수 없거나 작업이 없으면 그리지 않는다 */
+/**
+ * 올리기 안내 안의 쇼츠별 자동 올리기 상태. 쓸 수 없거나 작업이 없으면 그리지 않는다.
+ * 쇼츠마다 새로 그린다(부르는 쪽이 key={item.id}). 끝나지 않은 작업이 있으면 JOB_POLL_MS마다 다시 읽는다.
+ */
 export function AutoUploadJobs({ item }: { item: ShortsItem }) {
   const [jobs, setJobs] = useState<AutoJob[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [tick, setTick] = useState(0)
+  const [retrying, setRetrying] = useState(false)
+  const inFlight = useRef(false)
+  const pending = jobs.some((j) => j.status !== 'PUBLISHED' && j.status !== 'FAILED')
   useEffect(() => {
     let alive = true
     if (item.status !== 'READY') return
-    autoJobs(item.id).then((j) => { if (alive) setJobs(j) }).catch(() => {})
+    autoJobs(item.id).then((j) => {
+      if (!alive) return
+      setJobs(j)
+      setError(null)
+    }).catch((e) => { if (alive) setError(errorText(e)) })
     return () => { alive = false }
-  }, [item.id, item.status, item.version])
-  if (jobs.length === 0) return null
+  }, [item.id, item.status, item.version, tick])
+  useEffect(() => {
+    if (!pending) return
+    const timer = setInterval(() => setTick((n) => n + 1), JOB_POLL_MS)
+    return () => clearInterval(timer)
+  }, [pending])
+  if (jobs.length === 0 && !error) return null
   const retry = async (job: AutoJob) => {
+    // 누르는 사이 같은 요청을 두 번 보내지 않는다
+    if (inFlight.current) return
+    inFlight.current = true
+    setRetrying(true)
     setError(null)
     try {
       setJobs(await retryJob(item.id, job.platform))
     } catch (e) {
       setError(errorText(e))
+    } finally {
+      inFlight.current = false
+      setRetrying(false)
     }
   }
   return (
@@ -169,7 +207,7 @@ export function AutoUploadJobs({ item }: { item: ShortsItem }) {
             {job.error && <span className="error small"> {job.error}</span>}
             {job.note && <span className="muted small"> {job.note}</span>}
             {job.status === 'FAILED' && (
-              <button type="button" className="btn btn-text btn-small" onClick={() => void retry(job)}
+              <button type="button" className="btn btn-text btn-small" disabled={retrying} onClick={() => void retry(job)}
                 data-tip={t('공개 시각을 다시 골라 처음부터 올려요')}>{t('다시 올리기')}</button>
             )}
           </li>

@@ -1,6 +1,7 @@
 package com.team.blog.shorts.autoupload;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Duration;
 import java.time.LocalTime;
@@ -39,5 +40,12 @@ class AutoUploadPropertiesTest {
         AutoUploadProperties noKey = bind(Map.of("blog.shorts.auto-upload.youtube.client-id", "yt-id",
                 "blog.shorts.auto-upload.youtube.client-secret", "s"));
         assertThat(noKey.configured(AutoPlatform.YOUTUBE)).as("열쇠가 없으면 잇지 않는다").isFalse();
+    }
+
+    @Test
+    void 시도_횟수가_0이거나_기다림이_음수면_시작하지_않는다() {
+        assertThatThrownBy(() -> bind(Map.of("blog.shorts.auto-upload.max-attempts", "0"))).hasStackTraceContaining("max-attempts");
+        assertThatThrownBy(() -> bind(Map.of("blog.shorts.auto-upload.retry-backoff", "-1m"))).hasStackTraceContaining("retry-backoff");
+        assertThatThrownBy(() -> bind(Map.of("blog.shorts.auto-upload.min-lead", "-5m"))).hasStackTraceContaining("min-lead");
     }
 }

@@ -39,7 +39,7 @@ class ShortsCaptionParityTest {
                     in.path("postUrl").isNull() ? null : in.path("postUrl").asString(), in.path("replay").asBoolean(), narrations, tags, playlist);
             for (String p : List.of("YOUTUBE", "INSTAGRAM")) {
                 JsonNode want = sample.path("expected").path(p);
-                ShortsCaption.Text got = ShortsCaption.build(input, Platform.valueOf(p), origin);
+                ShortsCaption.Text got = ShortsCaption.build(input, Platform.valueOf(p), origin, java.time.LocalTime.of(20, 0)); // 화면 SHORTS_PUBLISH_TIME
                 String name = sample.path("name").asString() + " / " + p;
                 assertThat(got.title()).as(name).isEqualTo(want.path("title").isNull() ? null : want.path("title").asString());
                 assertThat(got.caption()).as(name).isEqualTo(want.path("caption").asString());
@@ -57,5 +57,8 @@ class ShortsCaptionParityTest {
         assertThat(ShortsCaption.limit("짧음", 10)).isEqualTo("짧음");
         assertThat(ShortsCaption.jsTrim("﻿　 글 \n")).isEqualTo("글");
         assertThat(ShortsCaption.link("https://devlog.life/", "/@a/posts/1")).isEqualTo("https://devlog.life/@a/posts/1");
+        assertThat(ShortsCaption.clock(java.time.LocalTime.of(20, 0))).isEqualTo("저녁 8시");
+        assertThat(ShortsCaption.clock(java.time.LocalTime.of(19, 30))).isEqualTo("저녁 7시 30분");
+        assertThat(ShortsCaption.clock(java.time.LocalTime.of(9, 0))).isEqualTo("오전 9시");
     }
 }

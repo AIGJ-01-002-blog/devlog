@@ -1,5 +1,4 @@
 import { api, ApiError } from './api'
-import { clock, monthDay } from './format'
 import { t } from './i18n'
 
 /**
@@ -56,7 +55,9 @@ const slug = (p: AutoPlatform) => p.toLowerCase()
 /** 쓸 수 없으면(관리자가 아님·서버 설정 없음) null */
 export async function autoUploadStatus(): Promise<AutoUploadStatus | null> {
   try {
-    return await api<AutoUploadStatus>('/api/me/shorts/auto-upload')
+    const s = await api<AutoUploadStatus>('/api/me/shorts/auto-upload')
+    // 모양이 다른 응답(다른 서버 버전 등)은 쓸 수 없음으로 본다
+    return Array.isArray(s?.platforms) ? s : null
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) return null
     throw e
@@ -88,8 +89,16 @@ export const retryJob = (shortsId: number, p: AutoPlatform) =>
 /** 켜기는 시험 올리기를 통과한 뒤에만 */
 export const canEnable = (s: AutoPlatformState) => s.connected && s.testedAt !== null
 
+/** 공개 시각은 한국 시간으로 보인다(예약도 한국 시간 기준). 브라우저가 다른 시간대여도 같은 날짜·시각이 나온다 */
+function kst(iso: string): string {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date(iso)).map((p) => [p.type, p.value]))
+  return `${t('{0}월 {1}일', { 0: parts.month, 1: parts.day })} ${parts.hour}:${parts.minute}`
+}
+
 export function jobLabel(job: AutoJob): string {
-  const when = `${monthDay(job.publishAt)} ${clock(job.publishAt)}`
+  const when = kst(job.publishAt)
   switch (job.status) {
     case 'QUEUED': return job.attempts > 0 ? t('다시 해 볼 차례예요 ({0}번 실패)', { 0: job.attempts }) : t('{0} 공개로 올릴 차례를 기다려요', { 0: when })
     case 'UPLOADING': return t('올리는 중 ({0} 공개)', { 0: when })

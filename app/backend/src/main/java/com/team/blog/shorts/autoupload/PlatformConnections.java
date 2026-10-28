@@ -89,14 +89,14 @@ public class PlatformConnections {
         Instant now = Times.now(clock);
         jdbc.update("""
                 INSERT INTO shorts_platform_connection (member_id, platform, account_id, account_name, access_token_enc, refresh_token_enc,
-                    token_expires_at, enabled, enabled_at, tested_at, test_url, test_error, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, false, NULL, NULL, NULL, NULL, ?, ?)
+                    token_expires_at, token_issued_at, enabled, enabled_at, tested_at, test_url, test_error, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, false, NULL, NULL, NULL, NULL, ?, ?)
                 ON CONFLICT (member_id, platform) DO UPDATE SET account_id = EXCLUDED.account_id, account_name = EXCLUDED.account_name,
                     access_token_enc = EXCLUDED.access_token_enc, refresh_token_enc = EXCLUDED.refresh_token_enc,
-                    token_expires_at = EXCLUDED.token_expires_at, enabled = false, enabled_at = NULL, tested_at = NULL, test_url = NULL,
+                    token_expires_at = EXCLUDED.token_expires_at, token_issued_at = EXCLUDED.token_issued_at, enabled = false, enabled_at = NULL, tested_at = NULL, test_url = NULL,
                     test_error = NULL, updated_at = EXCLUDED.updated_at
                 """, memberId, platform.name(), accountId, cut(accountName, 120), enc(memberId, platform, "access", access),
-                enc(memberId, platform, "refresh", refresh), ts(expiresAt), Timestamp.from(now), Timestamp.from(now));
+                enc(memberId, platform, "refresh", refresh), ts(expiresAt), Timestamp.from(now), Timestamp.from(now), Timestamp.from(now));
     }
 
     void delete(long memberId, AutoPlatform platform) {
@@ -153,7 +153,7 @@ public class PlatformConnections {
         Instant before = Times.now(clock).plus(INSTAGRAM_REFRESH_BEFORE);
         List<Connection> due = jdbc.query("""
                 SELECT * FROM shorts_platform_connection WHERE platform = 'INSTAGRAM' AND (token_expires_at IS NULL OR token_expires_at < ?)
-                    AND updated_at < ?
+                    AND token_issued_at < ?
                 """, PlatformConnections::map, Timestamp.from(before), Timestamp.from(Times.now(clock).minus(Duration.ofDays(1))));
         int n = 0;
         for (Connection c : due) {
@@ -168,12 +168,14 @@ public class PlatformConnections {
         return n;
     }
 
+    /** 받은 토큰을 적는다. 그사이 다른 계정으로 다시 이었으면(account_id가 다르면) 옛 계정 토큰을 새 연결에 덮어쓰지 않는다 */
     private void storeTokens(Connection c, String access, String refresh, Instant expiresAt) {
+        Timestamp now = Timestamp.from(Times.now(clock));
         jdbc.update("""
                 UPDATE shorts_platform_connection SET access_token_enc = ?, refresh_token_enc = COALESCE(?, refresh_token_enc), token_expires_at = ?,
-                    updated_at = ? WHERE member_id = ? AND platform = ?
+                    token_issued_at = ?, updated_at = ? WHERE member_id = ? AND platform = ? AND account_id = ?
                 """, enc(c.memberId(), c.platform(), "access", access), enc(c.memberId(), c.platform(), "refresh", refresh), ts(expiresAt),
-                Timestamp.from(Times.now(clock)), c.memberId(), c.platform().name());
+                now, now, c.memberId(), c.platform().name(), c.accountId());
     }
 
     private String enc(long memberId, AutoPlatform platform, String column, String plain) {

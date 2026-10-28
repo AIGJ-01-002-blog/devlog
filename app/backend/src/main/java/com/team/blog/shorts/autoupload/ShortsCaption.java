@@ -1,5 +1,6 @@
 package com.team.blog.shorts.autoupload;
 
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -43,7 +44,8 @@ public final class ShortsCaption {
 
     private ShortsCaption() {}
 
-    public static Text build(Input in, Platform platform, String origin) {
+    /** @param publishTime 공개 시각(한국 시간, blog.shorts.auto-upload.publish-time). 설명의 "매일 저녁 8시"가 예약 시각과 같게 한다 */
+    public static Text build(Input in, Platform platform, String origin, LocalTime publishTime) {
         Spec spec = spec(platform);
         String link = link(origin, in.postUrl());
         List<String> tags = hashtags(in.tags(), spec.hashtagMax());
@@ -51,7 +53,7 @@ public final class ShortsCaption {
         String linkLine = spec.linksClickable() ? "전체 글: " + link
                 : platform == Platform.INSTAGRAM ? "전체 코드와 과정은 프로필 링크의 블로그에 있어요."
                 : "전체 글은 고정 댓글의 주소에서 볼 수 있어요.";
-        String followLine = (platform == Platform.YOUTUBE ? "구독하면" : "팔로우하면") + " 매일 저녁 8시에 하나씩 받아 봐요.";
+        String followLine = (platform == Platform.YOUTUBE ? "구독하면" : "팔로우하면") + " 매일 " + clock(publishTime) + "에 하나씩 받아 봐요.";
         String series = seriesTitle(in);
         List<String> parts = spec.titleMax() == null
                 ? List.of(series, hook(in), linkLine, followLine, tagLine)
@@ -59,6 +61,12 @@ public final class ShortsCaption {
         String caption = String.join("\n\n", parts.stream().filter(s -> !s.isEmpty()).toList());
         String title = spec.titleMax() == null ? null : series;
         return new Text(title, caption, tags, fromPost(in) && in.playlist() != null ? playlistName(in.playlist()) : null);
+    }
+
+    /** 20:00 → "저녁 8시"(화면 문구와 같다), 19:30 → "저녁 7시 30분", 9:00 → "오전 9시" */
+    static String clock(LocalTime t) {
+        int h = t.getHour() % 12 == 0 ? 12 : t.getHour() % 12;
+        return (t.getHour() < 12 ? "오전 " : "저녁 ") + h + "시" + (t.getMinute() > 0 ? " " + t.getMinute() + "분" : "");
     }
 
     /** 화면 playlistName(): 묶음 한글 이름(배포·DB·…)에 제목과 같은 앞머리 */

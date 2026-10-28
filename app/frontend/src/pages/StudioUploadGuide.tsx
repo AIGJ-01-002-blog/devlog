@@ -25,7 +25,7 @@ export function StudioUploadGuide({ item, onChange }: { item: ShortsItem; onChan
     <section className="studio-guide" aria-labelledby="studio-guide-title">
       <h2 id="studio-guide-title">{t('올리기 안내')}</h2>
       <p className="muted small">{t('자동 올리기를 켜지 않았다면 아래 문구를 복사해 내 계정에서 직접 올려요.')}</p>
-      <AutoUploadJobs item={item} />
+      <AutoUploadJobs key={item.id} item={item} />
       <div className="studio-tabs" role="tablist" aria-label={t('올릴 플랫폼')}>
         {PLATFORMS.map((p) => {
           const done = item.uploads.some((u) => u.platform === p.id)

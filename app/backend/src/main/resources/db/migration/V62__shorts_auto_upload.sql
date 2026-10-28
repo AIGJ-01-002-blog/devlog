@@ -10,6 +10,7 @@ CREATE TABLE shorts_platform_connection (
     access_token_enc   text,
     refresh_token_enc  text,
     token_expires_at   timestamptz,
+    token_issued_at    timestamptz,
     enabled            boolean NOT NULL DEFAULT false,
     enabled_at         timestamptz,
     tested_at          timestamptz,
@@ -25,6 +26,7 @@ CREATE TABLE shorts_platform_connection (
 COMMENT ON TABLE shorts_platform_connection IS '쇼츠 자동 올리기용 플랫폼 계정 연결 (spec 108)';
 COMMENT ON COLUMN shorts_platform_connection.access_token_enc IS '접근 토큰 (AES-GCM 암호문, 평문을 두지 않는다)';
 COMMENT ON COLUMN shorts_platform_connection.refresh_token_enc IS '갱신 토큰 (AES-GCM 암호문). Instagram은 쓰지 않는다';
+COMMENT ON COLUMN shorts_platform_connection.token_issued_at IS '토큰을 받거나 갱신한 시각. Instagram 장기 토큰은 발급 24시간 뒤부터 늘린다';
 COMMENT ON COLUMN shorts_platform_connection.enabled IS '자동 올리기 켜짐. 시험 올리기(tested_at)를 통과해야 켤 수 있다';
 COMMENT ON COLUMN shorts_platform_connection.enabled_at IS '켠 시각. 이 뒤에 렌더가 끝난 영상만 올린다';
 

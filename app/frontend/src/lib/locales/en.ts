@@ -2312,6 +2312,9 @@ export const en: Record<string, string> = {
   "자동 올리기 상태": "Auto upload status",
   "공개 시각을 다시 골라 처음부터 올려요": "Picks a new publish time and uploads from the start",
   "다시 올리기": "Upload again",
-  "영상 만들기가 끝나면 YouTube·Instagram에 저녁 8시 공개로 올려요": "When a video is done, upload it to YouTube and Instagram to go public at 8 PM",
   "자동 올리기를 켜지 않았다면 아래 문구를 복사해 내 계정에서 직접 올려요.": "If auto upload is off, copy the text below and post it yourself from your own account.",
+  "영상 만들기가 끝나면 YouTube·Instagram에 {0}(한국 시간) 공개로 올려요": "When a video is done, upload it to YouTube and Instagram to go public at {0} (Korea time)",
+  "AI가 쓴 대본을 다듬고 {0}를 누르면 내 컴퓨터의 렌더 워커가 9:16 영상으로 만들어요. {1}에는 {2}(한국 시간) 공개로 자동으로 올리고, {3}에는 내가 직접 올려요.": "Polish the script your AI wrote and press {0}; the render worker on your computer turns it into a 9:16 video. It is uploaded automatically to {1} to go public at {2} (Korea time), and you upload it to {3} yourself.",
+  "자동 올리기 상태를 불러오지 못했어요.": "Couldn't load the auto upload status.",
+  "자동 올리기를 쓸 수 없어요. 관리자 계정인지, 서버에 자동 올리기 설정이 있는지 확인해 주세요.": "Auto upload isn't available. Check that you're signed in as an admin and that the server has auto upload settings.",
 }
