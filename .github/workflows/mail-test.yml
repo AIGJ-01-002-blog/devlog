@@ -4,6 +4,7 @@
 # 참고: 2026-10-08 GitHub 러너(Azure)에서는 Gmail이 AUTH 직후 응답 없이 연결을 끊었다(데이터센터 IP 차단으로 추정). 그 경우 비밀번호 판정 전 단계다.
 name: 메일 시험 발송
 
+# 언제 도나: 수동 실행만. 배포와 상관없이 메일 비밀번호가 맞는지만 확인한다
 on:
   workflow_dispatch:
 
@@ -18,6 +19,7 @@ jobs:
       SMTP_USERNAME: devlogaip@gmail.com
       SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
     steps:
+      # 1단계: Gmail SMTP 587·465 포트에 연결만 해 본다(러너 망 문제와 비밀번호 문제를 나누려고)
       - name: 메일 서버 접속 점검(비밀번호 사용 안 함)
         shell: python
         run: |
@@ -31,6 +33,7 @@ jobs:
                           print(f"{addr[0]}:{port} 연결됨 {first[:60]!r}")
                   except Exception as e:
                       print(f"{addr[0]}:{port} 실패 {type(e).__name__}: {e}")
+      # 2단계: 실제로 로그인해 자기 자신에게 메일 1통을 보낸다. 587이 안 되면 465로 다시 시도한다
       - name: Gmail로 시험 메일 보내기
         shell: python
         run: |

@@ -2,6 +2,7 @@
 # 운영 서버에는 접속하지 않는다. 결과는 작업 요약(Summary)과 아티팩트 infra-bench-result에 남는다.
 name: 구성 비교 측정
 
+# 언제 도나: 수동 실행, 또는 측정용 feature 브랜치 두 곳에 측정 파일이 바뀐 push. main·develop에서는 자동으로 돌지 않는다
 on:
   workflow_dispatch:
   push:
@@ -32,10 +33,12 @@ jobs:
           t0=$(date +%s)
           docker build -q -f deploy/docker/Dockerfile -t blog-app:bench . >/dev/null
           echo "- 앱 이미지: $(docker image inspect blog-app:bench --format '{{.Size}}' | awk '{printf "%.0f MB", $1/1e6}'), 빌드 $(( $(date +%s) - t0 ))초" >> "$OUT"; echo >> "$OUT"
+      # 두 구성을 동시에 띄우지 않고 차례로 띄워 서로 자원을 빼앗지 않게 한다
       - name: 가벼운 구성 (Compose)
         run: deploy/bench/run-light.sh
       - name: 지금 구성 (k3d)
         run: deploy/bench/run-k3d.sh
+      # 실패해도(always) result.md가 있으면 지금까지 잰 결과를 Summary와 아티팩트에 남긴다(첫 단계에서 설치가 실패하면 파일이 없어 남지 않는다)
       - name: 결과
         if: always()
         run: cat "$OUT" >> "$GITHUB_STEP_SUMMARY"; cat "$OUT"

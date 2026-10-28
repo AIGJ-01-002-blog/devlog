@@ -1,8 +1,9 @@
-# 학교 실습 서버에 블로그를 쿠버네티스로 올릴 수 있는지 읽기 전용으로 확인한다.
+# 학교 실습 서버에 블로그를 쿠버네티스로 올릴 수 있는지 확인한다. 설정은 바꾸지 않지만 2단계는 임시 특권 컨테이너를 띄운다.
 # 1단계는 비밀번호 없이 포트만 두드린다. 2단계는 Secret SCHOOL_SSH_PASSWORD가 있을 때만 SSH로 들어가
 # Docker 권한·자원·포트 사용 여부를 본다. 비밀번호는 로그에 찍지 않는다. 수동 실행(Actions → 학교 서버 점검).
 name: 학교 서버 점검
 
+# 언제 도나: 수동 실행만. 서버 설정은 바꾸지 않는다. 다만 2단계의 시험 컨테이너(--rm)용 alpine 이미지는 내려받아 서버에 남을 수 있다
 on:
   workflow_dispatch:
 
@@ -20,6 +21,7 @@ jobs:
       # 학교에서 받은 내 포트 범위, 예: 9000-9009
       PORTS: ${{ vars.SCHOOL_PORT_RANGE }}
     steps:
+      # 1단계: SSH 포트와 내 포트 범위가 바깥에서 열려 있는지 연결만 시도한다
       - name: 포트 점검(비밀번호 사용 안 함)
         shell: python
         run: |
@@ -42,6 +44,7 @@ jobs:
               except Exception as e:
                   print(f"{port} CLOSED {type(e).__name__}")
 
+      # 2단계: 등록된 SSH 키로 서버를 확인한 뒤 들어가 계정·자원·Docker·바깥 인터넷·도구 설치 여부를 본다
       - name: 서버 안 점검(읽기 전용)
         env:
           KNOWN_HOSTS: ${{ vars.SCHOOL_SSH_KNOWN_HOSTS }}

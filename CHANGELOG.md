@@ -10,6 +10,23 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
+## [2.19.0] - 2026-10-28
+
+**목표: 서치 콘솔 비색인 주소 줄이기** ([목표 이슈 #489](https://github.com/AIGJ-01-002-blog/devlog/issues/489))
+
+구글 서치 콘솔(10/23 기준 색인 77 · 비색인 220)에서 사이트가 스스로 만든 주소를 걷어 냈다. 사이트맵 129개는 모두 200·index·자기 canonical이라 그대로 두었다.
+
+### 고침
+- 화면마다 `/login?redirect=…`·`/support?from=…` 링크 주소가 따로 생겨 구글 서치 콘솔에 robots 차단·noindex 주소가 쌓이던 문제. 링크 href에는 경로만 남기고, 누르면 전처럼 돌아올 곳을 담아 이동한다 (#489)
+
+### 포함된 작업
+| 이슈 | 브랜치 | PR |
+|---|---|---|
+| #489 로그인·문의 링크 주소 정리 | `feature/489-clean-crawl-links` | #490 |
+| - CI 워크플로 동작 설명 주석(문서만) | `feature/workflow-comments` | #488 |
+
+**비교:** [v2.18.0...v2.19.0](https://github.com/AIGJ-01-002-blog/devlog/compare/v2.18.0...v2.19.0)
+
 ## [2.18.0] - 2026-10-26
 
 **목표: 쇼츠 말 빠르기 1.05배와 자막·음성 싱크** ([목표 이슈 #484](https://github.com/AIGJ-01-002-blog/devlog/issues/484))
