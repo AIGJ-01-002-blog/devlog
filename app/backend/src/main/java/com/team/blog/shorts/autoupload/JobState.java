@@ -7,15 +7,16 @@ import java.time.Instant;
  * 올리기 작업의 상태 바꾸기 규칙 (spec 108 FR-008). DB를 모르는 순수 함수라 단위 테스트로 본다.
  * <pre>
  * YouTube:   QUEUED ─올리기─▶ SCHEDULED(비공개 + publishAt) ─공개 시각─▶ PUBLISHED
+ * YouTube 비공개로만(#501): QUEUED ─올리기─▶ UPLOADED(비공개, 공개는 주인이 직접)
  * Instagram: QUEUED ─컨테이너─▶ UPLOADING ─FINISHED·공개 시각─▶ PUBLISHED
  * 실패: 다시 할 수 있으면 QUEUED(기다림 5분·10분…), maxAttempts를 채웠거나 다시 해도 같은 실패면 FAILED
  * </pre>
  */
 public final class JobState {
-    public enum Status { QUEUED, UPLOADING, SCHEDULED, PUBLISHED, FAILED }
+    public enum Status { QUEUED, UPLOADING, SCHEDULED, UPLOADED, PUBLISHED, FAILED }
 
     /** 이번 차례에 할 일 */
-    public enum Action { UPLOAD_VIDEO, CREATE_CONTAINER, CHECK_CONTAINER, MARK_PUBLISHED, NONE }
+    public enum Action { UPLOAD_VIDEO, CREATE_CONTAINER, CHECK_CONTAINER, MARK_PUBLISHED, MARK_UPLOADED, NONE }
 
     /** Instagram 컨테이너는 공개 15분 전에 만든다(영상 처리 시간). 컨테이너는 24시간 뒤 사라진다 */
     public static final Duration CONTAINER_LEAD = Duration.ofMinutes(15);
@@ -27,12 +28,19 @@ public final class JobState {
     private JobState() {}
 
     public static Action next(AutoPlatform platform, Status status, boolean hasExternalId, boolean hasContainer, Instant publishAt, Instant now) {
+        return next(platform, status, hasExternalId, hasContainer, publishAt, now, false);
+    }
+
+    /** @param youtubePrivate YouTube를 공개 예약 없이 비공개로만 올리는지(#501). 올린 뒤에는 기다릴 공개 시각이 없다 */
+    public static Action next(AutoPlatform platform, Status status, boolean hasExternalId, boolean hasContainer, Instant publishAt, Instant now,
+                              boolean youtubePrivate) {
         return switch (status) {
-            case PUBLISHED, FAILED -> Action.NONE;
+            case UPLOADED, PUBLISHED, FAILED -> Action.NONE;
             case SCHEDULED -> now.isBefore(publishAt) ? Action.NONE : Action.MARK_PUBLISHED;
             case QUEUED, UPLOADING -> switch (platform) {
                 // 영상 ID가 있으면 이미 올려 예약했다(그 뒤에 실패했다). 다시 올리지 않고 SCHEDULED처럼 공개 시각을 기다린다
-                case YOUTUBE -> !hasExternalId ? Action.UPLOAD_VIDEO : now.isBefore(publishAt) ? Action.NONE : Action.MARK_PUBLISHED;
+                case YOUTUBE -> !hasExternalId ? Action.UPLOAD_VIDEO : youtubePrivate ? Action.MARK_UPLOADED
+                        : now.isBefore(publishAt) ? Action.NONE : Action.MARK_PUBLISHED;
                 case INSTAGRAM -> hasContainer ? Action.CHECK_CONTAINER
                         : now.isBefore(publishAt.minus(CONTAINER_LEAD)) ? Action.NONE : Action.CREATE_CONTAINER;
             };

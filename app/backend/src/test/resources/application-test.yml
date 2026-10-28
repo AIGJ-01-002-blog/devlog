@@ -27,6 +27,8 @@ blog:
       youtube:
         client-id: test-youtube-client
         client-secret: test-youtube-secret
+        # 기존 시험은 공개 예약 흐름을 본다. 비공개로만 올리기는 ShortsAutoUploadPrivateTest가 본다 (#501)
+        privacy: SCHEDULED
       instagram:
         app-id: test-instagram-app
         app-secret: test-instagram-secret

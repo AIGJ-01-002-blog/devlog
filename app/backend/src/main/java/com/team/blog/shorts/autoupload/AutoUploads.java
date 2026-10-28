@@ -38,8 +38,11 @@ public class AutoUploads {
     public record PlatformState(AutoPlatform platform, boolean configured, boolean connected, String accountName, boolean enabled,
                                 Instant testedAt, String testUrl, String testError, Instant tokenExpiresAt, String redirectUri) {}
 
-    /** @param publishTime 한국 시간 HH:mm */
-    public record Status(List<PlatformState> platforms, String publishTime) {}
+    /**
+     * @param publishTime    한국 시간 HH:mm
+     * @param youtubePrivate YouTube는 공개 예약 없이 비공개로만 올린다(#501)
+     */
+    public record Status(List<PlatformState> platforms, String publishTime, boolean youtubePrivate) {}
 
     public record TestBody(Long shortsId) {}
 
@@ -101,7 +104,7 @@ public class AutoUploads {
                     c.map(Connection::enabled).orElse(false), c.map(Connection::testedAt).orElse(null), c.map(Connection::testUrl).orElse(null),
                     c.map(Connection::testError).orElse(null), c.map(Connection::tokenExpiresAt).orElse(null), redirectUri(p));
         }).toList();
-        return new Status(states, props.publishTime().toString());
+        return new Status(states, props.publishTime().toString(), props.youtube().privateOnly());
     }
 
     /** 플랫폼 앱에 등록할 콜백 주소 */

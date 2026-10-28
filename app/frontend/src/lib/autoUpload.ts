@@ -28,9 +28,11 @@ export interface AutoPlatformState {
 export interface AutoUploadStatus {
   platforms: AutoPlatformState[]
   publishTime: string
+  /** YouTube는 공개 예약 없이 비공개로만 올린다(#501). 공개는 YouTube 스튜디오에서 직접 한다 */
+  youtubePrivate: boolean
 }
 
-export type AutoJobStatus = 'QUEUED' | 'UPLOADING' | 'SCHEDULED' | 'PUBLISHED' | 'FAILED'
+export type AutoJobStatus = 'QUEUED' | 'UPLOADING' | 'SCHEDULED' | 'UPLOADED' | 'PUBLISHED' | 'FAILED'
 
 export interface AutoJob {
   platform: AutoPlatform
@@ -41,6 +43,8 @@ export interface AutoJob {
   error: string | null
   note: string | null
   updatedAt: string
+  /** 비공개로만 올리는 작업이면 publishAt은 공개 시각이 아니라 올린 시각이다 */
+  privateOnly: boolean
 }
 
 export interface AutoTestResult {
@@ -97,12 +101,24 @@ function kst(iso: string): string {
   return `${t('{0}월 {1}일', { 0: parts.month, 1: parts.day })} ${parts.hour}:${parts.minute}`
 }
 
+/** 작업이 끝났는지(더 볼 일이 없는지) */
+export const jobDone = (job: AutoJob) => job.status === 'PUBLISHED' || job.status === 'UPLOADED' || job.status === 'FAILED'
+
 export function jobLabel(job: AutoJob): string {
   const when = kst(job.publishAt)
+  if (job.privateOnly) {
+    switch (job.status) {
+      case 'QUEUED': return job.attempts > 0 ? t('다시 해 볼 차례예요 ({0}번 실패)', { 0: job.attempts }) : t('비공개로 올릴 차례를 기다려요')
+      case 'UPLOADING': return t('비공개로 올리는 중')
+      case 'UPLOADED': return t('{0}에 비공개로 올렸어요. 공개는 YouTube 스튜디오에서 해 주세요', { 0: when })
+      default: break
+    }
+  }
   switch (job.status) {
     case 'QUEUED': return job.attempts > 0 ? t('다시 해 볼 차례예요 ({0}번 실패)', { 0: job.attempts }) : t('{0} 공개로 올릴 차례를 기다려요', { 0: when })
     case 'UPLOADING': return t('올리는 중 ({0} 공개)', { 0: when })
     case 'SCHEDULED': return t('비공개로 올리고 {0}에 공개 예약했어요', { 0: when })
+    case 'UPLOADED': return t('{0}에 비공개로 올렸어요. 공개는 YouTube 스튜디오에서 해 주세요', { 0: when })
     case 'PUBLISHED': return t('{0}에 공개했어요', { 0: when })
     case 'FAILED': return t('올리지 못했어요')
   }
