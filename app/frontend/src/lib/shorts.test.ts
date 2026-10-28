@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ApiError } from './api'
+import parityRaw from './shortsCaptionParity.json?raw'
 import { emptyScene, estimateSeconds, groupByBatch, hashtags, playlistName, renderProblems, reportOf, shareVideo, uploadGuide, videoFileName, workerOnline, writtenTopics, type ShortsBatch, type ShortsItem } from './shorts'
 
 const scene = (narration: string) => ({ caption: '자막', narration, code: null })
@@ -55,6 +56,24 @@ describe('shorts', () => {
     status: 'READY', attempts: 1, videoUrl: '/media/shorts/2026/10/a.mp4', durationMs: 31500, videoBytes: 1000, error: null,
     estimatedSeconds: 30, queuedAt: null, renderedAt: null, createdAt: '', updatedAt: '', version: 1,
     postTags: ['spring', 'spring-boot', 'c++', '세션', 'redis', 'docker', 'k8s'], uploads: [], batchId: null, topic: null, replay: null, character: null, outro: true, onBlog: true, playlist: null, ...over,
+  })
+
+  // 서버 자동 올리기(spec 108)의 ShortsCaption이 같은 견본으로 같은 결과를 내는지는 ShortsCaptionParityTest가 본다
+  it('올리기 문구 견본(shortsCaptionParity.json)과 같은 제목·캡션·재생목록을 만든다', () => {
+    type Want = { title: string | null; caption: string; playlistName: string | null }
+    const fixture = JSON.parse(parityRaw) as { origin: string; samples: { name: string; input: {
+      title: string; postId: number | null; postUrl: string | null; replay: boolean; narrations: string[]; tags: string[]; playlist: ShortsItem['playlist'] }
+      expected: Record<'YOUTUBE' | 'INSTAGRAM', Want> }[] }
+    expect(fixture.samples.length).toBeGreaterThanOrEqual(3)
+    for (const sample of fixture.samples) {
+      const i = sample.input
+      const item = ready({ title: i.title, postId: i.postId, postUrl: i.postUrl, replay: i.replay ? {} as ShortsItem['replay'] : null,
+        scenes: i.narrations.map(scene), postTags: i.tags, playlist: i.playlist })
+      for (const platform of ['YOUTUBE', 'INSTAGRAM'] as const) {
+        const g = uploadGuide(item, platform, fixture.origin)
+        expect({ title: g.title, caption: g.caption, playlistName: g.playlistName }, `${sample.name} / ${platform}`).toEqual(sample.expected[platform])
+      }
+    }
   })
 
   it('태그를 해시태그로 바꿀 때 못 쓰는 글자를 빼고 한도까지만 쓴다', () => {

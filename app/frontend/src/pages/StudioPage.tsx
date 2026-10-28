@@ -13,6 +13,8 @@ import {
 import { ReplayInfo, ReplayPicker } from './StudioReplay'
 import { StudioPostPicker } from './StudioPostPicker'
 import { StudioUploadGuide } from './StudioUploadGuide'
+import { StudioAutoUpload } from './StudioAutoUpload'
+import { autoUploadStatus } from '../lib/autoUpload'
 
 const POLL_MS = 5000
 /** 장면 연출 이름 → 화면 이름 (번역 키) */
@@ -34,6 +36,9 @@ export function StudioPage() {
   const trades = me?.features?.trades ?? false
   const selectedBatch = Number(search.get('batch')) || null
   const queueOpen = search.has('queue')
+  // 자동 올리기(spec 108)는 쓸 수 있는 회원(기본은 블로그 주인)에게만 보인다
+  const autoOpen = search.has('auto')
+  const [autoAvailable, setAutoAvailable] = useState(false)
   const [data, setData] = useState<ShortsOverview | null>(null)
   const [batches, setBatches] = useState<ShortsBatch[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -55,6 +60,7 @@ export function StudioPage() {
 
   useEffect(() => { document.title = t('쇼츠 스튜디오 - devlog') }, [])
   useEffect(() => { void load() }, [load])
+  useEffect(() => { autoUploadStatus().then((st) => setAutoAvailable(st !== null)).catch(() => {}) }, [])
   const busy = data?.items.some((it) => isBusy(it.status)) ?? false
   useEffect(() => {
     if (!busy) return
@@ -87,6 +93,12 @@ export function StudioPage() {
             aria-current={queueOpen ? 'true' : undefined} data-tip={t('영상으로 만들 차례인 대본을 먼저 쓴 순서대로 봐요')}>
             {t('대본 큐 {0}편', { 0: data ? draftQueue(data.items).length : 0 })}
           </Link>
+          {autoAvailable && (
+            <Link to="/studio?auto=1" onClick={closeForms} className={`btn btn-outline btn-block studio-queue-btn${autoOpen ? ' active' : ''}`}
+              aria-current={autoOpen ? 'true' : undefined} data-tip={t('영상 만들기가 끝나면 YouTube·Instagram에 저녁 8시 공개로 올려요')}>
+              {t('자동 올리기')}
+            </Link>
+          )}
           {trades && (
             <button type="button" className="btn btn-outline btn-block studio-replay-btn" onClick={() => { setCreating(false); setPicking(true) }}
               data-tip={t('매매 일지의 체결을 골라 차트가 흘러가는 재현 영상 만들기')}>{t('매매 재현 영상')}</button>
@@ -120,6 +132,8 @@ export function StudioPage() {
                 setData((d) => d && { ...d, items: [it, ...d.items] })
                 navigate(`/studio?id=${it.id}`)
               }} />
+            : autoOpen && autoAvailable
+              ? <StudioAutoUpload items={data?.items ?? []} result={search.get('result')} resultPlatform={search.get('platform')} />
             : queueOpen && data
               ? <StudioQueue items={data.items} batches={batches} onOpen={closeForms} />
             : batch

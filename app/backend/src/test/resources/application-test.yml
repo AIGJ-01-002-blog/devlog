@@ -18,6 +18,19 @@ blog:
     timeout-check-interval: 1h
     # 첫 화면 색 묶음(ColorGroups)은 시험에서 늘 켜 둔다
     color-groups-since: 2020-01-01T00:00:00Z
+    # 자동 올리기(spec 108)는 가짜 플랫폼 서버로. 예약 작업은 시험이 직접 부른다
+    auto-upload:
+      token-key: "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
+      poll: false
+      publish-cron: "-"
+      refresh-cron: "-"
+      youtube:
+        client-id: test-youtube-client
+        client-secret: test-youtube-secret
+      instagram:
+        app-id: test-instagram-app
+        app-secret: test-instagram-secret
+        container-poll: 10ms
   # 매매 일지(#243)도 시험에서 켠다. 하루 기록 상한은 작게 두고 시험이 넘겨 본다
   trades:
     enabled: true
