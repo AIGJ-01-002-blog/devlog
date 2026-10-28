@@ -426,6 +426,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | バージョン | 日付 | 主な内容 | リリースノート |
 | --- | --- | --- | --- |
+| v2.22.0 | 2026-10-29 | ショート自動投稿：スタジオでYouTube・Instagramを連携しテスト投稿に通ると、レンダー済みショートを毎日1本20時(KST)に公開（初期はオフ） | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.22.0) |
 | v2.21.0 | 2026-10-28 | ショート投稿ガイドのキャプションに「毎晩20時に1本」の登録・フォロー案内、Instagramはプロフィールリンクへ誘導 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.21.0) |
 | v2.20.0 | 2026-10-28 | ショートの冒頭と長さ: AI台本は50秒まで(30〜45秒推奨)、最初の場面は質問ではなく障害の場面、最後の3秒はフォローの呼びかけ | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.20.0) |
 | v2.19.0 | 2026-10-28 | 検索インデックス整理: 画面ごとに生じていたログイン・問い合わせリンクの`?redirect=`・`?from=`をhrefから外し、Search Consoleの未登録URLを削減 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.19.0) |

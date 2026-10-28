@@ -426,6 +426,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v2.22.0 | 2026-10-29 | Shorts auto-upload: connect YouTube and Instagram in Studio, pass a test upload, and rendered shorts go live one a day at 8 PM KST (off by default) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.22.0) |
 | v2.21.0 | 2026-10-28 | Shorts upload captions now ask viewers to subscribe/follow for one a day at 8 PM; Instagram captions point to the profile link | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.21.0) |
 | v2.20.0 | 2026-10-28 | Shorts opening and length: AI scripts capped at 50 s (30–45 s recommended), first scene shows the incident instead of a question, last 3 s ask viewers to follow | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.20.0) |
 | v2.19.0 | 2026-10-28 | Search index cleanup: login and support links no longer carry per-page `?redirect=`/`?from=` in their href, cutting non-indexed URLs in Search Console | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.19.0) |

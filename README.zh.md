@@ -426,6 +426,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v2.22.0 | 2026-10-29 | 短视频自动上传：在工作室连接 YouTube 和 Instagram 并通过测试上传后，渲染完成的短视频每天一条于晚8点(韩国时间)公开（默认关闭） | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.22.0) |
 | v2.21.0 | 2026-10-28 | 短视频上传指南的文案加入"每晚8点更新一条"的订阅/关注引导，Instagram 文案改为指向主页链接 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.21.0) |
 | v2.20.0 | 2026-10-28 | 短视频开头与时长: AI 脚本上限 50 秒(建议 30~45 秒)，第一个画面用事故场景代替提问，最后 3 秒改为关注引导 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.20.0) |
 | v2.19.0 | 2026-10-28 | 搜索索引整理: 登录和咨询链接的 href 不再带每页不同的 `?redirect=`/`?from=`，减少 Search Console 中未编入索引的网址 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.19.0) |
