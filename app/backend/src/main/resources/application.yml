@@ -254,6 +254,25 @@ blog:
     # 블로그 [쇼츠] 탭과 글 아래 "이 글의 쇼츠"에 보이는 최대 개수 (spec 103)
     blog-max: 60
     post-max: 6
+    # 자동 올리기 (spec 108): 렌더가 끝난 영상을 블로그 주인의 YouTube·Instagram에 올린다. 기본은 꺼짐.
+    # 토큰 열쇠와 플랫폼 앱 값이 있어야 스튜디오에 [자동 올리기]가 보이고, 그 뒤에도 주인이 시험 올리기를 통과하고 직접 켜야 올린다.
+    # 값은 모두 실행 환경 비밀값으로만 넣는다 (specs/108-shorts-auto-upload/owner-setup.md)
+    auto-upload:
+      # 플랫폼 토큰을 암호화하는 AES-256 열쇠 (openssl rand -base64 32). 바꾸면 이어 둔 계정을 다시 연결해야 한다
+      token-key: ${SHORTS_TOKEN_KEY:}
+      # ADMINS(기본, 관리자만) 또는 MEMBERS. API 하루 한도와 앱 검수가 앱 하나에 걸려 있어 주인만 쓴다
+      audience: ${SHORTS_AUTO_UPLOAD_AUDIENCE:ADMINS}
+      publish-time: "20:00"
+      min-lead: 30m
+      max-attempts: 3
+      retry-backoff: 5m
+      youtube:
+        client-id: ${YOUTUBE_CLIENT_ID:}
+        client-secret: ${YOUTUBE_CLIENT_SECRET:}
+      instagram:
+        app-id: ${INSTAGRAM_APP_ID:}
+        app-secret: ${INSTAGRAM_APP_SECRET:}
+        api-version: ${INSTAGRAM_API_VERSION:v24.0}
   # 매매 일지 (#243, 목표 v2.0.0): 2.0.0 릴리스 전까지 꺼 둔다. 봇은 개인 쓰기 토큰으로 MCP record_trade를 부른다
   trades:
     enabled: ${TRADES_ENABLED:false}

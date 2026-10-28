@@ -10,6 +10,20 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
+## [2.22.0] - 2026-10-29
+
+**목표: 렌더가 끝난 쇼츠를 YouTube·Instagram에 자동으로 올리기** ([목표 이슈 #498](https://github.com/AIGJ-01-002-blog/devlog/issues/498))
+
+### 추가
+- 쇼츠 자동 올리기. 블로그 주인이 스튜디오에서 YouTube·Instagram 계정을 잇고 [시험 올리기](YouTube는 비공개, Instagram은 게시 없이 확인)를 통과한 플랫폼만 켤 수 있고, 켜면 영상 만들기가 끝난 쇼츠를 하루 한 편씩 저녁 8시(한국 시간)에 공개되게 올린다. 제목·캡션은 올리기 안내와 같고, YouTube는 AI 표시를 켜고 고른 재생목록에 넣는다. 처음에는 꺼져 있고 토큰은 암호화해 둔다. 설정 안내는 [specs/108](specs/108-shorts-auto-upload/owner-setup.md) (#498)
+
+### 포함된 작업
+| 이슈 | 브랜치 | PR |
+|---|---|---|
+| #498 쇼츠 자동 올리기 | `feature/498-shorts-auto-upload` | #499 |
+
+**비교:** [v2.21.0...v2.22.0](https://github.com/AIGJ-01-002-blog/devlog/compare/v2.21.0...v2.22.0)
+
 ## [2.21.0] - 2026-10-28
 
 **목표: 올리기 안내 캡션에 팔로우 권유와 인스타 프로필 링크** ([목표 이슈 #495](https://github.com/AIGJ-01-002-blog/devlog/issues/495))

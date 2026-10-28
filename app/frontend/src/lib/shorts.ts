@@ -3,7 +3,7 @@ import { t } from './i18n'
 
 /**
  * 쇼츠 스튜디오 (spec 099). 대본은 내 AI가 MCP로 쓰거나 여기서 직접 쓰고, [영상 만들기]는 사람이 누른다.
- * 영상은 내 컴퓨터의 렌더 워커가 만들고, SNS에는 내가 직접 올린다(자동 업로드 없음).
+ * 영상은 내 컴퓨터의 렌더 워커가 만들고, SNS에는 내가 직접 올린다. 블로그 주인이 켠 플랫폼만 서버가 자동으로 올린다(spec 108).
  * 길이·장면 수 규칙은 서버(ShortsScript)와 같다. 화면은 미리 알려 주기만 하고 판정은 서버가 한다.
  */
 export const LIMITS = {
@@ -352,7 +352,7 @@ function hook(item: ShortsItem): string {
  */
 export const SHORTS_TITLE_PREFIX = '[백엔드 면접]'
 
-/** 하루 한 편을 매일 같은 시각에 공개한다(같은 결정: 저녁 7~9시 가운데 고정). 한국 시간 */
+/** 하루 한 편을 매일 같은 시각에 공개한다(같은 결정: 저녁 7~9시 가운데 고정). 한국 시간. 서버 자동 올리기(blog.shorts.auto-upload.publish-time)도 같은 값이다 */
 export const SHORTS_PUBLISH_TIME = '20:00'
 
 const fromPost = (item: ShortsItem) => !item.replay && item.postId != null

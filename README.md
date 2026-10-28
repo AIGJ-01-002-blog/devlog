@@ -199,7 +199,7 @@ flowchart LR
     T[텔레그램] -->|봇 API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>파드 여러 개]
     I -->|/blog-images| M[(MinIO / S3<br/>사진·첨부)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V61)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V62)]
     A --> R[(Redis<br/>세션·요청 제한·조회수·캐시)]
     A --> M
     A -.선택.-> G[Google Gemini]
@@ -295,7 +295,7 @@ GitHub Actions로 테스트하고 이미지를 만들어 GHCR에 올린 뒤, kus
 
 | 경로 | 설명 |
 | --- | --- |
-| [app/backend](app/backend) | 백엔드 — Spring Boot 4.1, Java 21. 기능 모듈, Flyway 마이그레이션(V1~V61), 테스트 |
+| [app/backend](app/backend) | 백엔드 — Spring Boot 4.1, Java 21. 기능 모듈, Flyway 마이그레이션(V1~V62), 테스트 |
 | [app/frontend](app/frontend) | 프론트엔드 — React 19 SPA, TypeScript, Vite. 화면, 자동 저장(IndexedDB), 다크 모드 |
 | [deploy](deploy) | 배포 — Dockerfile, 쿠버네티스 매니페스트(base·selfhosted·nhn·local), 배포·롤백·비밀값 검사 스크립트 |
 | [app/render-worker](app/render-worker) | 쇼츠 렌더 워커 — Python 3.10, ffmpeg, Remotion(Node). 내 컴퓨터에서 대기열의 대본을 9:16 MP4로 만들어 올립니다 |
@@ -376,7 +376,7 @@ npm run dev        # http://localhost:5173
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub·Google·카카오·네이버·Facebook 로그인, 세션, CSRF, 경로별 권한 |
 | Spring Data JPA (Hibernate) | Boot 4.1 | 도메인 전체 | 회원·글·댓글 등 도메인 저장 |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | 세션, 요청 제한, 조회수, 캐시 | 파드 여러 개가 같은 세션을 보고, 동시 요청도 Redis 스크립트 하나로 판정합니다 |
-| Flyway | Boot 4.1 | DB | 스키마를 V1~V61 마이그레이션으로 관리하고 앱 시작 때 적용합니다 |
+| Flyway | Boot 4.1 | DB | 스키마를 V1~V62 마이그레이션으로 관리하고 앱 시작 때 적용합니다 |
 | commonmark-java (+ GFM 확장) | 0.30.0 | 본문 렌더링 | Markdown → HTML. 표·취소선·체크 목록·자동 링크·제목 앵커 |
 | OWASP Java HTML Sanitizer | 20260924.2 | 본문 정화 | 렌더링한 HTML을 허용 목록으로 정화해 XSS를 막습니다 |
 | AWS SDK for Java (S3) | 2.55.12 | media | MinIO·S3에 사진과 첨부를 올립니다 |
@@ -424,6 +424,7 @@ npm run dev        # http://localhost:5173
 
 | 버전 | 날짜 | 주요 내용 | 릴리스 노트 |
 | --- | --- | --- | --- |
+| v2.22.0 | 2026-10-29 | 쇼츠 자동 올리기: 스튜디오에서 YouTube·Instagram을 잇고 시험 올리기를 통과하면, 렌더가 끝난 쇼츠를 하루 한 편 저녁 8시에 공개되게 올림(처음엔 꺼짐) | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.22.0) |
 | v2.21.0 | 2026-10-28 | 쇼츠 올리기 안내 캡션에 "매일 저녁 8시에 하나씩" 구독·팔로우 권유, 인스타 캡션은 프로필 링크로 안내 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.21.0) |
 | v2.20.0 | 2026-10-28 | 쇼츠 첫 화면·길이: AI 대본 50초 상한(30~45초 권장), 첫 장면은 질문 대신 사고 장면, 끝 3초는 팔로우 권유 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.20.0) |
 | v2.19.0 | 2026-10-28 | 검색 색인 정리: 화면마다 생기던 로그인·문의 링크 주소(`?redirect=`·`?from=`)를 링크에서 빼 서치 콘솔 비색인 주소를 줄임 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.19.0) |
