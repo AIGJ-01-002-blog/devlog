@@ -205,7 +205,8 @@ class AdminConsoleTest extends IntegrationTest {
         JsonNode notes = ok(author.http(), "/api/me/notifications").path("items");
         assertThat(notes.valueStream().map(n -> n.path("type").asString())).contains("CONTENT_HIDDEN");
         JsonNode handled = ok(m, "/api/admin/reports?tab=handled").path("items");
-        assertThat(handled.valueStream().filter(r -> r.path("preview").asString().equals("숨길 글"))
+        // 같은 제목 글을 신고하는 다른 테스트(ReportTest)와 DB를 같이 쓰므로 이 작성자의 글만 본다
+        assertThat(handled.valueStream().filter(r -> r.path("preview").asString().equals("숨길 글") && r.path("authorHandle").asString().equals(author.handle()))
                 .map(r -> r.path("reportCount").asInt())).containsExactly(0);
 
         m.perform(asJson(post("/api/admin/posts/" + open + "/unhide"), Map.of())).andExpect(status().isNoContent());
