@@ -28,7 +28,7 @@ import com.team.blog.trade.application.TradeReplays;
 class ShortsTools {
     private static final Logger log = LoggerFactory.getLogger(ShortsTools.class);
     static final String SCENES_SCHEMA = """
-            "scenes":{"type":"array","maxItems":16,"description":"장면 5~7개로 30~45초(내레이션 약 180~270자)가 좋고 3~16개까지. 90초를 넘으면 영상으로 못 만들어요","items":{"type":"object","properties":{
+            "scenes":{"type":"array","maxItems":16,"description":"장면 5~7개로 30~45초(내레이션 약 180~270자)가 좋고 3~16개까지. AI가 쓰는 대본은 50초를 넘으면 저장되지 않아요","items":{"type":"object","properties":{
                 "caption":{"type":"string","description":"화면 큰 자막 (40자까지, 한 줄 요점)"},
                 "narration":{"type":"string","description":"읽을 문장 (200자까지, 말하듯이)"},
                 "code":{"type":"string","description":"화면에 보일 짧은 코드 (선택, 300자까지)"},
@@ -64,7 +64,7 @@ class ShortsTools {
             + "① 후킹(첫 장면, 3초 안): 후킹 종류 가운데 하나로 스크롤을 멈추게 한다. 첫 장면은 질문으로 시작하지 않는다(질문 카드로 시작한 영상은 피드에서 10명 중 9명이 바로 넘겼다, 2026-10-28 스튜디오 수치). 결과 먼저(결론·결과 숫자부터), "
             + "반박(\"다들 ~라는데 아니에요\"), 숫자 한 방(글에 있는 놀라운 숫자), 경고(\"이거 모르면 ~ 날려요\"), 고백(\"제가 ~를 날렸어요\", 글에 그런 일이 있을 때만). "
             + "첫 문장은 증상부터 보여 준다: 글에 나온 진짜 에러 문자열·상태 코드·숫자를 그대로 넣는다(예: \"401인데 토큰은 멀쩡해요\"). "
-            + "사고 장면(에러·털린 값·틀린 결과)을 첫 화면에 먼저 보여 주고, 질문은 제목에만 둔다. "
+            + "글에 있는 사고 장면(에러·털린 값·틀린 결과)을 첫 화면에 먼저 보여 주고, 글이 개선 사례라 사고가 없으면 결과 숫자를 먼저 보여 준다. 글에 없는 사고는 만들지 않고, 질문은 제목에만 둔다. "
             + "첫 장면 요점 자막(caption)은 영상의 커버·썸네일이 된다: 15자 안팎으로, 글 속의 구체적인 대상(에러 이름·글자 하나·숫자·도구 이름)을 넣고 "
             + "\"~하는 이유\", \"~하는 법\"처럼 교과서 말로 끝내지 않는다(예: \"s 한 글자에 로그인이 막혔다\", \"ERROR 로그가 딱 1줄?\"). "
             + "첫 장면 visual은 후킹에 맞춘다: 결과 먼저면 shock나 celebrate, 숫자 한 방은 글에 전후 숫자가 둘 다 있을 때만 fast(전후 막대)이고 숫자가 하나뿐이면 shock, 경고면 panic, 반박이면 shock. "
