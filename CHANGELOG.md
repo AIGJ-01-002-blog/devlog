@@ -10,6 +10,9 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
+### 고침
+- 화면마다 `/login?redirect=…`·`/support?from=…` 링크 주소가 따로 생겨 구글 서치 콘솔에 robots 차단·noindex 주소가 쌓이던 문제. 링크 href에는 경로만 남기고, 누르면 전처럼 돌아올 곳을 담아 이동한다 (#489)
+
 ## [2.18.0] - 2026-10-26
 
 **목표: 쇼츠 말 빠르기 1.05배와 자막·음성 싱크** ([목표 이슈 #484](https://github.com/AIGJ-01-002-blog/devlog/issues/484))

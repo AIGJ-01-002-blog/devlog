@@ -45,6 +45,26 @@ export function match(pattern: string, path: string): Record<string, string> | n
   return params
 }
 
+/**
+ * 돌아올 곳만 담은 쿼리(로그인 뒤 돌아갈 주소, 문의를 연 화면)는 a 태그 href에서 뺀다. 누르면 to 그대로 간다.
+ * 화면마다 /login?redirect=… · /support?from=… 주소가 하나씩 생겨, 구글이 robots.txt 차단·noindex 주소를
+ * 수십 개 모아 서치 콘솔 비색인 수를 부풀렸다(2026-10-23 robots 차단 84, noindex 58). 경로만 남기면 한 주소로 모인다.
+ */
+const RETURN_PARAM: Record<string, string> = { '/login': 'redirect', '/signup': 'redirect', '/support': 'from' }
+
+export function anchorHref(to: string): string {
+  const q = to.indexOf('?')
+  if (q < 0) return to
+  const path = to.slice(0, q)
+  const key = RETURN_PARAM[path]
+  if (!key) return to
+  const params = new URLSearchParams(to.slice(q + 1))
+  if (!params.has(key)) return to
+  params.delete(key)
+  const rest = params.toString()
+  return rest ? `${path}?${rest}` : path
+}
+
 export function Link({ to, children, onClick, ...rest }: { to: string; children: ReactNode } & AnchorHTMLAttributes<HTMLAnchorElement>) {
   const handle = (e: MouseEvent<HTMLAnchorElement>) => {
     onClick?.(e)
@@ -59,7 +79,7 @@ export function Link({ to, children, onClick, ...rest }: { to: string; children:
     requestAnimationFrame(() => focusMain())
   }
   return (
-    <a href={to} onClick={handle} {...rest}>
+    <a href={anchorHref(to)} onClick={handle} {...rest}>
       {children}
     </a>
   )
