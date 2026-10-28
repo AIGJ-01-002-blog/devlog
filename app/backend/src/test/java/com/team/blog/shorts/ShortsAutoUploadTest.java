@@ -291,6 +291,8 @@ class ShortsAutoUploadTest extends IntegrationTest {
 
     /** 회원 행 잠금(SELECT … FROM member … FOR UPDATE)을 기다리는 다른 연결 수 */
     private int waitingOnMember() {
+        // 잠금을 쥔 트랜잭션 안에서 읽으므로, 처음 읽은 통계 스냅샷이 트랜잭션 끝까지 남는다. 매번 비워 새로 읽는다
+        jdbc.execute("SELECT pg_stat_clear_snapshot()");
         return jdbc.queryForObject("""
                 SELECT count(*) FROM pg_stat_activity WHERE pid <> pg_backend_pid() AND wait_event_type = 'Lock'
                   AND query LIKE '%FROM member WHERE id = % FOR UPDATE%'
