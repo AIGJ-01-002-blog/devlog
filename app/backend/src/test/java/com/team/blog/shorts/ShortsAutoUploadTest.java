@@ -64,6 +64,7 @@ class ShortsAutoUploadTest extends IntegrationTest {
 
     @Autowired AutoUploadJobs jobs;
     @Autowired AutoUploads uploads;
+    @Autowired org.springframework.transaction.support.TransactionTemplate tx;
     @Autowired ObjectStorage storage;
 
     @BeforeEach
@@ -210,6 +211,90 @@ class ShortsAutoUploadTest extends IntegrationTest {
         assertThat(row.get("status")).isEqualTo("QUEUED");
         assertThat(row.get("container_id")).isNull();
         assertThat(row.get("later")).isEqualTo(true);
+    }
+
+    /**
+     * 동시성 규칙(헌법 V): [다시 올리기]와 예약 작업이 같은 회원·플랫폼의 빈 날을 함께 고르면 서로 다른 날을 받는다.
+     * 시험이 회원 행을 먼저 잠가 두 요청이 모두 slot()을 고르기 직전(잠금 대기)에 멈춘 것을 확인한 뒤 놓는다.
+     * 잠금이 없으면 두 요청이 기다리지 않아 대기 2건을 보지 못하고 실패한다
+     */
+    @Test
+    void 다시_올리기와_예약_작업이_동시에_골라도_공개_날이_겹치지_않는다() throws Exception {
+        Session me = signup(uniqueLogin("aulock"));
+        Browser b = admin(me);
+        enable(b, "youtube");
+        long failedId = readyShorts(b, "실패했던 영상", null);
+        assertThat(jobs.enqueue()).isEqualTo(1);
+        jdbc.update("UPDATE shorts_auto_upload SET status = 'FAILED' WHERE shorts_id = ?", failedId);
+        long fresh = readyShorts(b, "새로 만든 영상", null);
+
+        java.util.concurrent.CountDownLatch start = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            java.util.concurrent.Future<?>[] running = new java.util.concurrent.Future<?>[2];
+            tx.executeWithoutResult(s -> {
+                jdbc.queryForList("SELECT id FROM member WHERE id = ? FOR UPDATE", Long.class, me.memberId());
+                running[0] = pool.submit(() -> { start.await(); jobs.retry(me.memberId(), failedId, com.team.blog.shorts.autoupload.AutoPlatform.YOUTUBE); return null; });
+                running[1] = pool.submit(() -> { start.await(); return jobs.enqueue(); });
+                start.countDown();
+                long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(20);
+                while (waitingOnMember() < 2) {
+                    assertThat(System.nanoTime()).as("두 요청이 회원 행 잠금을 기다려야 한다").isLessThan(deadline);
+                    Thread.onSpinWait();
+                }
+            });
+            running[0].get(20, java.util.concurrent.TimeUnit.SECONDS);
+            running[1].get(20, java.util.concurrent.TimeUnit.SECONDS);
+        } finally {
+            pool.shutdownNow();
+        }
+        List<java.time.LocalDate> days = jdbc.queryForList("SELECT publish_at FROM shorts_auto_upload WHERE shorts_id IN (?, ?) AND status = 'QUEUED'",
+                Timestamp.class, failedId, fresh).stream().map(t -> t.toInstant().atZone(KST).toLocalDate()).toList();
+        assertThat(days).hasSize(2).doesNotHaveDuplicates();
+    }
+
+    /** 연결 해제와 진행 중 업로드(헌법 V 동시성): 업로드가 끝나기 전에 끊으면 작업은 FAILED로 남고, 올라간 영상이 있다고 알린다 */
+    @Test
+    void 올리는_도중에_연결을_끊으면_FAILED로_남고_올라간_영상을_알린다() throws Exception {
+        Session me = signup(uniqueLogin("aucut"));
+        Browser b = admin(me);
+        enable(b, "youtube");
+        long id = readyShorts(b, "올리는 중에 끊을 영상", null);
+        assertThat(jobs.enqueue()).isEqualTo(1);
+        java.util.concurrent.CountDownLatch uploading = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        FAKE.onVideoPut = () -> {
+            uploading.countDown();
+            try {
+                release.await(20, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        };
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newSingleThreadExecutor();
+        try {
+            java.util.concurrent.Future<Integer> run = pool.submit(jobs::runDue);
+            assertThat(uploading.await(20, java.util.concurrent.TimeUnit.SECONDS)).as("영상 바이트가 가짜 YouTube에 닿았다").isTrue();
+            b.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/me/shorts/auto-upload/youtube").with(
+                    org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf())).andExpect(status().isNoContent());
+            release.countDown();
+            run.get(20, java.util.concurrent.TimeUnit.SECONDS);
+        } finally {
+            release.countDown();
+            pool.shutdownNow();
+        }
+        Map<String, Object> row = jdbc.queryForMap("SELECT status, external_id, note FROM shorts_auto_upload WHERE shorts_id = ?", id);
+        assertThat(row.get("status")).as("끊으며 멈춘 FAILED를 SCHEDULED로 덮지 않는다").isEqualTo("FAILED");
+        assertThat(row.get("external_id")).isEqualTo(FakePlatforms.VIDEO_ID);
+        assertThat((String) row.get("note")).contains("YouTube에 공개 예약돼 있어요");
+    }
+
+    /** 회원 행 잠금(SELECT … FROM member … FOR UPDATE)을 기다리는 다른 연결 수 */
+    private int waitingOnMember() {
+        return jdbc.queryForObject("""
+                SELECT count(*) FROM pg_stat_activity WHERE pid <> pg_backend_pid() AND wait_event_type = 'Lock'
+                  AND query LIKE '%FROM member WHERE id = % FOR UPDATE%'
+                """, Integer.class);
     }
 
     @Test

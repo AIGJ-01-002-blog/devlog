@@ -38,6 +38,8 @@ public final class FakePlatforms {
     private final Map<String, Deque<Reply>> overrides = new ConcurrentHashMap<>();
     /** 컨테이너 상태 (GET /v24.0/{container}) */
     public volatile String containerStatus = "FINISHED";
+    /** 영상 바이트(PUT /upload-session/1)를 받은 뒤 응답하기 전에 부른다. 시험이 업로드 도중을 붙잡을 때 쓴다 */
+    public volatile Runnable onVideoPut;
 
     private FakePlatforms(HttpServer server) {
         this.server = server;
@@ -67,6 +69,7 @@ public final class FakePlatforms {
         seen.clear();
         overrides.clear();
         containerStatus = "FINISHED";
+        onVideoPut = null;
     }
 
     /** "POST /youtube/v3/playlistItems"처럼 방법과 경로로 한 번만 다른 응답 */
@@ -89,6 +92,8 @@ public final class FakePlatforms {
         seen.add(new Seen(method, path, parse(ex.getRequestURI().getRawQuery()), form ? parse(body) : Map.of(),
                 ex.getRequestHeaders().getFirst("Authorization"), ct, ex.getRequestHeaders().getFirst("X-Upload-Content-Length"), body, raw.length));
         String key = method + " " + path;
+        Runnable hook = onVideoPut;
+        if (hook != null && key.equals("PUT /upload-session/1")) hook.run();
         Deque<Reply> q = overrides.get(key);
         Reply r = q == null ? null : q.poll();
         if (r == null) r = defaults(method, path);
