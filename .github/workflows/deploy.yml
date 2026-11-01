@@ -38,7 +38,7 @@ on:
         options: [auto, school, oracle]
         default: auto
       tunnel:
-        description: "도메인(devlog.life)을 이 클러스터에 처음 연결. 이미 연결된 클러스터는 끄지 않아도 갱신된다. 서버 이전은 '서버 이전' 워크플로로 한다"
+        description: "도메인(devlog.life)을 이 클러스터에 처음 연결. 다른 서버의 cloudflared가 살아 있으면 요청이 나뉘므로 그쪽을 먼저 지운 뒤에만 켠다. 서버 이전은 '서버 이전' 워크플로로 한다"
         type: boolean
         default: false
       overlay:
@@ -304,7 +304,14 @@ jobs:
         env:
           ROLLBACK_TEST: ${{ inputs.rollback_test || 'false' }}
           ROLLOUT_TIMEOUT: ${{ vars.ROLLOUT_TIMEOUT_SECONDS || '300' }}
-        run: deploy/scripts/rollout.sh
+        run: |
+          deploy/scripts/rollout.sh
+          # 서버 이전 시험 복사(rehearsal) 뒤 대기 중인 클러스터는 새 버전만 받아 두고 앱은 다시 멈춘다.
+          # 학교와 같은 데이터로 예약 발행·알림·쇼츠 올리기가 두 번 돌지 않게 한다(server-migrate.sh)
+          if [ -n "$(kubectl -n blog get configmap migration-standby --ignore-not-found -o name)" ]; then
+            echo "이전 대기 중인 클러스터라 앱을 다시 멈춥니다(cutover가 켭니다)."
+            kubectl -n blog scale deploy/blog-app --replicas=0
+          fi
       # 9) cloudflared를 띄워 devlog.life 바깥 주소를 클러스터에 잇는다. 서버에 들어오는 포트를 열지 않아도 된다
       #    같은 터널 토큰으로 두 서버가 함께 붙으면 요청이 반씩 나뉜다. 그래서 이미 도메인이 붙은 클러스터만 갱신하고,
       #    새 클러스터에 처음 붙이는 일은 수동 실행의 tunnel 또는 '서버 이전' 워크플로(server-migrate.yml)가 한다

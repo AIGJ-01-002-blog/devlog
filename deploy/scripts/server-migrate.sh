@@ -158,6 +158,8 @@ copy_data() {
 
 case "$MODE" in
   rehearsal)
+    # 이 표시가 있으면 블로그 배포가 새 버전을 올린 뒤에도 앱을 다시 멈춘다(cutover가 지움)
+    ko create configmap migration-standby --from-literal=since="$(date -u +%FT%TZ)" --dry-run=client -o yaml | ko apply -f - >/dev/null
     copy_data
     echo "끝: 오라클 앱은 멈춰 둡니다(cutover가 켭니다). 도메인은 학교 그대로입니다."
     ;;
@@ -182,6 +184,7 @@ case "$MODE" in
     copy_data strict
     say "오라클 앱 켜기"
     unmark_moved ko
+    ko delete configmap migration-standby --ignore-not-found >/dev/null
     scale_app ko "$APP_REPLICAS"
     say "도메인 옮기기: 학교 cloudflared 지우고 오라클에 띄우기"
     mark_moved ks oracle
