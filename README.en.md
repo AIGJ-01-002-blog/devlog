@@ -427,6 +427,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v2.24.1 | 2026-11-02 | Fix the server migration file count, which was mixed with the copy log and always reported a mismatch | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.1) |
 | v2.24.0 | 2026-11-02 | Server migration workflow that moves production from the school lab server to a free Oracle Cloud VM (rehearsal, cutover, rollback) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.0) |
 | v2.23.0 | 2026-10-29 | Shorts auto-upload now sends YouTube videos as private right after rendering; you publish them yourself in YouTube Studio | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.23.0) |
 | v2.22.0 | 2026-10-29 | Shorts auto-upload: connect YouTube and Instagram in Studio, pass a test upload, and rendered shorts go live one a day at 8 PM KST (off by default) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.22.0) |
