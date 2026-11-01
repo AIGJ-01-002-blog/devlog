@@ -187,6 +187,11 @@ jobs:
       - name: 도구 설치
         run: |
           curl -sSL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin
+      # 변수 DEPLOY_TARGET 오타(auto·School 등)가 엉뚱한 서버로 가지 않게 두 값만 받는다
+      - name: 배포 대상 확인
+        run: |
+          case "$TARGET" in school|oracle) echo "배포 대상: $TARGET" ;;
+            *) echo "::error::배포 대상 '$TARGET'을 모릅니다. 변수 DEPLOY_TARGET은 school 또는 oracle이어야 합니다"; exit 1 ;; esac
       # 4) 학교 서버 쿠버네티스 API는 바깥에 열려 있지 않아 SSH 터널로 러너에 잇는다(.github/actions/school-tunnel)
       - name: 학교 서버 SSH 터널 (target=school)
         if: env.TARGET == 'school'
@@ -276,6 +281,15 @@ jobs:
             --docker-username="$GHCR_PULL_USER" --docker-password="$(cat "$RUNNER_TEMP/ghcr-token")" \
             --dry-run=client -o yaml | kubectl apply -f -
           rm -f "$RUNNER_TEMP/ghcr-token"
+      # 도메인이 다른 서버로 옮겨 간 클러스터(서버 이전 워크플로가 ConfigMap domain-moved를 남김)에는 배포하지 않는다.
+      # 배포는 성공해도 devlog.life에는 안 보이고, 옛 데이터로 예약 작업이 다시 돌 수 있기 때문이다
+      - name: 도메인이 옮겨 간 클러스터인지 확인
+        run: |
+          moved=$(kubectl -n blog get configmap domain-moved --ignore-not-found -o 'jsonpath={.data.to}')
+          if [ -n "$moved" ]; then
+            echo "::error::devlog.life가 '$moved' 서버로 옮겨 가서 '$TARGET'에는 배포하지 않습니다. 변수 DEPLOY_TARGET을 $moved로 맞춰 주세요"
+            exit 1
+          fi
       # 7) (학교 서버만) 예전 대시보드의 넓은 권한을 지운다
       - name: 대시보드 옛 클러스터 전체 읽기 권한 지우기
         if: env.TARGET == 'school'
@@ -303,7 +317,9 @@ jobs:
             echo "CLOUDFLARE_TUNNEL_TOKEN이 없어 도메인 연결을 건너뜁니다."
             exit 0
           fi
-          if ! kubectl -n blog get deploy/cloudflared >/dev/null 2>&1 && [ "$TUNNEL_INPUT" != true ]; then
+          # 조회 실패(접속 오류)는 '연결 안 됨'으로 보지 않고 실패로 끝낸다
+          existing=$(kubectl -n blog get deploy/cloudflared --ignore-not-found -o name)
+          if [ -z "$existing" ] && [ "$TUNNEL_INPUT" != true ]; then
             echo "이 클러스터($TARGET)에는 아직 도메인이 연결돼 있지 않아 건너뜁니다. 연결은 '서버 이전' 워크플로가 합니다."
             exit 0
           fi

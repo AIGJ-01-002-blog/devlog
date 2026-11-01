@@ -19,7 +19,8 @@ umask 077
 MODE="${1:?모드를 주세요: rehearsal | cutover | rollback}"
 : "${KS:?학교 kubeconfig 경로(KS)가 필요합니다}"
 : "${KO:?오라클 kubeconfig 경로(KO)가 필요합니다}"
-NS="${NAMESPACE:-blog}"
+# cloudflared 부품(addons/cloudflare-tunnel)이 blog 네임스페이스에 고정돼 있어 네임스페이스는 바꾸지 않는다
+NS=blog
 SITE="${SITE_BASE_URL:-https://devlog.life}"
 APP_REPLICAS="${APP_REPLICAS:-2}"
 ORACLE_MINIO_PORT="${ORACLE_MINIO_PORT:-19001}"
@@ -49,7 +50,11 @@ counts() { # $1 = ks | ko
 scale_app() { # $1 = ks | ko, $2 = 개수
   "$1" scale deploy/blog-app --replicas="$2"
   if [ "$2" = 0 ]; then
-    "$1" wait --for=delete pod -l app.kubernetes.io/name=blog-app --timeout=180s || true
+    "$1" wait --for=delete pod -l app.kubernetes.io/name=blog-app --timeout=180s >/dev/null 2>&1 || true
+    # 백업 뒤에 쓰기가 들어오면 안 되므로, 남은 앱 파드가 있으면 멈춘다
+    if [ -n "$("$1" get pod -l app.kubernetes.io/name=blog-app -o name)" ]; then
+      die "$1: 앱 파드가 180초 안에 내려가지 않았습니다."
+    fi
   else
     "$1" rollout status deploy/blog-app --timeout=600s
   fi
@@ -65,6 +70,17 @@ tunnel_on() {
   "$k" rollout status deploy/cloudflared --timeout=300s
 }
 tunnel_off() { "$1" delete deploy/cloudflared --ignore-not-found --wait=true; }
+# 도메인이 붙은 클러스터인지. 조회 자체가 실패하면(접속 오류) 추측하지 않고 멈춘다
+has_tunnel() { local out; out="$("$1" get deploy/cloudflared --ignore-not-found -o name)" || die "$1: cloudflared 조회 실패"; [ -n "$out" ]; }
+# 도메인이 다른 서버로 옮겨 갔다는 표시. 블로그 배포(deploy.yml)가 이 표시가 있는 클러스터에는 배포하지 않는다
+mark_moved() { "$1" create configmap domain-moved --from-literal=to="$2" --dry-run=client -o yaml | "$1" apply -f - >/dev/null; }
+unmark_moved() { "$1" delete configmap domain-moved --ignore-not-found >/dev/null; }
+# 쇼츠 자동 올리기 토큰 암호화 열쇠가 두 서버에서 같은지 해시로만 비교한다(값은 찍지 않음)
+key_hash() {
+  local sec
+  sec="$("$1" get deployment blog-app -o 'jsonpath={.spec.template.spec.containers[0].envFrom[*].secretRef.name}' | tr ' ' '\n' | grep '^blog-app-' | head -1)"
+  "$1" get secret "$sec" -o 'jsonpath={.data.SHORTS_TOKEN_KEY}' | sha256sum | cut -d' ' -f1
+}
 
 smoke() { BASE_URL="$SITE" SMOKE_TRIES="${SMOKE_TRIES:-12}" bash "$HERE/deploy/scripts/smoke.sh"; }
 
@@ -73,6 +89,8 @@ copy_data() {
   local strict="${1:-}"
   ko get statefulset/postgres >/dev/null 2>&1 && ko get deploy/blog-app >/dev/null 2>&1 \
     || die "오라클에 블로그가 아직 없습니다. 먼저 '블로그 배포'를 target=oracle로 실행해 주세요."
+  [ "$(key_hash ks)" = "$(key_hash ko)" ] \
+    || die "두 서버의 SHORTS_TOKEN_KEY가 다릅니다. 옮긴 YouTube·Instagram 연결을 풀 수 없으니 BLOG_SECRET_ENV를 학교 값 그대로 두고 오라클에 다시 배포해 주세요."
 
   say "학교 데이터 받기 (backup.sh)"
   KUBECONFIG="$KS" bash "$HERE/deploy/home/backup.sh" "$WORK/bk"
@@ -145,20 +163,28 @@ case "$MODE" in
     ;;
   cutover)
     [ -s "${TUNNEL_TOKEN_FILE:-}" ] || die "Secret CLOUDFLARE_TUNNEL_TOKEN이 없어 도메인을 옮길 수 없습니다."
-    say "점검 시작: 학교 앱 멈춤 (도메인은 아직 학교)"
-    scale_app ks 0
-    # 여기서부터 실패하면 학교 앱과 도메인을 되살린다
+    has_tunnel ks || die "학교에 도메인이 붙어 있지 않습니다. 이미 옮겼다면 다시 할 필요가 없습니다."
+    school_replicas="$(ks get deploy/blog-app -o 'jsonpath={.spec.replicas}')"
+    # 여기서부터 실패하면 학교 앱과 도메인을 되살린다. 단계마다 결과를 따로 표시한다
     restore_school() {
       echo "::error::이전 중 실패해 학교 서버로 되돌립니다."
-      tunnel_off ko || true
-      ks get deploy/cloudflared >/dev/null 2>&1 || tunnel_on ks || true
-      scale_app ks "$APP_REPLICAS" || true
+      # die가 되돌리기 전체를 끝내지 않게 단계마다 하위 셸에서 돌린다
+      try() { ( "$@" ) || echo "::error::되돌리기 단계 실패: $*"; }
+      try scale_app ko 0
+      try tunnel_off ko
+      try scale_app ks "${school_replicas:-$APP_REPLICAS}"
+      ( has_tunnel ks ) || try tunnel_on ks
+      try unmark_moved ks
     }
     trap 'rc=$?; [ $rc -ne 0 ] && restore_school; cleanup; exit $rc' EXIT
+    say "점검 시작: 학교 앱 멈춤 (도메인은 아직 학교)"
+    scale_app ks 0
     copy_data strict
     say "오라클 앱 켜기"
+    unmark_moved ko
     scale_app ko "$APP_REPLICAS"
     say "도메인 옮기기: 학교 cloudflared 지우고 오라클에 띄우기"
+    mark_moved ks oracle
     tunnel_off ks
     tunnel_on ko
     say "바깥 주소 확인 ($SITE)"
@@ -167,12 +193,20 @@ case "$MODE" in
     echo "끝: $SITE 는 이제 오라클 서버에서 열립니다. 학교 앱은 멈춰 둡니다(되돌리기: 모드 rollback)."
     ;;
   rollback)
-    say "도메인을 학교로 되돌리기"
-    tunnel_off ko
+    # 토큰부터 확인하고, 학교 앱이 준비된 뒤에야 도메인을 옮긴다. 중간에 실패해도 도메인은 오라클에 남아 있다
+    [ -s "${TUNNEL_TOKEN_FILE:-}" ] || die "Secret CLOUDFLARE_TUNNEL_TOKEN이 없어 도메인을 되돌릴 수 없습니다."
+    has_tunnel ko || die "오라클에 도메인이 붙어 있지 않습니다. 되돌릴 것이 없습니다."
+    say "학교 앱 켜기"
     scale_app ks "$APP_REPLICAS"
+    say "도메인을 학교로 되돌리기"
+    unmark_moved ks
     tunnel_on ks
+    tunnel_off ko
+    say "오라클 앱 멈춤 (예약 작업이 두 번 돌지 않게)"
+    mark_moved ko school
+    scale_app ko 0
     smoke || die "학교로 되돌렸지만 $SITE 가 열리지 않습니다."
-    echo "::warning::이전 뒤 오라클에 새로 쓰인 글·댓글은 학교로 옮기지 않았습니다. 앞으로 배포를 학교로 보내려면 변수 DEPLOY_TARGET=school을 넣어 주세요."
+    echo "::warning::이전 뒤 오라클에 새로 쓰인 글·댓글은 학교로 옮기지 않았습니다. 앞으로 배포를 학교로 보내려면 변수 DEPLOY_TARGET=school을 넣어 주세요(그 전까지 오라클 배포는 멈춥니다)."
     ;;
   *) die "모르는 모드: $MODE (rehearsal | cutover | rollback)" ;;
 esac

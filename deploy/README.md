@@ -241,8 +241,8 @@ Oracle 무료 VM이 "Out of capacity"로 만들어지지 않아 학교가 준 �
 2. 인스턴스의 VCN → 보안 목록 → 수신 규칙에 TCP 6443(쿠버네티스 API, GitHub Actions 배포용) 추가. 80·443은 열지 않는다(Cloudflare Tunnel이 안에서 밖으로 연결).
 3. SSH로 접속해 `curl -fsSL https://raw.githubusercontent.com/AIGJ-01-002-blog/devlog/main/deploy/scripts/server-setup.sh | sudo bash`
 4. `sudo cat /root/kubeconfig-github.yaml` 내용을 GitHub Secret `KUBECONFIG`에 넣는다.
-5. `BLOG_SECRET_ENV`: 로컬에서 `deploy/scripts/gen-secret-env.sh selfhosted`로 만든 secret.env 내용 전체.
-6. 아래 "도메인 연결"의 토큰을 넣고 Actions → 배포 → Run workflow (overlay `selfhosted`).
+5. `BLOG_SECRET_ENV`: 학교에서 옮길 때는 **지금 값을 그대로** 둔다(바꾸지 않음). `SHORTS_TOKEN_KEY`·로그인 열쇠가 같아야 옮긴 YouTube·Instagram 연결과 소셜 로그인이 이어진다. DB·MinIO 비밀번호는 새 서버가 처음 뜰 때 이 값으로 만들어진다. 처음부터 새로 시작할 때만 `deploy/scripts/gen-secret-env.sh selfhosted`로 만든다.
+6. main 머지(또는 Actions → 블로그 배포, target `oracle`)로 앱을 올린다. 도메인은 붙지 않는다. 학교에서 옮길 때는 위 "오라클 서버로 이전"의 서버 이전 워크플로가 데이터를 옮기고 도메인을 붙인다.
 
 이미지는 amd64·arm64 두 가지로 만들어 Ampere(arm64)에서도 뜬다. API 6443을 인터넷에 여는 대신 인증서로만 접속되며, 나중에 서버에 GitHub self-hosted 러너를 두면 이 포트를 닫을 수 있다.
 
