@@ -126,8 +126,11 @@ copy_data() {
   docker run --rm --network host --user "$(id -u):$(id -g)" --env-file "$WORK/mc.env" \
     -e MC_CONFIG_DIR=/mc -e BUCKET="$bucket" -v "$WORK/mc-config:/mc" -v "$WORK/bk/media:/src:ro" \
     --entrypoint sh "$mc_image" -c \
-    'mc mb --ignore-existing "oracle/$BUCKET" >/dev/null && mc mirror --overwrite --remove --quiet /src "oracle/$BUCKET" && mc ls --recursive "oracle/$BUCKET" | wc -l' \
-    > "$WORK/oracle-media-count"
+    'mc mb --ignore-existing "oracle/$BUCKET" >/dev/null && mc mirror --overwrite --remove --quiet /src "oracle/$BUCKET" >/dev/null && echo "count=$(mc ls --recursive "oracle/$BUCKET" | wc -l)"' \
+    > "$WORK/mc.out"
+  # mc mirror는 --quiet여도 옮긴 파일을 한 줄씩 찍으므로 그 출력은 버리고(오류는 stderr로 남는다), 센 수는 count= 줄에서만 읽는다
+  sed -n 's/^count=[[:space:]]*\([0-9][0-9]*\)[[:space:]]*$/\1/p' "$WORK/mc.out" | tail -n1 > "$WORK/oracle-media-count"
+  [ -s "$WORK/oracle-media-count" ] || die "오라클 파일 저장소의 파일 수를 세지 못했습니다."
   rm -f "$WORK/mc.env"
   kill "$PF" 2>/dev/null || true; PF=""
 
