@@ -1,0 +1,73 @@
+# 학교 서버 → 오라클 서버 이전 (2026-11). 수동 실행만(Actions → 서버 이전 → Run workflow).
+# 학교 클러스터는 SSH 터널(.github/actions/school-tunnel), 오라클 클러스터는 Secret KUBECONFIG로 붙어
+# deploy/scripts/server-migrate.sh를 돌린다. 모드:
+#   rehearsal  데이터만 시험 복사(도메인·학교 앱 그대로, 오라클 앱은 멈춰 둠)
+#   cutover    학교 앱 멈춤 → 최종 복사 → 수 비교 → 도메인을 오라클로 → 바깥 주소 확인. 실패하면 학교로 자동 복귀
+#   rollback   도메인을 학교로 되돌리고 학교 앱을 다시 켬
+# 순서: '블로그 배포'가 오라클에 앱을 한 번 올린 뒤(main 머지 또는 target=oracle 수동 실행) rehearsal → cutover.
+name: 서버 이전
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "rehearsal = 시험 복사 / cutover = 최종 이전(점검 몇 분) / rollback = 학교로 되돌리기"
+        type: choice
+        options: [rehearsal, cutover, rollback]
+        default: rehearsal
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    name: 서버 이전 (${{ inputs.mode }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment: selfhosted
+    # 블로그 배포와 겹치지 않게 같은 줄에 선다
+    concurrency:
+      group: deploy-cluster
+      cancel-in-progress: false
+    env:
+      KUSTOMIZE_VERSION: "5.7.1"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: 도구 설치
+        run: |
+          curl -sSL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_amd64.tar.gz" | sudo tar xz -C /usr/local/bin
+      - name: 학교 서버 SSH 터널
+        uses: ./.github/actions/school-tunnel
+        with:
+          known-hosts: ${{ vars.SCHOOL_SSH_KNOWN_HOSTS }}
+          host: ${{ vars.SCHOOL_SSH_HOST }}
+          ssh-port: ${{ vars.SCHOOL_SSH_PORT }}
+          user: ${{ vars.SCHOOL_SSH_USER }}
+          api-port: ${{ vars.SCHOOL_K8S_API_PORT }}
+          password: ${{ secrets.SCHOOL_SSH_PASSWORD }}
+      - name: 접속 파일 준비 (러너에만 존재)
+        env:
+          KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG }}
+          CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
+        run: |
+          umask 077
+          [ -n "$KUBECONFIG_CONTENT" ] || { echo "::error::Secret KUBECONFIG(오라클 접속 파일)가 없습니다"; exit 1; }
+          mv "$KUBECONFIG" "$RUNNER_TEMP/school.kubeconfig"
+          printf '%s' "$KUBECONFIG_CONTENT" > "$RUNNER_TEMP/oracle.kubeconfig"
+          printf '%s' "$CLOUDFLARE_TUNNEL_TOKEN" > "$RUNNER_TEMP/tunnel-token"
+          {
+            echo "KS=$RUNNER_TEMP/school.kubeconfig"
+            echo "KO=$RUNNER_TEMP/oracle.kubeconfig"
+            echo "TUNNEL_TOKEN_FILE=$RUNNER_TEMP/tunnel-token"
+          } >> "$GITHUB_ENV"
+          kubectl --kubeconfig "$RUNNER_TEMP/school.kubeconfig" get nodes
+          kubectl --kubeconfig "$RUNNER_TEMP/oracle.kubeconfig" get nodes
+      - name: 이전 (${{ inputs.mode }})
+        env:
+          MODE: ${{ inputs.mode }}
+        run: deploy/scripts/server-migrate.sh "$MODE"
+      - name: 정리
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/school.kubeconfig" "$RUNNER_TEMP/oracle.kubeconfig" "$RUNNER_TEMP/tunnel-token" "$RUNNER_TEMP/kubeconfig"
+          pkill -f 'ssh .*-L 16443:' || true
