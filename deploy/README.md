@@ -190,6 +190,23 @@ kubectl -n blog rollout status statefulset/postgres --timeout=300s
 kubectl apply -k deploy/k8s/overlays/selfhosted
 ```
 
+## 오라클 서버로 이전 (2026-11)
+
+학교 실습 서버는 11월 말에 닫힌다. 운영을 Oracle Cloud 무료 VM(도쿄, Ampere A1 2 OCPU·12GB, Ubuntu 24.04)으로 옮긴다.
+
+1. 서버 준비(사람이 한 번): Oracle 보안 목록에서 TCP 6443을 열고, 서버에서 `scripts/server-setup.sh`를 실행해 나온 접속 파일을 Secret `KUBECONFIG`에 넣는다.
+2. 그 뒤로 main 머지는 오라클에 배포한다. 운영 대상은 변수 `DEPLOY_TARGET`(school·oracle)이 있으면 그 값, 없으면 Secret `KUBECONFIG`가 있을 때 oracle이다.
+3. 같은 터널 토큰으로 두 서버가 함께 붙으면 요청이 반씩 나뉜다. 그래서 배포는 **이미 도메인이 붙은 클러스터의 cloudflared만** 갱신하고, 새 클러스터에 처음 붙이는 일은 아래 워크플로(또는 수동 배포의 `tunnel`)만 한다.
+4. Actions → **서버 이전**(`server-migrate.yml`, `scripts/server-migrate.sh`):
+
+| 모드 | 하는 일 |
+|---|---|
+| `rehearsal` | 학교 DB·파일 저장소를 오라클로 시험 복사하고 표마다 행 수와 파일 수를 비교한다. 도메인과 학교 앱은 그대로, 오라클 앱은 멈춰 둔다(예약 발행·알림이 두 번 일어나지 않게) |
+| `cutover` | 학교 앱을 멈추고(점검 몇 분) 최종 복사 → 수가 모두 같을 때만 학교 cloudflared를 지우고 오라클에 띄운 뒤 바깥 주소를 확인한다. 중간에 실패하면 학교 앱과 도메인을 자동으로 되살린다 |
+| `rollback` | 오라클 cloudflared를 지우고 학교 앱과 도메인을 되살린다. 이전 뒤 오라클에 새로 쓰인 내용은 옮기지 않는다. 배포도 학교로 보내려면 변수 `DEPLOY_TARGET=school` |
+
+Redis(로그인 세션)는 옮기지 않아 이전 뒤 한 번 다시 로그인한다. 두 서버가 같은 `BLOG_SECRET_ENV`를 써서 암호화한 값·소셜 로그인이 그대로 이어진다. 학교 서버는 11월 말까지 되돌리기용으로 남긴다.
+
 ## 운영 서버 준비 (학교 실습 서버, 기본)
 
 Oracle 무료 VM이 "Out of capacity"로 만들어지지 않아 학교가 준 실습 서버에 올린다. 주소·SSH 포트·아이디·본인 포트는 저장소에 두지 않고 GitHub 변수(위 표)에만 넣는다. sudo 없이 docker 그룹 권한으로 k3d(Docker 안의 k3s) 클러스터 하나를 만든다.
