@@ -427,6 +427,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | バージョン | 日付 | 主な内容 | リリースノート |
 | --- | --- | --- | --- |
+| v2.24.0 | 2026-11-02 | 本番サーバーを学校の実習サーバーからOracle Cloud無料VMへ移すサーバー移行ワークフロー（試しコピー・本移行・切り戻し） | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.0) |
 | v2.23.0 | 2026-10-29 | ショート自動投稿のYouTubeはレンダー完了後すぐ非公開でアップロードし、公開はYouTube Studioで自分で行う | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.23.0) |
 | v2.22.0 | 2026-10-29 | ショート自動投稿：スタジオでYouTube・Instagramを連携しテスト投稿に通ると、レンダー済みショートを毎日1本20時(KST)に公開（初期はオフ） | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.22.0) |
 | v2.21.0 | 2026-10-28 | ショート投稿ガイドのキャプションに「毎晩20時に1本」の登録・フォロー案内、Instagramはプロフィールリンクへ誘導 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.21.0) |

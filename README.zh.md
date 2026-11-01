@@ -427,6 +427,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v2.24.0 | 2026-11-02 | 将生产环境从学校实训服务器迁移到 Oracle Cloud 免费 VM 的服务器迁移工作流（试复制、正式迁移、回退） | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.0) |
 | v2.23.0 | 2026-10-29 | 短视频自动上传的 YouTube 在渲染完成后立即以私密方式上传，公开需在 YouTube Studio 自行操作 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.23.0) |
 | v2.22.0 | 2026-10-29 | 短视频自动上传：在工作室连接 YouTube 和 Instagram 并通过测试上传后，渲染完成的短视频每天一条于晚8点(韩国时间)公开（默认关闭） | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.22.0) |
 | v2.21.0 | 2026-10-28 | 短视频上传指南的文案加入"每晚8点更新一条"的订阅/关注引导，Instagram 文案改为指向主页链接 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.21.0) |
