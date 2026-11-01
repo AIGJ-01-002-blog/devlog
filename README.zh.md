@@ -289,7 +289,7 @@ sequenceDiagram
 
 通过 GitHub Actions 测试并构建镜像、推送到 GHCR，再用 kustomize 的 overlay 部署到 Kubernetes。`deploy/scripts/rollout.sh` 会等待新 Pod 全部就绪（`/actuator/health/readiness`），超时未就绪则自动回滚到上一个版本。新 Pod 就绪之前不会停止旧 Pod（`maxUnavailable: 0`），所以部署和回滚期间服务都不会中断。
 
-目前生产环境的基准是 `overlays/selfhosted`。PostgreSQL 17、Redis 7.4、MinIO 运行在同一个集群中并挂载持久卷，已在测试集群（k3s）中验证了注册 → 发布带图片的文章 → 未登录状态下阅读的全过程。学校的共用基础设施（`overlays/nhn`）只能从校内网络访问，因此迁移暂缓。目前用这套配置运营 [devlog.life](https://devlog.life)，外部请求经 Cloudflare Tunnel 进入（[部署文章](https://devlog.life/@kim755030/posts/17)，韩语）。由于学校实习服务器将于 11 月底关闭，我们准备了把生产环境迁到 Oracle Cloud 免费 VM（Ampere A1，arm64）的服务器迁移工作流（v2.24.0）：试迁移会逐表比较行数和文件数，最终迁移只在所有数量一致时才切换域名，失败则回退到学校服务器。详情见 [deploy/README.md](deploy/README.md)（韩语）。
+目前生产环境的基准是 `overlays/selfhosted`。PostgreSQL 17、Redis 7.4、MinIO 运行在同一个集群中并挂载持久卷，已在测试集群（k3s）中验证了注册 → 发布带图片的文章 → 未登录状态下阅读的全过程。学校的共用基础设施（`overlays/nhn`）只能从校内网络访问，因此迁移暂缓。目前用这套配置运营 [devlog.life](https://devlog.life)，外部请求经 Cloudflare Tunnel 进入（[部署文章](https://devlog.life/@kim755030/posts/17)，韩语）。由于学校实习服务器将于 11 月底关闭，生产环境已于 2026-11-02 迁到 Oracle Cloud 免费 VM（Ampere A1，arm64），外部请求仍经 Cloudflare Tunnel 进入。服务器迁移工作流（v2.24.0）先试迁移并逐表比较行数和文件数，所有数量一致后才切换域名。学校服务器保留到 11 月底，作为回退目标。详情见 [deploy/README.md](deploy/README.md)（韩语）。
 
 ## 仓库结构
 

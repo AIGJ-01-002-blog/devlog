@@ -289,7 +289,7 @@ sequenceDiagram
 
 GitHub Actions でテストし、イメージを作って GHCR に上げたあと、kustomize のオーバーレイで Kubernetes にデプロイします。`deploy/scripts/rollout.sh` は新しい Pod がすべて準備完了（`/actuator/health/readiness`）になるのを待ち、時間内にならなければ直前のバージョンに自動でロールバックします。新しい Pod の準備ができるまで古い Pod を止めない（`maxUnavailable: 0`）ので、デプロイ中もロールバック中もサービスは止まりません。
 
-現在の本番の基準は `overlays/selfhosted` です。PostgreSQL 17・Redis 7.4・MinIO を同じクラスター内に永続ボリューム付きで動かし、テストクラスター（k3s）で登録 → 画像入りの記事の公開 → 未ログインでの閲覧まで確認しました。学校の共用インフラ（`overlays/nhn`）は学内ネットワークからしか届かないため移行を保留しています。現在はこの構成で [devlog.life](https://devlog.life) を運営し、外部からのリクエストは Cloudflare Tunnel 経由で入ります（[デプロイの記事](https://devlog.life/@kim755030/posts/17)、韓国語）。学校の実習サーバーが 11 月末に閉じるため、本番を Oracle Cloud 無料 VM（Ampere A1、arm64）へ移すサーバー移行ワークフローを用意しました（v2.24.0）。試しコピーでテーブルごとの行数とファイル数を比べ、最終移行はすべての数が一致したときだけドメインを移し、失敗すれば学校サーバーに戻します。詳しくは [deploy/README.md](deploy/README.md)（韓国語）にあります。
+現在の本番の基準は `overlays/selfhosted` です。PostgreSQL 17・Redis 7.4・MinIO を同じクラスター内に永続ボリューム付きで動かし、テストクラスター（k3s）で登録 → 画像入りの記事の公開 → 未ログインでの閲覧まで確認しました。学校の共用インフラ（`overlays/nhn`）は学内ネットワークからしか届かないため移行を保留しています。現在はこの構成で [devlog.life](https://devlog.life) を運営し、外部からのリクエストは Cloudflare Tunnel 経由で入ります（[デプロイの記事](https://devlog.life/@kim755030/posts/17)、韓国語）。学校の実習サーバーが 11 月末に閉じるため、2026-11-02 に本番を Oracle Cloud 無料 VM（Ampere A1、arm64）へ移しました。外からのリクエストは引き続き Cloudflare Tunnel から入ります。サーバー移行ワークフロー（v2.24.0）が試しコピーでテーブルごとの行数とファイル数を比べ、すべて一致したときだけドメインを移しました。学校サーバーは 11 月末まで戻し先として残します。詳しくは [deploy/README.md](deploy/README.md)（韓国語）にあります。
 
 ## リポジトリ構成
 
