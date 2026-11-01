@@ -287,7 +287,7 @@ sequenceDiagram
 
 GitHub Actions로 테스트하고 이미지를 만들어 GHCR에 올린 뒤, kustomize 오버레이로 쿠버네티스에 배포합니다. `deploy/scripts/rollout.sh`는 새 파드가 모두 준비(`/actuator/health/readiness`)되기를 기다리고, 시간 안에 안 되면 직전 버전으로 자동 롤백합니다. 새 파드가 준비되기 전에는 옛 파드를 내리지 않아(`maxUnavailable: 0`) 배포와 롤백 중에도 서비스가 끊기지 않습니다.
 
-지금 운영 기준은 `overlays/selfhosted`입니다. PostgreSQL 17·Redis 7.4·MinIO를 같은 클러스터 안에 영구 볼륨과 함께 띄우며, 테스트 클러스터(k3s)에서 가입 → 사진을 넣은 글 발행 → 비회원 읽기까지 확인했습니다. 학교 공용 인프라(`overlays/nhn`)는 학교망에서만 닿아 전환을 보류했고, 지금은 이 구성으로 [devlog.life](https://devlog.life)를 운영하고, 바깥 요청은 Cloudflare Tunnel로 들어옵니다([배포 글](https://devlog.life/@kim755030/posts/17)). 자세한 내용은 [deploy/README.md](deploy/README.md)에 있습니다.
+지금 운영 기준은 `overlays/selfhosted`입니다. PostgreSQL 17·Redis 7.4·MinIO를 같은 클러스터 안에 영구 볼륨과 함께 띄우며, 테스트 클러스터(k3s)에서 가입 → 사진을 넣은 글 발행 → 비회원 읽기까지 확인했습니다. 학교 공용 인프라(`overlays/nhn`)는 학교망에서만 닿아 전환을 보류했고, 지금은 이 구성으로 [devlog.life](https://devlog.life)를 운영하고, 바깥 요청은 Cloudflare Tunnel로 들어옵니다([배포 글](https://devlog.life/@kim755030/posts/17)). 학교 실습 서버가 11월 말에 닫혀, 운영을 Oracle Cloud 무료 VM(Ampere A1, arm64)으로 옮기는 서버 이전 워크플로를 두었습니다(v2.24.0). 시험 복사로 표마다 행 수와 파일 수를 비교하고, 최종 이전은 수가 모두 같을 때만 도메인을 옮기며, 실패하면 학교 서버로 되돌립니다. 자세한 내용은 [deploy/README.md](deploy/README.md)에 있습니다.
 
 ## 저장소
 
