@@ -427,6 +427,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | バージョン | 日付 | 主な内容 | リリースノート |
 | --- | --- | --- | --- |
+| v2.25.0 | 2026-11-04 | ショーツスタジオの［動画を保存］を東京サーバーから直接受け取る経路（mediaホスト）を追加し、失敗時は従来のCloudflare経路へ自動切り替え。区間別「ダウンロード速度点検」ワークフロー | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.25.0) |
 | v2.24.1 | 2026-11-02 | サーバー移行のファイル数比較がコピーのログと混ざり、常に不一致と出ていた問題を修正 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.1) |
 | v2.24.0 | 2026-11-02 | 本番サーバーを学校の実習サーバーからOracle Cloud無料VMへ移すサーバー移行ワークフロー（試しコピー・本移行・切り戻し） | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.0) |
 | v2.23.0 | 2026-10-29 | ショート自動投稿のYouTubeはレンダー完了後すぐ非公開でアップロードし、公開はYouTube Studioで自分で行う | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.23.0) |

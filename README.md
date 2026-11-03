@@ -425,6 +425,7 @@ npm run dev        # http://localhost:5173
 
 | 버전 | 날짜 | 주요 내용 | 릴리스 노트 |
 | --- | --- | --- | --- |
+| v2.25.0 | 2026-11-04 | 쇼츠 스튜디오 [영상 받기]를 도쿄 서버에서 직접 받는 길(media 주소) 추가, 안 되면 기존 Cloudflare 길로 자동 전환. 구간별 "내려받기 속도 점검" 워크플로 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.25.0) |
 | v2.24.1 | 2026-11-02 | 서버 이전의 파일 수 비교가 파일 복사 기록에 섞여 늘 다르다고 나오던 문제 수정 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.1) |
 | v2.24.0 | 2026-11-02 | 운영 서버를 학교 실습 서버에서 Oracle Cloud 무료 VM으로 옮기는 서버 이전 워크플로(시험 복사·최종 이전·되돌리기) | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.0) |
 | v2.23.0 | 2026-10-29 | 쇼츠 자동 올리기의 YouTube는 렌더가 끝나는 대로 비공개로만 올리고, 공개는 YouTube 스튜디오에서 직접 함 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.23.0) |
