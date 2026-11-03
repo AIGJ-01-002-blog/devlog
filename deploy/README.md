@@ -260,6 +260,25 @@ Oracle 무료 VM이 "Out of capacity"로 만들어지지 않아 학교가 준 �
 
 cloudflared는 2개가 각각 Cloudflare에 연결하므로 하나가 재시작돼도 주소는 끊기지 않는다(PDB `minAvailable: 1`). 확인: `kubectl -n blog get pods -l app.kubernetes.io/name=cloudflared`, Cloudflare 터널 상태가 HEALTHY.
 
+## 쇼츠 영상 직접 받기 (media.devlog.life, 2026-11-03)
+
+**문제**: 쇼츠 스튜디오 [영상 받기]가 느렸다. 한국 집 인터넷에서 `devlog.life/cdn-cgi/trace`를 열면 `loc=KR`인데 `colo=LAX`였다. Cloudflare 무료 요금제가 한국 사용자를 LA 지점으로 보내, 영상이 한국 → LA → 도쿄(오라클) → LA → 한국으로 태평양을 두 번 건넜다.
+**잰 값(7.3MB 영상)**: 서버 안 MinIO 0.03초(초당 242MB), 미국 GitHub 러너 → Cloudflare 1.1~2.0초. 서버는 빠르고 길이 멀었다(Actions "내려받기 속도 점검").
+**고친 방법**: 영상만 Cloudflare를 거치지 않고 서버에서 바로 내준다(`k8s/addons/media-direct`, Caddy). 사이트와 사진은 계속 Cloudflare 뒤에 있다.
+
+- Caddy는 `GET/HEAD /shorts/<연>/<월>/<uuid>.mp4`만 MinIO로 넘기고 나머지는 404다. 노드 80·443(hostPort)을 쓰고 Let's Encrypt 인증서를 스스로 받는다.
+- 앱은 `SHORTS_VIDEO_DIRECT_BASE_URL`이 있으면 쇼츠에 `videoDownloadUrl`을 더 준다. 화면은 그 주소로 먼저 받고, 실패하면 예전 주소(Cloudflare)로 다시 받는다. 그래서 켜는 도중이나 서버가 멈춰도 [영상 받기]는 된다.
+- 대안: Cloudflare 캐시 강화는 스튜디오 영상이 대부분 한 번만 받혀 효과가 작다. 오라클 Object Storage로 옮기기는 저장소가 둘로 나뉘고 열쇠 관리가 늘어난다.
+- 트레이드오프: 서버 공인 IP가 DNS에 보인다. 그 IP로 열리는 것은 영상 경로뿐(앱·사진은 404)이고, 6443(배포용)은 원래 열려 있었다.
+
+켜는 순서(한 번):
+1. 오라클 콘솔 → 인스턴스의 VCN → 보안 목록 → 수신 규칙에 TCP 80, TCP 443(소스 0.0.0.0/0) 추가. 80은 인증서 발급 확인용이다.
+2. Cloudflare → devlog.life → DNS → 레코드 추가: 유형 A, 이름 `media`, IPv4 = 서버 공인 IP, 프록시 상태 **DNS only(회색 구름)**.
+3. GitHub → Settings → Secrets and variables → Actions → Variables에 `MEDIA_DIRECT_HOST` = `media.devlog.life`.
+4. 다음 배포(또는 Actions → 블로그 배포 수동 실행)가 Caddy를 올리고 앱에 주소를 넣는다. Actions → 내려받기 속도 점검으로 ②(Cloudflare)와 ③(직접)을 비교한다.
+
+끄기: 변수 `MEDIA_DIRECT_HOST`를 지우고 배포하면 화면이 예전 주소만 쓴다. 서버도 내리려면 `kubectl -n blog delete deploy/media-direct`.
+
 ## 운영 대시보드 (k8s.devlog.life)
 
 배포·파드·로그·자원 사용량을 브라우저에서 본다. 공식 Kubernetes Dashboard(v2.7.0)를 `kubernetes-dashboard` 네임스페이스에 두고, 학교 서버 배포 때 deploy.yml이 함께 적용한다. 바깥 주소는 Cloudflare Tunnel로 열되 **Cloudflare Access 이메일 인증**과 **읽기 전용 토큰** 두 겹으로 막는다. 토큰 계정 `devlog-viewer`는 쿠버네티스 기본 역할 `view`를 `blog` 네임스페이스에만 받아(RoleBinding) 블로그의 상태와 로그만 보고, Secret과 다른 네임스페이스는 못 보며 아무것도 바꿀 수 없다.

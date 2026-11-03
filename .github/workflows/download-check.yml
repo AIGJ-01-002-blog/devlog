@@ -13,7 +13,22 @@ permissions:
   contents: read
 
 jobs:
+  caddyfile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Caddyfile 문법 검사
+        run: |
+          img=$(grep -oE 'caddy:[0-9.]+-alpine' deploy/k8s/addons/media-direct/media-direct.yaml)
+          docker run --rm -v "$PWD/deploy/k8s/addons/media-direct:/etc/caddy:ro" \
+            -e MEDIA_HOST=media.example.com -e SITE_ORIGIN=https://devlog.life -e S3_BUCKET=blog-images \
+            "$img" caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+      - name: 매니페스트 만들기
+        run: kubectl kustomize deploy/k8s/addons/media-direct > /dev/null
+
   check:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: selfhosted
@@ -45,22 +60,12 @@ jobs:
           echo "최근 영상 3개 크기(바이트): $(echo "$row" | cut -d'|' -f2 | tr '\n' ' ')"
           echo "KEY=$(echo "$row" | head -1 | cut -d'|' -f1)" >> "$GITHUB_ENV"
           echo "BYTES=$(echo "$row" | head -1 | cut -d'|' -f2)" >> "$GITHUB_ENV"
-      - name: ① 앱 파드 → MinIO, ② 앱 파드 → 인그레스
+      - name: ① 앱 파드 → MinIO
         run: |
           kubectl -n blog exec -i deploy/blog-app -c app -- sh -s "$KEY" <<'SH' 2>&1 || true
-          k="$1"
-          t() { s=$(date +%s%N); "$@" >/dev/null 2>&1; rc=$?; e=$(date +%s%N); echo "rc=$rc ms=$(( (e - s) / 1000000 ))"; }
-          if command -v curl >/dev/null; then
-            echo "① minio: $(curl -s -o /dev/null -w 'code=%{http_code} size=%{size_download} ttfb=%{time_starttransfer}s total=%{time_total}s speed=%{speed_download}B/s' "http://minio:9000/blog-images/$k")"
-            echo "② ingress: $(curl -s -o /dev/null -H 'Host: devlog.life' -w 'code=%{http_code} size=%{size_download} total=%{time_total}s speed=%{speed_download}B/s' "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local/blog-images/$k")"
-          elif command -v wget >/dev/null; then
-            echo "① minio (wget): $(t wget -q -O /dev/null "http://minio:9000/blog-images/$k")"
-            echo "② ingress (wget): $(t wget -q -O /dev/null --header 'Host: devlog.life' "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local/blog-images/$k")"
-          else
-            echo "앱 파드에 curl·wget 없음"
-          fi
+          echo "① minio: $(curl -s -o /dev/null -w 'code=%{http_code} size=%{size_download} ttfb=%{time_starttransfer}s total=%{time_total}s speed=%{speed_download}B/s' "http://minio:9000/blog-images/$1")"
           SH
-      - name: ③ 바깥 → Cloudflare → 터널 → MinIO
+      - name: ② 바깥 → Cloudflare → 터널 → MinIO
         run: |
           url="https://devlog.life/blog-images/$KEY"
           echo "영상 크기: $BYTES 바이트, 러너 위치: $(curl -s https://devlog.life/cdn-cgi/trace | grep colo)"
@@ -69,3 +74,14 @@ jobs:
           done
           curl -s -o /dev/null -w "Range 1MB: code=%{http_code} size=%{size_download} total=%{time_total}s\n" -H 'Range: bytes=0-1048575' "$url"
           curl -sI "$url" | grep -viE "^(set-cookie|report-to|nel):"
+      - name: ③ 바깥 → 영상 직접 받기 서버
+        env:
+          MEDIA_DIRECT_HOST: ${{ vars.MEDIA_DIRECT_HOST }}
+        run: |
+          [ -n "$MEDIA_DIRECT_HOST" ] || { echo "MEDIA_DIRECT_HOST가 없어 건너뜁니다"; exit 0; }
+          url="https://$MEDIA_DIRECT_HOST/$KEY"
+          for i in 1 2 3; do
+            curl -s -o /dev/null -w "회차 $i: code=%{http_code} size=%{size_download} ttfb=%{time_starttransfer}s total=%{time_total}s speed=%{speed_download}B/s\n" "$url"
+          done
+          curl -sI -H 'Origin: https://devlog.life' "$url"
+          echo "다른 주소는 막힘(404 기대): $(curl -s -o /dev/null -w '%{http_code}' "https://$MEDIA_DIRECT_HOST/images/")"
