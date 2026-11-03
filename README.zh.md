@@ -408,6 +408,7 @@ npm run dev        # http://localhost:5173
 | Docker · GHCR | 镜像 | 构建界面并放进后端，打成一个镜像。以非 root 用户运行 |
 | Kubernetes · kustomize | 部署 | Deployment、HPA、PDB、NetworkPolicy，3 种 overlay（selfhosted、nhn、local） |
 | nginx Ingress | 入口 | TLS 和按路径分流（`/blog-images` 转到 MinIO） |
+| Caddy | 视频直接下载（可选） | 只把短视频（`/shorts/…mp4`）直接从 MinIO 提供，不经过 Cloudflare，从服务器直接下载。证书由 Let's Encrypt 自动签发（v2.25.0） |
 | GitHub Actions | CI/CD | 测试、清单校验（kubeconform）、密钥检查、镜像构建、部署（部署后访问公开地址确认，打不开就回滚到上一版本）、版本发布、通知。外部 Action 固定到提交 SHA |
 | SonarQube · SonarCloud · CodeRabbit | 质量 | 静态分析（学校的 SonarQube 或 SonarCloud，可选）、每个 PR 的 AI 评审（韩语） |
 

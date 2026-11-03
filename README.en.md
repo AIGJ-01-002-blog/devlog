@@ -408,6 +408,7 @@ To try it on Kubernetes, run `kubectl apply -k deploy/k8s/overlays/local` on kin
 | Docker · GHCR | Image | Builds the UI and bundles it into the backend as one image, running as a non-root user |
 | Kubernetes · kustomize | Deployment | Deployment, HPA, PDB, NetworkPolicy, three overlays (selfhosted, nhn, local) |
 | nginx ingress | Front | TLS and per-path routing (`/blog-images` goes to MinIO) |
+| Caddy | Direct video download (optional) | Serves only short videos (`/shorts/…mp4`) straight from MinIO so they download from the server without going through Cloudflare. Certificates come from Let's Encrypt automatically (v2.25.0) |
 | GitHub Actions | CI/CD | Tests, manifest validation (kubeconform), secret checks, image build, deploy (after a deploy it opens the public address and rolls back to the previous version if it does not load), releases, notifications. Third-party actions are pinned to commit SHAs |
 | SonarQube · SonarCloud · CodeRabbit | Quality | Static analysis (school SonarQube or SonarCloud, optional), AI review on every PR (in Korean) |
 
