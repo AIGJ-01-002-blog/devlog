@@ -427,6 +427,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v2.25.0 | 2026-11-04 | 短视频工作室的视频下载可直接从东京服务器（media 主机）获取，失败时自动回退到 Cloudflare 路径；新增分段“下载速度检查”工作流 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.25.0) |
 | v2.24.1 | 2026-11-02 | 修复服务器迁移的文件数比较与复制日志混在一起、总是显示不一致的问题 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.1) |
 | v2.24.0 | 2026-11-02 | 将生产环境从学校实训服务器迁移到 Oracle Cloud 免费 VM 的服务器迁移工作流（试复制、正式迁移、回退） | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.0) |
 | v2.23.0 | 2026-10-29 | 短视频自动上传的 YouTube 在渲染完成后立即以私密方式上传，公开需在 YouTube Studio 自行操作 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.23.0) |
