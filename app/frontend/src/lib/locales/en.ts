@@ -1488,6 +1488,7 @@ export const en: Record<string, string> = {
   "영상 만들기": "Make video",
   "영상 만들기를 기다리고 있어요. 렌더 워커가 켜져 있으면 곧 시작해요.": "Waiting to be rendered. It starts soon if the render worker is running.",
   "영상 받기": "Download video",
+  "받는 중…": "Downloading…",
   "영상 완성": "Ready",
   "영상을 만들지 못했어요: {0}": "Couldn't make the video: {0}",
   "예상 길이 {0}초 / {1}초": "Estimated {0}s / {1}s",
