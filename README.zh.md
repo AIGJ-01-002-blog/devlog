@@ -289,7 +289,7 @@ sequenceDiagram
 
 通过 GitHub Actions 测试并构建镜像、推送到 GHCR，再用 kustomize 的 overlay 部署到 Kubernetes。`deploy/scripts/rollout.sh` 会等待新 Pod 全部就绪（`/actuator/health/readiness`），超时未就绪则自动回滚到上一个版本。新 Pod 就绪之前不会停止旧 Pod（`maxUnavailable: 0`），所以部署和回滚期间服务都不会中断。
 
-目前生产环境的基准是 `overlays/selfhosted`。PostgreSQL 17、Redis 7.4、MinIO 运行在同一个集群中并挂载持久卷，已在测试集群（k3s）中验证了注册 → 发布带图片的文章 → 未登录状态下阅读的全过程。学校的共用基础设施（`overlays/nhn`）只能从校内网络访问，因此迁移暂缓。目前用这套配置运营 [devlog.life](https://devlog.life)，外部请求经 Cloudflare Tunnel 进入（[部署文章](https://devlog.life/@kim755030/posts/17)，韩语）。详情见 [deploy/README.md](deploy/README.md)（韩语）。
+目前生产环境的基准是 `overlays/selfhosted`。PostgreSQL 17、Redis 7.4、MinIO 运行在同一个集群中并挂载持久卷，已在测试集群（k3s）中验证了注册 → 发布带图片的文章 → 未登录状态下阅读的全过程。学校的共用基础设施（`overlays/nhn`）只能从校内网络访问，因此迁移暂缓。目前用这套配置运营 [devlog.life](https://devlog.life)，外部请求经 Cloudflare Tunnel 进入（[部署文章](https://devlog.life/@kim755030/posts/17)，韩语）。由于学校实习服务器将于 11 月底关闭，生产环境已于 2026-11-02 迁到 Oracle Cloud 免费 VM（Ampere A1，arm64），外部请求仍经 Cloudflare Tunnel 进入。服务器迁移工作流（v2.24.0）先试迁移并逐表比较行数和文件数，所有数量一致后才切换域名。学校服务器保留到 11 月底，作为回退目标。详情见 [deploy/README.md](deploy/README.md)（韩语）。
 
 ## 仓库结构
 
@@ -427,6 +427,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v2.25.0 | 2026-11-04 | 短视频工作室的视频下载可直接从东京服务器（media 主机）获取，失败时自动回退到 Cloudflare 路径；新增分段“下载速度检查”工作流 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.25.0) |
 | v2.24.1 | 2026-11-02 | 修复服务器迁移的文件数比较与复制日志混在一起、总是显示不一致的问题 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.1) |
 | v2.24.0 | 2026-11-02 | 将生产环境从学校实训服务器迁移到 Oracle Cloud 免费 VM 的服务器迁移工作流（试复制、正式迁移、回退） | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.0) |
 | v2.23.0 | 2026-10-29 | 短视频自动上传的 YouTube 在渲染完成后立即以私密方式上传，公开需在 YouTube Studio 自行操作 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.23.0) |

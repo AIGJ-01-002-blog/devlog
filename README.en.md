@@ -289,7 +289,7 @@ sequenceDiagram
 
 GitHub Actions runs the tests, builds the image and pushes it to GHCR, then deploys to Kubernetes with kustomize overlays. `deploy/scripts/rollout.sh` waits for every new pod to become ready (`/actuator/health/readiness`) and automatically rolls back to the previous version if that doesn't happen in time. Old pods are not taken down until new ones are ready (`maxUnavailable: 0`), so the service stays up during both deploys and rollbacks.
 
-The current production baseline is `overlays/selfhosted`. It runs PostgreSQL 17, Redis 7.4 and MinIO in the same cluster with persistent volumes. On a test cluster (k3s) we verified the path from sign-up → publishing a post with images → reading it as a guest. We put the switch to the school's shared infrastructure (`overlays/nhn`) on hold because it is reachable only from the school network. This setup now runs [devlog.life](https://devlog.life), with outside traffic coming in through Cloudflare Tunnel ([deployment post](https://devlog.life/@kim755030/posts/17), Korean). Details are in [deploy/README.md](deploy/README.md) (Korean).
+The current production baseline is `overlays/selfhosted`. It runs PostgreSQL 17, Redis 7.4 and MinIO in the same cluster with persistent volumes. On a test cluster (k3s) we verified the path from sign-up → publishing a post with images → reading it as a guest. We put the switch to the school's shared infrastructure (`overlays/nhn`) on hold because it is reachable only from the school network. This setup now runs [devlog.life](https://devlog.life), with outside traffic coming in through Cloudflare Tunnel ([deployment post](https://devlog.life/@kim755030/posts/17), Korean). Because the school lab server closes at the end of November, production moved to an Oracle Cloud free VM (Ampere A1, arm64) on 2026-11-02, and outside requests still come in through Cloudflare Tunnel. The server migration workflow (v2.24.0) compared row counts per table and file counts in a rehearsal copy and moved the domain only when every count matched. The school server stays until the end of November as a rollback target. Details are in [deploy/README.md](deploy/README.md) (Korean).
 
 ## Repository layout
 
@@ -427,6 +427,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v2.25.0 | 2026-11-04 | Shorts Studio video downloads can come straight from the Tokyo server (media host) and fall back to the Cloudflare path; new per-hop "download speed check" workflow | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.25.0) |
 | v2.24.1 | 2026-11-02 | Fix the server migration file count, which was mixed with the copy log and always reported a mismatch | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.1) |
 | v2.24.0 | 2026-11-02 | Server migration workflow that moves production from the school lab server to a free Oracle Cloud VM (rehearsal, cutover, rollback) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.0) |
 | v2.23.0 | 2026-10-29 | Shorts auto-upload now sends YouTube videos as private right after rendering; you publish them yourself in YouTube Studio | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.23.0) |

@@ -5,9 +5,10 @@ import { api } from '../lib/api'
 import { fieldErrors } from '../lib/fieldErrors'
 import { t } from '../lib/i18n'
 import { AutoUploadJobs } from './StudioAutoUpload'
+import { VideoDownloadLink } from '../components/VideoDownloadLink'
 import { CHANNEL_KIND, socialHref, type SocialLinks } from '../lib/socialLinks'
 import {
-  canShareFiles, deleteUpload, PLATFORMS, PLAYLISTS, recordUpload, setOnBlog, setPlaylist, shareVideo, uploadGuide, videoFileName,
+  canShareFiles, deleteUpload, PLATFORMS, PLAYLISTS, recordUpload, setOnBlog, setPlaylist, shareVideo, uploadGuide, videoFileName, videoSources,
   type Platform, type ShortsItem, type ShortsPlaylist,
 } from '../lib/shorts'
 
@@ -90,7 +91,7 @@ function ShareButtons({ item, appName, uploadUrl, children }: { item: ShortsItem
     setSharing(true)
     setNote(null)
     try {
-      const result = await shareVideo(item.videoUrl!, fileName, item.title)
+      const result = await shareVideo(videoSources(item), fileName, item.title)
       if (result === 'unsupported') setNote(t('이 브라우저는 앱으로 보내기를 못 해요. [영상 받기]로 받은 뒤 앱에서 골라 주세요.'))
       else if (result === 'retry') setNote(t('영상을 준비했어요. [앱으로 보내기]를 한 번 더 눌러 주세요.'))
     } catch {
@@ -101,7 +102,7 @@ function ShareButtons({ item, appName, uploadUrl, children }: { item: ShortsItem
   }
   return (
     <div className="studio-actions">
-      <a className="btn btn-outline btn-small" href={item.videoUrl} download={fileName}>{t('영상 받기')}</a>
+      <VideoDownloadLink item={item} fileName={fileName} className="btn btn-outline btn-small" />
       {canShareFiles() && (
         <button type="button" className="btn btn-outline btn-small" onClick={() => void share()} disabled={sharing}
           data-tip={t('휴대폰 공유 창으로 영상을 {0} 앱에 바로 넘겨요', { 0: appName })}>{t('앱으로 보내기')}</button>

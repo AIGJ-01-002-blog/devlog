@@ -1,0 +1,114 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: media-direct-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: {requests: {storage: 100Mi}}
+---
+# 노드 포트(hostPort 80·443)를 쓰므로 한 개만, 바꿀 때는 옛 파드를 먼저 내린다(Recreate)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: media-direct
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: media-direct
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: media-direct
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: caddy
+          image: caddy:2.10.2-alpine
+          args: ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+          env:
+            - name: MEDIA_HOST
+              value: media.example.com   # deploy.yml이 GitHub 변수 MEDIA_DIRECT_HOST로 바꾼다
+            - name: SITE_ORIGIN
+              value: https://devlog.life
+            - name: S3_BUCKET
+              value: blog-images   # overlays/selfhosted/app.env의 S3_BUCKET과 같게
+            - {name: XDG_DATA_HOME, value: /data}
+            - {name: XDG_CONFIG_HOME, value: /config}
+          ports:
+            - {name: http, containerPort: 8080, hostPort: 80}
+            - {name: https, containerPort: 8443, hostPort: 443}
+          readinessProbe:
+            tcpSocket: {port: http}
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: {port: http}
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests: {cpu: 20m, memory: 32Mi}
+            limits: {memory: 128Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          volumeMounts:
+            - {name: caddyfile, mountPath: /etc/caddy}
+            - {name: data, mountPath: /data}
+            - {name: config, mountPath: /config}
+      volumes:
+        - name: caddyfile
+          configMap: {name: media-direct-caddyfile}
+        - name: data
+          persistentVolumeClaim: {claimName: media-direct-data}
+        - name: config
+          emptyDir: {}
+---
+# 네임스페이스 기본 차단(in-cluster-deps/default-deny.yaml) 위에서 이 파드에 필요한 것만 연다:
+# 들어오는 쪽은 인터넷의 80(인증서 확인·https로 넘김)·443, 나가는 쪽은 MinIO 9000과 Let's Encrypt(443)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: media-direct
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: media-direct
+  policyTypes: ["Ingress", "Egress"]
+  ingress:
+    - ports: [{port: 8080}, {port: 8443}]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: minio
+      ports: [{port: 9000}]
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 169.254.0.0/16, 127.0.0.0/8]
+      ports: [{port: 443}]
+---
+# MinIO는 앱·인그레스에서만 받는다(in-cluster-deps/networkpolicy.yaml). 이 파드도 더한다(정책은 합쳐진다)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: minio-from-media-direct
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: minio
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: media-direct
+      ports: [{port: 9000}]

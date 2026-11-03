@@ -287,7 +287,7 @@ sequenceDiagram
 
 GitHub Actions로 테스트하고 이미지를 만들어 GHCR에 올린 뒤, kustomize 오버레이로 쿠버네티스에 배포합니다. `deploy/scripts/rollout.sh`는 새 파드가 모두 준비(`/actuator/health/readiness`)되기를 기다리고, 시간 안에 안 되면 직전 버전으로 자동 롤백합니다. 새 파드가 준비되기 전에는 옛 파드를 내리지 않아(`maxUnavailable: 0`) 배포와 롤백 중에도 서비스가 끊기지 않습니다.
 
-지금 운영 기준은 `overlays/selfhosted`입니다. PostgreSQL 17·Redis 7.4·MinIO를 같은 클러스터 안에 영구 볼륨과 함께 띄우며, 테스트 클러스터(k3s)에서 가입 → 사진을 넣은 글 발행 → 비회원 읽기까지 확인했습니다. 학교 공용 인프라(`overlays/nhn`)는 학교망에서만 닿아 전환을 보류했고, 지금은 이 구성으로 [devlog.life](https://devlog.life)를 운영하고, 바깥 요청은 Cloudflare Tunnel로 들어옵니다([배포 글](https://devlog.life/@kim755030/posts/17)). 자세한 내용은 [deploy/README.md](deploy/README.md)에 있습니다.
+지금 운영 기준은 `overlays/selfhosted`입니다. PostgreSQL 17·Redis 7.4·MinIO를 같은 클러스터 안에 영구 볼륨과 함께 띄우며, 테스트 클러스터(k3s)에서 가입 → 사진을 넣은 글 발행 → 비회원 읽기까지 확인했습니다. 학교 공용 인프라(`overlays/nhn`)는 학교망에서만 닿아 전환을 보류했고, 지금은 이 구성으로 [devlog.life](https://devlog.life)를 운영하고, 바깥 요청은 Cloudflare Tunnel로 들어옵니다([배포 글](https://devlog.life/@kim755030/posts/17)). 학교 실습 서버가 11월 말에 닫혀, 2026-11-02 운영을 Oracle Cloud 무료 VM(Ampere A1, arm64)으로 옮겼고 바깥 요청은 그대로 Cloudflare Tunnel로 들어옵니다. 서버 이전 워크플로(v2.24.0)가 시험 복사로 표마다 행 수와 파일 수를 비교하고, 수가 모두 같을 때만 도메인을 옮겼습니다. 학교 서버는 11월 말까지 되돌리기용으로 남겨 둡니다. 자세한 내용은 [deploy/README.md](deploy/README.md)에 있습니다.
 
 ## 저장소
 
@@ -425,6 +425,7 @@ npm run dev        # http://localhost:5173
 
 | 버전 | 날짜 | 주요 내용 | 릴리스 노트 |
 | --- | --- | --- | --- |
+| v2.25.0 | 2026-11-04 | 쇼츠 스튜디오 [영상 받기]를 도쿄 서버에서 직접 받는 길(media 주소) 추가, 안 되면 기존 Cloudflare 길로 자동 전환. 구간별 "내려받기 속도 점검" 워크플로 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.25.0) |
 | v2.24.1 | 2026-11-02 | 서버 이전의 파일 수 비교가 파일 복사 기록에 섞여 늘 다르다고 나오던 문제 수정 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.1) |
 | v2.24.0 | 2026-11-02 | 운영 서버를 학교 실습 서버에서 Oracle Cloud 무료 VM으로 옮기는 서버 이전 워크플로(시험 복사·최종 이전·되돌리기) | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.0) |
 | v2.23.0 | 2026-10-29 | 쇼츠 자동 올리기의 YouTube는 렌더가 끝나는 대로 비공개로만 올리고, 공개는 YouTube 스튜디오에서 직접 함 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.23.0) |

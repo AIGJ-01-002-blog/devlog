@@ -10,6 +10,21 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
+## [2.25.0] - 2026-11-04
+
+**목표: 쇼츠 스튜디오의 영상 내려받기를 빠르게**
+서버 안에서는 7.3MB 영상이 0.03초에 나오지만, 한국 회선이 Cloudflare 무료 요금제에서 LA 지점(colo=LAX)으로 붙어 도쿄 서버와 태평양을 두 번 건넜다. 영상만 도쿄 서버에서 바로 받게 한다.
+
+### 추가
+- 영상 직접 받기 서버(`deploy/k8s/addons/media-direct`, Caddy·Let's Encrypt): `GET/HEAD /shorts/<연>/<월>/<uuid>.mp4`만 MinIO로 넘기고 나머지는 404. GitHub 변수 `MEDIA_DIRECT_HOST`가 있을 때만 배포된다 (#512)
+- 쇼츠 응답의 `videoDownloadUrl`과 화면의 [영상 받기]: 직접 주소를 먼저 받고(응답 대기 10초), 실패하면 기존 Cloudflare 주소로 받는다. 파일 이름은 쇼츠 제목 그대로 (#512)
+- "내려받기 속도 점검" 워크플로: 서버 안 → MinIO, 바깥 → Cloudflare, 바깥 → 직접 받기 서버를 구간별로 읽기 전용으로 잰다 (#512)
+
+### 바뀜
+- 직접 받기 주소가 있으면 CSP `connect-src`에 그 주소를 더한다 (#512)
+
+**비교:** [v2.24.1...v2.25.0](https://github.com/AIGJ-01-002-blog/devlog/compare/v2.24.1...v2.25.0)
+
 ## [2.24.1] - 2026-11-02
 
 **급한 수정: 서버 이전의 파일 수 비교**

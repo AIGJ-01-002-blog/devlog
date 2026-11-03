@@ -53,11 +53,11 @@ public class ShortsService {
                        int attempts, String videoUrl, Integer durationMs, Long videoBytes, String error, double estimatedSeconds,
                        Instant queuedAt, Instant renderedAt, Instant createdAt, Instant updatedAt, int version,
                        List<String> postTags, List<Upload> uploads, Long batchId, Integer topic, TradeReplay replay, String character,
-                       boolean outro, boolean onBlog, Playlist playlist) {
+                       boolean outro, boolean onBlog, Playlist playlist, String videoDownloadUrl) {
         Item with(List<String> tags, List<Upload> ups) {
             return new Item(id, postId, postTitle, postUrl, title, scenes, status, attempts, videoUrl, durationMs, videoBytes, error,
                     estimatedSeconds, queuedAt, renderedAt, createdAt, updatedAt, version, tags, ups, batchId, topic, replay, character, outro, onBlog,
-                    playlist);
+                    playlist, videoDownloadUrl);
         }
     }
 
@@ -554,7 +554,8 @@ public class ShortsService {
                 Math.round(ShortsScript.estimateSeconds(scenes) * 10) / 10.0,
                 instant(rs, "queued_at"), instant(rs, "rendered_at"), instant(rs, "created_at"), instant(rs, "updated_at"),
                 rs.getInt("version"), List.of(), List.of(), nullableLong(rs, "batch_id"), nullableInt(rs, "topic"), replay(rs.getString("replay")),
-                rs.getString("mascot"), rs.getBoolean("outro"), rs.getBoolean("on_blog"), Playlist.parse(rs.getString("playlist")).orElse(null));
+                rs.getString("mascot"), rs.getBoolean("outro"), rs.getBoolean("on_blog"), Playlist.parse(rs.getString("playlist")).orElse(null),
+                props.videoDirectUrl(rs.getString("video_key")));
     }
 
     private TradeReplay replay(String raw) {

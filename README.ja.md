@@ -289,7 +289,7 @@ sequenceDiagram
 
 GitHub Actions でテストし、イメージを作って GHCR に上げたあと、kustomize のオーバーレイで Kubernetes にデプロイします。`deploy/scripts/rollout.sh` は新しい Pod がすべて準備完了（`/actuator/health/readiness`）になるのを待ち、時間内にならなければ直前のバージョンに自動でロールバックします。新しい Pod の準備ができるまで古い Pod を止めない（`maxUnavailable: 0`）ので、デプロイ中もロールバック中もサービスは止まりません。
 
-現在の本番の基準は `overlays/selfhosted` です。PostgreSQL 17・Redis 7.4・MinIO を同じクラスター内に永続ボリューム付きで動かし、テストクラスター（k3s）で登録 → 画像入りの記事の公開 → 未ログインでの閲覧まで確認しました。学校の共用インフラ（`overlays/nhn`）は学内ネットワークからしか届かないため移行を保留しています。現在はこの構成で [devlog.life](https://devlog.life) を運営し、外部からのリクエストは Cloudflare Tunnel 経由で入ります（[デプロイの記事](https://devlog.life/@kim755030/posts/17)、韓国語）。詳しくは [deploy/README.md](deploy/README.md)（韓国語）にあります。
+現在の本番の基準は `overlays/selfhosted` です。PostgreSQL 17・Redis 7.4・MinIO を同じクラスター内に永続ボリューム付きで動かし、テストクラスター（k3s）で登録 → 画像入りの記事の公開 → 未ログインでの閲覧まで確認しました。学校の共用インフラ（`overlays/nhn`）は学内ネットワークからしか届かないため移行を保留しています。現在はこの構成で [devlog.life](https://devlog.life) を運営し、外部からのリクエストは Cloudflare Tunnel 経由で入ります（[デプロイの記事](https://devlog.life/@kim755030/posts/17)、韓国語）。学校の実習サーバーが 11 月末に閉じるため、2026-11-02 に本番を Oracle Cloud 無料 VM（Ampere A1、arm64）へ移しました。外からのリクエストは引き続き Cloudflare Tunnel から入ります。サーバー移行ワークフロー（v2.24.0）が試しコピーでテーブルごとの行数とファイル数を比べ、すべて一致したときだけドメインを移しました。学校サーバーは 11 月末まで戻し先として残します。詳しくは [deploy/README.md](deploy/README.md)（韓国語）にあります。
 
 ## リポジトリ構成
 
@@ -427,6 +427,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | バージョン | 日付 | 主な内容 | リリースノート |
 | --- | --- | --- | --- |
+| v2.25.0 | 2026-11-04 | ショーツスタジオの［動画を保存］を東京サーバーから直接受け取る経路（mediaホスト）を追加し、失敗時は従来のCloudflare経路へ自動切り替え。区間別「ダウンロード速度点検」ワークフロー | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.25.0) |
 | v2.24.1 | 2026-11-02 | サーバー移行のファイル数比較がコピーのログと混ざり、常に不一致と出ていた問題を修正 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.1) |
 | v2.24.0 | 2026-11-02 | 本番サーバーを学校の実習サーバーからOracle Cloud無料VMへ移すサーバー移行ワークフロー（試しコピー・本移行・切り戻し） | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.0) |
 | v2.23.0 | 2026-10-29 | ショート自動投稿のYouTubeはレンダー完了後すぐ非公開でアップロードし、公開はYouTube Studioで自分で行う | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.23.0) |
