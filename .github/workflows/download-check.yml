@@ -1,0 +1,71 @@
+# 쇼츠 영상 내려받기가 느린 원인을 찾으려고 운영(오라클) 구간별 속도를 읽기 전용으로 잰다 (민서님 허락 2026-11-03).
+# 아무것도 바꾸지 않는다: kubectl get·top·logs·exec(읽기 요청)와 바깥 주소 curl만 쓴다. 영상 주소는 로그에서 가린다.
+# 구간: ① 앱 파드 → MinIO ② 앱 파드 → 인그레스 → MinIO ③ 바깥(러너) → Cloudflare → 터널 → 인그레스 → MinIO
+name: 내려받기 속도 점검
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/shorts-download-speed]
+    paths: [.github/workflows/download-check.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: selfhosted
+    steps:
+      - name: 접속 파일 준비 (러너에만 존재)
+        env:
+          KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG }}
+        run: |
+          umask 077
+          [ -n "$KUBECONFIG_CONTENT" ] || { echo "::error::Secret KUBECONFIG가 없습니다"; exit 1; }
+          printf '%s' "$KUBECONFIG_CONTENT" > "$RUNNER_TEMP/kubeconfig"
+          echo "KUBECONFIG=$RUNNER_TEMP/kubeconfig" >> "$GITHUB_ENV"
+      - name: 노드·파드·자원
+        run: |
+          kubectl get nodes -o wide
+          kubectl top nodes || true
+          kubectl -n blog get pods -o wide
+          kubectl -n blog top pods || true
+          kubectl -n ingress-nginx get pods -o wide || true
+      - name: 터널 연결 위치와 오류
+        run: |
+          kubectl -n blog logs -l app.kubernetes.io/name=cloudflared --tail=400 --prefix \
+            | grep -iE "Registered tunnel connection|location=|protocol|error|ERR|timeout|reset" | tail -40 || true
+      - name: 최근 영상 고르기
+        run: |
+          row=$(kubectl -n blog exec -i statefulset/postgres -c postgres -- sh -c \
+            'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA -F "|" -c "SELECT video_key, video_bytes FROM shorts WHERE video_key IS NOT NULL ORDER BY id DESC LIMIT 3"')
+          for k in $(echo "$row" | cut -d'|' -f1); do echo "::add-mask::$k"; done
+          echo "최근 영상 3개 크기(바이트): $(echo "$row" | cut -d'|' -f2 | tr '\n' ' ')"
+          echo "KEY=$(echo "$row" | head -1 | cut -d'|' -f1)" >> "$GITHUB_ENV"
+          echo "BYTES=$(echo "$row" | head -1 | cut -d'|' -f2)" >> "$GITHUB_ENV"
+      - name: ① 앱 파드 → MinIO, ② 앱 파드 → 인그레스
+        run: |
+          kubectl -n blog exec -i deploy/blog-app -c app -- sh -s "$KEY" <<'SH' 2>&1 || true
+          k="$1"
+          t() { s=$(date +%s%N); "$@" >/dev/null 2>&1; rc=$?; e=$(date +%s%N); echo "rc=$rc ms=$(( (e - s) / 1000000 ))"; }
+          if command -v curl >/dev/null; then
+            echo "① minio: $(curl -s -o /dev/null -w 'code=%{http_code} size=%{size_download} ttfb=%{time_starttransfer}s total=%{time_total}s speed=%{speed_download}B/s' "http://minio:9000/blog-images/$k")"
+            echo "② ingress: $(curl -s -o /dev/null -H 'Host: devlog.life' -w 'code=%{http_code} size=%{size_download} total=%{time_total}s speed=%{speed_download}B/s' "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local/blog-images/$k")"
+          elif command -v wget >/dev/null; then
+            echo "① minio (wget): $(t wget -q -O /dev/null "http://minio:9000/blog-images/$k")"
+            echo "② ingress (wget): $(t wget -q -O /dev/null --header 'Host: devlog.life' "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local/blog-images/$k")"
+          else
+            echo "앱 파드에 curl·wget 없음"
+          fi
+          SH
+      - name: ③ 바깥 → Cloudflare → 터널 → MinIO
+        run: |
+          url="https://devlog.life/blog-images/$KEY"
+          echo "영상 크기: $BYTES 바이트, 러너 위치: $(curl -s https://devlog.life/cdn-cgi/trace | grep colo)"
+          for i in 1 2 3; do
+            curl -s -o /dev/null -w "회차 $i: code=%{http_code} size=%{size_download} ttfb=%{time_starttransfer}s total=%{time_total}s speed=%{speed_download}B/s cache=%header{cf-cache-status} cc=%header{cache-control}\n" "$url"
+          done
+          curl -s -o /dev/null -w "Range 1MB: code=%{http_code} size=%{size_download} total=%{time_total}s\n" -H 'Range: bytes=0-1048575' "$url"
+          curl -sI "$url" | grep -viE "^(set-cookie|report-to|nel):"
