@@ -23,9 +23,14 @@ public class ContentSecurityPolicy implements HeaderWriter {
     static final String YOUTUBE_EMBED = "https://www.youtube-nocookie.com";
     static final String SOCIAL_AVATAR_HOSTS = "https://avatars.githubusercontent.com https://lh3.googleusercontent.com https://k.kakaocdn.net https://platform-lookaside.fbsbx.com https://phinf.pstatic.net";
     private final String storageOrigin;
+    /** 쇼츠 영상 직접 받기 주소(blog.shorts.video-direct-base-url). 화면이 fetch로 받으므로 connect-src에만 더한다 */
+    private final String videoDirectOrigin;
 
-    public ContentSecurityPolicy(@Value("${blog.image.public-base-url:}") String publicBaseUrl) {
+    public ContentSecurityPolicy(@Value("${blog.image.public-base-url:}") String publicBaseUrl,
+                                 @Value("${blog.shorts.video-direct-base-url:}") String videoDirectBaseUrl) {
         this.storageOrigin = origin(publicBaseUrl);
+        String direct = origin(videoDirectBaseUrl);
+        this.videoDirectOrigin = direct.isEmpty() || direct.equals(storageOrigin) ? "" : " " + direct;
     }
 
     @Override
@@ -44,7 +49,7 @@ public class ContentSecurityPolicy implements HeaderWriter {
     public String adPolicy(String nonce) {
         String storage = storageOrigin.isEmpty() ? "" : " " + storageOrigin;
         return "default-src 'self'; script-src 'nonce-" + nonce + "' 'strict-dynamic' 'unsafe-inline' 'unsafe-eval' https: http:"
-                + "; connect-src 'self'" + storage + " https:; img-src 'self'" + storage + " https: data: blob:"
+                + "; connect-src 'self'" + storage + videoDirectOrigin + " https:; img-src 'self'" + storage + " https: data: blob:"
                 + "; media-src 'self'" + storage + " blob:; frame-src https:; style-src 'self' 'unsafe-inline'; font-src 'self' data: https:; object-src 'none'"
                 + "; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
     }
@@ -52,7 +57,7 @@ public class ContentSecurityPolicy implements HeaderWriter {
     public String policyFor(String path) {
         String storage = storageOrigin.isEmpty() ? "" : " " + storageOrigin;
         String imgExtra = "/signup/social".equals(path) ? " " + SOCIAL_AVATAR_HOSTS : "";
-        return "default-src 'self'; script-src 'self'; connect-src 'self'" + storage
+        return "default-src 'self'; script-src 'self'; connect-src 'self'" + storage + videoDirectOrigin
                 + "; img-src 'self'" + storage + imgExtra + " " + YOUTUBE_THUMBNAILS + " data: blob:"
                 + "; media-src 'self'" + storage + " blob:; frame-src " + YOUTUBE_EMBED + "; style-src 'self' 'unsafe-inline'; font-src 'self' data:; object-src 'none'; frame-ancestors 'none'"
                 + "; base-uri 'none'; form-action 'self'";

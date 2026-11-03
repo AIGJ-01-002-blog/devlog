@@ -14,6 +14,7 @@ import { ReplayInfo, ReplayPicker } from './StudioReplay'
 import { StudioPostPicker } from './StudioPostPicker'
 import { StudioUploadGuide } from './StudioUploadGuide'
 import { StudioAutoUpload } from './StudioAutoUpload'
+import { VideoDownloadLink } from '../components/VideoDownloadLink'
 import { AUTO_PLATFORM_NAMES, autoUploadStatus, type AutoUploadStatus } from '../lib/autoUpload'
 
 const POLL_MS = 5000
@@ -416,7 +417,7 @@ function Editor({ item, onChange, onReload, onDeleted }: {
         <div className="studio-video">
           <video src={item.videoUrl} controls playsInline preload="metadata" aria-label={t('만든 쇼츠 영상')} />
           <div className="studio-actions">
-            <a className="btn btn-primary" href={item.videoUrl} download={videoFileName(item.title)} data-tip={t('MP4 파일로 받아 SNS 앱에서 직접 올려요')}>{t('영상 받기')}</a>
+            <VideoDownloadLink item={item} fileName={videoFileName(item.title)} className="btn btn-primary" />
             <span className="muted small">
               {t('{0}초 · {1}MB', { 0: ((item.durationMs ?? 0) / 1000).toFixed(1), 1: ((item.videoBytes ?? 0) / 1024 / 1024).toFixed(1) })}
             </span>

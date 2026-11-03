@@ -55,6 +55,8 @@ export interface ShortsItem {
   status: ShortsStatus
   attempts: number
   videoUrl: string | null
+  /** Cloudflare를 거치지 않고 서버에서 바로 받는 주소(설정했을 때만). 실패하면 videoUrl로 다시 받는다 */
+  videoDownloadUrl?: string | null
   durationMs: number | null
   videoBytes: number | null
   error: string | null
@@ -433,6 +435,49 @@ function uploadSteps(platform: Platform, list: string | null): string[] {
   }
 }
 
+/** 받을 주소 순서: 직접 받기 주소가 있으면 먼저, 그다음 videoUrl(Cloudflare) */
+export function videoSources(item: Pick<ShortsItem, 'videoUrl' | 'videoDownloadUrl'>): string[] {
+  return [item.videoDownloadUrl, item.videoUrl].filter((u, i, all): u is string => !!u && all.indexOf(u) === i)
+}
+
+/** 주소를 차례로 시도해 처음 성공한 영상 파일을 받는다. 직접 받기 서버가 아직 준비 안 됐어도 Cloudflare로 받게 */
+export async function fetchVideo(urls: string[], headerTimeoutMs = 10_000): Promise<Blob> {
+  let last: unknown = new Error('no video url')
+  for (const url of urls) {
+    // 응답이 시작될 때까지만 기다린다(서버가 멈춰 있으면 다음 주소로). 본문을 받는 동안은 끊지 않는다
+    const ctrl = typeof AbortController === 'function' ? new AbortController() : undefined
+    const timer = ctrl ? setTimeout(() => ctrl.abort(), headerTimeoutMs) : undefined
+    try {
+      const res = await fetch(url, ctrl ? { credentials: 'same-origin', signal: ctrl.signal } : { credentials: 'same-origin' })
+      clearTimeout(timer)
+      if (res.ok) return await res.blob()
+      last = new Error(`HTTP ${res.status}`)
+    } catch (e) {
+      clearTimeout(timer)
+      last = e
+    }
+  }
+  throw last
+}
+
+/**
+ * [영상 받기]. 직접 받기 주소가 없으면 false를 돌려 링크가 원래대로(같은 주소, download 속성) 받게 둔다.
+ * 직접 받기 주소는 다른 도메인이라 download 속성이 무시되므로 파일로 받아 제목 이름으로 저장한다.
+ */
+export async function downloadVideo(item: Pick<ShortsItem, 'videoUrl' | 'videoDownloadUrl'>, fileName: string): Promise<boolean> {
+  if (!item.videoDownloadUrl || typeof URL.createObjectURL !== 'function') return false
+  const blob = await fetchVideo(videoSources(item))
+  const href = URL.createObjectURL(new Blob([blob], { type: 'video/mp4' }))
+  const a = document.createElement('a')
+  a.href = href
+  a.download = fileName
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(href), 60_000)
+  return true
+}
+
 /** 한 번 받은 영상 파일. 느린 망에서 받는 사이 탭 허용 시간이 지나 공유가 막히면, 다시 누를 때 바로 넘긴다 */
 const sharedFiles = new Map<string, File>()
 
@@ -441,15 +486,21 @@ const sharedFiles = new Map<string, File>()
  * 파일 공유를 못 하는 브라우저면 영상을 받기 전에 'unsupported'로 끝내고, 화면은 [영상 받기]로 안내한다.
  * 받는 사이 탭 허용 시간이 지나 막히면(NotAllowedError) 'retry': 받아 둔 파일로 한 번 더 누르면 된다.
  */
-export async function shareVideo(url: string, fileName: string, title: string): Promise<'shared' | 'cancelled' | 'retry' | 'unsupported'> {
+export async function shareVideo(source: string | string[], fileName: string, title: string): Promise<'shared' | 'cancelled' | 'retry' | 'unsupported'> {
+  const urls = typeof source === 'string' ? [source] : source
+  const url = urls[0]
   const nav = typeof navigator === 'undefined' ? undefined : navigator
   if (!nav?.share || !nav.canShare) return 'unsupported'
   if (!nav.canShare({ files: [new File([], fileName, { type: 'video/mp4' })] })) return 'unsupported'
   let file = sharedFiles.get(url)
   if (!file) {
-    const res = await fetch(url, { credentials: 'same-origin' })
-    if (!res.ok) return 'unsupported'
-    file = new File([await res.blob()], fileName, { type: 'video/mp4' })
+    let blob: Blob
+    try {
+      blob = await fetchVideo(urls)
+    } catch {
+      return 'unsupported'
+    }
+    file = new File([blob], fileName, { type: 'video/mp4' })
     sharedFiles.clear()
     sharedFiles.set(url, file)
   }

@@ -18,6 +18,9 @@ import org.springframework.util.unit.DataSize;
  * @param maxAttempts    이만큼 실패하면 FAILED로 끝낸다
  * @param blogMax        블로그 [쇼츠] 탭에 보이는 최대 개수(spec 103)
  * @param postMax        글 아래 "이 글의 쇼츠"에 보이는 최대 개수(spec 103)
+ * @param videoDirectBaseUrl SHORTS_VIDEO_DIRECT_BASE_URL. 비어 있지 않으면 [영상 받기]가 Cloudflare를 거치지 않고 서버(도쿄)에서 바로 받는 주소(예: https://media.devlog.life).
+ *                       Cloudflare 무료 요금제가 한국 사용자를 LA 지점으로 보내 영상이 태평양을 두 번 건너던 문제(2026-11-03) 때문에 둔다.
+ *                       화면은 이 주소가 실패하면 videoUrl(Cloudflare)로 다시 받는다
  * @param colorGroupsSince 이 시각 뒤에 만든 영상부터 세 편씩 같은 색 계열로 묶는다({@link ColorGroups}). 채널 편수가 3의 배수일 때로 맞춘다. 그 전에는 워커가 전처럼 고른다
  */
 @ConfigurationProperties(prefix = "blog.shorts")
@@ -30,7 +33,16 @@ public record ShortsProperties(@DefaultValue("false") boolean enabled,
                                @DefaultValue("3") int maxAttempts,
                                @DefaultValue("60") int blogMax,
                                @DefaultValue("6") int postMax,
-                               @DefaultValue("2026-10-21T06:00:00Z") java.time.Instant colorGroupsSince) {
+                               @DefaultValue("2026-10-21T06:00:00Z") java.time.Instant colorGroupsSince,
+                               @DefaultValue("") String videoDirectBaseUrl) {
+
+    /** 영상 키의 직접 받기 주소. 설정이 비었거나 영상이 없으면 null(화면은 videoUrl만 쓴다) */
+    public String videoDirectUrl(String videoKey) {
+        if (videoKey == null || videoDirectBaseUrl == null || videoDirectBaseUrl.isBlank()) return null;
+        String base = videoDirectBaseUrl.strip();
+        while (base.endsWith("/")) base = base.substring(0, base.length() - 1);
+        return base + "/" + videoKey;
+    }
 
     public boolean workerEnabled() {
         return enabled && workerToken != null && !workerToken.isBlank();

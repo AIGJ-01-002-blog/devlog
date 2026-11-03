@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ApiError } from './api'
 import parityRaw from './shortsCaptionParity.json?raw'
-import { emptyScene, estimateSeconds, groupByBatch, hashtags, playlistName, renderProblems, reportOf, shareVideo, uploadGuide, videoFileName, workerOnline, writtenTopics, type ShortsBatch, type ShortsItem } from './shorts'
+import { downloadVideo, emptyScene, fetchVideo, videoSources, estimateSeconds, groupByBatch, hashtags, playlistName, renderProblems, reportOf, shareVideo, uploadGuide, videoFileName, workerOnline, writtenTopics, type ShortsBatch, type ShortsItem } from './shorts'
 
 const scene = (narration: string) => ({ caption: '자막', narration, code: null })
 
@@ -154,6 +154,52 @@ describe('shareVideo', () => {
     expect(await shareVideo('/w.mp4', 'w.mp4', 't')).toBe('retry')
     expect(await shareVideo('/w.mp4', 'w.mp4', 't')).toBe('shared')
     expect(fetchSpy).toHaveBeenCalledTimes(1)
+    vi.unstubAllGlobals()
+  })
+})
+
+describe('영상 직접 받기 (2026-11-03 Cloudflare LA 우회)', () => {
+  it('직접 받기 주소를 먼저, Cloudflare 주소를 다음에 둔다', () => {
+    expect(videoSources({ videoUrl: '/blog-images/v.mp4', videoDownloadUrl: 'https://media.devlog.life/v.mp4' }))
+      .toEqual(['https://media.devlog.life/v.mp4', '/blog-images/v.mp4'])
+    expect(videoSources({ videoUrl: '/blog-images/v.mp4', videoDownloadUrl: null })).toEqual(['/blog-images/v.mp4'])
+    expect(videoSources({ videoUrl: '/blog-images/v.mp4' })).toEqual(['/blog-images/v.mp4'])
+  })
+
+  it('직접 받기 서버가 실패하면 Cloudflare 주소로 다시 받는다', async () => {
+    const fetchSpy = vi.fn()
+      .mockRejectedValueOnce(new TypeError('network'))
+      .mockResolvedValueOnce({ ok: true, blob: async () => new Blob(['ok']) })
+    vi.stubGlobal('fetch', fetchSpy)
+    const blob = await fetchVideo(['https://media.devlog.life/v.mp4', '/blog-images/v.mp4'])
+    expect(await blob.text()).toBe('ok')
+    expect(fetchSpy).toHaveBeenNthCalledWith(2, '/blog-images/v.mp4', expect.objectContaining({ credentials: 'same-origin' }))
+    vi.unstubAllGlobals()
+  })
+
+  it('응답이 시작되지 않으면 제한 시간 뒤 다음 주소로 넘어간다', async () => {
+    const fetchSpy = vi.fn()
+      .mockImplementationOnce((_u: string, init: RequestInit) => new Promise((_, reject) => {
+        init.signal!.addEventListener('abort', () => reject(new DOMException('timeout', 'AbortError')))
+      }))
+      .mockResolvedValueOnce({ ok: true, blob: async () => new Blob(['cf']) })
+    vi.stubGlobal('fetch', fetchSpy)
+    const blob = await fetchVideo(['https://media.devlog.life/v.mp4', '/blog-images/v.mp4'], 20)
+    expect(await blob.text()).toBe('cf')
+    vi.unstubAllGlobals()
+  })
+
+  it('둘 다 실패하면 오류를 낸다', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 404 })))
+    await expect(fetchVideo(['/a.mp4'])).rejects.toThrow('HTTP 404')
+    vi.unstubAllGlobals()
+  })
+
+  it('직접 받기 주소가 없으면 링크에 맡긴다(false)', async () => {
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+    expect(await downloadVideo({ videoUrl: '/blog-images/v.mp4', videoDownloadUrl: null }, 'v.mp4')).toBe(false)
+    expect(fetchSpy).not.toHaveBeenCalled()
     vi.unstubAllGlobals()
   })
 })
