@@ -173,7 +173,19 @@ describe('영상 직접 받기 (2026-11-03 Cloudflare LA 우회)', () => {
     vi.stubGlobal('fetch', fetchSpy)
     const blob = await fetchVideo(['https://media.devlog.life/v.mp4', '/blog-images/v.mp4'])
     expect(await blob.text()).toBe('ok')
-    expect(fetchSpy).toHaveBeenNthCalledWith(2, '/blog-images/v.mp4', { credentials: 'same-origin' })
+    expect(fetchSpy).toHaveBeenNthCalledWith(2, '/blog-images/v.mp4', expect.objectContaining({ credentials: 'same-origin' }))
+    vi.unstubAllGlobals()
+  })
+
+  it('응답이 시작되지 않으면 제한 시간 뒤 다음 주소로 넘어간다', async () => {
+    const fetchSpy = vi.fn()
+      .mockImplementationOnce((_u: string, init: RequestInit) => new Promise((_, reject) => {
+        init.signal!.addEventListener('abort', () => reject(new DOMException('timeout', 'AbortError')))
+      }))
+      .mockResolvedValueOnce({ ok: true, blob: async () => new Blob(['cf']) })
+    vi.stubGlobal('fetch', fetchSpy)
+    const blob = await fetchVideo(['https://media.devlog.life/v.mp4', '/blog-images/v.mp4'], 20)
+    expect(await blob.text()).toBe('cf')
     vi.unstubAllGlobals()
   })
 

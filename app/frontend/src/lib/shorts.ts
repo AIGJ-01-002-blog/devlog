@@ -441,14 +441,19 @@ export function videoSources(item: Pick<ShortsItem, 'videoUrl' | 'videoDownloadU
 }
 
 /** 주소를 차례로 시도해 처음 성공한 영상 파일을 받는다. 직접 받기 서버가 아직 준비 안 됐어도 Cloudflare로 받게 */
-export async function fetchVideo(urls: string[]): Promise<Blob> {
+export async function fetchVideo(urls: string[], headerTimeoutMs = 10_000): Promise<Blob> {
   let last: unknown = new Error('no video url')
   for (const url of urls) {
+    // 응답이 시작될 때까지만 기다린다(서버가 멈춰 있으면 다음 주소로). 본문을 받는 동안은 끊지 않는다
+    const ctrl = typeof AbortController === 'function' ? new AbortController() : undefined
+    const timer = ctrl ? setTimeout(() => ctrl.abort(), headerTimeoutMs) : undefined
     try {
-      const res = await fetch(url, { credentials: 'same-origin' })
+      const res = await fetch(url, ctrl ? { credentials: 'same-origin', signal: ctrl.signal } : { credentials: 'same-origin' })
+      clearTimeout(timer)
       if (res.ok) return await res.blob()
       last = new Error(`HTTP ${res.status}`)
     } catch (e) {
+      clearTimeout(timer)
       last = e
     }
   }

@@ -245,8 +245,18 @@ jobs:
           INSTAGRAM_APP_ID: ${{ secrets.INSTAGRAM_APP_ID }}
           INSTAGRAM_APP_SECRET: ${{ secrets.INSTAGRAM_APP_SECRET }}
           # 쇼츠 영상 직접 받기(addons/media-direct): 변수 MEDIA_DIRECT_HOST가 있으면 앱이 [영상 받기]에 이 주소를 먼저 쓴다
-          SHORTS_VIDEO_DIRECT_BASE_URL: ${{ vars.MEDIA_DIRECT_HOST != '' && format('https://{0}', vars.MEDIA_DIRECT_HOST) || '' }}
+          MEDIA_DIRECT_HOST: ${{ vars.MEDIA_DIRECT_HOST }}
         run: |
+          # 주소 이름 모양일 때만 앱에 직접 받기 주소를 넣는다(잘못된 값이 앱에 먼저 들어가지 않게)
+          SHORTS_VIDEO_DIRECT_BASE_URL=""
+          if [ -n "$MEDIA_DIRECT_HOST" ]; then
+            if printf '%s' "$MEDIA_DIRECT_HOST" | grep -Eq '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$'; then
+              SHORTS_VIDEO_DIRECT_BASE_URL="https://$MEDIA_DIRECT_HOST"
+            else
+              echo "::error::MEDIA_DIRECT_HOST는 media.devlog.life처럼 주소 이름만 적어 주세요"
+              exit 1
+            fi
+          fi
           umask 077
           # oracle은 KUBECONFIG Secret을 쓴다. school은 앞 단계가 SSH로 받아 둔 파일을 쓴다
           if [ "$TARGET" != school ]; then
@@ -262,6 +272,11 @@ jobs:
             printf '%s=%s\n' "$key" "$val" >> "$f.tmp"
             mv "$f.tmp" "$f"
           done
+          # 변수 MEDIA_DIRECT_HOST가 비면 BLOG_SECRET_ENV에 남은 옛 직접 받기 주소도 지운다
+          if [ -z "$SHORTS_VIDEO_DIRECT_BASE_URL" ]; then
+            grep -v '^SHORTS_VIDEO_DIRECT_BASE_URL=' "$f" > "$f.tmp" || true
+            mv "$f.tmp" "$f"
+          fi
           # 변수 OLLAMA_BASE_URL이 비면 BLOG_SECRET_ENV에 남은 옛 주소도 지워 Ollama를 끈다(README 설명과 같게)
           if [ -z "$OLLAMA_BASE_URL" ]; then
             grep -v '^OLLAMA_BASE_URL=' "$f" > "$f.tmp" || true
