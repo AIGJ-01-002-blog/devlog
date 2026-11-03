@@ -406,6 +406,7 @@ npm run dev        # http://localhost:5173
 | Docker · GHCR | 이미지 | 화면 빌드 → 백엔드에 넣어 하나의 이미지로. 루트가 아닌 사용자로 실행합니다 |
 | Kubernetes · kustomize | 배포 | Deployment·HPA·PDB·NetworkPolicy, 오버레이 3종(selfhosted·nhn·local) |
 | nginx 인그레스 | 앞단 | TLS, 경로별 전달(`/blog-images`는 MinIO로) |
+| Caddy | 영상 직접 받기(선택) | 쇼츠 영상(`/shorts/…mp4`)만 MinIO에서 바로 내줘 Cloudflare를 거치지 않고 서버에서 받게 합니다. 인증서는 Let's Encrypt로 자동 발급(v2.25.0) |
 | GitHub Actions | CI/CD | 테스트, 매니페스트 검증(kubeconform), 비밀값 검사, 이미지 빌드, 배포(배포 뒤 공개 주소를 열어 보고 안 열리면 직전 버전으로 되돌림), 릴리스, 알림. 외부 액션은 커밋 SHA로 고정 |
 | SonarQube · SonarCloud · CodeRabbit | 품질 | 정적 분석(학교 SonarQube 또는 SonarCloud, 선택), PR마다 AI 리뷰(한국어) |
 

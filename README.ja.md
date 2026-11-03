@@ -408,6 +408,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 | Docker · GHCR | イメージ | 画面をビルドしてバックエンドに入れ、1 つのイメージにします。root 以外のユーザーで実行します |
 | Kubernetes · kustomize | デプロイ | Deployment・HPA・PDB・NetworkPolicy、オーバーレイ 3 種（selfhosted・nhn・local） |
 | nginx Ingress | 前段 | TLS とパスごとの振り分け（`/blog-images` は MinIO へ） |
+| Caddy | 動画の直接ダウンロード（任意） | ショート動画（`/shorts/…mp4`）だけを MinIO から直接返し、Cloudflare を通さずサーバーから受け取れるようにします。証明書は Let's Encrypt で自動発行（v2.25.0） |
 | GitHub Actions | CI/CD | テスト、マニフェスト検証（kubeconform）、シークレット検査、イメージのビルド、デプロイ（デプロイ後に公開アドレスを開いて確かめ、開かなければ直前のバージョンに戻す）、リリース、通知。外部アクションはコミット SHA で固定 |
 | SonarQube · SonarCloud · CodeRabbit | 品質 | 静的解析（学校の SonarQube または SonarCloud、任意）、PR ごとの AI レビュー（韓国語） |
 
