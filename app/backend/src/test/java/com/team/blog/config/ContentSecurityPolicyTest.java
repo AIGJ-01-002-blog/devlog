@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 
 /** spec 103: 블로그 쇼츠 카드의 YouTube 썸네일과 재생 화면은 광고 없는 화면에서도 열린다. */
 class ContentSecurityPolicyTest {
-    private final ContentSecurityPolicy csp = new ContentSecurityPolicy("");
+    private final ContentSecurityPolicy csp = new ContentSecurityPolicy("", "");
 
     @Test
     void 쇼츠_카드의_YouTube_썸네일과_재생_화면만_더_연다() {
@@ -18,5 +18,16 @@ class ContentSecurityPolicyTest {
                     .contains("frame-ancestors 'none'")
                     .doesNotContain("frame-src https:;");
         }
+    }
+
+    @Test
+    void 쇼츠_영상_직접_받기_주소는_connect_src에만_더한다() {
+        ContentSecurityPolicy direct = new ContentSecurityPolicy("https://devlog.life/blog-images", "https://media.devlog.life/");
+        assertThat(direct.policyFor("/studio")).contains("connect-src 'self' https://devlog.life https://media.devlog.life;")
+                .contains("media-src 'self' https://devlog.life blob:");
+        assertThat(direct.adPolicy("n")).contains("connect-src 'self' https://devlog.life https://media.devlog.life https:;");
+        // 설정이 비면 예전과 같다
+        assertThat(new ContentSecurityPolicy("https://devlog.life/blog-images", "").policyFor("/studio"))
+                .contains("connect-src 'self' https://devlog.life;");
     }
 }
