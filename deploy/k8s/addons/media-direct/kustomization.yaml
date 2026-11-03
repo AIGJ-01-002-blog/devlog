@@ -1,0 +1,18 @@
+# 쇼츠 영상을 Cloudflare를 거치지 않고 서버(오라클 도쿄)에서 바로 내려주는 작은 웹 서버(Caddy) (2026-11-03).
+# 왜: Cloudflare 무료 요금제가 한국 사용자를 LA 지점으로 보내, 영상이 한국 → LA → 도쿄 → LA → 한국으로 태평양을 두 번 건넜다.
+# 무엇만: GET/HEAD /shorts/<연>/<월>/<uuid>.mp4 만 MinIO로 넘긴다. 나머지 주소·방법은 404/405. 사이트(앱)는 계속 Cloudflare 뒤에 있다.
+# https: Caddy가 Let's Encrypt 인증서를 스스로 받고 갱신한다(노드 80·443을 hostPort로 씀). 인증서는 PVC에 둬 재시작해도 다시 받지 않는다.
+# 켜는 법(deploy/README.md "영상 직접 받기"): 오라클 보안 목록 TCP 80·443 열기 → Cloudflare DNS에 회색 구름(DNS only) A 레코드
+#   media.devlog.life → 서버 공인 IP → GitHub 변수 MEDIA_DIRECT_HOST=media.devlog.life. 배포가 이 부품을 올리고 앱에 주소를 넣는다.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: blog
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: blog
+    includeSelectors: false
+resources:
+  - media-direct.yaml
+configMapGenerator:
+  - name: media-direct-caddyfile
+    files: [Caddyfile]

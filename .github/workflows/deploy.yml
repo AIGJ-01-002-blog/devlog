@@ -244,6 +244,8 @@ jobs:
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           INSTAGRAM_APP_ID: ${{ secrets.INSTAGRAM_APP_ID }}
           INSTAGRAM_APP_SECRET: ${{ secrets.INSTAGRAM_APP_SECRET }}
+          # 쇼츠 영상 직접 받기(addons/media-direct): 변수 MEDIA_DIRECT_HOST가 있으면 앱이 [영상 받기]에 이 주소를 먼저 쓴다
+          SHORTS_VIDEO_DIRECT_BASE_URL: ${{ vars.MEDIA_DIRECT_HOST != '' && format('https://{0}', vars.MEDIA_DIRECT_HOST) || '' }}
         run: |
           umask 077
           # oracle은 KUBECONFIG Secret을 쓴다. school은 앞 단계가 SSH로 받아 둔 파일을 쓴다
@@ -253,7 +255,7 @@ jobs:
           fi
           f="deploy/k8s/overlays/$OVERLAY/secret.env"
           printf '%s\n' "$BLOG_SECRET_ENV" > "$f"
-          for key in SMTP_PASSWORD SMTP_HOST TELEGRAM_BOT_TOKEN GEMINI_API_KEY OLLAMA_BASE_URL OLLAMA_ACCESS_CLIENT_ID OLLAMA_ACCESS_CLIENT_SECRET OLLAMA_AUTH_TOKEN GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET KAKAO_CLIENT_ID KAKAO_CLIENT_SECRET KAKAO_SCOPES FACEBOOK_CLIENT_ID FACEBOOK_CLIENT_SECRET NAVER_CLIENT_ID NAVER_CLIENT_SECRET SHORTS_WORKER_TOKEN SHORTS_WORKER_TOKEN_PREVIOUS SHORTS_TOKEN_KEY YOUTUBE_CLIENT_ID YOUTUBE_CLIENT_SECRET INSTAGRAM_APP_ID INSTAGRAM_APP_SECRET; do
+          for key in SMTP_PASSWORD SMTP_HOST TELEGRAM_BOT_TOKEN GEMINI_API_KEY OLLAMA_BASE_URL OLLAMA_ACCESS_CLIENT_ID OLLAMA_ACCESS_CLIENT_SECRET OLLAMA_AUTH_TOKEN GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET KAKAO_CLIENT_ID KAKAO_CLIENT_SECRET KAKAO_SCOPES FACEBOOK_CLIENT_ID FACEBOOK_CLIENT_SECRET NAVER_CLIENT_ID NAVER_CLIENT_SECRET SHORTS_WORKER_TOKEN SHORTS_WORKER_TOKEN_PREVIOUS SHORTS_TOKEN_KEY YOUTUBE_CLIENT_ID YOUTUBE_CLIENT_SECRET INSTAGRAM_APP_ID INSTAGRAM_APP_SECRET SHORTS_VIDEO_DIRECT_BASE_URL; do
             val="${!key}"
             [ -n "$val" ] || continue
             grep -v "^${key}=" "$f" > "$f.tmp" || true
@@ -345,6 +347,27 @@ jobs:
             kubectl -n blog describe pods -l app.kubernetes.io/name=cloudflared | sed -n '/^Events:/,$p' || true
             kubectl -n blog logs -l app.kubernetes.io/name=cloudflared --tail=40 --prefix --all-containers || true
             exit 1
+          fi
+      # 9-1) 쇼츠 영상 직접 받기 서버(addons/media-direct). Cloudflare 무료 요금제가 한국 사용자를 LA 지점으로 보내
+      #      영상이 태평양을 두 번 건너던 문제(2026-11-03)로, 영상만 서버에서 바로 내준다. 도메인이 붙은 클러스터에서만 올린다.
+      #      이 서버가 아직 준비 안 됐어도 화면이 Cloudflare 주소로 다시 받으므로 배포를 실패로 두지 않고 경고만 남긴다
+      - name: 영상 직접 받기 서버 (변수 MEDIA_DIRECT_HOST가 있을 때만)
+        env:
+          MEDIA_DIRECT_HOST: ${{ vars.MEDIA_DIRECT_HOST }}
+        run: |
+          if [ -z "$MEDIA_DIRECT_HOST" ] || [ "${TUNNEL_APPLIED:-}" != true ]; then
+            echo "MEDIA_DIRECT_HOST가 없거나 이 클러스터에 도메인이 없어 건너뜁니다."
+            exit 0
+          fi
+          if ! printf '%s' "$MEDIA_DIRECT_HOST" | grep -Eq '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$'; then
+            echo "::error::MEDIA_DIRECT_HOST는 media.devlog.life처럼 주소 이름만 적어 주세요"
+            exit 1
+          fi
+          kustomize build deploy/k8s/addons/media-direct | sed "s/media\.example\.com/$MEDIA_DIRECT_HOST/" \
+            | kubectl apply --server-side --force-conflicts -f -
+          if ! kubectl -n blog rollout status deploy/media-direct --timeout=180s; then
+            echo "::warning::영상 직접 받기 서버가 준비되지 않았어요. 화면은 Cloudflare 주소로 받습니다(오라클 보안 목록 80·443, DNS 확인)."
+            kubectl -n blog logs deploy/media-direct --tail=40 || true
           fi
       # 10) 연기 시험(smoke test, deploy/scripts/smoke.sh): 바깥 주소에서 첫 화면 200, /actuator/health UP,
       #     맨 위 글 읽기를 확인한다(최대 6번 다시 시도). 실패하면 8)에서 적어 둔 PREV_REVISION으로 되돌리고 실패 처리
