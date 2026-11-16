@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import com.team.blog.post.access.PostAccessPolicy;
 import com.team.blog.shared.error.NotFoundException;
+import com.team.blog.shared.security.MemberPrincipal;
 import com.team.blog.shared.time.Times;
 
 /**
@@ -88,7 +89,8 @@ public class IndexStats {
      */
     private static final String EXCLUDABLE = "status = 'PUBLISHED' AND visibility = 'PUBLIC' AND deleted_at IS NULL AND hidden_at IS NULL";
 
-    public void exclude(long postId, boolean excluded) {
+    public void exclude(MemberPrincipal me, long postId, boolean excluded) {
+        if (me == null || !me.isStaff()) throw new NotFoundException(); // 컨트롤러와 같은 응답. 다른 호출자가 생겨도 운영진만
         int n = excluded
                 ? jdbc.update("UPDATE post SET index_excluded_at = COALESCE(index_excluded_at, ?) WHERE id = ? AND " + EXCLUDABLE + "",
                         Timestamp.from(Times.now(clock)), postId)

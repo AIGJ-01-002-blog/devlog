@@ -126,7 +126,7 @@ public class AdminConsoleController {
     @PutMapping("/posts/{postId}/index-exclusion")
     public ResponseEntity<Void> indexExclusion(@PathVariable long postId, @RequestBody IndexExclusion body, @CurrentMember MemberPrincipal me) {
         staff(me);
-        index.exclude(postId, body != null && body.excluded());
+        index.exclude(me, postId, body != null && body.excluded());
         return ResponseEntity.noContent().build();
     }
 
