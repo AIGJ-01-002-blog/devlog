@@ -322,7 +322,9 @@ function IndexCard() {
   const [postNo, setPostNo] = useState('')
   const load = () => consoleApi.indexReport().then((r) => { setReport(r); setError(null) }, () => setError('검색 수집 현황을 불러오지 못했어요.'))
   useEffect(() => { void load() }, [])
+  // 승인·빼기·다시 수집은 한 번에 하나만: 늦게 온 현황 응답이 최신 현황을 덮지 않게 한다
   const run = async (id: number, action: () => Promise<void>, failure: string) => {
+    if (busy !== null) return false
     setBusy(id)
     try {
       await action()
@@ -363,7 +365,7 @@ function IndexCard() {
                   <li key={p.id}>
                     <a href={p.url} className="rank-title">{p.title}</a>
                     <span className="muted small">@{p.authorHandle} · 본문 {count(p.bodyChars)}자</span>
-                    <button type="button" className="btn btn-text" disabled={busy === p.id} onClick={() => void approve(p.id)}
+                    <button type="button" className="btn btn-text" disabled={busy !== null} onClick={() => void approve(p.id)}
                             data-tip="읽어 보고 괜찮으면 검색 엔진·사이트맵에 내보내요">수집 허락</button>
                   </li>
                 ))}
@@ -379,13 +381,13 @@ function IndexCard() {
           </form>
           {report.excludedPosts.length > 0 && (
             <details>
-              <summary className="small" data-tip="운영자가 검색 수집에서 뺀 글이에요. 최근에 뺀 글부터 보여요">운영자가 뺀 글 {count(report.excluded)}편</summary>
+              <summary className="small" data-tip="운영자가 검색 수집에서 뺀 글이에요. 최근에 뺀 글부터 보여요">운영자가 뺀 글 {count(report.excludedTotal)}편</summary>
               <ol className="rank-list">
                 {report.excludedPosts.map((p) => (
                   <li key={p.id}>
                     <a href={p.url} className="rank-title">{p.title}</a>
                     <span className="muted small">{p.id}번 · @{p.authorHandle}</span>
-                    <button type="button" className="btn btn-text" disabled={busy === p.id} onClick={() => void restore(p.id)}
+                    <button type="button" className="btn btn-text" disabled={busy !== null} onClick={() => void restore(p.id)}
                             data-tip="이 글을 다시 검색 엔진·사이트맵에 내보내요">다시 수집</button>
                   </li>
                 ))}

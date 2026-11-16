@@ -45,9 +45,10 @@ public class IndexStats {
      * @param excluded     운영자가 수집에서 뺀 글 (spec 109)
      * @param pending      검수하면 바로 수집 대상이 되는 외부 회원 글 (최근 발행 순)
      * @param excludedPosts 운영자가 뺀 글 (최근에 뺀 순). [다시 수집]으로 되돌릴 수 있게 보여 준다
+     * @param excludedTotal 운영자가 뺀 공개 글 전체 (다른 사유와 겹치는 글 포함). 목록 제목에 쓴다
      */
     public record Report(long indexed, long aiDiary, long shortPost, long unreviewed, long excluded, List<Pending> pending,
-                         List<Pending> excludedPosts) {
+                         List<Pending> excludedPosts, long excludedTotal) {
         public long noindex() {
             return aiDiary + shortPost + unreviewed + excluded;
         }
@@ -62,10 +63,11 @@ public class IndexStats {
                 + " count(*) FILTER (WHERE NOT p.ai_diary AND p.body_chars >= " + PostAccessPolicy.MIN_ARTICLE_CHARS
                 + " AND NOT " + PostAccessPolicy.INDEX_REVIEWED_CONDITION + ") AS unreviewed,"
                 + " count(*) FILTER (WHERE NOT p.ai_diary AND p.body_chars >= " + PostAccessPolicy.MIN_ARTICLE_CHARS
-                + " AND " + PostAccessPolicy.INDEX_REVIEWED_CONDITION + " AND NOT " + PostAccessPolicy.NOT_EXCLUDED_CONDITION + ") AS excluded"
+                + " AND " + PostAccessPolicy.INDEX_REVIEWED_CONDITION + " AND NOT " + PostAccessPolicy.NOT_EXCLUDED_CONDITION + ") AS excluded,"
+                + " count(*) FILTER (WHERE NOT " + PostAccessPolicy.NOT_EXCLUDED_CONDITION + ") AS excluded_total"
                 + " FROM post p JOIN member m ON m.id = p.author_id WHERE " + PostAccessPolicy.PUBLIC_LIST_CONDITION;
         long[] c = jdbc.queryForObject(sql, (rs, i) -> new long[] {rs.getLong("indexed"), rs.getLong("diary"), rs.getLong("short"),
-                rs.getLong("unreviewed"), rs.getLong("excluded")});
+                rs.getLong("unreviewed"), rs.getLong("excluded"), rs.getLong("excluded_total")});
         List<Pending> pending = jdbc.query("SELECT p.id, p.title, m.handle, p.body_chars FROM post p JOIN member m ON m.id = p.author_id WHERE "
                         + PostAccessPolicy.PUBLIC_LIST_CONDITION + " AND NOT p.ai_diary AND p.body_chars >= " + PostAccessPolicy.MIN_ARTICLE_CHARS
                         + " AND NOT " + PostAccessPolicy.INDEX_REVIEWED_CONDITION + " AND " + PostAccessPolicy.NOT_EXCLUDED_CONDITION
@@ -73,7 +75,7 @@ public class IndexStats {
         List<Pending> excludedPosts = jdbc.query("SELECT p.id, p.title, m.handle, p.body_chars FROM post p JOIN member m ON m.id = p.author_id WHERE "
                         + PostAccessPolicy.PUBLIC_LIST_CONDITION + " AND NOT " + PostAccessPolicy.NOT_EXCLUDED_CONDITION
                         + " ORDER BY p.index_excluded_at DESC, p.id DESC LIMIT ?", PENDING_ROW, EXCLUDED_LIMIT);
-        return new Report(c[0], c[1], c[2], c[3], c[4], pending, excludedPosts);
+        return new Report(c[0], c[1], c[2], c[3], c[4], pending, excludedPosts, c[5]);
     }
 
     private static final RowMapper<Pending> PENDING_ROW = (rs, i) -> new Pending(rs.getLong("id"), rs.getString("title"),
@@ -81,13 +83,16 @@ public class IndexStats {
 
     /**
      * 운영자가 글을 검색 수집·사이트맵·광고에서 빼거나 되돌린다 (spec 109). 글은 독자에게 그대로 보인다.
-     * 이미 뺀 글을 다시 빼도 처음 뺀 시각을 지킨다. 발행한 글이 아니면 404
+     * 이미 뺀 글을 다시 빼도 처음 뺀 시각을 지킨다. 검색에 나갈 수 있는 글(발행·전체 공개·숨김 아님)만 다루고,
+     * 그 밖의 글(남의 비공개 글 포함)은 없는 글과 똑같이 404
      */
+    private static final String EXCLUDABLE = "status = 'PUBLISHED' AND visibility = 'PUBLIC' AND deleted_at IS NULL AND hidden_at IS NULL";
+
     public void exclude(long postId, boolean excluded) {
         int n = excluded
-                ? jdbc.update("UPDATE post SET index_excluded_at = COALESCE(index_excluded_at, ?) WHERE id = ? AND status = 'PUBLISHED' AND deleted_at IS NULL",
+                ? jdbc.update("UPDATE post SET index_excluded_at = COALESCE(index_excluded_at, ?) WHERE id = ? AND " + EXCLUDABLE + "",
                         Timestamp.from(Times.now(clock)), postId)
-                : jdbc.update("UPDATE post SET index_excluded_at = NULL WHERE id = ? AND status = 'PUBLISHED' AND deleted_at IS NULL", postId);
+                : jdbc.update("UPDATE post SET index_excluded_at = NULL WHERE id = ? AND " + EXCLUDABLE, postId);
         if (n == 0) throw new NotFoundException();
     }
 

@@ -119,6 +119,11 @@ class IndexReviewTest extends IntegrationTest {
         assertThat(page(path)).doesNotContain("noindex");
         assertThat(page("/sitemaps/posts.xml")).contains("/posts/" + id + "<");
 
+        // 남의 비공개 글은 없는 글과 똑같이 404이고 바뀌지 않는다
+        jdbc.update("UPDATE post SET visibility = 'PRIVATE' WHERE id = ?", id);
+        m.perform(asJson(put("/api/admin/posts/" + id + "/index-exclusion"), Map.of("excluded", true))).andExpect(status().isNotFound());
+        assertThat(jdbc.queryForObject("SELECT index_excluded_at FROM post WHERE id = ?", Object.class, id)).isNull();
+
         // 일반 회원은 못 하고, 없는 글은 404
         Session user = signup(uniqueLogin("idxy"));
         user.http().perform(asJson(put("/api/admin/posts/" + id + "/index-exclusion"), Map.of("excluded", true))).andExpect(status().isNotFound());

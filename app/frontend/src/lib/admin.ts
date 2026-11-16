@@ -186,6 +186,8 @@ export interface IndexReport {
   excluded: number
   pending: IndexPost[]
   excludedPosts: IndexPost[]
+  /** 운영자가 뺀 공개 글 전체(다른 사유와 겹치는 글 포함). 목록 제목에 쓴다 */
+  excludedTotal: number
 }
 
 /** 이전 기간 대비: "+12%", "-3%", 이전이 0이면 "새로" , 둘 다 0이면 "" */
