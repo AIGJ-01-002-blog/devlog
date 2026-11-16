@@ -428,6 +428,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v2.26.0 | 2026-11-16 | AdSense round 3: operators can drop a post from indexing, the sitemap and ads only (admin dashboard); 57 lecture-note posts published on Oct 12 excluded (sitemap posts 126→69). Fix for Shorts cutting off the last sentence | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.26.0) |
 | v2.25.0 | 2026-11-04 | Shorts Studio video downloads can come straight from the Tokyo server (media host) and fall back to the Cloudflare path; new per-hop "download speed check" workflow | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.25.0) |
 | v2.24.1 | 2026-11-02 | Fix the server migration file count, which was mixed with the copy log and always reported a mismatch | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.1) |
 | v2.24.0 | 2026-11-02 | Server migration workflow that moves production from the school lab server to a free Oracle Cloud VM (rehearsal, cutover, rollback) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.0) |

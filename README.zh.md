@@ -428,6 +428,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v2.26.0 | 2026-11-16 | AdSense 第三次应对：运营者可将文章仅从搜索收录、站点地图和广告中排除（管理后台），排除 10/12 一天发布的 57 篇课程笔记连载（站点地图文章 126→69）。修复短视频结尾句子被截断 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.26.0) |
 | v2.25.0 | 2026-11-04 | 短视频工作室的视频下载可直接从东京服务器（media 主机）获取，失败时自动回退到 Cloudflare 路径；新增分段“下载速度检查”工作流 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.25.0) |
 | v2.24.1 | 2026-11-02 | 修复服务器迁移的文件数比较与复制日志混在一起、总是显示不一致的问题 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.1) |
 | v2.24.0 | 2026-11-02 | 将生产环境从学校实训服务器迁移到 Oracle Cloud 免费 VM 的服务器迁移工作流（试复制、正式迁移、回退） | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.0) |

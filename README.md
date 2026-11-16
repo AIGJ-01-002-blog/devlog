@@ -426,6 +426,7 @@ npm run dev        # http://localhost:5173
 
 | 버전 | 날짜 | 주요 내용 | 릴리스 노트 |
 | --- | --- | --- | --- |
+| v2.26.0 | 2026-11-16 | 애드센스 3차 대응: 운영자가 글을 검색 수집·사이트맵·광고에서만 빼는 기능(관리자 대시보드), 10/12 하루에 올린 강의 정리 연재 57편 제외(사이트맵 글 126→69). 쇼츠 끝 문장 잘림 수정 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.26.0) |
 | v2.25.0 | 2026-11-04 | 쇼츠 스튜디오 [영상 받기]를 도쿄 서버에서 직접 받는 길(media 주소) 추가, 안 되면 기존 Cloudflare 길로 자동 전환. 구간별 "내려받기 속도 점검" 워크플로 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.25.0) |
 | v2.24.1 | 2026-11-02 | 서버 이전의 파일 수 비교가 파일 복사 기록에 섞여 늘 다르다고 나오던 문제 수정 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.1) |
 | v2.24.0 | 2026-11-02 | 운영 서버를 학교 실습 서버에서 Oracle Cloud 무료 VM으로 옮기는 서버 이전 워크플로(시험 복사·최종 이전·되돌리기) | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.0) |
