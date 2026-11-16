@@ -55,6 +55,29 @@ class ShortsScriptTest {
     }
 
     @Test
+    void 마지막_내레이션이_쉼표로_끝나면_잘린_말로_본다() {
+        // 2026-11-16: "루프" 규칙으로 "처음 돌렸을 땐 저도,"처럼 끝낸 대본이 영상에서 말이 잘린 채 끝났다
+        List<Scene> cut = List.of(new Scene("a", "분석기가 말한 34건, 대부분 오탐이었어요.", null),
+                new Scene("b", "도우미로 코드를 바꿨어요.", null), new Scene("c", "전체 코드는 블로그 글에서 보세요. 처음 돌렸을 땐 저도,", null));
+        assertThat(ShortsScript.endsCutOff(cut)).isTrue();
+        // 가운데 장면의 쉼표, 끝 공백, 말 없는 끝 장면은 보지 않거나 건너뛴다
+        List<Scene> ok = List.of(new Scene("a", "34건, 대부분 오탐이었어요.", null),
+                new Scene("b", "도우미로 코드를 바꿨어요.  ", null), new Scene("c", "", null));
+        assertThat(ShortsScript.endsCutOff(ok)).isFalse();
+    }
+
+    @Test
+    void 영상으로_읽을_끝_문장은_매달린_이음_구절을_뗀다() {
+        assertThat(ShortsScript.completeEnding("전체 코드는 블로그 글에서 보세요. 처음 돌렸을 땐 저도,")).isEqualTo("전체 코드는 블로그 글에서 보세요.");
+        assertThat(ShortsScript.completeEnding("정말 그럴까요? 그래서 결국 다시, ")).isEqualTo("정말 그럴까요?");
+        // 완결 문장이 없으면 끝 쉼표만 마침표로
+        assertThat(ShortsScript.completeEnding("이렇게 해서,")).isEqualTo("이렇게 해서.");
+        assertThat(ShortsScript.completeEnding("v2.25에서 바꿨는데,")).isEqualTo("v2.25에서 바꿨는데.");
+        // 쉼표로 끝나지 않으면 그대로(가운데 쉼표·소수점 포함)
+        assertThat(ShortsScript.completeEnding("응답 1.5초, 다 됐어요")).isEqualTo("응답 1.5초, 다 됐어요");
+    }
+
+    @Test
     void 보이지_않는_글자와_앞뒤_공백을_지운다() {
         Scene s = new Scene("  자막​ ", " 내레이션 ", "  ");
         assertThat(s.caption()).isEqualTo("자막");

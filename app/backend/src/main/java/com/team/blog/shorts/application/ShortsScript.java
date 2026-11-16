@@ -222,6 +222,38 @@ public final class ShortsScript {
         return label instanceof String l && !l.isBlank() && l.strip().length() <= DIAGRAM_LABEL_MAX;
     }
 
+    /** 쉼표·가운뎃점·말줄임 없는 이음표로 끝나는 문장. 영상 끝에서 말이 잘린 것처럼 들린다 */
+    private static final java.util.regex.Pattern CUT_OFF = java.util.regex.Pattern.compile("[,，、·]\\s*$");
+
+    private static final java.util.regex.Pattern SENTENCE_END = java.util.regex.Pattern.compile("[.?!。](?=\\s)");
+
+    /** 마지막 말하는 장면의 내레이션이 쉼표로 끝나는가(말 없는 장면은 건너뛴다) */
+    public static boolean endsCutOff(List<Scene> scenes) {
+        for (int i = scenes.size() - 1; i >= 0; i--) {
+            String n = scenes.get(i).narration();
+            if (n == null || n.isBlank()) continue;
+            return CUT_OFF.matcher(n.strip()).find();
+        }
+        return false;
+    }
+
+    /**
+     * 영상으로 읽을 끝 문장. 쉼표로 끝나면 마지막 완결 문장(마침표·물음표·느낌표) 뒤에 매달린 이음 구절을 떼고,
+     * 완결 문장이 없으면 끝 쉼표를 마침표로 바꾼다. 쉼표로 끝나지 않으면 그대로 돌려준다.
+     * 예: "전체 코드는 블로그 글에서 보세요. 처음 돌렸을 땐 저도," → "전체 코드는 블로그 글에서 보세요."
+     */
+    public static String completeEnding(String narration) {
+        if (narration == null) return null;
+        String n = narration.strip();
+        if (!CUT_OFF.matcher(n).find()) return narration;
+        // 문장 끝 부호는 뒤가 공백일 때만 본다(소수점 "2.25"는 문장 끝이 아니다)
+        java.util.regex.Matcher m = SENTENCE_END.matcher(n);
+        int end = -1;
+        while (m.find()) end = m.start();
+        if (end > 0) return n.substring(0, end + 1);
+        return n.replaceAll("[,，、·]\\s*$", ".");
+    }
+
     public static double estimateSeconds(List<Scene> scenes) {
         double total = 0;
         for (Scene s : scenes) total += s.narration().codePointCount(0, s.narration().length()) / CHARS_PER_SECOND + SCENE_GAP_SECONDS;
