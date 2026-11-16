@@ -201,7 +201,7 @@ flowchart LR
     T[Telegram] -->|Bot API| A
     I -->|/ · /api · /rss| A[blog-app<br/>Spring Boot 4.1 · Java 21<br/>多个 Pod]
     I -->|/blog-images| M[(MinIO / S3<br/>图片 · 附件)]
-    A --> P[(PostgreSQL<br/>Flyway V1~V63)]
+    A --> P[(PostgreSQL<br/>Flyway V1~V64)]
     A --> R[(Redis<br/>会话 · 限流 · 浏览数 · 缓存)]
     A --> M
     A -.可选.-> G[Google Gemini]
@@ -297,7 +297,7 @@ sequenceDiagram
 
 | 路径 | 说明 |
 | --- | --- |
-| [app/backend](app/backend) | 后端：Spring Boot 4.1、Java 21。功能模块、Flyway 迁移（V1~V63）、测试 |
+| [app/backend](app/backend) | 后端：Spring Boot 4.1、Java 21。功能模块、Flyway 迁移（V1~V64）、测试 |
 | [app/frontend](app/frontend) | 前端：React 19 SPA、TypeScript、Vite。界面、自动保存（IndexedDB）、深色模式 |
 | [deploy](deploy) | 部署：Dockerfile、Kubernetes 清单（base、selfhosted、nhn、local），部署、回滚、密钥检查脚本 |
 | [app/render-worker](app/render-worker) | 短视频渲染程序：Python 3.10、ffmpeg、Remotion（Node）。在你自己的电脑上把队列中的脚本做成 9:16 的 MP4 并上传 |
@@ -378,7 +378,7 @@ npm run dev        # http://localhost:5173
 | Spring Security · OAuth2 Client | Boot 4.1 | account | GitHub、Google、Kakao、Naver、Facebook 登录，会话，CSRF，按路径的权限 |
 | Spring Data JPA (Hibernate) | Boot 4.1 | 所有领域 | 保存会员、文章、评论等领域数据 |
 | Spring Session Data Redis · Spring Data Redis | Boot 4.1 | 会话、限流、浏览数、缓存 | 多个 Pod 共享同一会话，并发请求也由一个 Redis 脚本判定 |
-| Flyway | Boot 4.1 | 数据库 | 用 V1~V63 迁移管理模式，启动时自动应用 |
+| Flyway | Boot 4.1 | 数据库 | 用 V1~V64 迁移管理模式，启动时自动应用 |
 | commonmark-java (+ GFM 扩展) | 0.30.0 | 正文渲染 | Markdown → HTML。表格、删除线、任务清单、自动链接、标题锚点 |
 | OWASP Java HTML Sanitizer | 20260924.2 | 正文净化 | 按白名单净化渲染后的 HTML，防止 XSS |
 | AWS SDK for Java (S3) | 2.55.12 | media | 把图片和附件上传到 MinIO、S3 |
@@ -428,6 +428,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v2.27.0 | 2026-11-16 | AdSense 第三次应对：运营者可将文章仅从搜索收录、站点地图和广告中排除（管理后台），排除 10/12 一天发布的 57 篇课程笔记连载（站点地图文章 126→69） | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.27.0) |
 | v2.26.0 | 2026-11-16 | 修复短视频最后一句在逗号处被截断的问题（取消循环结尾，已有脚本由服务器去掉悬空的末尾分句后再渲染） | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.26.0) |
 | v2.25.0 | 2026-11-04 | 短视频工作室的视频下载可直接从东京服务器（media 主机）获取，失败时自动回退到 Cloudflare 路径；新增分段“下载速度检查”工作流 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.25.0) |
 | v2.24.1 | 2026-11-02 | 修复服务器迁移的文件数比较与复制日志混在一起、总是显示不一致的问题 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.1) |

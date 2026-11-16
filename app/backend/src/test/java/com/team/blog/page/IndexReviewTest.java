@@ -92,4 +92,41 @@ class IndexReviewTest extends IntegrationTest {
         // 로그인 화면 같은 개인 화면은 지금처럼 링크도 따라가지 않는다
         assertThat(page("/login")).contains("noindex, nofollow");
     }
+
+    @Test
+    void 운영자가_뺀_글은_독자에게_보이고_noindex_follow이며_다시_수집하면_돌아온다() throws Exception {
+        Session operator = staff(signup(uniqueLogin("idxx")));
+        long id = publish(operator, "강의 정리 글", ARTICLE_BODY);
+        String path = "/@" + operator.handle() + "/posts/" + id;
+        assertThat(page(path)).doesNotContain("noindex");
+
+        Browser m = manager();
+        m.perform(asJson(put("/api/admin/posts/" + id + "/index-exclusion"), Map.of("excluded", true))).andExpect(status().isNoContent());
+        String html = page(path);
+        assertThat(html).contains("<meta name=\"robots\" content=\"noindex, follow\">").contains("강의 정리 글").doesNotContain("adsbygoogle");
+        assertThat(page("/sitemaps/posts.xml")).doesNotContain("/posts/" + id + "<");
+
+        JsonNode report = read(m.perform(get("/api/admin/index-report")).andExpect(status().isOk()).andReturn());
+        assertThat(report.path("excluded").asLong()).isPositive();
+        assertThat(report.path("excludedPosts").findValuesAsString("url")).contains(path);
+
+        // 두 번 빼도 처음 뺀 시각을 지킨다
+        Object first = jdbc.queryForObject("SELECT index_excluded_at FROM post WHERE id = ?", Object.class, id);
+        m.perform(asJson(put("/api/admin/posts/" + id + "/index-exclusion"), Map.of("excluded", true))).andExpect(status().isNoContent());
+        assertThat(jdbc.queryForObject("SELECT index_excluded_at FROM post WHERE id = ?", Object.class, id)).isEqualTo(first);
+
+        m.perform(asJson(put("/api/admin/posts/" + id + "/index-exclusion"), Map.of("excluded", false))).andExpect(status().isNoContent());
+        assertThat(page(path)).doesNotContain("noindex");
+        assertThat(page("/sitemaps/posts.xml")).contains("/posts/" + id + "<");
+
+        // 남의 비공개 글은 없는 글과 똑같이 404이고 바뀌지 않는다
+        jdbc.update("UPDATE post SET visibility = 'PRIVATE' WHERE id = ?", id);
+        m.perform(asJson(put("/api/admin/posts/" + id + "/index-exclusion"), Map.of("excluded", true))).andExpect(status().isNotFound());
+        assertThat(jdbc.queryForObject("SELECT index_excluded_at FROM post WHERE id = ?", Object.class, id)).isNull();
+
+        // 일반 회원은 못 하고, 없는 글은 404
+        Session user = signup(uniqueLogin("idxy"));
+        user.http().perform(asJson(put("/api/admin/posts/" + id + "/index-exclusion"), Map.of("excluded", true))).andExpect(status().isNotFound());
+        m.perform(asJson(put("/api/admin/posts/999999999/index-exclusion"), Map.of("excluded", true))).andExpect(status().isNotFound());
+    }
 }
