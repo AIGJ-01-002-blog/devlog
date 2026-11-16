@@ -92,8 +92,25 @@ public class RenderQueue {
     /** 작업 단위 효과음(#277). scene은 0부터 센 장면 번호, at은 그 장면이 시작하고 몇 초 뒤 */
     public record JobEffect(int scene, double at, String sound, Double volume) {}
 
+    /**
+     * 마지막으로 말하는 장면은 끝 문장을 완결해 넘긴다(ShortsScript.completeEnding). 예전 "루프" 규칙으로 쉼표에서 끊긴 대본이
+     * 영상에서 말이 잘린 채 끝 광고로 넘어가던 문제(2026-11-16)를 이미 저장된 대본까지 워커를 바꾸지 않고 고친다
+     */
     static List<JobScene> jobScenes(List<Scene> scenes) {
-        return scenes.stream().map(s -> new JobScene(s.caption(), s.narration(), s.code(), s.image(), s.visual(), s.diagram())).toList();
+        int last = -1;
+        for (int i = scenes.size() - 1; i >= 0; i--) {
+            if (scenes.get(i).narration() != null && !scenes.get(i).narration().isBlank()) {
+                last = i;
+                break;
+            }
+        }
+        List<JobScene> out = new java.util.ArrayList<>(scenes.size());
+        for (int i = 0; i < scenes.size(); i++) {
+            Scene s = scenes.get(i);
+            String narration = i == last ? ShortsScript.completeEnding(s.narration()) : s.narration();
+            out.add(new JobScene(s.caption(), narration, s.code(), s.image(), s.visual(), s.diagram()));
+        }
+        return List.copyOf(out);
     }
 
     static List<JobEffect> jobEffects(List<Scene> scenes) {

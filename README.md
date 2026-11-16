@@ -406,6 +406,7 @@ npm run dev        # http://localhost:5173
 | Docker · GHCR | 이미지 | 화면 빌드 → 백엔드에 넣어 하나의 이미지로. 루트가 아닌 사용자로 실행합니다 |
 | Kubernetes · kustomize | 배포 | Deployment·HPA·PDB·NetworkPolicy, 오버레이 3종(selfhosted·nhn·local) |
 | nginx 인그레스 | 앞단 | TLS, 경로별 전달(`/blog-images`는 MinIO로) |
+| Caddy | 영상 직접 받기(선택) | 쇼츠 영상(`/shorts/…mp4`)만 MinIO에서 바로 내줘 Cloudflare를 거치지 않고 서버에서 받게 합니다. 인증서는 Let's Encrypt로 자동 발급(v2.25.0) |
 | GitHub Actions | CI/CD | 테스트, 매니페스트 검증(kubeconform), 비밀값 검사, 이미지 빌드, 배포(배포 뒤 공개 주소를 열어 보고 안 열리면 직전 버전으로 되돌림), 릴리스, 알림. 외부 액션은 커밋 SHA로 고정 |
 | SonarQube · SonarCloud · CodeRabbit | 품질 | 정적 분석(학교 SonarQube 또는 SonarCloud, 선택), PR마다 AI 리뷰(한국어) |
 
@@ -425,6 +426,7 @@ npm run dev        # http://localhost:5173
 
 | 버전 | 날짜 | 주요 내용 | 릴리스 노트 |
 | --- | --- | --- | --- |
+| v2.26.0 | 2026-11-16 | 쇼츠 끝 문장이 쉼표에서 잘린 채 끝 광고로 넘어가던 문제 수정: 루프 끝맺음을 없애고, 이미 쓴 대본은 서버가 매달린 구절을 떼고 렌더 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.26.0) |
 | v2.25.0 | 2026-11-04 | 쇼츠 스튜디오 [영상 받기]를 도쿄 서버에서 직접 받는 길(media 주소) 추가, 안 되면 기존 Cloudflare 길로 자동 전환. 구간별 "내려받기 속도 점검" 워크플로 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.25.0) |
 | v2.24.1 | 2026-11-02 | 서버 이전의 파일 수 비교가 파일 복사 기록에 섞여 늘 다르다고 나오던 문제 수정 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.1) |
 | v2.24.0 | 2026-11-02 | 운영 서버를 학교 실습 서버에서 Oracle Cloud 무료 VM으로 옮기는 서버 이전 워크플로(시험 복사·최종 이전·되돌리기) | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.0) |

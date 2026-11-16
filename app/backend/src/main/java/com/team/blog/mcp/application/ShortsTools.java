@@ -79,7 +79,8 @@ class ShortsTools {
             + "실무자가 피식 웃을 공감 한 줄(\"로컬에선 됐는데\", \"금요일 6시 배포\")을 한 번 넣되, 글에 있는 상황일 때만 쓴다. "
             + "③ 반전·정리(끝에서 두 번째 장면): \"근데 진짜 중요한 건…\"처럼 한 번 더 붙잡는 반전이나 한 줄 요약. "
             + "④ CTA(마지막 장면): 행동 하나만 자연스럽게 권한다. 최근 쇼츠와 번갈아 \"전체 코드는 블로그 글에서\"와 \"이 에러 겪는 동료한테 보내 주세요\"(공유는 인스타그램이 비팔로워에게 퍼뜨리는 신호) 가운데 하나를 쓴다. "
-            + "여러 행동을 한꺼번에 권하지 않는다. 마지막 내레이션은 첫 장면 문장으로 자연스럽게 이어지게 끝내 다시 보기(루프)를 부른다(예: 끝 \"그래서 결국 다시,\" → 처음 \"401인데 토큰은 멀쩡해요\"). "
+            + "여러 행동을 한꺼번에 권하지 않는다. 마지막 내레이션은 마침표로 끝나는 완결된 문장으로 맺는다. 쉼표나 \"그래서 결국 다시,\" 같은 이음말로 끊어 "
+            + "첫 장면에 이어 붙이지 않는다(영상에서는 말이 중간에 잘린 채 끝 광고로 넘어가는 것으로 들린다, 2026-11-16 블로그 주인 피드백). 쉼표로 끝나면 저장되지 않는다. "
             + "내용이 거의 같은 틀의 영상이 이어지면 유튜브가 반복적인 영상으로 보고 수익화에서 뺄 수 있다. 쓰기 전에 list_shorts로 최근 5편의 첫 장면을 보고, "
             + "필요하면 get_shorts로 대본을 읽어서 그 영상들과 다른 후킹 종류와 본론 틀을 고른다. "
             + "AI 티가 나지 않게: 대본을 쓰기 전에 사용자 글(get_post)에서 말투를 읽고 그 말투로 쓴다. "
@@ -162,6 +163,8 @@ class ShortsTools {
         if (badCharacter(a)) return McpTools.Result.fail(CHARACTER_TYPE);
         String tooLong = tooLong(scenes(a));
         if (tooLong != null) return McpTools.Result.fail(tooLong);
+        String cutOff = cutOffEnding(scenes(a));
+        if (cutOff != null) return McpTools.Result.fail(cutOff);
         try {
             ShortsService.Item item = batchId != null
                     ? batches.create(caller.memberId(), batchId, topic, text(a, TITLE), scenes(a), character(a))
@@ -198,6 +201,16 @@ class ShortsTools {
                 + "설명 장면을 줄이고 질문 하나의 답에만 집중해 다시 저장해 주세요.";
     }
 
+    /**
+     * 마지막 내레이션이 쉼표로 끝나면 저장하지 않는다. "루프" 규칙으로 끝 문장을 첫 장면에 이어 붙이게 했더니
+     * 영상에서는 말이 잘린 채 끝 광고로 넘어가 완성도가 떨어졌다(2026-11-16 블로그 주인). 괜찮으면 null
+     */
+    static String cutOffEnding(List<ShortsScript.Scene> scenes) {
+        if (!ShortsScript.endsCutOff(scenes)) return null;
+        return "마지막 장면 내레이션이 쉼표로 끝나 영상에서 말이 잘린 것처럼 들려요. 마침표로 끝나는 완결된 문장으로 맺어 다시 저장해 주세요"
+                + "(첫 장면에 이어 붙이는 루프 문장은 쓰지 않아요).";
+    }
+
     McpTools.Result update(AccessTokens.Caller caller, JsonNode a) {
         JsonNode idNode = a.path("shorts_id");
         if (!idNode.canConvertToLong()) return McpTools.Result.fail("쇼츠 번호(shorts_id)가 필요해요.");
@@ -225,6 +238,8 @@ class ShortsTools {
             // 매매 재현 대본은 서버가 짓는 60초 틀(AUTO_SECONDS_MAX)이라 AI 상한을 걸지 않는다
             String tooLong = scenes == null ? null : tooLong(scenes);
             if (tooLong != null && shorts.get(caller.memberId(), id).replay() == null) return McpTools.Result.fail(tooLong);
+            String cutOff = scenes == null ? null : cutOffEnding(scenes);
+            if (cutOff != null) return McpTools.Result.fail(cutOff);
             ShortsService.Item item = shorts.update(caller.memberId(), id, new ShortsService.Edit(title, scenes, null, character));
             if (playlist != null) shorts.setPlaylist(caller.memberId(), id, new ShortsService.PlaylistBody(playlist));
             return McpTools.Result.ok("쇼츠 " + id + "번 대본을 고쳤어요 (예상 " + Math.round(item.estimatedSeconds()) + "초). 만들어 둔 영상이 있었다면 지워졌어요.\n"

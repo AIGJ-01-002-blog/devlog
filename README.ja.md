@@ -408,6 +408,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 | Docker · GHCR | イメージ | 画面をビルドしてバックエンドに入れ、1 つのイメージにします。root 以外のユーザーで実行します |
 | Kubernetes · kustomize | デプロイ | Deployment・HPA・PDB・NetworkPolicy、オーバーレイ 3 種（selfhosted・nhn・local） |
 | nginx Ingress | 前段 | TLS とパスごとの振り分け（`/blog-images` は MinIO へ） |
+| Caddy | 動画の直接ダウンロード（任意） | ショート動画（`/shorts/…mp4`）だけを MinIO から直接返し、Cloudflare を通さずサーバーから受け取れるようにします。証明書は Let's Encrypt で自動発行（v2.25.0） |
 | GitHub Actions | CI/CD | テスト、マニフェスト検証（kubeconform）、シークレット検査、イメージのビルド、デプロイ（デプロイ後に公開アドレスを開いて確かめ、開かなければ直前のバージョンに戻す）、リリース、通知。外部アクションはコミット SHA で固定 |
 | SonarQube · SonarCloud · CodeRabbit | 品質 | 静的解析（学校の SonarQube または SonarCloud、任意）、PR ごとの AI レビュー（韓国語） |
 
@@ -427,6 +428,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | バージョン | 日付 | 主な内容 | リリースノート |
 | --- | --- | --- | --- |
+| v2.26.0 | 2026-11-16 | ショートの最後のナレーションが読点で途切れる問題を修正（ループ締めを廃止、既存台本はサーバーが末尾の途切れた句を外してレンダー） | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.26.0) |
 | v2.25.0 | 2026-11-04 | ショーツスタジオの［動画を保存］を東京サーバーから直接受け取る経路（mediaホスト）を追加し、失敗時は従来のCloudflare経路へ自動切り替え。区間別「ダウンロード速度点検」ワークフロー | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.25.0) |
 | v2.24.1 | 2026-11-02 | サーバー移行のファイル数比較がコピーのログと混ざり、常に不一致と出ていた問題を修正 | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.1) |
 | v2.24.0 | 2026-11-02 | 本番サーバーを学校の実習サーバーからOracle Cloud無料VMへ移すサーバー移行ワークフロー（試しコピー・本移行・切り戻し） | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.0) |

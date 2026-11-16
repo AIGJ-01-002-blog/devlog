@@ -408,6 +408,7 @@ To try it on Kubernetes, run `kubectl apply -k deploy/k8s/overlays/local` on kin
 | Docker · GHCR | Image | Builds the UI and bundles it into the backend as one image, running as a non-root user |
 | Kubernetes · kustomize | Deployment | Deployment, HPA, PDB, NetworkPolicy, three overlays (selfhosted, nhn, local) |
 | nginx ingress | Front | TLS and per-path routing (`/blog-images` goes to MinIO) |
+| Caddy | Direct video download (optional) | Serves only short videos (`/shorts/…mp4`) straight from MinIO so they download from the server without going through Cloudflare. Certificates come from Let's Encrypt automatically (v2.25.0) |
 | GitHub Actions | CI/CD | Tests, manifest validation (kubeconform), secret checks, image build, deploy (after a deploy it opens the public address and rolls back to the previous version if it does not load), releases, notifications. Third-party actions are pinned to commit SHAs |
 | SonarQube · SonarCloud · CodeRabbit | Quality | Static analysis (school SonarQube or SonarCloud, optional), AI review on every PR (in Korean) |
 
@@ -427,6 +428,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v2.26.0 | 2026-11-16 | Shorts no longer end mid-sentence: the loop ending rule is gone and the server trims a dangling last clause before rendering | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.26.0) |
 | v2.25.0 | 2026-11-04 | Shorts Studio video downloads can come straight from the Tokyo server (media host) and fall back to the Cloudflare path; new per-hop "download speed check" workflow | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.25.0) |
 | v2.24.1 | 2026-11-02 | Fix the server migration file count, which was mixed with the copy log and always reported a mismatch | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.1) |
 | v2.24.0 | 2026-11-02 | Server migration workflow that moves production from the school lab server to a free Oracle Cloud VM (rehearsal, cutover, rollback) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.24.0) |
