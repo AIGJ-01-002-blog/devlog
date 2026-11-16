@@ -170,15 +170,22 @@ export const consoleApi = {
   /** 외부 회원 글의 검색 수집을 허락하거나 거둔다 (spec 107) */
   setIndexApproval: (id: number, approved: boolean) =>
     api<void>(`/api/admin/posts/${id}/index-approval`, { method: 'PUT', body: { approved } }),
+  /** 운영자가 글을 검색 수집·사이트맵·광고에서 빼거나 되돌린다 (spec 109). 글은 독자에게 그대로 보인다 */
+  setIndexExclusion: (id: number, excluded: boolean) =>
+    api<void>(`/api/admin/posts/${id}/index-exclusion`, { method: 'PUT', body: { excluded } }),
 }
 
-/** 검색 수집 현황 (spec 107). 제외 사유는 일기 → 짧은 글 → 검수 전 순서로 처음 걸린 하나로 센다 */
+export interface IndexPost { id: number; title: string; authorHandle: string; url: string; bodyChars: number }
+
+/** 검색 수집 현황 (spec 107·109). 제외 사유는 일기 → 짧은 글 → 검수 전 → 운영자 제외 순서로 처음 걸린 하나로 센다 */
 export interface IndexReport {
   indexed: number
   aiDiary: number
   shortPost: number
   unreviewed: number
-  pending: { id: number; title: string; authorHandle: string; url: string; bodyChars: number }[]
+  excluded: number
+  pending: IndexPost[]
+  excludedPosts: IndexPost[]
 }
 
 /** 이전 기간 대비: "+12%", "-3%", 이전이 0이면 "새로" , 둘 다 0이면 "" */

@@ -50,6 +50,7 @@ public class AdminConsoleController {
     }
 
     public record IndexApproval(boolean approved) {}
+    public record IndexExclusion(boolean excluded) {}
 
     public record RoleRequest(String role) {}
 
@@ -118,6 +119,14 @@ public class AdminConsoleController {
     public ResponseEntity<Void> indexApproval(@PathVariable long postId, @RequestBody IndexApproval body, @CurrentMember MemberPrincipal me) {
         staff(me);
         index.approve(postId, body != null && body.approved());
+        return ResponseEntity.noContent().build();
+    }
+
+    /** 운영자가 글을 검색 수집·사이트맵·광고에서 빼거나 되돌린다 (spec 109). 글은 독자에게 그대로 보인다 */
+    @PutMapping("/posts/{postId}/index-exclusion")
+    public ResponseEntity<Void> indexExclusion(@PathVariable long postId, @RequestBody IndexExclusion body, @CurrentMember MemberPrincipal me) {
+        staff(me);
+        index.exclude(postId, body != null && body.excluded());
         return ResponseEntity.noContent().build();
     }
 

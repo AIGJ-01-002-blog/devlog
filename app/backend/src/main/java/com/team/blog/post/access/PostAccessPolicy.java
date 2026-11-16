@@ -44,12 +44,15 @@ public class PostAccessPolicy {
      */
     public static final String INDEX_REVIEWED_CONDITION = "(m.role <> 'USER' OR p.index_approved_at IS NOT NULL)";
 
+    /** 운영자가 검색 수집에서 빼지 않은 글 (spec 109). p = post 별칭 */
+    public static final String NOT_EXCLUDED_CONDITION = "p.index_excluded_at IS NULL";
+
     /**
      * 공개 목록 조건에 더해 검색 수집 대상 글만 남기는 조건. AI 일기(spec 088), 본문이 짧은 글(spec 105),
-     * 검수 전 외부 회원 글(spec 107)을 뺀다. 글은 독자에게 그대로 보이고, 수집·사이트맵·광고와 블로그 수집 기준에서만 빠진다.
+     * 검수 전 외부 회원 글(spec 107), 운영자가 뺀 글(spec 109)을 뺀다. 글은 독자에게 그대로 보이고, 수집·사이트맵·광고와 블로그 수집 기준에서만 빠진다.
      */
     public static final String INDEXABLE_ARTICLE_CONDITION = "NOT p.ai_diary AND p.body_chars >= " + MIN_ARTICLE_CHARS
-            + " AND " + INDEX_REVIEWED_CONDITION;
+            + " AND " + INDEX_REVIEWED_CONDITION + " AND " + NOT_EXCLUDED_CONDITION;
 
     public static final String PUBLIC_LIST_CONDITION =
             "p.status = 'PUBLISHED' AND p.visibility = 'PUBLIC' AND p.deleted_at IS NULL AND p.hidden_at IS NULL"

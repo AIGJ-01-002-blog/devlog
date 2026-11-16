@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react'
 import { AdminNav } from '../components/AdminNav'
 import { BarChart, type BarPoint } from '../components/BarChart'
 import { ago, change, consoleApi, count, PERIODS, workerHealth, workerLabel, type Dashboard, type IndexReport, type Period, type Sums, type WorkerStatus } from '../lib/admin'
@@ -312,25 +312,36 @@ export function AdminDashboardPage() {
 }
 
 /**
- * 검색 수집 현황 (spec 107): 사이트맵·검색 엔진에 나가는 글과 빠지는 글의 수, 검수를 기다리는 외부 회원 글.
+ * 검색 수집 현황 (spec 107·109): 사이트맵·검색 엔진에 나가는 글과 빠지는 글의 수, 검수를 기다리는 외부 회원 글, 운영자가 뺀 글.
  * 외부 회원 글은 [수집 허락]을 눌러야 검색 엔진에 나간다. 운영진 글은 수집 기준(일기 아님·본문 1,000자 이상)만 본다.
  */
 function IndexCard() {
   const [report, setReport] = useState<IndexReport | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<number | null>(null)
+  const [postNo, setPostNo] = useState('')
   const load = () => consoleApi.indexReport().then((r) => { setReport(r); setError(null) }, () => setError('검색 수집 현황을 불러오지 못했어요.'))
   useEffect(() => { void load() }, [])
-  const approve = async (id: number) => {
+  const run = async (id: number, action: () => Promise<void>, failure: string) => {
     setBusy(id)
     try {
-      await consoleApi.setIndexApproval(id, true)
+      await action()
       await load()
+      return true
     } catch {
-      setError('수집을 허락하지 못했어요. 잠시 후 다시 해 주세요.')
+      setError(failure)
+      return false
     } finally {
       setBusy(null)
     }
+  }
+  const approve = (id: number) => run(id, () => consoleApi.setIndexApproval(id, true), '수집을 허락하지 못했어요. 잠시 후 다시 해 주세요.')
+  const restore = (id: number) => run(id, () => consoleApi.setIndexExclusion(id, false), '다시 수집하지 못했어요. 잠시 후 다시 해 주세요.')
+  const exclude = async (e: FormEvent) => {
+    e.preventDefault()
+    const id = Number(postNo.trim())
+    if (!Number.isInteger(id) || id <= 0) { setError('글 번호를 숫자로 적어 주세요. 글 주소 끝의 숫자예요.'); return }
+    if (await run(id, () => consoleApi.setIndexExclusion(id, true), `${id}번 글을 찾지 못했어요. 발행한 글 번호인지 확인해 주세요.`)) setPostNo('')
   }
   return (
     <section className="admin-card" aria-labelledby="index-card-title">
@@ -341,8 +352,8 @@ function IndexCard() {
           <dl className="totals">
             <div><dt data-tip="사이트맵에 들어가고 검색 엔진이 색인하는 글">수집하는 글</dt><dd>{count(report.indexed)}편</dd></div>
             <div><dt data-tip="noindex, follow: 검색 결과에는 안 나오고, 글 안의 링크는 검색 엔진이 따라가요">빼는 글</dt>
-              <dd>{count(report.aiDiary + report.shortPost + report.unreviewed)}편</dd>
-              <dd className="muted small">AI 일기 {count(report.aiDiary)} · 짧은 글 {count(report.shortPost)} · 검수 전 외부 글 {count(report.unreviewed)}</dd></div>
+              <dd>{count(report.aiDiary + report.shortPost + report.unreviewed + report.excluded)}편</dd>
+              <dd className="muted small">AI 일기 {count(report.aiDiary)} · 짧은 글 {count(report.shortPost)} · 검수 전 외부 글 {count(report.unreviewed)} · 운영자가 뺀 글 {count(report.excluded)}</dd></div>
           </dl>
           {report.pending.length > 0 && (
             <>
@@ -358,6 +369,28 @@ function IndexCard() {
                 ))}
               </ol>
             </>
+          )}
+          <form className="index-exclude-form" onSubmit={(e) => void exclude(e)}>
+            <label htmlFor="index-exclude-no" className="small"
+                   data-tip="강의 정리처럼 직접 겪은 내용이 적은 글을 검색 엔진·사이트맵·광고에서만 빼요. 독자에게는 그대로 보여요">글 번호로 수집에서 빼기</label>
+            <input id="index-exclude-no" inputMode="numeric" value={postNo} onChange={(e) => setPostNo(e.target.value)} placeholder="예: 45" />
+            <button type="submit" className="btn btn-text" disabled={busy !== null || postNo.trim() === ''}
+                    data-tip="이 글을 noindex로 바꾸고 사이트맵·광고에서 빼요. 아래 목록의 [다시 수집]으로 되돌릴 수 있어요">수집에서 빼기</button>
+          </form>
+          {report.excludedPosts.length > 0 && (
+            <details>
+              <summary className="small" data-tip="운영자가 검색 수집에서 뺀 글이에요. 최근에 뺀 글부터 보여요">운영자가 뺀 글 {count(report.excluded)}편</summary>
+              <ol className="rank-list">
+                {report.excludedPosts.map((p) => (
+                  <li key={p.id}>
+                    <a href={p.url} className="rank-title">{p.title}</a>
+                    <span className="muted small">{p.id}번 · @{p.authorHandle}</span>
+                    <button type="button" className="btn btn-text" disabled={busy === p.id} onClick={() => void restore(p.id)}
+                            data-tip="이 글을 다시 검색 엔진·사이트맵에 내보내요">다시 수집</button>
+                  </li>
+                ))}
+              </ol>
+            </details>
           )}
         </>
       )}
