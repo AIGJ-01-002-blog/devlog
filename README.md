@@ -300,7 +300,7 @@ GitHub Actions로 테스트하고 이미지를 만들어 GHCR에 올린 뒤, kus
 | [deploy](deploy) | 배포 — Dockerfile, 쿠버네티스 매니페스트(base·selfhosted·nhn·local), 배포·롤백·비밀값 검사 스크립트 |
 | [app/render-worker](app/render-worker) | 쇼츠 렌더 워커 — Python 3.10, ffmpeg, Remotion(Node). 내 컴퓨터에서 대기열의 대본을 9:16 MP4로 만들어 올립니다 |
 | [.github](.github) | CI/CD — 백엔드·화면 테스트, 이미지 빌드·배포, 릴리스, Discord·텔레그램 알림 |
-| [specs](specs) | 기능 명세 — [GitHub Spec Kit](https://github.com/github/spec-kit) 흐름의 기능별 spec·plan·tasks(001~108) |
+| [specs](specs) | 기능 명세 — [GitHub Spec Kit](https://github.com/github/spec-kit) 흐름의 기능별 spec·plan·tasks(001~109) |
 | [docs](https://github.com/AIGJ-01-002-blog/docs) | 설계 문서 — 공통 요구사항, 아키텍처, 통합 ERD, 기능별 설계, 권한 표 |
 | [erd](erd) · [scripts](scripts) | 기준 스키마와 동작 테스트, 설계 검증 스크립트와 보고서 |
 
@@ -426,6 +426,7 @@ npm run dev        # http://localhost:5173
 
 | 버전 | 날짜 | 주요 내용 | 릴리스 노트 |
 | --- | --- | --- | --- |
+| v2.27.1 | 2026-11-17 | 쇼츠 영상 직접 받기 서버가 운영에서 뜨지 않던 문제 수정(hostPort → k3s ServiceLB, 블로그 네임스페이스 보안 수준 유지) | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.27.1) |
 | v2.27.0 | 2026-11-16 | 애드센스 3차 대응: 운영자가 글을 검색 수집·사이트맵·광고에서만 빼는 기능(관리자 대시보드), 10/12 하루에 올린 강의 정리 연재 57편 제외(사이트맵 글 126→69) | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.27.0) |
 | v2.26.0 | 2026-11-16 | 쇼츠 끝 문장이 쉼표에서 잘린 채 끝 광고로 넘어가던 문제 수정: 루프 끝맺음을 없애고, 이미 쓴 대본은 서버가 매달린 구절을 떼고 렌더 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.26.0) |
 | v2.25.0 | 2026-11-04 | 쇼츠 스튜디오 [영상 받기]를 도쿄 서버에서 직접 받는 길(media 주소) 추가, 안 되면 기존 Cloudflare 길로 자동 전환. 구간별 "내려받기 속도 점검" 워크플로 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.25.0) |

@@ -383,6 +383,9 @@ jobs:
           if ! kubectl -n blog rollout status deploy/media-direct --timeout=180s; then
             echo "::warning::영상 직접 받기 서버가 준비되지 않았어요. 화면은 Cloudflare 주소로 받습니다(오라클 보안 목록 80·443, DNS 확인)."
             kubectl -n blog logs deploy/media-direct --tail=40 || true
+            # 파드가 아예 안 생기는 원인(PodSecurity 거절 등)은 ReplicaSet 이벤트에만 남는다
+            kubectl -n blog get events --field-selector involvedObject.kind=ReplicaSet --sort-by=.lastTimestamp | grep media-direct | tail -5 || true
+            kubectl -n blog get svc media-direct -o wide || true
           fi
       # 10) 연기 시험(smoke test, deploy/scripts/smoke.sh): 바깥 주소에서 첫 화면 200, /actuator/health UP,
       #     맨 위 글 읽기를 확인한다(최대 6번 다시 시도). 실패하면 8)에서 적어 둔 PREV_REVISION으로 되돌리고 실패 처리

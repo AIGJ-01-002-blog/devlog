@@ -1,4 +1,4 @@
-# 비root로 돌므로 컨테이너 안에서는 8080·8443을 열고, 노드의 80·443(hostPort)을 여기로 잇는다
+# 비root로 돌므로 컨테이너 안에서는 8080·8443을 열고, 노드의 80·443(LoadBalancer Service, k3s ServiceLB)을 여기로 잇는다
 {
 	http_port 8080
 	https_port 8443

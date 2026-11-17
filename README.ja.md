@@ -302,7 +302,7 @@ GitHub Actions でテストし、イメージを作って GHCR に上げたあ�
 | [deploy](deploy) | デプロイ：Dockerfile、Kubernetes マニフェスト（base・selfhosted・nhn・local）、デプロイ・ロールバック・シークレット検査のスクリプト |
 | [app/render-worker](app/render-worker) | ショート動画のレンダーワーカー：Python 3.10、ffmpeg、Remotion（Node）。自分のパソコンで待ち行列の台本を 9:16 の MP4 にしてアップロードします |
 | [.github](.github) | CI/CD：バックエンドと画面のテスト、イメージのビルドとデプロイ、リリース、Discord・Telegram 通知 |
-| [specs](specs) | 機能仕様：[GitHub Spec Kit](https://github.com/github/spec-kit) の流れに沿った機能ごとの spec・plan・tasks（001~108） |
+| [specs](specs) | 機能仕様：[GitHub Spec Kit](https://github.com/github/spec-kit) の流れに沿った機能ごとの spec・plan・tasks（001~109） |
 | [docs](https://github.com/AIGJ-01-002-blog/docs) | 設計ドキュメント：共通要件、アーキテクチャ、統合 ERD、機能別設計、権限表 |
 | [erd](erd) · [scripts](scripts) | 基準スキーマとその動作テスト、設計検証スクリプトとレポート |
 
@@ -428,6 +428,7 @@ Kubernetes で試すなら、kind・k3s・Docker Desktop のどれでも `kubect
 
 | バージョン | 日付 | 主な内容 | リリースノート |
 | --- | --- | --- | --- |
+| v2.27.1 | 2026-11-17 | 修正：ショート動画の直接ダウンロードサーバーが本番で起動しなかった問題（hostPort → k3s ServiceLB、blog 名前空間のセキュリティ水準は維持） | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.27.1) |
 | v2.27.0 | 2026-11-16 | AdSense 3回目の対応：運営者が記事を検索収集・サイトマップ・広告からだけ外せる機能（管理ダッシュボード）、10/12 に一度に公開した講義まとめ連載57本を除外（サイトマップの記事 126→69） | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.27.0) |
 | v2.26.0 | 2026-11-16 | ショートの最後のナレーションが読点で途切れる問題を修正（ループ締めを廃止、既存台本はサーバーが末尾の途切れた句を外してレンダー） | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.26.0) |
 | v2.25.0 | 2026-11-04 | ショーツスタジオの［動画を保存］を東京サーバーから直接受け取る経路（mediaホスト）を追加し、失敗時は従来のCloudflare経路へ自動切り替え。区間別「ダウンロード速度点検」ワークフロー | [見る](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.25.0) |

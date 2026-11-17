@@ -302,7 +302,7 @@ Code lives in this repository; design documents live in the documentation reposi
 | [deploy](deploy) | Deployment: Dockerfile, Kubernetes manifests (base, selfhosted, nhn, local), deploy, rollback and secret-check scripts |
 | [app/render-worker](app/render-worker) | Shorts render worker: Python 3.10, ffmpeg, Remotion (Node). Runs on your computer and turns queued scripts into 9:16 MP4s |
 | [.github](.github) | CI/CD: backend and frontend tests, image build and deploy, releases, Discord and Telegram notifications |
-| [specs](specs) | Feature specs: spec, plan and tasks per feature (001~108) following the [GitHub Spec Kit](https://github.com/github/spec-kit) flow |
+| [specs](specs) | Feature specs: spec, plan and tasks per feature (001~109) following the [GitHub Spec Kit](https://github.com/github/spec-kit) flow |
 | [docs](https://github.com/AIGJ-01-002-blog/docs) | Design documents: common requirements, architecture, unified ERD, per-feature designs, permission matrix |
 | [erd](erd) · [scripts](scripts) | Baseline schema and its tests, design-check scripts and reports |
 
@@ -428,6 +428,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v2.27.1 | 2026-11-17 | Fix: the direct shorts video download server never started in production (hostPort → k3s ServiceLB, blog namespace keeps PodSecurity restricted) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.27.1) |
 | v2.27.0 | 2026-11-16 | AdSense round 3: operators can drop a post from indexing, the sitemap and ads only (admin dashboard); 57 lecture-note posts published on Oct 12 excluded (sitemap posts 126→69) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.27.0) |
 | v2.26.0 | 2026-11-16 | Shorts no longer end mid-sentence: the loop ending rule is gone and the server trims a dangling last clause before rendering | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.26.0) |
 | v2.25.0 | 2026-11-04 | Shorts Studio video downloads can come straight from the Tokyo server (media host) and fall back to the Cloudflare path; new per-hop "download speed check" workflow | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.25.0) |

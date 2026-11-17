@@ -10,6 +10,21 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
+## [2.27.1] - 2026-11-17
+
+**목표: 쇼츠 영상 직접 받기 서버를 실제로 켜기** (v2.25.0 후속 수정)
+2026-11-17 운영 배포에서 직접 받기 서버(media-direct)가 PodSecurity 경고 뒤 0/1에서 멈췄고, 내려받기 속도 점검의 ③ 직접 받기가 연결 실패(curl 7)로 끝났다.
+
+### 고침
+- 쇼츠 영상 직접 받기 서버(media.devlog.life)가 운영에서 뜨지 않던 문제: `blog` 네임스페이스가 PodSecurity restricted라 hostPort 파드가 거절됐다. 노드 80·443을 k3s ServiceLB(LoadBalancer Service)로 열도록 바꿨다. 실패하면 배포 로그에 ReplicaSet 이벤트를 남긴다 (#527)
+
+### 포함된 작업
+| 이슈 | 브랜치 | PR |
+|---|---|---|
+| 영상 직접 받기 서버가 hostPort 거절로 안 뜸 | `fix/media-direct-servicelb` | #527 |
+
+**비교:** [v2.27.0...v2.27.1](https://github.com/AIGJ-01-002-blog/devlog/compare/v2.27.0...v2.27.1)
+
 ## [2.27.0] - 2026-11-16
 
 **목표: 애드센스 3차 대응, 검색에 내보내는 글을 직접 겪은 글로 좁히기** ([목표 이슈 #516](https://github.com/AIGJ-01-002-blog/devlog/issues/516))

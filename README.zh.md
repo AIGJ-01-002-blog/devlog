@@ -302,7 +302,7 @@ sequenceDiagram
 | [deploy](deploy) | 部署：Dockerfile、Kubernetes 清单（base、selfhosted、nhn、local），部署、回滚、密钥检查脚本 |
 | [app/render-worker](app/render-worker) | 短视频渲染程序：Python 3.10、ffmpeg、Remotion（Node）。在你自己的电脑上把队列中的脚本做成 9:16 的 MP4 并上传 |
 | [.github](.github) | CI/CD：后端与界面测试、镜像构建与部署、版本发布、Discord 与 Telegram 通知 |
-| [specs](specs) | 功能规格：按 [GitHub Spec Kit](https://github.com/github/spec-kit) 流程编写的各功能 spec、plan、tasks（001~108） |
+| [specs](specs) | 功能规格：按 [GitHub Spec Kit](https://github.com/github/spec-kit) 流程编写的各功能 spec、plan、tasks（001~109） |
 | [docs](https://github.com/AIGJ-01-002-blog/docs) | 设计文档：通用需求、架构、整合 ERD、各功能设计、权限表 |
 | [erd](erd) · [scripts](scripts) | 基准模式及其运行测试、设计验证脚本与报告 |
 
@@ -428,6 +428,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v2.27.1 | 2026-11-17 | 修复：短视频直接下载服务器在生产环境未能启动（hostPort → k3s ServiceLB，blog 命名空间保持 restricted 安全级别） | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.27.1) |
 | v2.27.0 | 2026-11-16 | AdSense 第三次应对：运营者可将文章仅从搜索收录、站点地图和广告中排除（管理后台），排除 10/12 一天发布的 57 篇课程笔记连载（站点地图文章 126→69） | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.27.0) |
 | v2.26.0 | 2026-11-16 | 修复短视频最后一句在逗号处被截断的问题（取消循环结尾，已有脚本由服务器去掉悬空的末尾分句后再渲染） | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.26.0) |
 | v2.25.0 | 2026-11-04 | 短视频工作室的视频下载可直接从东京服务器（media 主机）获取，失败时自动回退到 Cloudflare 路径；新增分段“下载速度检查”工作流 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.25.0) |
