@@ -426,6 +426,7 @@ npm run dev        # http://localhost:5173
 
 | 버전 | 날짜 | 주요 내용 | 릴리스 노트 |
 | --- | --- | --- | --- |
+| v2.27.2 | 2026-11-17 | 쇼츠 영상 직접 받기 서버의 Caddy가 실행 파일 권한(setcap) 때문에 멈추던 문제 수정 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.27.2) |
 | v2.27.1 | 2026-11-17 | 쇼츠 영상 직접 받기 서버가 운영에서 뜨지 않던 문제 수정(hostPort → k3s ServiceLB, 블로그 네임스페이스 보안 수준 유지) | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.27.1) |
 | v2.27.0 | 2026-11-16 | 애드센스 3차 대응: 운영자가 글을 검색 수집·사이트맵·광고에서만 빼는 기능(관리자 대시보드), 10/12 하루에 올린 강의 정리 연재 57편 제외(사이트맵 글 126→69) | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.27.0) |
 | v2.26.0 | 2026-11-16 | 쇼츠 끝 문장이 쉼표에서 잘린 채 끝 광고로 넘어가던 문제 수정: 루프 끝맺음을 없애고, 이미 쓴 대본은 서버가 매달린 구절을 떼고 렌더 | [보기](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.26.0) |
