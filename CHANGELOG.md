@@ -10,6 +10,21 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
+## [2.27.2] - 2026-11-17
+
+**목표: 쇼츠 영상 직접 받기 서버를 실제로 켜기(2차)**
+v2.27.1 배포로 파드는 만들어졌지만 Caddy가 "exec /usr/bin/caddy: operation not permitted"로 시작하지 못했다.
+
+### 고침
+- 영상 직접 받기 서버가 "exec /usr/bin/caddy: operation not permitted"로 멈추던 문제: 공식 caddy 이미지 실행 파일의 파일 권한(setcap)이 restricted 보안 설정과 충돌했다. 초기화 컨테이너가 권한 표시 없이 복사한 실행 파일을 쓴다 (#530)
+
+### 포함된 작업
+| 이슈 | 브랜치 | PR |
+|---|---|---|
+| Caddy 실행 파일 권한(setcap) 충돌 | `fix/media-direct-caddy-exec` | #530 |
+
+**비교:** [v2.27.1...v2.27.2](https://github.com/AIGJ-01-002-blog/devlog/compare/v2.27.1...v2.27.2)
+
 ## [2.27.1] - 2026-11-17
 
 **목표: 쇼츠 영상 직접 받기 서버를 실제로 켜기** (v2.25.0 후속 수정)
