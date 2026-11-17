@@ -10,6 +10,9 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
+### 고침
+- 영상 직접 받기 서버가 "exec /usr/bin/caddy: operation not permitted"로 멈추던 문제: 공식 caddy 이미지 실행 파일의 파일 권한(setcap)이 restricted 보안 설정과 충돌했다. 초기화 컨테이너가 권한 표시 없이 복사한 실행 파일을 쓴다
+
 ## [2.27.1] - 2026-11-17
 
 **목표: 쇼츠 영상 직접 받기 서버를 실제로 켜기** (v2.25.0 후속 수정)
