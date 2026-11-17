@@ -10,6 +10,9 @@ main에 이 파일의 맨 위 버전이 새로 들어오면 `.github/workflows/r
 
 ## [Unreleased]
 
+### 고침
+- 쇼츠 영상 직접 받기 서버(media.devlog.life)가 운영에서 뜨지 않던 문제: `blog` 네임스페이스가 PodSecurity restricted라 hostPort 파드가 거절됐다. 노드 80·443을 k3s ServiceLB(LoadBalancer Service)로 열도록 바꿨다. 실패하면 배포 로그에 ReplicaSet 이벤트를 남긴다
+
 ## [2.27.0] - 2026-11-16
 
 **목표: 애드센스 3차 대응, 검색에 내보내는 글을 직접 겪은 글로 좁히기** ([목표 이슈 #516](https://github.com/AIGJ-01-002-blog/devlog/issues/516))
