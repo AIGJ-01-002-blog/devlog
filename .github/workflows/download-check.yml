@@ -20,7 +20,8 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Caddyfile 문법 검사
         run: |
-          img=$(grep -oE 'caddy:[0-9.]+-alpine' deploy/k8s/addons/media-direct/media-direct.yaml)
+          # 초기화 컨테이너와 본 컨테이너가 같은 이미지를 쓰므로 하나만 고른다
+          img=$(grep -oE 'caddy:[0-9.]+-alpine' deploy/k8s/addons/media-direct/media-direct.yaml | sort -u | head -1)
           docker run --rm -v "$PWD/deploy/k8s/addons/media-direct:/etc/caddy:ro" \
             -e MEDIA_HOST=media.example.com -e SITE_ORIGIN=https://devlog.life -e S3_BUCKET=blog-images \
             "$img" caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
