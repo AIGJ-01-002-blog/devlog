@@ -428,6 +428,7 @@ npm run dev        # http://localhost:5173
 
 | 版本 | 日期 | 主要内容 | 发布说明 |
 | --- | --- | --- | --- |
+| v2.27.1 | 2026-11-17 | 修复：短视频直接下载服务器在生产环境未能启动（hostPort → k3s ServiceLB，blog 命名空间保持 restricted 安全级别） | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.27.1) |
 | v2.27.0 | 2026-11-16 | AdSense 第三次应对：运营者可将文章仅从搜索收录、站点地图和广告中排除（管理后台），排除 10/12 一天发布的 57 篇课程笔记连载（站点地图文章 126→69） | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.27.0) |
 | v2.26.0 | 2026-11-16 | 修复短视频最后一句在逗号处被截断的问题（取消循环结尾，已有脚本由服务器去掉悬空的末尾分句后再渲染） | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.26.0) |
 | v2.25.0 | 2026-11-04 | 短视频工作室的视频下载可直接从东京服务器（media 主机）获取，失败时自动回退到 Cloudflare 路径；新增分段“下载速度检查”工作流 | [查看](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.25.0) |

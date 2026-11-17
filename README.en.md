@@ -428,6 +428,7 @@ We follow [Semantic Versioning](https://semver.org/). New features bump the mino
 
 | Version | Date | Highlights | Release notes |
 | --- | --- | --- | --- |
+| v2.27.1 | 2026-11-17 | Fix: the direct shorts video download server never started in production (hostPort → k3s ServiceLB, blog namespace keeps PodSecurity restricted) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.27.1) |
 | v2.27.0 | 2026-11-16 | AdSense round 3: operators can drop a post from indexing, the sitemap and ads only (admin dashboard); 57 lecture-note posts published on Oct 12 excluded (sitemap posts 126→69) | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.27.0) |
 | v2.26.0 | 2026-11-16 | Shorts no longer end mid-sentence: the loop ending rule is gone and the server trims a dangling last clause before rendering | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.26.0) |
 | v2.25.0 | 2026-11-04 | Shorts Studio video downloads can come straight from the Tokyo server (media host) and fall back to the Cloudflare path; new per-hop "download speed check" workflow | [View](https://github.com/AIGJ-01-002-blog/devlog/releases/tag/v2.25.0) |
