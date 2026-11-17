@@ -267,7 +267,7 @@ cloudflared는 2개가 각각 Cloudflare에 연결하므로 하나가 재시작�
 **고친 방법**: 영상만 Cloudflare를 거치지 않고 서버에서 바로 내준다(`k8s/addons/media-direct`, Caddy). 사이트와 사진은 계속 Cloudflare 뒤에 있다.
 
 - Caddy는 `GET/HEAD /shorts/<연>/<월>/<uuid>.mp4`만 MinIO로 넘기고 나머지는 404다. 노드 80·443은 k3s ServiceLB가 LoadBalancer Service로 열어 주고(파드 hostPort가 아님), Let's Encrypt 인증서를 스스로 받는다.
-- 실패 → 원인 → 해결(2026-11-17): v2.25.0은 파드에 hostPort를 달았는데, `blog` 네임스페이스가 PodSecurity `restricted`라 파드가 만들어지지 않았다(배포 로그 "would violate PodSecurity ... hostPort", rollout 0/1에서 180초 대기). 네임스페이스 보안 수준을 낮추는 대신 ServiceLB를 쓰도록 바꿨다. 중계 파드는 kube-system에 생긴다.
+- 실패 → 원인 → 해결(2026-11-17): v2.25.0은 파드에 hostPort를 달았는데, `blog` 네임스페이스가 PodSecurity `restricted`라 파드가 만들어지지 않았다(배포 로그 "would violate PodSecurity ... hostPort", rollout 0/1에서 180초 대기). 네임스페이스 보안 수준을 낮추는 대신 ServiceLB를 쓰도록 바꿨다. 중계 파드는 kube-system에 생긴다. 이어서 v2.27.1 배포에서 "exec /usr/bin/caddy: operation not permitted"가 났다. 공식 이미지의 caddy 실행 파일에 붙은 파일 권한(setcap) 때문이라, 초기화 컨테이너가 권한 표시 없이 복사한 실행 파일(`/opt/caddy/caddy`)을 쓰게 했다.
 - 앱은 `SHORTS_VIDEO_DIRECT_BASE_URL`이 있으면 쇼츠에 `videoDownloadUrl`을 더 준다. 화면은 그 주소로 먼저 받고, 실패하면 예전 주소(Cloudflare)로 다시 받는다. 그래서 켜는 도중이나 서버가 멈춰도 [영상 받기]는 된다.
 - 대안: Cloudflare 캐시 강화는 스튜디오 영상이 대부분 한 번만 받혀 효과가 작다. 오라클 Object Storage로 옮기기는 저장소가 둘로 나뉘고 열쇠 관리가 늘어난다.
 - 트레이드오프: 서버 공인 IP가 DNS에 보인다. 그 IP로 열리는 것은 영상 경로뿐(앱·사진은 404)이고, 6443(배포용)은 원래 열려 있었다.
