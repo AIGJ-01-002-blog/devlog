@@ -6,7 +6,7 @@ spec:
   accessModes: [ReadWriteOnce]
   resources: {requests: {storage: 100Mi}}
 ---
-# 노드 포트(hostPort 80·443)를 쓰므로 한 개만, 바꿀 때는 옛 파드를 먼저 내린다(Recreate)
+# 인증서를 PVC(ReadWriteOnce) 하나에 두므로 한 개만, 바꿀 때는 옛 파드를 먼저 내린다(Recreate)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -43,8 +43,8 @@ spec:
             - {name: XDG_DATA_HOME, value: /data}
             - {name: XDG_CONFIG_HOME, value: /config}
           ports:
-            - {name: http, containerPort: 8080, hostPort: 80}
-            - {name: https, containerPort: 8443, hostPort: 443}
+            - {name: http, containerPort: 8080}
+            - {name: https, containerPort: 8443}
           readinessProbe:
             tcpSocket: {port: http}
             periodSeconds: 10
@@ -70,6 +70,20 @@ spec:
           persistentVolumeClaim: {claimName: media-direct-data}
         - name: config
           emptyDir: {}
+---
+# 노드 공인 IP의 80·443을 이 파드로 잇는다. k3s ServiceLB(klipper-lb)가 kube-system에 중계 파드를 띄운다.
+# ingress-nginx는 baremetal(NodePort)이고 traefik은 꺼져 있어 노드 80·443은 비어 있다(deploy/scripts/server-setup.sh).
+apiVersion: v1
+kind: Service
+metadata:
+  name: media-direct
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: media-direct
+  ports:
+    - {name: http, port: 80, targetPort: http}
+    - {name: https, port: 443, targetPort: https}
 ---
 # 네임스페이스 기본 차단(in-cluster-deps/default-deny.yaml) 위에서 이 파드에 필요한 것만 연다:
 # 들어오는 쪽은 인터넷의 80(인증서 확인·https로 넘김)·443, 나가는 쪽은 MinIO 9000과 Let's Encrypt(443)
